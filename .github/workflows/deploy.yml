@@ -1,0 +1,54 @@
+name: deploy
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+
+  # Build executable Jar files and package as a Release
+  deploy-release:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+     
+      - uses: actions/setup-java@v3
+        with:
+          java-version: 8.0.x
+          architecture: x64
+          distribution: 'zulu'
+          cache: 'maven'
+
+      - name: Build Jar files and prepare dependencies for applications
+        run: |
+          ./build-group-apps.sh
+          ./build-edhoc-apps.sh
+   
+      - name: Get version
+        id: tagName
+        run: |
+          VERSION=$(cat ./VERSION)
+          echo "tag=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build Zip file
+        run: |
+          ARCHIVE_NAME="groupcomm-solutions-${{ steps.tagName.outputs.tag }}"
+          ARCHIVE_FILE="${ARCHIVE_NAME}.zip"
+          zip -r ${ARCHIVE_FILE} group-applications/*.jar
+          zip -ur ${ARCHIVE_FILE} group-applications/lib
+          zip -ur ${ARCHIVE_FILE} edhoc-applications/*.jar
+          zip -ur ${ARCHIVE_FILE} edhoc-applications/lib
+
+      - name: Create a release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: v${{ steps.tagName.outputs.tag }}
+          files: |
+            ./*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

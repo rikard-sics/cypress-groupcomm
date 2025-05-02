@@ -1,0 +1,207 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>se.sics</groupId>
+	<artifactId>ace</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name>ACE library</name>
+	<description>A java library for the ACE IETF WG</description>
+	<organization>
+		<url>https://www.ri.se</url>
+		<name>RISE Research Institutes of Sweden AB</name>
+	</organization>
+	<repositories>
+		<repository>
+			<id>wso2-nexus</id>
+			<url>https://maven.wso2.org/nexus/content/repositories/releases</url>
+		</repository>
+		<repository>
+			<id>repo.eclipse.org</id>
+			<name>Californium Repository</name>
+			<url>https://repo.eclipse.org/content/repositories/californium/</url>
+		</repository>
+		<repository> <!-- Rikard: Added this -->
+			<id>wso2-public</id>
+			<url>https://maven.wso2.org/nexus/content/groups/wso2-public/</url>
+		</repository>
+		<repository> <!-- Rikard: Added this -->
+			<id>central</id>
+			<url>https://repo1.maven.org/maven2/</url>
+		</repository>
+		<repository>
+			<id>jitpack.io</id>
+			<url>https://jitpack.io</url>
+		</repository>
+		<repository>
+			<id>local-californium-repo</id>
+			<url>file://${pom.basedir}/local-maven-repo</url>
+		</repository>
+	</repositories>
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	</properties>
+	<profiles>
+		<profile>
+			<id>default</id>
+			<activation>
+				<activeByDefault>true</activeByDefault>
+			</activation>
+			<dependencies>
+				<dependency>
+					<groupId>org.eclipse.californium</groupId>
+					<artifactId>cf-oscore</artifactId>
+					<version>3.1.0-SNAPSHOT</version>
+				</dependency>
+				<dependency>
+					<groupId>org.eclipse.californium</groupId>
+					<artifactId>californium-core</artifactId>
+					<version>3.1.0-SNAPSHOT</version>
+				</dependency>
+				<dependency>
+					<groupId>org.eclipse.californium</groupId>
+					<artifactId>element-connector</artifactId>
+					<version>3.1.0-SNAPSHOT</version>
+				</dependency>
+				<dependency>
+					<groupId>org.eclipse.californium</groupId>
+					<artifactId>scandium</artifactId>
+					<version>3.1.0-SNAPSHOT</version>
+				</dependency>
+			</dependencies>
+		</profile>
+		<profile> <!-- Rikard: Profile for Eclipse with excluded dependencies -->
+			<id>eclipse</id>
+		</profile>
+	</profiles>
+	<dependencies>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>4.13.2</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.bouncycastle</groupId>
+			<artifactId>bcprov-jdk15on</artifactId>
+			<version>1.67</version>
+		</dependency>
+		<dependency>
+			<groupId>com.upokecenter</groupId>
+			<artifactId>cbor</artifactId>
+			<version>4.5.2</version>
+		</dependency>
+		<dependency> <!-- Rikard: Added this -->
+			<groupId>net.i2p.crypto</groupId>
+			<artifactId>eddsa</artifactId>
+			<version>0.3.0</version>
+			<type>jar</type>
+		</dependency>
+		<dependency>
+			<groupId>com.github.peteroupc</groupId>
+			<artifactId>numbers</artifactId>
+			<version>1.4.3</version>
+		</dependency>
+		<dependency>
+			<groupId>org.wso2.balana</groupId>
+			<artifactId>org.wso2.balana</artifactId>
+			<version>1.1.14</version>
+		</dependency>
+		<dependency>
+			<groupId>org.json</groupId>
+			<artifactId>json</artifactId>
+			<version>20230227</version>
+		</dependency>
+		<dependency>
+			<groupId>mysql</groupId>
+			<artifactId>mysql-connector-java</artifactId>
+			<version>8.0.28</version>
+		</dependency>
+		<dependency>
+			<groupId>org.postgresql</groupId>
+			<artifactId>postgresql</artifactId>
+			<version>42.3.8</version>
+		</dependency>
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-log4j12</artifactId>
+			<version>1.7.36</version>
+		</dependency>
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+			<version>1.7.36</version>
+		</dependency>
+		<dependency> <!-- Rikard: Added for WebSocket -->
+			<groupId>javax.websocket</groupId>
+			<artifactId>javax.websocket-api</artifactId>
+			<version>1.1</version>
+		</dependency>
+		<dependency> <!-- Rikard: Added for JSON -->
+			<groupId>com.google.code.gson</groupId>
+			<artifactId>gson</artifactId>
+			<version>2.10</version>
+		</dependency>
+		<dependency> <!-- Rikard: Added for WebSocket -->
+			<groupId>org.glassfish.tyrus</groupId>
+			<artifactId>tyrus-client</artifactId>
+			<version>2.0.0</version>
+		</dependency>
+		<dependency> <!-- Rikard: Added for WebSocket -->
+			<groupId>org.glassfish.tyrus</groupId>
+			<artifactId>tyrus-container-grizzly-client</artifactId>
+			<version>2.0.0</version>
+		</dependency>
+		<dependency> <!-- Rikard: For logging to DHT -->
+			<groupId>com.github.cypress</groupId>
+			<artifactId>ace-dht-logging</artifactId>
+			<version>0.0.1</version>
+		</dependency>
+	</dependencies>
+	<build>
+		<plugins>
+			<plugin> <!-- Rikard: Use Jacoco for code coverage reports -->
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>0.8.6</version>
+				<executions>
+					<execution>
+						<id>prepare-agent</id>
+						<goals>
+							<goal>prepare-agent</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>report</id>
+						<phase>test</phase>
+						<goals>
+							<goal>report</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.2</version>
+				<configuration>
+					<source>1.8</source>
+					<target>1.8</target>
+				</configuration>
+			</plugin>
+			<!-- Rikard: Works locally but not on Github <plugin> <groupId>org.apache.maven.plugins</groupId> 
+				<artifactId>maven-surefire-plugin</artifactId> <version>2.12.4</version> 
+				<configuration> <forkMode>always</forkMode> </configuration> </plugin> -->
+			<plugin> <!-- Rikard: Working settings for tests on Github -->
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>3.0.0-M3</version>
+				<configuration>
+					<reuseForks>false</reuseForks>
+					<forkCount>1</forkCount>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+</project>

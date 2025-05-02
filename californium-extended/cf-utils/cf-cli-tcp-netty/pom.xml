@@ -1,0 +1,68 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
+	xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>org.eclipse.californium</groupId>
+		<artifactId>cf-bom</artifactId>
+		<version>3.1.0-SNAPSHOT</version>
+		<relativePath>../../bom</relativePath>
+	</parent>
+
+	<artifactId>cf-cli-tcp-netty</artifactId>
+	<packaging>bundle</packaging>
+
+	<name>Cf-cli-tcp-netty</name>
+	<description>Californium (Cf) Command Line Interface support for TCP using netty.io</description>
+
+	<properties>
+		<animal.sniffer.skip>true</animal.sniffer.skip>
+		<revapi.skip>true</revapi.skip>
+	</properties>
+
+	<dependencies>
+		<dependency>
+			<groupId>${project.groupId}</groupId>
+			<artifactId>element-connector-tcp-netty</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>${project.groupId}</groupId>
+			<artifactId>cf-cli</artifactId>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.felix</groupId>
+				<artifactId>maven-bundle-plugin</artifactId>
+				<extensions>true</extensions>
+				<configuration>
+					<instructions>
+						<Export-Package>
+							org.eclipse.californium.cli.tcp.netty*
+						</Export-Package>
+						<Import-Package>
+							*
+						</Import-Package>
+						<Bundle-SymbolicName>${project.groupId}.cli</Bundle-SymbolicName>
+					</instructions>
+				</configuration>
+			</plugin>
+			<plugin>
+				<artifactId>maven-assembly-plugin</artifactId>
+				<configuration>
+					<descriptorRefs>
+						<descriptorRef>enhanced-jar-with-tcp-netty</descriptorRef>
+					</descriptorRefs>
+					<archive>
+						<manifestFile>${project.build.outputDirectory}/META-INF/MANIFEST.MF</manifestFile>
+					</archive>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+</project>

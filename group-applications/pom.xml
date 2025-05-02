@@ -1,0 +1,189 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>se.sics</groupId>
+	<artifactId>group-applications</artifactId>
+	<version>0.0.2-SNAPSHOT</version>
+	<name>Group applications code</name>
+	<description>Group applications</description>
+	<organization>
+		<name>RISE AB</name>
+		<url>https://www.ri.se</url>
+	</organization>
+	<repositories>
+		<repository> <!-- Rikard: For MQTT library -->
+			<id>Eclipse Paho Repo</id>
+			<url>https://repo.eclipse.org/content/repositories/paho-releases/</url>
+		</repository>
+		<repository> <!-- Rikard: WebSocket Tyrus library -->
+			<id>Maven Central Repo</id>
+			<url>https://repo1.maven.org/maven2/</url>
+		</repository>
+		<repository>
+			<id>jitpack.io</id>
+			<url>https://jitpack.io</url>
+		</repository>
+		<repository>
+			<id>local-californium-repo</id>
+			<url>file://${pom.basedir}/local-maven-repo</url>
+		</repository>
+	</repositories>
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	</properties>
+	<profiles>
+		<profile>
+			<id>default</id>
+			<activation>
+				<activeByDefault>true</activeByDefault>
+			</activation>
+			<dependencies>
+				<dependency>
+					<groupId>org.eclipse.californium</groupId>
+					<artifactId>cf-oscore</artifactId>
+					<version>3.1.0-SNAPSHOT</version>
+				</dependency>
+				<dependency>
+					<groupId>org.eclipse.californium</groupId>
+					<artifactId>californium-core</artifactId>
+					<version>3.1.0-SNAPSHOT</version>
+				</dependency>
+				<dependency>
+					<groupId>org.eclipse.californium</groupId>
+					<artifactId>element-connector</artifactId>
+					<version>3.1.0-SNAPSHOT</version>
+				</dependency>
+				<dependency>
+					<groupId>org.eclipse.californium</groupId>
+					<artifactId>scandium</artifactId>
+					<version>3.1.0-SNAPSHOT</version>
+				</dependency>
+				<dependency>
+					<groupId>se.sics</groupId>
+					<artifactId>ace</artifactId>
+					<version>0.0.1-SNAPSHOT</version>
+				</dependency>
+			</dependencies>
+		</profile>
+		<profile> <!-- Rikard: Profile for Eclipse with excluded dependencies -->
+			<id>eclipse</id>
+		</profile>
+	</profiles>
+	<dependencies>
+		<dependency> <!-- Rikard: Added for WebSocket -->
+			<groupId>javax.websocket</groupId>
+			<artifactId>javax.websocket-api</artifactId>
+			<version>1.1</version>
+		</dependency>
+		<dependency> <!-- Rikard: Added for JSON -->
+			<groupId>com.google.code.gson</groupId>
+			<artifactId>gson</artifactId>
+			<version>2.10</version>
+		</dependency>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>4.13.2</version>
+			<!-- <scope>test</scope> -->
+		</dependency>
+		<dependency>
+			<groupId>com.upokecenter</groupId>
+			<artifactId>cbor</artifactId>
+			<version>4.5.2</version>
+		</dependency>
+		<dependency>
+			<groupId>com.github.peteroupc</groupId>
+			<artifactId>numbers</artifactId>
+			<version>1.4.3</version>
+		</dependency>
+		<dependency>
+			<groupId>mysql</groupId>
+			<artifactId>mysql-connector-java</artifactId>
+			<version>8.0.28</version>
+		</dependency>
+		<dependency>
+			<groupId>org.postgresql</groupId>
+			<artifactId>postgresql</artifactId>
+			<version>42.3.8</version>
+		</dependency>
+		<dependency> <!-- Rikard: Added for WebSocket -->
+			<groupId>org.glassfish.tyrus</groupId>
+			<artifactId>tyrus-client</artifactId>
+			<version>2.0.0</version>
+		</dependency>
+		<dependency> <!-- Rikard: Added for WebSocket -->
+			<groupId>org.glassfish.tyrus</groupId>
+			<artifactId>tyrus-container-grizzly-client</artifactId>
+			<version>2.0.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-log4j12</artifactId>
+			<version>1.7.36</version>
+		</dependency>
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+			<version>1.7.36</version>
+		</dependency>
+		<dependency> <!-- Rikard: MQTT library -->
+			<groupId>org.eclipse.paho</groupId>
+			<artifactId>org.eclipse.paho.mqttv5.client</artifactId>
+			<!-- <artifactId>org.eclipse.paho.client.mqttv3</artifactId> -->
+			<version>1.2.5</version>
+		</dependency>
+		<dependency> <!-- Rikard: For logging to DHT -->
+			<groupId>com.github.cypress</groupId>
+			<artifactId>ace-dht-logging</artifactId>
+			<version>0.0.1</version>
+		</dependency>
+	</dependencies>
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.2</version>
+				<configuration>
+					<source>1.8</source>
+					<target>1.8</target>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<version>3.5.0</version>
+				<executions>
+					<execution>
+						<id>copy-dependencies</id>
+						<phase>prepare-package</phase>
+						<goals>
+							<goal>copy-dependencies</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>${project.basedir}/lib</outputDirectory>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<version>3.3.0</version>
+				<configuration>
+					<finalName>${jarName}</finalName>
+					<archive>
+						<manifest>
+							<addClasspath>true</addClasspath>
+							<classpathPrefix>lib/</classpathPrefix>
+							<mainClass>${fully.qualified.main.class}</mainClass>
+						</manifest>
+					</archive>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+</project>
+

@@ -1,0 +1,39 @@
+#/*******************************************************************************
+# * Copyright (c) 2021 Bosch.IO GmbH and others.
+# * 
+# * All rights reserved. This program and the accompanying materials
+# * are made available under the terms of the Eclipse Public License v2.0
+# * and Eclipse Distribution License v1.0 which accompany this distribution.
+# * 
+# * The Eclipse Public License is available at
+# *    http://www.eclipse.org/legal/epl-v20.html
+# * and the Eclipse Distribution License is available at
+# *    http://www.eclipse.org/org/documents/edl-v10.html.
+# * 
+# * Contributors:
+# *    Achim Kraus (Bosch.IO GmbH) - initial script
+# *                                  enable the service-account
+# *                                  to list and read the pods 
+# ******************************************************************************/
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: list-pods
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: list-pods-rb
+subjects:
+- kind: ServiceAccount
+  name: default
+roleRef:
+  kind: Role
+  name: list-pods
+  apiGroup: ""
+
