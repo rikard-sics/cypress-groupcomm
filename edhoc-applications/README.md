@@ -1,6 +1,6 @@
 **Codebase for CYPRESS including applications using EDHOC and the optimized request solution.**
 
-To setup and run the provided applications, follow the steps below. This will start 1 EDHOC client acting as initiator and 1 EDHOC server acting as responder. The applications support 4 different configuration alternatives (depending on which client and server is launched). Regardless of the option chosen, the client will execute EDHOC, and as its first OSCORE request sent trigger the server to turn on the light. Follow-up requests are then handled by sending messages to the DHT via the provided Python script.
+To setup and run the provided applications, follow the steps below. This will start 1 EDHOC client acting as initiator and 1 EDHOC server acting as responder. The applications support 4 different configuration alternatives (depending on which client and server is launched). Regardless of the option chosen, the client will execute EDHOC, and as its first OSCORE request sent trigger the server to turn on the light.
 
 **Configurations**  
 The 4 supported configurations are as follows:  
@@ -28,28 +28,7 @@ The following is the full list of command line parameters supported by the Phase
 
 If the EDHOC Server is running on a different host than the EDHOC Client, the option *-server* can be used.
 
-**Use the following interactive script to send commands to the DHT (and trigger the client)**  
-python dht_rest_client.py
-
 **Relevant documentation**  
-https://datatracker.ietf.org/doc/draft-ietf-lake-edhoc/  
-https://datatracker.ietf.org/doc/draft-ietf-core-oscore-edhoc/  
-
-**DHT information**  
-The EDHOC client applications listen for messages from the DHT on the following topic:  
-* command_ed
-
-And provide their output on the following topic  
-* output_ed
-
-Additionally, the CoAP client application listens for messages from the DHT on the following topic:  
-* command_co
-
-And provides its output on the following topic  
-* output_co
-
-
-The message structure is as follows:  
-{"message": $payload, "topic": $topic }  
-Valid payloads are "on" and "off", to turn on and off the lights respectively.  
+https://datatracker.ietf.org/doc/rfc9528/  
+https://datatracker.ietf.org/doc/rfc9668/  
 

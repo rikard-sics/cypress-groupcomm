@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Builds DHT-enabled standalone Jar files for the Group Applications
+# Builds standalone Jar files for the Group Applications
 # OscoreAsServer: ACE Authorization Server
 # OscoreRsServer: Group Manager
 # OscoreAsRsClient: Group OSCORE Server/Client which will join the group(s)

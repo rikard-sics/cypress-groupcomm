@@ -88,10 +88,10 @@ https://www.andreafortuna.org/2016/06/08/java-tips-how-to-fix-the-invalidkeyexce
     - Specify the flag --with-mysql to also perform install and setup of MySQL server
 
 - build-group-apps.sh
-    - Builds DHT-enabled standalone Jar files for the Group Applications
+    - Builds standalone Jar files for the Group Applications
 
 - build-edhoc-apps.sh
-    - Builds DHT-enabled standalone Jar files for the EDHOC Applications
+    - Builds standalone Jar files for the EDHOC Applications
 
 - build-for-docker.sh
     - Prepares Docker Dockerfiles and Contexts for the Group & EDHOC Applications
@@ -99,15 +99,6 @@ https://www.andreafortuna.org/2016/06/08/java-tips-how-to-fix-the-invalidkeyexce
 
 - code-coverage.sh
     - Relocate Jacoco code coverage reports for deployment to gh-pages
-
-- dht_rest_client.py
-    - Allows sending volatile message to the DHT for triggering Group & EDHOC Applications
-    - Run *pip install -r python_requirements.txt* to install required dependencies
-
-- dht_ws_client.py
-    - Allows sending volatile message to the DHT for triggering Group & EDHOC Applications
-    - Also prints messages received back from the DHT
-    - Run *pip install websockets* to install required dependencies
 
 - californium-extended/
     - Modified version of the Californium CoAP library with support for EDHOC and Group OSCORE
