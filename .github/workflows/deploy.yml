@@ -46,9 +46,9 @@ jobs:
       - name: Create a release
         uses: softprops/action-gh-release@v1
         with:
+          token: ${{ secrets.GH_PAT }}
           name: v${{ steps.tagName.outputs.tag }}
           files: |
             ./*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-
