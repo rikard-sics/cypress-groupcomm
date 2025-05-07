@@ -34,8 +34,6 @@ package se.sics.prototype.apps;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.concurrent.CountDownLatch;
-
 
 /**
  * Handles connection establishment and sending of log messages.
@@ -43,9 +41,6 @@ import java.util.concurrent.CountDownLatch;
  */
 public class ExtraLogger {
 
-	private static CountDownLatch latch;
-	private static ClientManager dhtClient = null;
-	private static Session session = null;
 	private static boolean loggingEnabled = true;
 
 	private static final String LOG_TOPIC_NAME = "CYPRESS:Log";
@@ -85,7 +80,7 @@ public class ExtraLogger {
 		loggingEnabled = logging;
 	}
 
-	public class Const {
+	public static class Const {
 
 	    /**
 	     * Enums for DHT logging levels
