@@ -2,7 +2,7 @@
 [![coverage-oscore](https://rikard-sics.github.io/cypress-groupcomm/reports/jacoco-oscore.svg 'Code Coverage: OSCORE & Group OSCORE')](https://rikard-sics.github.io/cypress-groupcomm/reports/oscore/)
 [![coverage-ace](https://rikard-sics.github.io/cypress-groupcomm/reports/jacoco-ace.svg 'Code Coverage: ACE & Group Joining')](https://rikard-sics.github.io/cypress-groupcomm/reports/ace/)
 
-## CYPRESS codebase
+## CYPRESS secure group communication codebase
 
 Joint codebase for CYPRESS including ACE, EDHOC, OSCORE, Group OSCORE, and Group Joining (plus associated things).
 
