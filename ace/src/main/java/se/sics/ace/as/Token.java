@@ -65,10 +65,9 @@ import se.sics.ace.Endpoint;
 import se.sics.ace.Message;
 import se.sics.ace.TimeProvider;
 import se.sics.ace.Util;
-import se.sics.ace.as.logging.DhtLogger;
-import static se.sics.ace.as.logging.Const.*;
 import se.sics.ace.cwt.CWT;
 import se.sics.ace.cwt.CwtCryptoCtx;
+import static se.sics.ace.as.ExtraLogger.Const.*;
 
 /**
  * Implements the /token endpoint on the authorization server.
@@ -342,7 +341,7 @@ public class Token implements Endpoint, AutoCloseable {
             this.db.purgeExpiredTokens(this.time.getCurrentTime());
         } catch (AceException e) {
             LOGGER.severe("Database error: " + e.getMessage());
-			DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME, "Database error");
+			ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME, "Database error");
             return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
         }
 
@@ -358,7 +357,7 @@ public class Token implements Endpoint, AutoCloseable {
             CBORObject map = CBORObject.NewMap();
             map.Add(Constants.ERROR, Constants.UNAUTHORIZED_CLIENT);
             LOGGER.log(Level.INFO, "Message processing aborted: " + "unauthorized client");
-			DhtLogger.sendLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
+			ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
 					"Message processing aborted: " + "unauthorized client: " + id);
             return msg.failReply(Message.FAIL_UNAUTHORIZED, map);
         }
@@ -369,7 +368,7 @@ public class Token implements Endpoint, AutoCloseable {
                 CBORObject map = CBORObject.NewMap();
                 map.Add(Constants.ERROR, Constants.UNAUTHORIZED_CLIENT);
 				LOGGER.log(Level.INFO, "Message processing aborted: " + "unauthorized client");
-				DhtLogger.sendLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
+				ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
 						"Message processing aborted: " + "unauthorized client: " + id);
                 return msg.failReply(Message.FAIL_UNAUTHORIZED, map);
             }
@@ -380,13 +379,13 @@ public class Token implements Endpoint, AutoCloseable {
                 CBORObject map = CBORObject.NewMap();
                 map.Add(Constants.ERROR, Constants.UNAUTHORIZED_CLIENT);
                 LOGGER.log(Level.INFO, "Message processing aborted: " + "unauthorized client");
-				DhtLogger.sendLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
+				ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
 						"Message processing aborted: " + "unauthorized client: " + id);
                 return msg.failReply(Message.FAIL_UNAUTHORIZED, map);
             }
         } catch (AceException e) {
             LOGGER.severe("Database error: " + e.getMessage());
-			DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME, "Database error");
+			ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME, "Database error");
             return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
         }
 
@@ -401,7 +400,7 @@ public class Token implements Endpoint, AutoCloseable {
         CBORObject map = CBORObject.NewMap();
         map.Add(Constants.ERROR, Constants.UNSUPPORTED_GRANT_TYPE);
         LOGGER.log(Level.INFO, "Message processing aborted: " + "unsupported_grant_type");
-		DhtLogger.sendLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
+		ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
 				"Message processing aborted: " + "unsupported_grant_type");
         return msg.failReply(Message.FAIL_BAD_REQUEST, map);
     }
@@ -423,7 +422,7 @@ public class Token implements Endpoint, AutoCloseable {
                 CBORObject map = CBORObject.NewMap();
                 map.Add(Constants.ERROR, Constants.UNAUTHORIZED_CLIENT);
                 LOGGER.log(Level.INFO, "Message processing aborted: " + "unauthorized client: " + id);
-                DhtLogger.sendLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
+                ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
                         "Message processing aborted: " + "unauthorized client: " + id);
                 return msg.failReply(Message.FAIL_UNAUTHORIZED, map);
             }
@@ -437,7 +436,7 @@ public class Token implements Endpoint, AutoCloseable {
                 scope = this.db.getDefaultScope(id);
             } catch (AceException e) {
                 LOGGER.severe("Message processing aborted (checking scope): " + e.getMessage());
-                DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
+                ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
                         "Message processing aborted (checking scope)");
                 return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
             }
@@ -451,7 +450,7 @@ public class Token implements Endpoint, AutoCloseable {
                 map.Add(Constants.ERROR, Constants.INVALID_REQUEST);
                 map.Add(Constants.ERROR_DESCRIPTION, "Invalid datatype for scope");
                 LOGGER.log(Level.INFO, "Message processing aborted: " + "Invalid datatype for scope in message");
-                DhtLogger.sendLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
+                ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
                         "Message processing aborted: " + "Invalid datatype for scope in message");
                 return msg.failReply(Message.FAIL_BAD_REQUEST, map);
             }
@@ -461,7 +460,7 @@ public class Token implements Endpoint, AutoCloseable {
             map.Add(Constants.ERROR, Constants.INVALID_REQUEST);
             map.Add(Constants.ERROR_DESCRIPTION, "No scope found for message");
             LOGGER.log(Level.INFO, "Message processing aborted: " + "No scope found for message");
-            DhtLogger.sendLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
+            ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
                     "Message processing aborted: " + "No scope found for message");
             return msg.failReply(Message.FAIL_BAD_REQUEST, map);
         }
@@ -488,7 +487,7 @@ public class Token implements Endpoint, AutoCloseable {
                 }
             } catch (AceException e) {
                 LOGGER.severe("Message processing aborted (checking aud): " + e.getMessage());
-                DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
+                ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
                         "Message processing aborted (checking aud)");
                 return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
             }
@@ -501,7 +500,7 @@ public class Token implements Endpoint, AutoCloseable {
                 map.Add(Constants.ERROR, Constants.INVALID_REQUEST);
                 map.Add(Constants.ERROR_DESCRIPTION, "Audience malformed");
                 LOGGER.log(Level.INFO, "Message processing aborted: " + "Audience malformed");
-                DhtLogger.sendLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
+                ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
                         "Message processing aborted: " + "Audience malformed");
                 return msg.failReply(Message.FAIL_BAD_REQUEST, map);
             }
@@ -511,7 +510,7 @@ public class Token implements Endpoint, AutoCloseable {
             map.Add(Constants.ERROR, Constants.INVALID_REQUEST);
             map.Add(Constants.ERROR_DESCRIPTION, "No audience found for message");
             LOGGER.log(Level.INFO, "Message processing aborted: " + "No audience found for message");
-            DhtLogger.sendLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
+            ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
                     "Message processing aborted: " + "No audience found for message");
             return msg.failReply(Message.FAIL_BAD_REQUEST, map);
         }
@@ -522,7 +521,7 @@ public class Token implements Endpoint, AutoCloseable {
             allowedScopes = this.pdp.canAccess(id, aud, scope);
         } catch (AceException e) {
             LOGGER.severe("Message processing aborted (checking permissions): " + e.getMessage());
-            DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
+            ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
                     "Message processing aborted (checking permissions)");
             return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
         }
@@ -530,7 +529,7 @@ public class Token implements Endpoint, AutoCloseable {
             CBORObject map = CBORObject.NewMap();
             map.Add(Constants.ERROR, Constants.INVALID_SCOPE);
             LOGGER.log(Level.INFO, "Message processing aborted: " + "invalid_scope");
-            DhtLogger.sendLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
+            ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
                     "Message processing aborted: " + "invalid_scope");
             return msg.failReply(Message.FAIL_BAD_REQUEST, map);
         }
@@ -542,7 +541,7 @@ public class Token implements Endpoint, AutoCloseable {
             tokenType = this.db.getSupportedTokenType(aud);
         } catch (AceException e) {
             LOGGER.severe("Message processing aborted (creating token): " + e.getMessage());
-            DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
+            ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
                     "Message processing aborted (creating token)");
             return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
         }
@@ -550,7 +549,7 @@ public class Token implements Endpoint, AutoCloseable {
             CBORObject map = CBORObject.NewMap();
             map.Add(Constants.ERROR, "Audience incompatible on token type");
             LOGGER.log(Level.INFO, "Message processing aborted: " + "Audience incompatible on token type");
-            DhtLogger.sendLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
+            ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
                     "Message processing aborted: " + "Audience incompatible on token type");
             return msg.failReply(Message.FAIL_BAD_REQUEST, map);
         }
@@ -598,7 +597,7 @@ public class Token implements Endpoint, AutoCloseable {
             } catch (AceException e) {
                 LOGGER.severe("Message processing aborted: Error when retrieving the name"
                         + " of the Resource Server with Audience " + audStr + " from the database.\n" + e.getMessage());
-                DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
+                ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
                         "Message processing aborted: Error when retrieving the name"
                                 + " of the Resource Server with Audience " + audStr + " from the database.");
                 return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
@@ -612,7 +611,7 @@ public class Token implements Endpoint, AutoCloseable {
                         + " exactly one Resource Server");
                 LOGGER.log(Level.INFO, "Message processing aborted: The 'exi' claim has to be included,"
                         + "thus Audience must contain exactly one Resource Server");
-                DhtLogger.sendLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
+                ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
                         "Message processing aborted: The 'exi' claim has to be included,"
                                 + "thus Audience must contain exactly one Resource Server");
                 return msg.failReply(Message.FAIL_BAD_REQUEST, map);
@@ -635,7 +634,7 @@ public class Token implements Endpoint, AutoCloseable {
                     LOGGER.severe("Message processing aborted: Error when retrieving the Exi Sequence Number"
                             + " for the Resource Server with Audience " + audStr + " from the database.\n"
                             + e.getMessage());
-                    DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
+                    ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
                             "Message processing aborted: Error when retrieving the Exi Sequence Number"
                                     + " for the Resource Server with Audience " + audStr + " from the database.");
                     return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
@@ -665,7 +664,7 @@ public class Token implements Endpoint, AutoCloseable {
                 exiSequenceNumbers.put(rsName, exiSeqNum);
             }
             LOGGER.severe("Message processing aborted (finding profile): " + e.getMessage());
-            DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
+            ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
                     "Message processing aborted (finding profile)");
             return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
         }
@@ -679,7 +678,7 @@ public class Token implements Endpoint, AutoCloseable {
             CBORObject map = CBORObject.NewMap();
             map.Add(Constants.ERROR, Constants.INCOMPATIBLE_PROFILES);
             LOGGER.log(Level.INFO, "Message processing aborted: " + "No compatible profile found");
-            DhtLogger.sendLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
+            ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
                     "Message processing aborted: " + "No compatible profile found");
             return msg.failReply(Message.FAIL_BAD_REQUEST, map);
         }
@@ -695,7 +694,7 @@ public class Token implements Endpoint, AutoCloseable {
             CBORObject map = CBORObject.NewMap();
             map.Add(Constants.ERROR, "Unsupported token type");
             LOGGER.log(Level.INFO, "Message processing aborted: " + "Unsupported token type");
-            DhtLogger.sendLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
+            ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
                     "Message processing aborted: " + "Unsupported token type");
             return msg.failReply(Message.FAIL_NOT_IMPLEMENTED, map);
         }
@@ -731,7 +730,7 @@ public class Token implements Endpoint, AutoCloseable {
                     exp = this.db.getExpTime(aud);
                 } catch (AceException e) {
                     LOGGER.severe("Message processing aborted (setting exp): " + e.getMessage());
-                    DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
+                    ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
                             "Message processing aborted (setting exp)");
                     return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
                 }
@@ -749,7 +748,7 @@ public class Token implements Endpoint, AutoCloseable {
                     exi = this.db.getExpTime(aud);
                 } catch (AceException e) {
                     LOGGER.severe("Message processing aborted (setting exp): " + e.getMessage());
-                    DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
+                    ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
                             "Message processing aborted (setting exp)");
                     return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
                 }
@@ -791,7 +790,7 @@ public class Token implements Endpoint, AutoCloseable {
                             CBORObject map = CBORObject.NewMap();
                             map.Add(Constants.ERROR, Constants.UNSUPPORTED_POP_KEY);
                             LOGGER.log(Level.INFO, "Message processing aborted: " + "Unsupported pop key type PSK");
-                            DhtLogger.sendLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
+                            ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
                                     "Message processing aborted: " + "Unsupported pop key type PSK");
                             return msg.failReply(Message.FAIL_BAD_REQUEST, map);
                         }
@@ -803,7 +802,7 @@ public class Token implements Endpoint, AutoCloseable {
                             exiSequenceNumbers.put(rsName, exiSeqNum);
                         }
                         LOGGER.severe("Message processing aborted " + "(finding key type): " + e.getMessage());
-                        DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
+                        ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
                                 "Message processing aborted " + "(finding key type)");
                         return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
                     }
@@ -847,7 +846,7 @@ public class Token implements Endpoint, AutoCloseable {
                             exiSequenceNumbers.put(rsName, exiSeqNum);
                         }
                         LOGGER.severe("Message processing aborted " + "(making PSK): " + e.getMessage());
-                        DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
+                        ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
                                 "Message processing aborted " + "(making PSK)");
                         return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
                     }
@@ -865,7 +864,7 @@ public class Token implements Endpoint, AutoCloseable {
                             exiSequenceNumbers.put(rsName, exiSeqNum);
                         }
                         LOGGER.info("Message processing aborted: " + " Malformed kid in request parameter 'cnf'");
-                        DhtLogger.sendLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
+                        ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
                                 "Message processing aborted: " + " Malformed kid in request parameter 'cnf'");
                         CBORObject map = CBORObject.NewMap();
                         map.Add(Constants.ERROR, Constants.INVALID_REQUEST);
@@ -889,7 +888,7 @@ public class Token implements Endpoint, AutoCloseable {
                         }
                         LOGGER.severe(
                                 "Message processing aborted " + "(finding cti of issues tokens): " + e.getMessage());
-                        DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
+                        ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
                                 "Message processing aborted " + "(finding cti of issues tokens)");
                         return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
                     }
@@ -928,7 +927,7 @@ public class Token implements Endpoint, AutoCloseable {
                                 }
                                 LOGGER.severe("Message processing aborted " + "(finding previously released token): "
                                         + e.getMessage());
-                                DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
+                                ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
                                         "Message processing aborted " + "(finding previously released token)");
                                 return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
                             }
@@ -954,7 +953,7 @@ public class Token implements Endpoint, AutoCloseable {
                                     }
                                     LOGGER.severe("Message processing aborted "
                                             + "(finding previously released token): " + e.getMessage());
-                                    DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
+                                    ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
                                             "Message processing aborted " + "(finding previously released token)");
                                     return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
                                 }
@@ -1019,7 +1018,7 @@ public class Token implements Endpoint, AutoCloseable {
                                     }
                                     LOGGER.severe("Message processing aborted "
                                             + "(finding OSCORE ID when updating access rights)");
-                                    DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
+                                    ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
                                             "Message processing aborted "
                                                     + "(finding OSCORE ID when updating access rights)");
                                     return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
@@ -1045,7 +1044,7 @@ public class Token implements Endpoint, AutoCloseable {
                         } else {
                             LOGGER.severe("Message processing aborted "
                                     + "(cannot find access token for which access right have to be updated)");
-                            DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
+                            ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
                                     "Message processing aborted "
                                             + "(cannot find access token for which access right have to be updated)");
                             CBORObject myMap = CBORObject.NewMap();
@@ -1067,7 +1066,7 @@ public class Token implements Endpoint, AutoCloseable {
                             exiSequenceNumbers.put(rsName, exiSeqNum);
                         }
                         LOGGER.severe("Message processing aborted: " + e.getMessage());
-                        DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME, "Message processing aborted");
+                        ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME, "Message processing aborted");
                         if (e.getMessage().startsWith("Malformed")) {
                             CBORObject map = CBORObject.NewMap();
                             map.Add(Constants.ERROR, Constants.INVALID_REQUEST);
@@ -1087,7 +1086,7 @@ public class Token implements Endpoint, AutoCloseable {
                         map.Add(Constants.ERROR, Constants.INVALID_REQUEST);
                         map.Add(Constants.ERROR_DESCRIPTION, "Couldn't retrieve RPK");
                         LOGGER.log(Level.INFO, "Message processing aborted: " + "Couldn't retrieve RPK");
-                        DhtLogger.sendLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
+                        ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
                                 "Message processing aborted: " + "Couldn't retrieve RPK");
                         return msg.failReply(Message.FAIL_BAD_REQUEST, map);
                     }
@@ -1104,7 +1103,7 @@ public class Token implements Endpoint, AutoCloseable {
                         map.Add(Constants.ERROR, Constants.INVALID_REQUEST);
                         map.Add(Constants.ERROR_DESCRIPTION, "Client tried to provide cnf PSK");
                         LOGGER.log(Level.INFO, "Message processing aborted: " + "Client tried to provide cnf PSK");
-                        DhtLogger.sendLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
+                        ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
                                 "Message processing aborted: " + "Client tried to provide cnf PSK");
                         return msg.failReply(Message.FAIL_BAD_REQUEST, map);
                     }
@@ -1126,7 +1125,7 @@ public class Token implements Endpoint, AutoCloseable {
                             CBORObject map = CBORObject.NewMap();
                             map.Add(Constants.ERROR, Constants.UNSUPPORTED_POP_KEY);
                             LOGGER.log(Level.INFO, "Message processing aborted: " + "Client used unauthenticated RPK");
-                            DhtLogger.sendLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
+                            ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
                                     "Message processing aborted: " + "Client used unauthenticated RPK");
                             return msg.failReply(Message.FAIL_BAD_REQUEST, map);
                         }
@@ -1141,7 +1140,7 @@ public class Token implements Endpoint, AutoCloseable {
                         CBORObject map = CBORObject.NewMap();
                         map.Add(Constants.ERROR, Constants.UNSUPPORTED_POP_KEY);
                         LOGGER.log(Level.INFO, "Message processing aborted: " + "Unsupported pop key type RPK");
-                        DhtLogger.sendLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
+                        ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
                                 "Message processing aborted: " + "Unsupported pop key type RPK");
                         LOGGER.log(Level.FINEST, e.getMessage());
                         return msg.failReply(Message.FAIL_BAD_REQUEST, map);
@@ -1159,7 +1158,7 @@ public class Token implements Endpoint, AutoCloseable {
                             CBORObject map = CBORObject.NewMap();
                             map.Add(Constants.ERROR, Constants.UNSUPPORTED_POP_KEY);
                             LOGGER.log(Level.INFO, "Message processing aborted: " + "Unsupported pop key type RPK");
-                            DhtLogger.sendLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
+                            ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
                                     "Message processing aborted: " + "Unsupported pop key type RPK");
                             return msg.failReply(Message.FAIL_BAD_REQUEST, map);
                         }
@@ -1171,7 +1170,7 @@ public class Token implements Endpoint, AutoCloseable {
                             exiSequenceNumbers.put(rsName, exiSeqNum);
                         }
                         LOGGER.severe("Message processing aborted: " + e.getMessage());
-                        DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME, "Message processing aborted");
+                        ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME, "Message processing aborted");
                         return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
                     }
 
@@ -1186,7 +1185,7 @@ public class Token implements Endpoint, AutoCloseable {
                 break;
             default:
                 LOGGER.severe("Unknown claim type in /token endpoint configuration: " + c);
-                DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
+                ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME,
                         "Unknown claim type in /token endpoint configuration: " + c);
                 return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
             }
@@ -1215,7 +1214,7 @@ public class Token implements Endpoint, AutoCloseable {
             }
 
             LOGGER.severe("Message processing aborted: " + e.getMessage());
-            DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME, "Message processing aborted");
+            ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME, "Message processing aborted");
             return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
         }
 
@@ -1262,7 +1261,7 @@ public class Token implements Endpoint, AutoCloseable {
             }
 
             LOGGER.severe("Message processing aborted: " + e.getMessage());
-            DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME, "Message processing aborted");
+            ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME, "Message processing aborted");
             return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
         }
 
@@ -1303,7 +1302,7 @@ public class Token implements Endpoint, AutoCloseable {
                 }
 
                 LOGGER.severe("Message processing aborted: " + e.getMessage());
-                DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME, "Message processing aborted");
+                ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME, "Message processing aborted");
                 return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
             }
             for (CBORObject rscnf : rscnfs) {
@@ -1345,7 +1344,7 @@ public class Token implements Endpoint, AutoCloseable {
                 }
 
                 LOGGER.severe("Message processing aborted: " + e.getMessage());
-                DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME, "Message processing aborted");
+                ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME, "Message processing aborted");
                 return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
             }
             if (ctx == null) {
@@ -1371,7 +1370,7 @@ public class Token implements Endpoint, AutoCloseable {
                 CBORObject map = CBORObject.NewMap();
                 map.Add(Constants.ERROR, "No common security context found for audience");
                 LOGGER.log(Level.INFO, "Message processing aborted: No common security context found for audience");
-                DhtLogger.sendLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
+                ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, DEVICE_NAME,
                         "Message processing aborted: No common security context found for audience");
                 return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, map);
             }
@@ -1410,7 +1409,7 @@ public class Token implements Endpoint, AutoCloseable {
                 }
 
                 LOGGER.severe("Message processing aborted: " + e.getMessage());
-                DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME, "Message processing aborted");
+                ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME, "Message processing aborted");
                 return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
             }
         } else {
@@ -1527,11 +1526,11 @@ public class Token implements Endpoint, AutoCloseable {
             }
 
             LOGGER.severe("Message processing aborted: " + e.getMessage());
-            DhtLogger.sendLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME, "Message processing aborted");
+            ExtraLogger.printLog(TYPE_ERROR, PRIO_HIGH, CAT_STATUS, DEVICE_NAME, "Message processing aborted");
             return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);
         }
         LOGGER.log(Level.INFO, "Returning token: " + ctiStr);
-        DhtLogger.sendLog(TYPE_INFO, PRIO_LOW, CAT_STATUS, DEVICE_NAME, "Returning token. " + "[ctiStr: " + ctiStr
+        ExtraLogger.printLog(TYPE_INFO, PRIO_LOW, CAT_STATUS, DEVICE_NAME, "Returning token. " + "[ctiStr: " + ctiStr
                 + ". " + "rsName: " + rsName + ". " + "audStr: " + audStr + ". " + "id: " + id + "]");
 
         // ctiStr in base64, rsName, audStr, id

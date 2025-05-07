@@ -52,7 +52,6 @@ import org.eclipse.californium.oscore.OSCoreCtx;
 import se.sics.ace.COSEparams;
 import se.sics.ace.Constants;
 import se.sics.ace.as.AccessTokenFactory;
-import se.sics.ace.as.logging.DhtLogger;
 import se.sics.ace.coap.as.CoapDBConnector;
 import se.sics.ace.coap.as.OscoreAS;
 import se.sics.ace.coap.rs.oscoreProfile.OscoreCtxDbSingleton;
@@ -143,16 +142,6 @@ public class OscoreAsServer {
 			} else if (args[i].toLowerCase().endsWith("-help")) {
 				printHelp();
 				System.exit(0);
-			}
-		}
-
-		// Possibly set up connection to the DHT for sending logging statements
-		if (useDht) {
-			System.out.println("Connecting to the DHT for logging.");
-			DhtLogger.setLogging(true);
-			boolean dhtConnected = DhtLogger.establishConnection(dhtWebsocketUri);
-			if (dhtConnected == false) {
-				System.err.println("Failed to connect to DHT for logging.");
 			}
 		}
 
