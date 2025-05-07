@@ -134,11 +134,6 @@
 			<!-- <artifactId>org.eclipse.paho.client.mqttv3</artifactId> -->
 			<version>1.2.5</version>
 		</dependency>
-		<dependency> <!-- Rikard: For logging to DHT -->
-			<groupId>com.github.cypress</groupId>
-			<artifactId>ace-dht-logging</artifactId>
-			<version>0.0.1</version>
-		</dependency>
 	</dependencies>
 	<build>
 		<plugins>

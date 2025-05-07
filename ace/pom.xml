@@ -153,11 +153,6 @@
 			<artifactId>tyrus-container-grizzly-client</artifactId>
 			<version>2.0.0</version>
 		</dependency>
-		<dependency> <!-- Rikard: For logging to DHT -->
-			<groupId>com.github.cypress</groupId>
-			<artifactId>ace-dht-logging</artifactId>
-			<version>0.0.1</version>
-		</dependency>
 	</dependencies>
 	<build>
 		<plugins>
