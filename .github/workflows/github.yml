@@ -76,6 +76,7 @@ jobs:
         uses: JamesIves/github-pages-deploy-action@v4
         if: ${{ matrix.java-version == '8.0.x' }}
         with:
+          token: ${{ secrets.GH_PAT }}
           clean: true
           folder: jacoco
           target-folder: reports
