@@ -1,0 +1,341 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PostgreSQLDBAdapter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.examples</a> &gt; <span class="el_source">PostgreSQLDBAdapter.java</span></div><h1>PostgreSQLDBAdapter.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.examples;
+
+import se.sics.ace.AceException;
+import se.sics.ace.as.DBConnector;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.ResultSet;
+import java.util.Properties;
+
+/**
+ * This class handles proper PostgreSQL Db SQL.
+ *
+ * @author Sebastian Echeverria
+ *
+ */
+<span class="nc" id="L50">public class PostgreSQLDBAdapter implements SQLDBAdapter {</span>
+
+    /**
+     * The default admin-user name
+     */
+    
+    /**
+     * The default database name
+     */
+    public static final String BASE_DB = &quot;postgres&quot;;
+
+    /**
+     * The default connection URL for the database.
+     */
+    public static final String DEFAULT_DB_URL 
+        = &quot;jdbc:postgresql://localhost:5432&quot;;
+
+    protected String user;
+    protected String password;
+    protected String baseDbUrl;
+    protected String dbName;
+
+    @Override
+    public void setParams(String user, String pwd, String dbName, String dbUrl) {
+<span class="nc" id="L74">        this.user = user;</span>
+<span class="nc bnc" id="L75" title="All 2 branches missed.">        if(this.user == null)</span>
+        {
+<span class="nc" id="L77">            this.user = DBConnector.DEFAULT_USER;</span>
+        }
+<span class="nc" id="L79">        this.password = pwd;</span>
+<span class="nc bnc" id="L80" title="All 2 branches missed.">        if(this.password == null)</span>
+        {
+<span class="nc" id="L82">            this.password = DBConnector.DEFAULT_PASSWORD;</span>
+        }
+<span class="nc" id="L84">        this.dbName = dbName;</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">        if(this.dbName == null)</span>
+        {
+<span class="nc" id="L87">            this.dbName = DBConnector.DEFAULT_DB_NAME;</span>
+        }
+<span class="nc" id="L89">        this.baseDbUrl = dbUrl;</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">        if(this.baseDbUrl == null)</span>
+        {
+<span class="nc" id="L92">            this.baseDbUrl = DEFAULT_DB_URL;</span>
+        }
+<span class="nc" id="L94">    }</span>
+
+    @Override
+    public Connection getAdminConnection(String adminUser, String adminPwd) throws SQLException {
+<span class="nc" id="L98">        Properties connectionProps = new Properties();</span>
+<span class="nc" id="L99">        connectionProps.put(&quot;user&quot;, adminUser);</span>
+<span class="nc" id="L100">        connectionProps.put(&quot;password&quot;, adminPwd);</span>
+<span class="nc" id="L101">        return DriverManager.getConnection(this.baseDbUrl + &quot;/&quot; </span>
+                + PostgreSQLDBAdapter.BASE_DB, connectionProps);
+    }
+
+    @Override
+    public Connection getDBConnection() throws SQLException {
+<span class="nc" id="L107">        Properties connectionProps = new Properties();</span>
+<span class="nc" id="L108">        connectionProps.put(&quot;user&quot;, this.user);</span>
+<span class="nc" id="L109">        connectionProps.put(&quot;password&quot;, this.password);</span>
+<span class="nc" id="L110">        return DriverManager.getConnection(this.baseDbUrl + &quot;/&quot; + this.dbName, connectionProps);</span>
+    }
+
+    @Override
+    public synchronized void createUser(String adminUser, String adminPwd) throws AceException {
+<span class="nc" id="L115">        String createUser = &quot;DO\n&quot; +</span>
+                &quot;$body$\n&quot; +
+                &quot;BEGIN\n&quot; +
+                &quot;   IF NOT EXISTS (\n&quot; +
+                &quot;      SELECT *\n&quot; +
+                &quot;      FROM   pg_catalog.pg_user\n&quot; +
+                &quot;      WHERE  usename = '&quot; +  this.user + &quot;') THEN\n&quot; +
+                &quot;\n&quot; +
+                &quot;      CREATE ROLE &quot; +  this.user + &quot; LOGIN PASSWORD '&quot; 
+                    +  this.password + &quot;';\n&quot; +
+                &quot;   END IF;\n&quot; +
+                &quot;END\n&quot; +
+                &quot;$body$;&quot;;
+
+<span class="nc" id="L129">        try (Connection adminConn = getAdminConnection(adminUser, adminPwd);</span>
+<span class="nc" id="L130">             Statement stmt = adminConn.createStatement())</span>
+        {
+<span class="nc" id="L132">            stmt.execute(createUser);</span>
+<span class="nc" id="L133">        } catch (SQLException e) {</span>
+<span class="nc" id="L134">            e.printStackTrace();</span>
+<span class="nc" id="L135">            throw new AceException(e.getMessage());</span>
+<span class="nc" id="L136">        }</span>
+<span class="nc" id="L137">    }</span>
+
+    @Override
+    public synchronized void createDBAndTables(String adminUser, String adminPwd) 
+            throws AceException {
+        // First check it DB exists.
+<span class="nc" id="L143">        String checkDB = &quot;SELECT datname FROM pg_catalog.pg_database &quot;</span>
+                + &quot;WHERE datname = '&quot; + this.dbName + &quot;';&quot;;
+<span class="nc" id="L145">        try (Connection adminConn = getAdminConnection(adminUser, adminPwd);</span>
+<span class="nc" id="L146">             Statement stmt = adminConn.createStatement();</span>
+<span class="nc" id="L147">             ResultSet result = stmt.executeQuery(checkDB))</span>
+        {
+<span class="nc bnc" id="L149" title="All 2 branches missed.">            if (result.next())</span>
+            {
+                // Treat this as a &quot;create if not exist&quot;, so if it exists, end method without doing anything.
+<span class="nc" id="L152">                return;</span>
+            }
+<span class="nc" id="L154">        } catch (SQLException e) {</span>
+<span class="nc" id="L155">            e.printStackTrace();</span>
+<span class="nc" id="L156">            throw new AceException(e.getMessage());</span>
+<span class="nc" id="L157">        }</span>
+
+        // Create the database.
+<span class="nc" id="L160">        String createDB = &quot;CREATE DATABASE &quot; + this.dbName</span>
+                + &quot; WITH OWNER= &quot; + this.user 
+                + &quot; ENCODING = 'UTF8' TEMPLATE = template0 &quot; 
+                + &quot; CONNECTION LIMIT = -1;&quot;;
+<span class="nc" id="L164">        try (Connection adminConn = getAdminConnection(adminUser, adminPwd);</span>
+<span class="nc" id="L165">             Statement stmt = adminConn.createStatement())</span>
+        {
+<span class="nc" id="L167">            stmt.execute(createDB);</span>
+<span class="nc" id="L168">        } catch (SQLException e) {</span>
+<span class="nc" id="L169">            e.printStackTrace();</span>
+<span class="nc" id="L170">            throw new AceException(e.getMessage());</span>
+<span class="nc" id="L171">        }</span>
+
+        //rs id, cose encoding, default expiration time, psk, rpk
+<span class="nc" id="L174">        String createRs = &quot;CREATE TABLE &quot; +  DBConnector.rsTable + &quot;(&quot;</span>
+                + DBConnector.rsIdColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.expColumn + &quot; bigint NOT NULL, &quot;
+                + DBConnector.tokenPskColumn + &quot; bytea, &quot;
+                + DBConnector.authPskColumn + &quot; bytea, &quot;        
+                + DBConnector.rpkColumn + &quot; bytea,&quot;
+                + &quot;PRIMARY KEY (&quot; + DBConnector.rsIdColumn + &quot;));&quot;;
+
+<span class="nc" id="L182">        String createC = &quot;CREATE TABLE &quot; +  DBConnector.cTable + &quot; (&quot;</span>
+                + DBConnector.clientIdColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.defaultAud + &quot; varchar(255), &quot;
+                + DBConnector.defaultScope + &quot; varchar(255), &quot;
+                + DBConnector.authPskColumn + &quot; bytea, &quot;
+                + DBConnector.rpkColumn + &quot; bytea,&quot;
+                + &quot;PRIMARY KEY (&quot; + DBConnector.clientIdColumn + &quot;));&quot;;
+
+<span class="nc" id="L190">        String createProfiles = &quot;CREATE TABLE &quot;</span>
+                + DBConnector.profilesTable + &quot;(&quot;
+                + DBConnector.idColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.profileColumn + &quot; varchar(255) NOT NULL);&quot;;
+
+<span class="nc" id="L195">        String keyType = &quot;CREATE TYPE keytype AS ENUM ('PSK', 'RPK', 'TST');&quot;;</span>
+
+<span class="nc" id="L197">        String createKeyTypes = &quot;CREATE TABLE &quot;</span>
+                + DBConnector.keyTypesTable + &quot;(&quot;
+                + DBConnector.idColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.keyTypeColumn + &quot; keytype);&quot;;
+
+<span class="nc" id="L202">        String createScopes = &quot;CREATE TABLE &quot;</span>
+                + DBConnector.scopesTable + &quot;(&quot;
+                + DBConnector.rsIdColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.scopeColumn + &quot; varchar(255) NOT NULL);&quot;;
+
+<span class="nc" id="L207">        String tokenType </span>
+            = &quot;CREATE TYPE tokenType AS ENUM ('CWT', 'REF', 'TST');&quot;;
+
+<span class="nc" id="L210">        String createTokenTypes = &quot;CREATE TABLE &quot;</span>
+                + DBConnector.tokenTypesTable + &quot;(&quot;
+                + DBConnector.rsIdColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.tokenTypeColumn + &quot; tokenType);&quot;;
+
+<span class="nc" id="L215">        String createAudiences = &quot;CREATE TABLE &quot;</span>
+                + DBConnector.audiencesTable + &quot;(&quot;
+                + DBConnector.rsIdColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.audColumn + &quot; varchar(255) NOT NULL);&quot;;
+
+<span class="nc" id="L220">        String createCose =  &quot;CREATE TABLE &quot;</span>
+                + DBConnector.coseTable + &quot;(&quot;
+                + DBConnector.rsIdColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.coseColumn + &quot; varchar(255) NOT NULL);&quot;;
+
+<span class="nc" id="L225">        String createClaims = &quot;CREATE TABLE &quot;</span>
+                + DBConnector.claimsTable + &quot;(&quot;
+                + DBConnector.ctiColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.claimNameColumn + &quot; SMALLINT NOT NULL,&quot;
+                + DBConnector.claimValueColumn + &quot; bytea);&quot;;
+        
+<span class="nc" id="L231">        String createOldTokens = &quot;CREATE TABLE &quot;</span>
+                + DBConnector.oldTokensTable + &quot;(&quot;
+                + DBConnector.ctiColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.claimNameColumn + &quot; SMALLINT NOT NULL,&quot;
+                + DBConnector.claimValueColumn + &quot; bytea);&quot;;
+        
+<span class="nc" id="L237">        String createCtiCtr = &quot;CREATE TABLE &quot;</span>
+                + DBConnector.ctiCounterTable + &quot;(&quot;
+                + DBConnector.ctiCounterColumn + &quot; bigint);&quot;;
+
+<span class="nc" id="L241">        String initCtiCtr = &quot;INSERT INTO &quot;</span>
+                + DBConnector.ctiCounterTable
+                + &quot; VALUES (0);&quot;;
+
+<span class="nc" id="L245">        String createTokenLog = &quot;CREATE TABLE &quot;</span>
+                + DBConnector.cti2clientTable + &quot;(&quot;
+                + DBConnector.ctiColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.clientIdColumn + &quot; varchar(255) NOT NULL,&quot;
+                + &quot; PRIMARY KEY (&quot; + DBConnector.ctiColumn + &quot;));&quot;;
+        
+<span class="nc" id="L251">        String createGrant2Cti = &quot;CREATE TABLE &quot;</span>
+                + DBConnector.grant2ctiTable + &quot;(&quot;
+                + DBConnector.grantColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.ctiColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.grantValidColumn + &quot; BOOLEAN DEFAULT TRUE, &quot;
+                + &quot; PRIMARY KEY (&quot; + DBConnector.grantColumn + &quot;,&quot;
+                + DBConnector.ctiColumn + &quot;));&quot;;
+            
+<span class="nc" id="L259">        String createGrant2RSInfo = &quot;CREATE TABLE &quot;</span>
+                + DBConnector.grant2RSInfoTable + &quot;(&quot;
+                + DBConnector.grantColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.claimNameColumn + &quot; SMALLINT NOT NULL,&quot;
+                + DBConnector.claimValueColumn + &quot; bytea);&quot;;
+
+        // Table creation in PostgreSQL needs to be done with a connection 
+        //using the local user and not the admin user, so that the local 
+        //user will be automatically set as the owner of the tables.
+<span class="nc" id="L268">        try (Connection adminConn = getDBConnection();</span>
+<span class="nc" id="L269">             Statement stmt = adminConn.createStatement())</span>
+        {
+<span class="nc" id="L271">            stmt.execute(createRs);</span>
+<span class="nc" id="L272">            stmt.execute(createC);</span>
+<span class="nc" id="L273">            stmt.execute(createProfiles);</span>
+<span class="nc" id="L274">            stmt.execute(keyType);</span>
+<span class="nc" id="L275">            stmt.execute(createKeyTypes);</span>
+<span class="nc" id="L276">            stmt.execute(createScopes);</span>
+<span class="nc" id="L277">            stmt.execute(tokenType);</span>
+<span class="nc" id="L278">            stmt.execute(createTokenTypes);</span>
+<span class="nc" id="L279">            stmt.execute(createAudiences);</span>
+<span class="nc" id="L280">            stmt.execute(createCose);</span>
+<span class="nc" id="L281">            stmt.execute(createClaims);</span>
+<span class="nc" id="L282">            stmt.execute(createOldTokens);</span>
+<span class="nc" id="L283">            stmt.execute(createCtiCtr);</span>
+<span class="nc" id="L284">            stmt.execute(initCtiCtr);</span>
+<span class="nc" id="L285">            stmt.execute(createTokenLog);</span>
+<span class="nc" id="L286">            stmt.execute(createGrant2Cti);</span>
+<span class="nc" id="L287">            stmt.execute(createGrant2RSInfo);</span>
+<span class="nc" id="L288">        } catch (SQLException e) {</span>
+<span class="nc" id="L289">            e.printStackTrace();</span>
+<span class="nc" id="L290">            throw new AceException(e.getMessage());</span>
+<span class="nc" id="L291">        }</span>
+<span class="nc" id="L292">    }</span>
+
+    @Override
+    public String updateEngineSpecificSQL(String sqlQuery)
+    {
+        // In PostgreSQL, enums need casting.
+<span class="nc bnc" id="L298" title="All 4 branches missed.">        if(sqlQuery.contains(&quot;INSERT&quot;) &amp;&amp; sqlQuery.contains(</span>
+                DBConnector.keyTypesTable)) {
+<span class="nc" id="L300">            return &quot;INSERT INTO &quot; + DBConnector.keyTypesTable </span>
+                    + &quot; VALUES (?,?::keytype)&quot;;
+        }
+<span class="nc bnc" id="L303" title="All 4 branches missed.">        if(sqlQuery.contains(&quot;INSERT&quot;) &amp;&amp; sqlQuery.contains(</span>
+                DBConnector.tokenTypesTable)) {
+<span class="nc" id="L305">            return &quot;INSERT INTO &quot; + DBConnector.tokenTypesTable </span>
+                    + &quot; VALUES (?,?::tokentype)&quot;;
+        }
+
+        // Create table statements do not take the db name in PostgreSQL.
+<span class="nc bnc" id="L310" title="All 2 branches missed.">        if (sqlQuery.contains(&quot;CREATE TABLE&quot;)) {</span>
+<span class="nc" id="L311">           String ret = sqlQuery;</span>
+<span class="nc bnc" id="L312" title="All 2 branches missed.">           if (sqlQuery.contains(this.dbName + &quot;.&quot;)) {</span>
+<span class="nc" id="L313">               ret = sqlQuery.replace(this.dbName + &quot;.&quot;, &quot;&quot;);</span>
+           }
+<span class="nc" id="L315">           return ret;</span>
+        }        
+<span class="nc" id="L317">        return sqlQuery;</span>
+    }
+
+    @Override
+    public void wipeDB(String adminUser, String adminPwd) throws AceException
+    {
+<span class="nc" id="L323">        try (Connection adminConn = getAdminConnection(adminUser, adminPwd);</span>
+<span class="nc" id="L324">             Statement stmt = adminConn.createStatement())</span>
+        {
+<span class="nc" id="L326">            String dropConnections = &quot;SELECT pg_terminate_backend(pg_stat_activity.pid) &quot; </span>
+                    + &quot;    FROM pg_stat_activity &quot; 
+                    + &quot;    WHERE pg_stat_activity.datname = '&quot; 
+                    + this.dbName + &quot;'&quot; 
+                    + &quot;      AND pid &lt;&gt; pg_backend_pid();&quot;;
+<span class="nc" id="L331">            String dropDB = &quot;DROP DATABASE IF EXISTS &quot; + this.dbName + &quot;;&quot;;</span>
+<span class="nc" id="L332">            String dropUser = &quot;DROP USER IF EXISTS &quot; + this.user + &quot;;&quot;;</span>
+<span class="nc" id="L333">            stmt.execute(dropConnections);</span>
+<span class="nc" id="L334">            stmt.execute(dropDB);</span>
+<span class="nc" id="L335">            stmt.execute(dropUser);</span>
+<span class="nc" id="L336">        } catch (SQLException e) {</span>
+<span class="nc" id="L337">            throw new AceException(e.getMessage());</span>
+<span class="nc" id="L338">        }</span>
+<span class="nc" id="L339">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

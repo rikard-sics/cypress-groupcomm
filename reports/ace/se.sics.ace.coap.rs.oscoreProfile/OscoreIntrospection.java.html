@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OscoreIntrospection.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.coap.rs.oscoreProfile</a> &gt; <span class="el_source">OscoreIntrospection.java</span></div><h1>OscoreIntrospection.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.coap.rs.oscoreProfile;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.logging.Logger;
+
+import org.eclipse.californium.core.CoapClient;
+import org.eclipse.californium.core.CoapResponse;
+import org.eclipse.californium.core.coap.CoAP.Code;
+import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+import org.eclipse.californium.core.coap.Request;
+import org.eclipse.californium.core.network.CoapEndpoint;
+import org.eclipse.californium.elements.exception.ConnectorException;
+import org.eclipse.californium.oscore.OSCoreCoapStackFactory;
+import org.eclipse.californium.oscore.OSCoreCtx;
+import org.eclipse.californium.oscore.OSCoreCtxDB;
+import org.eclipse.californium.oscore.OSException;
+
+import com.upokecenter.cbor.CBORObject;
+
+import org.eclipse.californium.cose.CoseException;
+
+import se.sics.ace.AceException;
+import se.sics.ace.Constants;
+import se.sics.ace.rs.IntrospectionException;
+import se.sics.ace.rs.IntrospectionHandler;
+
+/**
+ * An introspection handler using CoAPS (i.e. CoAP over DTLS) to connect to an AS.
+ *
+ * @author Ludwig Seitz and Marco Tiloca
+ *
+ */
+public class OscoreIntrospection implements IntrospectionHandler {
+    
+    /**
+     * The logger
+     */
+<span class="fc" id="L71">    private static final Logger LOGGER </span>
+<span class="fc" id="L72">        = Logger.getLogger(OscoreIntrospection.class.getName());</span>
+    
+    /**
+     * The CoAP client
+     */
+<span class="fc" id="L77">    private CoapClient client = null;</span>
+    
+    
+    
+    /**
+     * Constructor, builds a client that uses an OSCORE context.
+     * 
+     * @param ctx  the OSCORE context between the introspector (typically RS)
+     *      and the AS
+     * @param introspectAddress  the IP address of the introspect endpoint
+     *
+     * @throws CoseException
+     * @throws IOException 
+     * @throws OSException 
+     * 
+     */
+    public OscoreIntrospection(OSCoreCtx ctx, String introspectAddress, OSCoreCtxDB db) 
+<span class="fc" id="L94">            throws CoseException, IOException, OSException {</span>
+        
+<span class="fc" id="L96">        db.addContext(ctx);</span>
+<span class="fc" id="L97">        db.addContext(introspectAddress, ctx);</span>
+<span class="fc" id="L98">        this.client = new CoapClient(introspectAddress);</span>
+<span class="fc" id="L99">        CoapEndpoint.Builder ceb = new CoapEndpoint.Builder();</span>
+<span class="fc" id="L100">        ceb.setCoapStackFactory(new OSCoreCoapStackFactory());</span>
+<span class="fc" id="L101">        ceb.setCustomCoapStackArgument(db);</span>
+<span class="fc" id="L102">        this.client.setEndpoint(ceb.build());</span>
+<span class="fc" id="L103">    }</span>
+      
+    @Override
+    public Map&lt;Short, CBORObject&gt; getParams(byte[] tokenReference) 
+            throws AceException, IntrospectionException {
+<span class="fc" id="L108">        LOGGER.info(&quot;Sending introspection request on &quot; + tokenReference);</span>
+<span class="fc" id="L109">        Map&lt;Short, CBORObject&gt; params = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L110">        params.put(Constants.TOKEN, CBORObject.FromObject(CBORObject.FromObject(tokenReference).EncodeToBytes()));</span>
+<span class="fc" id="L111">        params.put(Constants.TOKEN_TYPE_HINT, CBORObject.FromObject(&quot;pop&quot;)); </span>
+        CoapResponse response;
+<span class="fc" id="L113">        Request r = new Request(Code.POST);</span>
+<span class="fc" id="L114">        r.setPayload(Constants.getCBOR(params).EncodeToBytes());</span>
+<span class="fc" id="L115">        r.getOptions().setOscore(new byte[0]);</span>
+        try {
+<span class="fc" id="L117">            response = this.client.advanced(r);</span>
+<span class="nc" id="L118">        } catch (ConnectorException | IOException e) {</span>
+<span class="nc" id="L119">            throw new AceException(&quot;Connector/IO Error: &quot; + e.getMessage());</span>
+<span class="fc" id="L120">        }    </span>
+<span class="pc bpc" id="L121" title="1 of 2 branches missed.">        if (response == null) {</span>
+<span class="nc" id="L122">            throw new AceException(&quot;AS didn't respond&quot;);</span>
+        }
+<span class="pc bpc" id="L124" title="1 of 2 branches missed.">        if (!response.getCode().equals(ResponseCode.CREATED)) {</span>
+            //Some error happened
+<span class="nc bnc" id="L126" title="All 2 branches missed.">            if (response.getPayload() == null) {//This was a server error</span>
+<span class="nc" id="L127">                throw new IntrospectionException(response.getCode().value, &quot;&quot;);</span>
+            }
+            //Client error
+<span class="nc" id="L130">            throw new IntrospectionException(response.getCode().value, </span>
+<span class="nc" id="L131">                    CBORObject.DecodeFromBytes(</span>
+<span class="nc" id="L132">                            response.getPayload()).toString());</span>
+        }
+<span class="fc" id="L134">        CBORObject res = CBORObject.DecodeFromBytes(response.getPayload());</span>
+<span class="fc" id="L135">        Map&lt;Short, CBORObject&gt; map = Constants.getParams(res);</span>
+<span class="fc" id="L136">        return map;</span>
+        
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

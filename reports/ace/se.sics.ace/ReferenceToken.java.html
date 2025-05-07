@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReferenceToken.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace</a> &gt; <span class="el_source">ReferenceToken.java</span></div><h1>ReferenceToken.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace;
+
+import java.security.SecureRandom;
+import java.util.Base64;
+import java.util.Map;
+
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+
+import se.sics.ace.rs.IntrospectionException;
+import se.sics.ace.rs.IntrospectionHandler;
+
+/**
+ * This class implements a reference token.
+ * 
+ * @author Ludwig Seitz
+ *
+ */
+public class ReferenceToken implements AccessToken {
+
+	/**
+	 * The reference 
+	 */
+	private byte[] ref;
+	
+	/**
+	 * The reference as Base64 encoded string
+	 */
+	private String refS;
+	
+	/**
+	 * A handler for introspecting this token.
+	 */
+	private IntrospectionHandler introspect;
+	
+	/**
+	 * Constructor.
+	 * 
+	 * @param length  the length in bits of the reference.
+	 */
+<span class="fc" id="L72">	public ReferenceToken(int length) {		</span>
+<span class="fc" id="L73">		this.ref = new byte[length];</span>
+<span class="fc" id="L74">		new SecureRandom().nextBytes(this.ref);</span>
+<span class="fc" id="L75">		this.refS = Base64.getEncoder().encodeToString(this.ref);</span>
+<span class="fc" id="L76">	}</span>
+	
+	/**
+	 * Constructor. Uses the default
+	 * length of 128 bits for the reference.
+	 */
+<span class="nc" id="L82">	public ReferenceToken() {</span>
+<span class="nc" id="L83">	    this.ref = new byte[128/8];</span>
+<span class="nc" id="L84">	    new SecureRandom().nextBytes(this.ref);</span>
+<span class="nc" id="L85">	    this.refS = Base64.getEncoder().encodeToString(this.ref);</span>
+<span class="nc" id="L86">	}</span>
+	
+	/**
+	 * Constructor. Uses a given cti as reference.
+	 * 
+	 * @param ref  the reference
+	 */
+<span class="fc" id="L93">	public ReferenceToken(byte[] ref) {</span>
+<span class="fc" id="L94">	    this.ref = ref;</span>
+<span class="fc" id="L95">        this.refS = Base64.getEncoder().encodeToString(this.ref); </span>
+<span class="fc" id="L96">	}</span>
+	
+	
+	/**
+	 * Add an introspection handler to this ReferenceToken in order to do 
+	 * introspection.
+	 * 
+	 * @param intropsect
+	 */
+	public void addIntrospectionHandler(IntrospectionHandler intropsect) {
+<span class="nc" id="L106">		this.introspect = intropsect;</span>
+<span class="nc" id="L107">	}</span>
+	
+	@Override
+	public boolean expired(long now) throws AceException {
+<span class="nc bnc" id="L111" title="All 2 branches missed.">		if (this.introspect == null) {</span>
+<span class="nc" id="L112">			throw new AceException(&quot;Need IntrospectionHandler&quot;);</span>
+		}
+<span class="nc" id="L114">		Map&lt;Short, CBORObject&gt; params = null;</span>
+        try {
+<span class="nc" id="L116">            params = this.introspect.getParams(this.ref);</span>
+<span class="nc" id="L117">        } catch (IntrospectionException e) {</span>
+<span class="nc" id="L118">            throw new AceException(&quot;Introspection failed: &quot;</span>
+<span class="nc" id="L119">                    + e.getMessage());</span>
+<span class="nc" id="L120">        }</span>
+<span class="nc bnc" id="L121" title="All 2 branches missed.">		if (params == null) {</span>
+<span class="nc" id="L122">		    throw new AceException(&quot;Token reference not found: &quot; + this.refS);</span>
+		}
+<span class="nc" id="L124">		CBORObject expO = params.get(Constants.EXP);</span>
+<span class="nc bnc" id="L125" title="All 4 branches missed.">		if (expO != null &amp;&amp; expO.AsNumber().ToInt64Checked() &lt; now) {</span>
+			//Token has expired
+<span class="nc" id="L127">			return true;</span>
+		}
+<span class="nc" id="L129">		return false;		</span>
+	}
+
+	@Override
+	public boolean isValid(long now) throws AceException {
+<span class="nc bnc" id="L134" title="All 2 branches missed.">		if (this.introspect == null) {</span>
+<span class="nc" id="L135">			throw new AceException(&quot;Need IntrospectionHandler&quot;);</span>
+		}
+<span class="nc" id="L137">		Map&lt;Short, CBORObject&gt; params = null;</span>
+        try {
+<span class="nc" id="L139">            params = this.introspect.getParams(this.ref);</span>
+<span class="nc" id="L140">        } catch (IntrospectionException e) {</span>
+<span class="nc" id="L141">            throw new AceException(&quot;Introspection failed: &quot;</span>
+<span class="nc" id="L142">                    + e.getMessage());</span>
+<span class="nc" id="L143">        }</span>
+<span class="nc bnc" id="L144" title="All 2 branches missed.">		if (params == null) {</span>
+<span class="nc" id="L145">		    throw new AceException(&quot;Token reference not found: &quot; + this.refS);</span>
+		}
+		//Check nbf and exp for the found match
+<span class="nc" id="L148">		CBORObject nbfO = params.get(Constants.NBF);</span>
+<span class="nc bnc" id="L149" title="All 4 branches missed.">		if (nbfO != null &amp;&amp;  nbfO.AsNumber().ToInt64Checked()	&gt; now) {</span>
+<span class="nc" id="L150">		    return false;</span>
+		}	
+<span class="nc" id="L152">		CBORObject expO = params.get(Constants.EXP);</span>
+<span class="nc bnc" id="L153" title="All 4 branches missed.">		if (expO != null &amp;&amp; expO.AsNumber().ToInt64Checked() &lt; now) {</span>
+		    //Token has expired
+<span class="nc" id="L155">		    return false;</span>
+		}
+<span class="nc" id="L157">		return false;</span>
+	}
+
+	@Override
+	public CBORObject encode() {
+<span class="fc" id="L162">		return CBORObject.FromObject(this.ref);</span>
+	}
+
+	/**
+	 * Parse a reference token from a CBOR object (must be a ByteString).
+	 * @param ob
+	 * @return  the reference token or null of the object didn't contain
+	 *          a valid String
+	 */
+	public static ReferenceToken parse(CBORObject ob) {
+<span class="pc bpc" id="L172" title="1 of 2 branches missed.">	   if (ob.getType().equals(CBORType.ByteString)) {</span>
+<span class="fc" id="L173">	       return new ReferenceToken(ob.GetByteString());</span>
+	   } 
+<span class="nc" id="L175">	   return null;</span>
+	}
+
+    @Override
+    public String getCti() throws AceException {
+<span class="fc" id="L180">        return this.refS;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

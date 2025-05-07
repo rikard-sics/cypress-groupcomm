@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>COSEparams.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace</a> &gt; <span class="el_source">COSEparams.java</span></div><h1>COSEparams.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace;
+
+import com.upokecenter.cbor.CBORObject;
+
+import org.eclipse.californium.cose.AlgorithmID;
+import org.eclipse.californium.cose.CoseException;
+import org.eclipse.californium.cose.MessageTag;
+
+/**
+ * General parameters of a COSE Message (i.e. not including message specific
+ * ones like key and IV).
+ * 
+ * @author Ludwig Seitz
+ *
+ */
+public class COSEparams {
+    
+    /**
+     * Identifies the type of COSE message
+     */
+    private MessageTag tag;
+    
+    /**
+     * Identifies the main algorithm
+     */
+    private AlgorithmID alg;
+    
+    /**
+     * Identifies the key wrapping method
+     */
+    private AlgorithmID keyWrap;
+    
+    
+    /**
+     * Constructor.
+     * 
+     * @param tag  the message type (MAC, MAC0, Sign1, Sign, ...)
+     * @param alg  the main algorithm (HMAC_SHA_256, AES_CCM_16_64_128, ...)
+     * @param keyWrap  the key wrap algorithm (Direct, AES_KW_128, ...)
+     */
+<span class="fc" id="L72">    public COSEparams(MessageTag tag, AlgorithmID alg, AlgorithmID keyWrap) {</span>
+<span class="fc" id="L73">        this.tag = tag;</span>
+<span class="fc" id="L74">        this.alg = alg;</span>
+<span class="fc" id="L75">        this.keyWrap = keyWrap;</span>
+<span class="fc" id="L76">    }</span>
+
+    /**
+     * @return  the message type (MAC, MAC0, Sign1, Sign, ...)
+     */
+    public MessageTag getTag() {
+<span class="fc" id="L82">        return this.tag;</span>
+    }
+
+    /**
+     * @return   the main algorithm (HMAC_SHA_256, AES_CCM_16_64_128, ...)
+     */
+    public AlgorithmID getAlg() {
+<span class="fc" id="L89">        return this.alg;</span>
+    }
+
+
+    /**
+     * @return  the key wrap algorithm (Direct, AES_KW_128, ...)
+     */
+    public AlgorithmID getKeyWrap() {
+<span class="nc" id="L97">        return this.keyWrap;</span>
+    }
+    
+    @Override
+    public String toString() {
+<span class="fc" id="L102">        return new String(this.tag.value + &quot;:&quot; + this.alg.AsCBOR().AsInt32() </span>
+<span class="fc" id="L103">                + &quot;:&quot; + this.keyWrap.AsCBOR().AsNumber().ToInt16Checked());</span>
+    }
+    
+    /**
+     * Parse an encoded set of COSE message parameters.
+     * 
+     * @param encoded  the encoded String.
+     * @return  the parsed parameter object
+     * @throws NumberFormatException
+     * @throws CoseException
+     */
+    public static COSEparams parse(String encoded) 
+                throws NumberFormatException, CoseException {
+<span class="fc" id="L116">        String[] params = encoded.split(&quot;:&quot;);</span>
+<span class="pc bpc" id="L117" title="1 of 2 branches missed.">        if (params.length != 3) {</span>
+<span class="nc" id="L118">            throw new IllegalArgumentException(</span>
+                    &quot;Not an encoded set of COSE message parameters&quot;);
+        }
+<span class="fc" id="L121">        return new COSEparams(</span>
+<span class="fc" id="L122">                MessageTag.FromInt(Integer.valueOf(params[0])),</span>
+<span class="fc" id="L123">                AlgorithmID.FromCBOR(CBORObject.FromObject(</span>
+<span class="fc" id="L124">                        Integer.valueOf(params[1]))),</span>
+<span class="fc" id="L125">                AlgorithmID.FromCBOR(CBORObject.FromObject(</span>
+<span class="fc" id="L126">                        Integer.valueOf(params[2]))));</span>
+                
+    }
+    
+    @Override
+    public boolean equals(Object cose) {
+<span class="nc bnc" id="L132" title="All 2 branches missed.">        if (cose instanceof COSEparams) {</span>
+<span class="nc" id="L133">            COSEparams foo = (COSEparams)cose;</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">            if (this.tag.value != foo.tag.value) {</span>
+<span class="nc" id="L135">                return false;</span>
+            }
+<span class="nc bnc" id="L137" title="All 2 branches missed.">            if (this.alg.compareTo(foo.alg) != 0) {</span>
+<span class="nc" id="L138">                return false;</span>
+            }
+<span class="nc bnc" id="L140" title="All 2 branches missed.">            if (this.keyWrap.compareTo(foo.keyWrap) != 0) {</span>
+<span class="nc" id="L141">                return false;</span>
+            }
+<span class="nc" id="L143">            return true;</span>
+        }
+<span class="nc" id="L145">        return false;</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L150">        return 10000*this.tag.value + 100*this.alg.AsCBOR().AsInt32() </span>
+<span class="fc" id="L151">                + this.keyWrap.AsCBOR().AsInt32();</span>
+    }
+    
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

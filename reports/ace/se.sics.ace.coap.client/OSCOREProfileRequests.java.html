@@ -1,0 +1,463 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OSCOREProfileRequests.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.coap.client</a> &gt; <span class="el_source">OSCOREProfileRequests.java</span></div><h1>OSCOREProfileRequests.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.coap.client;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.security.SecureRandom;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
+import java.util.logging.Logger;
+
+import org.eclipse.californium.core.CoapClient;
+import org.eclipse.californium.core.CoapResponse;
+import org.eclipse.californium.core.coap.CoAP;
+import org.eclipse.californium.core.coap.CoAP.Code;
+import org.eclipse.californium.core.coap.Request;
+import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.network.CoapEndpoint;
+import org.eclipse.californium.core.network.Endpoint;
+import org.eclipse.californium.elements.exception.ConnectorException;
+import org.eclipse.californium.oscore.CoapOSException;
+import org.eclipse.californium.oscore.OSCoreCoapStackFactory;
+import org.eclipse.californium.oscore.OSCoreCtx;
+import org.eclipse.californium.oscore.OSCoreCtxDB;
+import org.eclipse.californium.oscore.OSException;
+
+import com.upokecenter.cbor.CBORException;
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+
+import se.sics.ace.AceException;
+import se.sics.ace.Constants;
+import se.sics.ace.Util;
+import se.sics.ace.coap.rs.oscoreProfile.OscoreSecurityContext;
+
+
+/**
+ * Implements getting a token from the /token endpoint for a client 
+ * using the OSCORE profile.
+ * 
+ * Also implements POSTing the token to the /authz-info endpoint at the 
+ * RS.
+ * 
+ * Clients are expected to create an instance of this class when the want to
+ * perform token requests from a specific AS.
+ * 
+ * @author Ludwig Seitz and Marco Tiloca
+ *
+ */
+<span class="nc" id="L80">public class OSCOREProfileRequests {</span>
+    
+    /**
+     * The logger
+     */
+<span class="fc" id="L85">    private static final Logger LOGGER </span>
+<span class="fc" id="L86">        = Logger.getLogger(OSCOREProfileRequests.class.getName());</span>
+
+    /**
+     * Sends a POST request to the /token endpoint of the AS to request an
+     * access token.
+     * 
+     * @param asAddr  the full address of the /token endpoint
+     *  (including scheme and hostname, and port if not default)
+     * @param payload  the payload of the request.  Use the GetToken 
+     *  class to construct this payload
+     * @param ctx  the OSCORE context shared with the AS
+     * @param db the database of the OSCORE contexts
+     * 
+     * @return  the response 
+     *
+     * @throws AceException 
+     * @throws OSException 
+     */
+    public static Response getToken(String asAddr, CBORObject payload, 
+            OSCoreCtx ctx, OSCoreCtxDB db) throws AceException, OSException {
+
+<span class="fc" id="L107">        Request r = new Request(Code.POST);</span>
+<span class="fc" id="L108">        r.getOptions().setOscore(new byte[0]);</span>
+<span class="fc" id="L109">        r.setPayload(payload.EncodeToBytes());</span>
+        
+<span class="fc" id="L111">        db.addContext(asAddr, ctx);</span>
+        
+<span class="fc" id="L113">        CoapEndpoint.Builder builder = new CoapEndpoint.Builder();</span>
+<span class="fc" id="L114">        builder.setCoapStackFactory(new OSCoreCoapStackFactory());</span>
+<span class="fc" id="L115">        builder.setCustomCoapStackArgument(db);</span>
+<span class="fc" id="L116">        Endpoint clientEndpoint = builder.build();</span>
+<span class="fc" id="L117">        CoapClient client = new CoapClient(asAddr);</span>
+<span class="fc" id="L118">        client.setEndpoint(clientEndpoint);  </span>
+        try {        	
+<span class="fc" id="L120">            return client.advanced(r).advanced();</span>
+<span class="nc" id="L121">        } catch (ConnectorException | IOException e) {</span>
+<span class="nc" id="L122">            LOGGER.severe(&quot;Connector error: &quot; + e.getMessage());</span>
+<span class="nc" id="L123">            throw new AceException(e.getMessage());</span>
+        }
+    }
+    
+    /**
+     * Sends a POST request to the /authz-info endpoint of the RS to submit an
+     * access token.
+     * 
+     * @param rsAddr   the full address of the /authz-info endpoint
+     *  (including scheme and hostname, and port if not default)
+     * @param asResp   the response from the AS containing the token
+     *      and the access information
+     * @param db   the database of OSCORE Security Contexts
+     * @param usedRecipientIds   the collection of already in use OSCORE Recipient IDs, it can be null when updating access rights
+     * 
+     * @return  the response 
+     *
+     * @throws AceException 
+     * @throws OSException 
+     */
+    public static Response postToken(String rsAddr, Response asResp, OSCoreCtxDB db, List&lt;Set&lt;Integer&gt;&gt; usedRecipientIds) 
+            throws AceException, OSException {
+<span class="pc bpc" id="L145" title="1 of 2 branches missed.">        if (asResp == null) {</span>
+<span class="nc" id="L146">            throw new AceException(</span>
+                    &quot;asResp cannot be null when POSTing to authz-info&quot;);
+        }
+        
+        CBORObject asPayload;
+        
+        try {
+<span class="fc" id="L153">            asPayload = CBORObject.DecodeFromBytes(asResp.getPayload());</span>
+<span class="nc" id="L154">        } catch (CBORException e) {</span>
+<span class="nc" id="L155">            throw new AceException(&quot;Error parsing CBOR payload: &quot; </span>
+<span class="nc" id="L156">                    + e.getMessage());</span>
+<span class="fc" id="L157">        }</span>
+               
+<span class="pc bpc" id="L159" title="1 of 2 branches missed.">        if (!asPayload.getType().equals(CBORType.Map)) {</span>
+<span class="nc" id="L160">            throw new AceException(&quot;AS response was not a CBOR map&quot;);</span>
+        }
+        
+<span class="fc" id="L163">        CBORObject token = asPayload.get(CBORObject.FromObject(Constants.ACCESS_TOKEN));</span>
+<span class="pc bpc" id="L164" title="1 of 2 branches missed.">        if (token == null) {</span>
+<span class="nc" id="L165">            throw new AceException(&quot;AS response did not contain a token&quot;);</span>
+        }
+<span class="pc bpc" id="L167" title="1 of 2 branches missed.">        if (token.getType() != CBORType.ByteString) {</span>
+<span class="nc" id="L168">            throw new AceException(&quot;The token must be a CBOR byte string&quot;);</span>
+        }
+        
+<span class="fc" id="L171">        CBORObject cnf = asPayload.get(</span>
+<span class="fc" id="L172">                CBORObject.FromObject(Constants.CNF));</span>
+<span class="pc bpc" id="L173" title="1 of 2 branches missed.">        if (cnf == null) {</span>
+<span class="nc" id="L174">            throw new AceException(&quot;AS response did not contain a cnf&quot;);</span>
+        }
+      
+<span class="pc bpc" id="L177" title="2 of 4 branches missed.">        if (!cnf.ContainsKey(Constants.OSCORE_Input_Material) || cnf.ContainsKey(Constants.COSE_KID_CBOR)) {</span>
+<span class="nc" id="L178">        	throw new AceException(&quot;Invalid format of cnf&quot;);</span>
+        }
+        
+<span class="fc" id="L181">        CBORObject payload = CBORObject.NewMap();</span>
+<span class="fc" id="L182">        payload.Add(Constants.ACCESS_TOKEN, token);</span>
+        
+<span class="fc" id="L184">        byte[] n1 = new byte[8];</span>
+<span class="fc" id="L185">        new SecureRandom().nextBytes(n1);</span>
+<span class="fc" id="L186">        payload.Add(Constants.NONCE1, n1);</span>
+        
+<span class="fc" id="L188">        byte[] recipientId = null;</span>
+<span class="fc" id="L189">		byte[] contextId = new byte[0];</span>
+<span class="fc" id="L190">        int recipientIdAsInt = -1;</span>
+<span class="fc" id="L191">        boolean found = false;</span>
+        
+        // Determine an available Recipient ID to offer to the Resource Server as ID1
+<span class="fc" id="L194">        synchronized(usedRecipientIds) {</span>
+<span class="fc" id="L195">        	synchronized(db) {</span>
+        	
+	        	int maxIdValue;
+	        	
+<span class="fc bfc" id="L199" title="All 2 branches covered.">    			if (cnf.get(Constants.OSCORE_Input_Material).ContainsKey(Constants.OS_CONTEXTID)) {</span>
+<span class="fc" id="L200">    				contextId = cnf.get(Constants.OSCORE_Input_Material).get(Constants.OS_CONTEXTID).GetByteString();</span>
+    			}
+	        	
+		        // Start with 1 byte as size of Recipient ID; try with up to 4 bytes in size        
+<span class="pc bpc" id="L204" title="1 of 2 branches missed.">		        for (int idSize = 1; idSize &lt;= 4; idSize++) {</span>
+		        	
+<span class="pc bpc" id="L206" title="1 of 2 branches missed.">		        	if (idSize == 4)</span>
+<span class="nc" id="L207">		        		maxIdValue = (1 &lt;&lt; 31) - 1;</span>
+		        	else
+<span class="fc" id="L209">		        		maxIdValue = (1 &lt;&lt; (idSize * 8)) - 1;</span>
+		        	
+<span class="pc bpc" id="L211" title="1 of 2 branches missed.">			        for (int j = 0; j &lt;= maxIdValue; j++) {</span>
+			        	
+<span class="fc" id="L213">	        			recipientId = Util.intToBytes(j, idSize);</span>
+	        			
+	        			// This Recipient ID is marked as not available to use
+<span class="fc bfc" id="L216" title="All 2 branches covered.">	        			if (usedRecipientIds.get(idSize - 1).contains(j))</span>
+<span class="fc" id="L217">	        				continue;</span>
+	        			
+	        			try {
+				        	// This Recipient ID seems to be available to use 
+<span class="pc bpc" id="L221" title="1 of 2 branches missed.">			        		if (!usedRecipientIds.get(idSize - 1).contains(j)) {</span>
+			        			
+			        			// Double check in the database of OSCORE Security Contexts
+<span class="pc bpc" id="L224" title="1 of 2 branches missed.">			        			if (db.getContext(recipientId, contextId) != null) {</span>
+			        				
+			        				// A Security Context with this Recipient ID exists and was not tracked!
+			        				// Update the local list of used Recipient IDs, then move on to the next candidate
+<span class="nc" id="L228">			        				usedRecipientIds.get(idSize - 1).add(j);</span>
+<span class="nc" id="L229">			        				continue;</span>
+			        				
+			        			}
+			        			else {
+			        				
+			        				// This Recipient ID is actually available at the moment. Add it to the local list
+<span class="fc" id="L235">			        				usedRecipientIds.get(idSize - 1).add(j);</span>
+<span class="fc" id="L236">			        				recipientIdAsInt = j;</span>
+<span class="fc" id="L237">			        				found = true;</span>
+<span class="fc" id="L238">			        				break;</span>
+			        			}
+			        			
+			        		}
+	        			}
+<span class="nc" id="L243">		        		catch(CoapOSException e) {</span>
+	        				// Multiple Security Contexts with this Recipient ID exist and it was not tracked!
+	        				// Update the local list of used Recipient IDs, then move on to the next candidate
+<span class="nc" id="L246">	        				usedRecipientIds.get(idSize - 1).add(j);</span>
+<span class="nc" id="L247">	        				continue;</span>
+<span class="nc" id="L248">		        		}</span>
+		        			
+			        }
+			        
+<span class="pc bpc" id="L252" title="1 of 2 branches missed.">			        if (found)</span>
+<span class="fc" id="L253">			        	break;</span>
+			        	
+		        }
+<span class="fc" id="L256">        	}</span>
+<span class="fc" id="L257">        }</span>
+
+<span class="pc bpc" id="L259" title="1 of 2 branches missed.">        if (!found) {</span>
+<span class="nc" id="L260">            throw new AceException(&quot;No Recipient ID available to use&quot;);</span>
+        }
+<span class="fc" id="L262">        payload.Add(Constants.ACE_CLIENT_RECIPIENTID, recipientId);</span>
+               
+<span class="fc" id="L264">        CoapClient client = null;</span>
+        CBORObject rsPayload;
+<span class="fc" id="L266">    	Response resp = null;</span>
+<span class="fc" id="L267">    	client = new CoapClient(rsAddr);</span>
+
+        try {
+<span class="fc" id="L270">        	LOGGER.finest(&quot;Sending request payload: &quot; + payload);</span>
+<span class="fc" id="L271">        	resp = client.post(</span>
+<span class="fc" id="L272">                    payload.EncodeToBytes(), </span>
+<span class="fc" id="L273">                    Constants.APPLICATION_ACE_CBOR).advanced();</span>
+<span class="nc" id="L274">        } catch (ConnectorException | IOException ex) {</span>
+<span class="nc bnc" id="L275" title="All 2 branches missed.">        	if (recipientIdAsInt != -1) {</span>
+<span class="nc" id="L276">        		usedRecipientIds.get(recipientId.length - 1).remove(recipientIdAsInt);</span>
+        	}
+<span class="nc" id="L278">            LOGGER.severe(&quot;Connector error: &quot; + ex.getMessage());</span>
+<span class="nc" id="L279">            throw new AceException(ex.getMessage());</span>
+<span class="fc" id="L280">        }</span>
+        
+<span class="pc bpc" id="L282" title="1 of 2 branches missed.">        if (resp == null) {</span>
+<span class="nc" id="L283">            throw new AceException(&quot;RS did not respond&quot;);</span>
+        }
+        
+        try {
+<span class="fc" id="L287">            rsPayload = CBORObject.DecodeFromBytes(resp.getPayload());</span>
+<span class="nc" id="L288">        } catch (CBORException e) {</span>
+<span class="nc" id="L289">            throw new AceException(&quot;Error parsing CBOR payload: &quot; + e.getMessage());</span>
+<span class="fc" id="L290">        }</span>
+                
+<span class="pc bpc" id="L292" title="1 of 2 branches missed.">        if (!rsPayload.getType().equals(CBORType.Map)) {</span>
+<span class="nc" id="L293">            throw new AceException(&quot;RS didn't respond with a CBOR map&quot;);</span>
+        }
+
+<span class="fc" id="L296">        CBORObject n2C = rsPayload.get(</span>
+<span class="fc" id="L297">                CBORObject.FromObject(Constants.NONCE2));</span>
+<span class="pc bpc" id="L298" title="2 of 4 branches missed.">        if (n2C == null || !n2C.getType().equals(CBORType.ByteString)) {</span>
+<span class="nc" id="L299">            throw new AceException(&quot;Missing or malformed 'nonce2' in RS response&quot;);</span>
+        }
+        
+<span class="fc" id="L302">        byte[] n2 = n2C.GetByteString();</span>
+        
+<span class="fc" id="L304">        CBORObject senderIdCBOR = rsPayload.get(</span>
+<span class="fc" id="L305">                CBORObject.FromObject(Constants.ACE_SERVER_RECIPIENTID));</span>
+<span class="pc bpc" id="L306" title="2 of 4 branches missed.">        if (senderIdCBOR == null || !senderIdCBOR.getType().equals(CBORType.ByteString)) {</span>
+<span class="nc" id="L307">            throw new AceException(&quot;Missing or malformed 'id2' in RS response&quot;);</span>
+        }
+        
+<span class="fc" id="L310">        byte[] senderId = senderIdCBOR.GetByteString();</span>
+            
+		// The Recipient ID must be different than what offered by the Resource Server in the 'id2' parameter
+<span class="pc bpc" id="L313" title="1 of 2 branches missed.">		if(Arrays.equals(senderId, recipientId)) {</span>
+<span class="nc" id="L314">            throw new AceException(&quot;The Resource Server returned the ID offered by the Client&quot;);</span>
+		}
+        	
+<span class="fc" id="L317">    	cnf.get(Constants.OSCORE_Input_Material).Add(Constants.OS_CLIENTID, CBORObject.FromObject(senderId));</span>
+<span class="fc" id="L318">    	cnf.get(Constants.OSCORE_Input_Material).Add(Constants.OS_SERVERID, CBORObject.FromObject(recipientId));</span>
+        
+<span class="fc" id="L320">        OscoreSecurityContext osc = new OscoreSecurityContext(cnf);</span>
+        
+<span class="fc" id="L322">        OSCoreCtx ctx = osc.getContext(true, n1, n2);</span>
+        
+<span class="fc" id="L324">        synchronized(db) {</span>
+        	
+<span class="fc" id="L326">        	boolean install = true;</span>
+        	
+			try {
+        			
+				// Double check in the database that the OSCORE Security Context
+				// with the selected Recipient ID is actually still not present
+<span class="pc bpc" id="L332" title="1 of 2 branches missed.">    			if (db.getContext(recipientId, contextId) != null) {</span>
+    				// A Security Context with this Recipient ID exists!
+<span class="nc" id="L334">    				install = false;</span>
+    			}        			
+			}
+<span class="nc" id="L337">    		catch(CoapOSException e) {</span>
+				// Multiple Security Contexts with this Recipient ID exist!
+<span class="nc" id="L339">				install = false;</span>
+<span class="fc" id="L340">    		}</span>
+        	
+<span class="pc bpc" id="L342" title="1 of 2 branches missed.">			if (install)</span>
+<span class="fc" id="L343">				db.addContext(rsAddr, ctx);</span>
+			else
+<span class="nc" id="L345">				throw new AceException(&quot;An OSCORE Security Context with the same Recipient ID&quot;</span>
+						               + &quot; has been installed while running the OSCORE profile&quot;);
+<span class="fc" id="L347">        }</span>
+        
+<span class="fc" id="L349">        return resp;</span>
+        
+    }
+    
+    
+    /**
+     * Sends a POST request to the /authz-info endpoint of the RS to submit an
+     * access token for updating access rights.
+     * 
+     * @param rsAddr   the full address of the /authz-info endpoint
+     *  (including scheme and hostname, and port if not default)
+     * @param asResp   the response from the AS containing the token
+     *      and the access information
+     * @param db   the database of OSCORE Security Contexts
+     * 
+     * @return  the response 
+     *
+     * @throws AceException 
+     * @throws OSException 
+     */
+    public static CoapResponse postTokenUpdate(String rsAddr, Response asResp, OSCoreCtxDB db) 
+            throws AceException, OSException {
+<span class="pc bpc" id="L371" title="1 of 2 branches missed.">        if (asResp == null) {</span>
+<span class="nc" id="L372">            throw new AceException(&quot;asResp cannot be null when POSTing to authz-info&quot;);</span>
+        }
+        
+        CBORObject asPayload;
+        
+        try {
+<span class="fc" id="L378">            asPayload = CBORObject.DecodeFromBytes(asResp.getPayload());</span>
+<span class="nc" id="L379">        } catch (CBORException e) {</span>
+<span class="nc" id="L380">            throw new AceException(&quot;Error parsing CBOR payload: &quot; + e.getMessage());</span>
+<span class="fc" id="L381">        }</span>
+               
+<span class="pc bpc" id="L383" title="1 of 2 branches missed.">        if (!asPayload.getType().equals(CBORType.Map)) {</span>
+<span class="nc" id="L384">            throw new AceException(&quot;AS response was not a CBOR map&quot;);</span>
+        }
+        
+<span class="fc" id="L387">        CBORObject token = asPayload.get(CBORObject.FromObject(Constants.ACCESS_TOKEN));</span>
+<span class="pc bpc" id="L388" title="1 of 2 branches missed.">        if (token == null) {</span>
+<span class="nc" id="L389">            throw new AceException(&quot;AS response did not contain a token&quot;);</span>
+        }
+<span class="pc bpc" id="L391" title="1 of 2 branches missed.">        if (token.getType() != CBORType.ByteString) {</span>
+<span class="nc" id="L392">            throw new AceException(&quot;The token must be a CBOR byte string&quot;);</span>
+        }
+        
+<span class="pc bpc" id="L395" title="1 of 2 branches missed.">        if (asPayload.ContainsKey(Constants.CNF)) {</span>
+<span class="nc" id="L396">            throw new AceException(&quot;AS response must not contain a cnf&quot;);</span>
+        }
+        
+<span class="fc" id="L399">        CBORObject payload = CBORObject.NewMap();</span>
+<span class="fc" id="L400">        payload.Add(Constants.ACCESS_TOKEN, token);</span>
+        
+<span class="fc" id="L402">    	CoapResponse resp = null;</span>
+
+    	// The Token has to be posted through an OSCORE-protected request
+<span class="fc" id="L405">        LOGGER.finest(&quot;Sending request payload: &quot; + payload);</span>
+<span class="fc" id="L406">        CoapClient client = OSCOREProfileRequests.getClient(new InetSocketAddress(</span>
+        		rsAddr, CoAP.DEFAULT_COAP_PORT), db);
+    	
+<span class="fc" id="L409">        Request req = new Request(CoAP.Code.POST);</span>
+<span class="fc" id="L410">        req.getOptions().setContentFormat(Constants.APPLICATION_ACE_CBOR);</span>
+<span class="fc" id="L411">        req.getOptions().setOscore(new byte[0]);</span>
+<span class="fc" id="L412">        req.setPayload(payload.EncodeToBytes());</span>
+        try {
+<span class="fc" id="L414">        	resp = client.advanced(req);</span>
+<span class="nc" id="L415">		} catch (ConnectorException | IOException ex) {</span>
+<span class="nc" id="L416">            LOGGER.severe(&quot;Connector error: &quot; + ex.getMessage());</span>
+<span class="nc" id="L417">            throw new AceException(ex.getMessage());</span>
+<span class="fc" id="L418">		}</span>
+        
+<span class="pc bpc" id="L420" title="1 of 2 branches missed.">        if (resp == null) {</span>
+<span class="nc" id="L421">            throw new AceException(&quot;RS did not respond&quot;);</span>
+        }
+        
+<span class="fc" id="L424">        return resp;</span>
+        
+    }
+    
+    
+    /**
+     * Generates a Coap client for sending requests to an RS using OSCORE.
+     * Note that the OSCORE context for the RS should already be configured 
+     * in the OSCoreCtxDb at this point.
+     * 
+     * @param serverAddress  the address of the server and resource this client
+     *  should talk to.
+     * 
+     * @return  a CoAP client configured to pass the access token through the
+     *  psk-identity in the handshake 
+     * @throws AceException 
+     * @throws OSException 
+     * @throws URISyntaxException 
+     */
+    public static CoapClient getClient(InetSocketAddress serverAddress, OSCoreCtxDB db) 
+            throws AceException, OSException {
+<span class="pc bpc" id="L445" title="2 of 4 branches missed.">        if (serverAddress == null || serverAddress.getHostString() == null) {</span>
+<span class="nc" id="L446">            throw new IllegalArgumentException(</span>
+                    &quot;Client requires a non-null server address&quot;);
+        }
+
+<span class="pc bpc" id="L450" title="1 of 2 branches missed.">        if (db.getContext(serverAddress.getHostName()) == null) {</span>
+<span class="nc" id="L451">            throw new AceException(&quot;OSCORE context not set for address: &quot; </span>
+                    + serverAddress);
+        }
+<span class="fc" id="L454">        CoapEndpoint.Builder builder = new CoapEndpoint.Builder();</span>
+<span class="fc" id="L455">        builder.setCoapStackFactory(new OSCoreCoapStackFactory());</span>
+<span class="fc" id="L456">        builder.setCustomCoapStackArgument(db);</span>
+<span class="fc" id="L457">        Endpoint clientEndpoint = builder.build();</span>
+<span class="fc" id="L458">        CoapClient client = new CoapClient(serverAddress.getHostString());</span>
+<span class="fc" id="L459">        client.setEndpoint(clientEndpoint);</span>
+<span class="fc" id="L460">        return client;    </span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

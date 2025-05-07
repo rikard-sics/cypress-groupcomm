@@ -1,0 +1,445 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ASN1.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.cose</a> &gt; <span class="el_source">ASN1.java</span></div><h1>ASN1.java</h1><pre class="source lang-java linenums">/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package org.eclipse.californium.cose;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+
+/**
+ *
+ * @author Jim
+ */
+<span class="nc" id="L15">public class ASN1 {</span>
+    
+    /**
+     * This class is used internal to the ASN.1 decoding functions.
+     * After decoding there will be one of these for each item in the
+     * original in the encoded byte array
+     */
+    public static class TagValue {
+        public int tag;
+        public byte[] value;
+        public ArrayList&lt;TagValue&gt; list;
+        
+<span class="fc" id="L27">        public TagValue(int tagIn, byte[] valueIn) {</span>
+<span class="fc" id="L28">            tag = tagIn;</span>
+<span class="fc" id="L29">            value = valueIn;</span>
+<span class="fc" id="L30">        }</span>
+        
+<span class="fc" id="L32">        public TagValue(int tagIn, ArrayList&lt;TagValue&gt; listIn) {</span>
+<span class="fc" id="L33">            tag = tagIn;</span>
+<span class="fc" id="L34">            list = listIn;</span>
+<span class="fc" id="L35">        }</span>
+    }
+    
+    // 1.2.840.10045.3.1.7
+<span class="fc" id="L39">    public static final byte[] Oid_secp256r1 = new byte[]{0x06, 0x08, 0x2A, (byte) 0x86, 0x48, (byte) 0xCE, 0x3D, 0x03, 0x01, 0x07};</span>
+    // 1.3.132.0.34
+<span class="fc" id="L41">    public static final byte[] Oid_secp384r1 = new byte[]{0x06, 0x05, 0x2B, (byte) 0x81, 0x04, 0x00, 0x22};</span>
+    // 1.3.132.0.35
+<span class="fc" id="L43">    public static final byte[] Oid_secp521r1 = new byte[]{0x06, 0x05, 0x2B, (byte) 0x81, 0x04, 0x00, 0x23};</span>
+    // 1.2.840.10045.2.1
+<span class="fc" id="L45">    public static final byte[] oid_ecPublicKey = new byte[]{0x06, 0x07, 0x2a, (byte) 0x86, 0x48, (byte) 0xce, 0x3d, 0x2, 0x1};</span>
+    
+    // 1.3.101.110
+<span class="fc" id="L48">    public static final byte[] Oid_X25519 = new byte[]{0x6, 3, 0x2b, 101, 110};</span>
+    // 1.3.101.111
+<span class="fc" id="L50">    public static final byte[] Oid_X448 = new byte[]{0x6, 3, 0x2b, 101, 111};</span>
+    // 1.3.101.112
+<span class="fc" id="L52">    public static final byte[] Oid_Ed25519 = new byte[]{0x6, 0x3, 0x2b, 101, 112};</span>
+    //  1.3.101.113
+<span class="fc" id="L54">    public static final byte[] Oid_Ed448 = new byte[]{0x6, 0x3, 0x2b, 101, 113};</span>
+    
+<span class="fc" id="L56">    private static final byte[] SequenceTag = new byte[]{0x30};</span>
+<span class="fc" id="L57">    private static final byte[] OctetStringTag = new byte[]{0x4};</span>
+    
+    /**
+     * Encode a subject public key info structure from an OID and the data bytes
+     * for the key
+     * This function assumes that we are encoding an EC Public key.d
+     * 
+     * @param algorithm - encoded Object Identifier
+     * @param keyBytes - encoded key bytes
+     * @return - encoded SPKI
+     * @throws CoseException - ASN encoding error.
+     */
+    public static byte[] EncodeSubjectPublicKeyInfo(byte[] algorithm, byte[] keyBytes) throws CoseException
+    {
+        //  SPKI ::= SEQUENCE {
+        //       algorithm   SEQUENCE {
+        //            oid = id-ecPublicKey {1 2 840 10045 2}
+        //            namedCurve = oid for algorithm
+        //       }
+        //       subjectPublicKey BIT STRING CONTAINS  key bytes
+        //  }
+        try {        
+<span class="fc" id="L79">            ArrayList&lt;byte[]&gt; xxx = new ArrayList&lt;byte[]&gt;();</span>
+<span class="fc" id="L80">            xxx.add(algorithm);</span>
+<span class="fc" id="L81">            xxx.add(new byte[]{3});</span>
+<span class="fc" id="L82">            xxx.add(ComputeLength(keyBytes.length+1));</span>
+<span class="fc" id="L83">            xxx.add(new byte[]{0});</span>
+<span class="fc" id="L84">            xxx.add(keyBytes);</span>
+
+<span class="fc" id="L86">            return Sequence(xxx);</span>
+        }
+<span class="nc" id="L88">        catch (ArrayIndexOutOfBoundsException e) {</span>
+<span class="nc" id="L89">            System.out.print(e.toString());</span>
+<span class="nc" id="L90">            throw e;</span>
+        }
+    }
+    
+    /**
+     * Encode an EC Private key
+     * @param oid - curve to use
+     * @param keyBytes - bytes of the key
+     * @param spki - optional SPKI
+     * @return encoded private key
+     * @throws CoseException - from lower level
+     */
+    public static byte[] EncodeEcPrivateKey(byte[] oid, byte[] keyBytes, byte[] spki) throws CoseException
+    {
+        //  ECPrivateKey ::= SEQUENCE {
+        //     version  INTEGER {1}
+        //     privateKey OCTET STRING
+        //     parameters [0] OBJECT IDENTIFIER = named curve
+        //     public key [1] BIT STRING OPTIONAL
+        //  }
+        //
+
+<span class="fc" id="L112">        ArrayList&lt;byte[]&gt; xxx = new ArrayList&lt;byte[]&gt;();</span>
+<span class="fc" id="L113">        xxx.add(new byte[]{2, 1, 1});</span>
+<span class="fc" id="L114">        xxx.add(OctetStringTag);</span>
+<span class="fc" id="L115">        xxx.add(ComputeLength(keyBytes.length));</span>
+<span class="fc" id="L116">        xxx.add(keyBytes);</span>
+<span class="fc" id="L117">        xxx.add(new byte[]{(byte)0xa0});</span>
+<span class="fc" id="L118">        xxx.add(ComputeLength(oid.length));</span>
+<span class="fc" id="L119">        xxx.add(oid);</span>
+<span class="pc bpc" id="L120" title="1 of 2 branches missed.">        if (spki != null) {</span>
+<span class="nc" id="L121">            xxx.add(new byte[]{(byte)0xa1});</span>
+<span class="nc" id="L122">            xxx.add(ComputeLength(spki.length+1));</span>
+<span class="nc" id="L123">            xxx.add(new byte[]{0});</span>
+<span class="nc" id="L124">            xxx.add(spki);</span>
+        }
+        
+<span class="fc" id="L127">        byte[] ecPrivateKey = Sequence(xxx);</span>
+     
+<span class="fc" id="L129">        return ecPrivateKey;</span>
+    }
+
+    /*
+     *  Decode an object which is supposed to be a SubjectPublicKeyInfo strucuture
+     * and check that the right set of fields are in the right place
+     * 
+     * @param encoding encoded byte string to decode
+     * @return decoded structure
+     * @throws CoseException
+     */
+    public static ArrayList&lt;TagValue&gt; DecodeSubjectPublicKeyInfo(byte[] encoding) throws CoseException
+    {
+<span class="fc" id="L142">        TagValue spki = DecodeCompound(0, encoding);</span>
+<span class="pc bpc" id="L143" title="1 of 2 branches missed.">        if (spki.tag != 0x30) throw new CoseException(&quot;Invalid SPKI&quot;);</span>
+<span class="fc" id="L144">        ArrayList&lt;TagValue&gt; tvl = spki.list;</span>
+<span class="pc bpc" id="L145" title="1 of 2 branches missed.">        if (tvl.size() != 2) throw new CoseException(&quot;Invalid SPKI&quot;);</span>
+        
+<span class="pc bpc" id="L147" title="1 of 2 branches missed.">        if (tvl.get(0).tag != 0x30) throw new CoseException(&quot;Invalid SPKI&quot;);</span>
+<span class="pc bpc" id="L148" title="2 of 4 branches missed.">        if (tvl.get(0).list.isEmpty() || tvl.get(0).list.size() &gt; 2) {</span>
+<span class="nc" id="L149">            throw new CoseException(&quot;Invalid SPKI&quot;);</span>
+        }
+<span class="pc bpc" id="L151" title="1 of 2 branches missed.">        if (tvl.get(0).list.get(0).tag != 6) throw new CoseException(&quot;Invalid SPKI&quot;);</span>
+        //  tvl.get(0).list.get(1).tag is an ANY so needs to be checked elsewhere
+<span class="pc bpc" id="L153" title="1 of 2 branches missed.">        if (tvl.get(1).tag != 3) throw new CoseException(&quot;Invalid SPKI&quot;);</span>
+        
+<span class="fc" id="L155">        return tvl;</span>
+    }
+    
+    /**
+     * Decode an array of bytes which is supposed to be an ASN.1 encoded structure.
+     * This code does the decoding w/o any reference to a schema for what is being
+     * decoded so it returns type and value pairs rather than converting the values
+     * to the correct underlying data type.
+     * 
+     * One oddity that needs to be observed is that Object Identifiers do not have
+     * the type and length removed from them.  This is because we do a byte wise comparison
+     * and started doing the entire item rather than just the value portion.
+     * 
+     * M00BUG - we should check that we don't overflow during the decoding process.
+     * 
+     * @param offset - starting offset in array to begin decoding
+     * @param encoding - bytes of the ASN.1 encoded value
+     * @return Decoded structure
+     * @throws CoseException - ASN.1 encoding errors
+     */
+    public static TagValue DecodeCompound(int offset, byte[] encoding) throws CoseException
+    {
+<span class="fc" id="L177">        ArrayList&lt;TagValue&gt; result = new ArrayList&lt;TagValue&gt;();</span>
+<span class="fc" id="L178">        int retTag = encoding[offset];</span>
+        
+        //  We only decode objects which are compound objects.  That means that this bit must be set
+        
+<span class="pc bpc" id="L182" title="1 of 2 branches missed.">        if ((encoding[offset] &amp; 0x20) != 0x20) throw new CoseException(&quot;Invalid structure&quot;);</span>
+<span class="fc" id="L183">        int[] l = DecodeLength(offset+1, encoding);</span>
+<span class="fc" id="L184">        int sequenceLength = l[1];</span>
+<span class="pc bpc" id="L185" title="1 of 2 branches missed.">        if (offset + sequenceLength &gt; encoding.length) throw new CoseException(&quot;Invalid sequence&quot;);</span>
+<span class="fc" id="L186">        offset += l[0]+1;</span>
+
+<span class="fc bfc" id="L188" title="All 2 branches covered.">        while (sequenceLength &gt; 0) {</span>
+<span class="fc" id="L189">            int tag = encoding[offset];</span>
+<span class="fc" id="L190">            l = DecodeLength(offset+1, encoding);</span>
+<span class="pc bpc" id="L191" title="1 of 2 branches missed.">            if (l[1] &gt; sequenceLength) throw new CoseException(&quot;Invalid sequence&quot;);</span>
+
+<span class="fc bfc" id="L193" title="All 2 branches covered.">            if ((tag &amp; 0x20) != 0) {</span>
+<span class="fc" id="L194">                result.add(DecodeCompound(offset, encoding));</span>
+<span class="fc" id="L195">                offset += 1 + l[0] + l[1];</span>
+<span class="fc" id="L196">                sequenceLength -= 1 + l[0] + l[1];                    </span>
+            }
+            else {
+                // At some point we might want to fix this.
+<span class="fc bfc" id="L200" title="All 2 branches covered.">                if (tag == 6) {</span>
+<span class="fc" id="L201">                    result.add(new TagValue(tag, Arrays.copyOfRange(encoding, offset, offset+l[1]+l[0]+1)));                </span>
+                }
+                else {
+<span class="fc" id="L204">                    result.add(new TagValue(tag, Arrays.copyOfRange(encoding, offset+l[0]+1, offset+1+l[0]+l[1])));</span>
+                }
+<span class="fc" id="L206">                offset += 1 + l[0] + l[1];</span>
+<span class="fc" id="L207">                sequenceLength -= 1 + l[0] + l[1];</span>
+            }
+<span class="fc" id="L209">        }</span>
+        
+<span class="fc" id="L211">        return new TagValue(retTag, result);</span>
+    }
+    
+    /**
+     * Encode a private key into a PKCS#8 private key structure.
+     * 
+     * @param algorithm - EC curve OID
+     * @param keyBytes - raw bytes of the key
+     * @param spki - optional subject public key info structure to include
+     * @return byte array of encoded bytes
+     * @throws CoseException - ASN.1 encoding errors
+     */
+    public static byte[] EncodePKCS8(byte[] algorithm, byte[] keyBytes, byte[] spki) throws CoseException
+    {
+        //  PKCS#8 ::= SEQUENCE {
+        //     version INTEGER {0}
+        //      privateKeyALgorithm SEQUENCE {
+        //           algorithm OID,
+        //           parameters ANY
+        //      }
+        //     privateKey ECPrivateKey,
+        //     attributes [0] IMPLICIT Attributes OPTIONAL
+        //     publicKey [1] IMPLICIT BIT STRING OPTIONAL
+        //   }
+        
+        try {
+
+<span class="fc" id="L238">          ArrayList&lt;byte[]&gt; xxx = new ArrayList&lt;byte[]&gt;();</span>
+<span class="fc" id="L239">            xxx.add(new byte[]{2, 1, 0});</span>
+<span class="fc" id="L240">            xxx.add(algorithm);</span>
+<span class="fc" id="L241">            xxx.add(OctetStringTag);</span>
+<span class="fc" id="L242">            xxx.add(ComputeLength(keyBytes.length));</span>
+<span class="fc" id="L243">            xxx.add(keyBytes);</span>
+
+<span class="fc" id="L245">            return Sequence(xxx);</span>
+        }
+<span class="nc" id="L247">        catch (ArrayIndexOutOfBoundsException e) {</span>
+<span class="nc" id="L248">            System.out.print(e.toString());</span>
+<span class="nc" id="L249">            throw e;</span>
+        }
+    }
+    
+    /**
+     * Decode an EC PKCS#8 private key structure
+     * 
+     * @param encodedData bytes containing the private key
+     * @return tag/value from the decoded object
+     * @throws CoseException - ASN.1 encoding errors
+     */
+    public static ArrayList&lt;TagValue&gt; DecodePKCS8(byte[] encodedData) throws CoseException 
+    {
+<span class="fc" id="L262">        TagValue pkcs8 = DecodeCompound(0, encodedData);</span>
+<span class="pc bpc" id="L263" title="1 of 2 branches missed.">        if (pkcs8.tag != 0x30) throw new CoseException(&quot;Invalid PKCS8 structure&quot;);</span>
+<span class="fc" id="L264">        ArrayList&lt;TagValue&gt; retValue = pkcs8.list;</span>
+<span class="pc bpc" id="L265" title="3 of 4 branches missed.">        if (retValue.size() != 3 &amp;&amp; retValue.size() != 4) {</span>
+<span class="nc" id="L266">            throw new CoseException(&quot;Invalid PKCS8 structure&quot;);</span>
+        }
+
+        // Version number - we currently only support one version
+<span class="pc bpc" id="L270" title="3 of 4 branches missed.">        if (retValue.get(0).tag != 2 &amp;&amp; ((byte[]) retValue.get(0).value)[0] != 0) {</span>
+<span class="nc" id="L271">            throw new CoseException(&quot;Invalid PKCS8 structure&quot;);</span>
+        }
+
+        // Algorithm identifier
+<span class="pc bpc" id="L275" title="1 of 2 branches missed.">        if (retValue.get(1).tag != 0x30) throw new CoseException(&quot;Invalid PKCS8 structure&quot;);</span>
+<span class="pc bpc" id="L276" title="2 of 4 branches missed.">        if (retValue.get(1).list.isEmpty() || retValue.get(1).list.size() &gt; 2) {</span>
+<span class="nc" id="L277">            throw new CoseException(&quot;Invalid PKCS8 structure&quot;);</span>
+        }
+<span class="pc bpc" id="L279" title="1 of 2 branches missed.">        if (retValue.get(1).list.get(0).tag != 6) throw new CoseException(&quot;Invalid PKCS8 structure&quot;);</span>
+        //  Dont check the next item as it is an ANY
+        
+<span class="pc bpc" id="L282" title="1 of 2 branches missed.">        if (retValue.get(2).tag != 4) throw new CoseException(&quot;Invalid PKCS8 structure&quot;);</span>
+        
+        // This is attributes, but we are not going to check for correctness.
+<span class="pc bpc" id="L285" title="3 of 4 branches missed.">        if (retValue.size() == 4 &amp;&amp; retValue.get(3).tag != 0xa0) {</span>
+<span class="nc" id="L286">            throw new CoseException(&quot;Invalid PKCS8 structure&quot;);</span>
+        }
+        
+        //  Decode the contents of the octet string PrivateKey
+        
+<span class="fc" id="L291">        byte[] pk = (byte[]) retValue.get(2).value;</span>
+<span class="fc" id="L292">        TagValue pkd = DecodeCompound(0, pk);</span>
+<span class="fc" id="L293">        ArrayList&lt;TagValue&gt; pkdl = pkd.list;</span>
+<span class="pc bpc" id="L294" title="1 of 2 branches missed.">        if (pkd.tag != 0x30) throw new CoseException(&quot;Invalid ECPrivateKey&quot;);</span>
+<span class="pc bpc" id="L295" title="2 of 4 branches missed.">        if (pkdl.size() &lt; 2 || pkdl.size() &gt; 4) throw new CoseException(&quot;Invalid ECPrivateKey&quot;);</span>
+        
+<span class="pc bpc" id="L297" title="3 of 4 branches missed.">        if (pkdl.get(0).tag != 2 &amp;&amp; ((byte[]) retValue.get(0).value)[0] != 1) {</span>
+<span class="nc" id="L298">            throw new CoseException(&quot;Invalid ECPrivateKey&quot;);</span>
+        }
+        
+<span class="pc bpc" id="L301" title="1 of 2 branches missed.">        if (pkdl.get(1).tag != 4) throw new CoseException(&quot;Invalid ECPrivateKey&quot;);</span>
+        
+<span class="pc bpc" id="L303" title="1 of 2 branches missed.">        if (pkdl.size() &gt; 2) {</span>
+<span class="pc bpc" id="L304" title="1 of 2 branches missed.">            if ((pkdl.get(2).tag &amp; 0xff) != 0xA0) {</span>
+<span class="nc bnc" id="L305" title="All 4 branches missed.">                if (pkdl.size() != 3 || (pkdl.get(2).tag &amp; 0xff) != 0xa1) {</span>
+<span class="nc" id="L306">                    throw new CoseException(&quot;Invalid ECPrivateKey&quot;);</span>
+                }
+            } else {
+<span class="pc bpc" id="L309" title="3 of 4 branches missed.">                if (pkdl.size() == 4 &amp;&amp; (pkdl.get(3).tag &amp; 0xff) != 0xa1) throw new CoseException(&quot;Invalid ECPrivateKey&quot;);                </span>
+            }
+        }
+        
+<span class="fc" id="L313">        retValue.get(2).list = pkdl;</span>
+<span class="fc" id="L314">        retValue.get(2).value = null;</span>
+<span class="fc" id="L315">        retValue.get(2).tag = 0x30;</span>
+        
+<span class="fc" id="L317">        return retValue;</span>
+    }
+    
+    public static byte[] EncodeSignature(byte[] r, byte[] s) throws CoseException {
+<span class="fc" id="L321">        ArrayList&lt;byte[]&gt; x = new ArrayList&lt;byte[]&gt;();</span>
+<span class="fc" id="L322">        x.add(UnsignedInteger(r));</span>
+<span class="fc" id="L323">        x.add(UnsignedInteger(s));</span>
+
+<span class="fc" id="L325">        return Sequence(x);</span>
+    }
+    
+    public static byte[] EncodeOctetString(byte[] data) throws CoseException {
+<span class="fc" id="L329">        ArrayList&lt;byte[]&gt; x = new ArrayList&lt;byte[]&gt;();</span>
+<span class="fc" id="L330">        x.add(OctetStringTag);</span>
+<span class="fc" id="L331">        x.add(ComputeLength(data.length));</span>
+<span class="fc" id="L332">        x.add(data);</span>
+        
+<span class="fc" id="L334">        return ToBytes(x);</span>
+    }
+    
+    public static byte[] AlgorithmIdentifier(byte[] oid, byte[] params) throws CoseException
+    {
+<span class="fc" id="L339">        ArrayList&lt;byte[]&gt; xxx = new ArrayList&lt;byte[]&gt;();</span>
+<span class="fc" id="L340">        xxx.add(oid);</span>
+<span class="fc bfc" id="L341" title="All 2 branches covered.">        if (params != null) {</span>
+<span class="fc" id="L342">            xxx.add(params);</span>
+        }
+<span class="fc" id="L344">        return Sequence(xxx);</span>
+    }
+    
+    private static byte[] Sequence(ArrayList&lt;byte[]&gt; members) throws CoseException
+    {
+<span class="fc" id="L349">        byte[] y = ToBytes(members);</span>
+<span class="fc" id="L350">        ArrayList&lt;byte[]&gt; x = new ArrayList&lt;byte[]&gt;();</span>
+<span class="fc" id="L351">        x.add(SequenceTag);</span>
+<span class="fc" id="L352">        x.add(ComputeLength(y.length));</span>
+<span class="fc" id="L353">        x.add(y);</span>
+        
+<span class="fc" id="L355">        return ToBytes(x);</span>
+    }
+    
+    private static byte[] UnsignedInteger(byte[] i) throws CoseException {
+<span class="fc" id="L359">        int pad = 0, offset = 0;</span>
+
+<span class="pc bpc" id="L361" title="1 of 4 branches missed.">        while (offset &lt; i.length &amp;&amp; i[offset] == 0) {</span>
+<span class="fc" id="L362">            offset++;</span>
+        }
+
+<span class="pc bpc" id="L365" title="1 of 2 branches missed.">        if (offset == i.length) {</span>
+<span class="nc" id="L366">            return new byte[] {0x02, 0x01, 0x00};</span>
+        }
+<span class="fc bfc" id="L368" title="All 2 branches covered.">        if ((i[offset] &amp; 0x80) != 0) {</span>
+<span class="fc" id="L369">            pad++;</span>
+        }
+        
+        // M00BUG if the integer is &gt; 127 bytes long with padding
+        
+<span class="fc" id="L374">        int length = i.length - offset;</span>
+<span class="fc" id="L375">        byte[] der = new byte[2 + length + pad];</span>
+<span class="fc" id="L376">        der[0] = 0x02;</span>
+<span class="fc" id="L377">        der[1] = (byte)(length + pad);</span>
+<span class="fc" id="L378">        System.arraycopy(i, offset, der, 2 + pad, length);</span>
+
+<span class="fc" id="L380">        return der;</span>
+    }
+    
+    private static byte[] ComputeLength(int x) throws CoseException
+    {
+<span class="fc bfc" id="L385" title="All 2 branches covered.">        if (x &lt;= 127) {</span>
+<span class="fc" id="L386">            return new byte[]{(byte)x};</span>
+        }
+<span class="pc bpc" id="L388" title="1 of 2 branches missed.">        else if ( x &lt; 256) {</span>
+<span class="fc" id="L389">            return new byte[]{(byte) 0x81, (byte) x};</span>
+        }
+<span class="nc" id="L391">        throw new CoseException(&quot;Error in ASN1.GetLength&quot;);</span>
+    }
+    
+    private static int[] DecodeLength(int offset, byte[] data) throws CoseException
+    {
+        int length;
+        int i;
+        
+<span class="pc bpc" id="L399" title="1 of 2 branches missed.">        if ((data[offset] &amp; 0x80) == 0) return new int[]{1, data[offset]};</span>
+<span class="nc bnc" id="L400" title="All 2 branches missed.">        if (data[offset] == 0x80) {</span>
+<span class="nc" id="L401">            throw new CoseException(&quot;Indefinite length encoding not supported&quot;);</span>
+        }
+<span class="nc" id="L403">        length = data[offset] &amp; 0x7f;</span>
+<span class="nc" id="L404">        int retValue = 0;</span>
+<span class="nc bnc" id="L405" title="All 2 branches missed.">        for (i=0; i&lt;length; i++) {</span>
+<span class="nc" id="L406">            retValue = retValue*256 + (data[i+offset+1] &amp; 0xff);</span>
+        }
+        
+<span class="nc" id="L409">        return new int[]{length+1, retValue};</span>
+    }
+    
+/*  Rikard: For Java 1.8   
+    private static byte[] ToBytes(ArrayList&lt;byte[]&gt; x)
+    {
+        int l = 0;
+        l = x.stream().map((r) -&gt; r.length).reduce(l, Integer::sum);
+        
+        byte[] b = new byte[l];
+        l = 0;
+        for (byte[] r : x) {
+            System.arraycopy(r, 0, b, l, r.length);
+            l += r.length;
+        }
+        
+        return b;
+    } */
+
+    private static byte[] ToBytes(ArrayList&lt;byte[]&gt; x)
+    {
+<span class="fc" id="L430">        int l = 0;</span>
+<span class="fc bfc" id="L431" title="All 2 branches covered.">        for(int i = 0 ; i &lt; x.size() ; i++) { //Rikard: Modified calculation</span>
+<span class="fc" id="L432">            l += x.get(i).length;</span>
+        }
+
+<span class="fc" id="L435">        byte[] b = new byte[l];</span>
+<span class="fc" id="L436">        l = 0;</span>
+<span class="fc bfc" id="L437" title="All 2 branches covered.">        for (byte[] r : x) {</span>
+<span class="fc" id="L438">            System.arraycopy(r, 0, b, l, r.length);</span>
+<span class="fc" id="L439">            l += r.length;</span>
+<span class="fc" id="L440">        }</span>
+
+<span class="fc" id="L442">        return b;</span>
+    }    
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

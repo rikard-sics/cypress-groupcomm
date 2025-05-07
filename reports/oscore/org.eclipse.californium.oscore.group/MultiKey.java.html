@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MultiKey.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore.group</a> &gt; <span class="el_source">MultiKey.java</span></div><h1>MultiKey.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2023 RISE SICS and others.
+ * 
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * and Eclipse Distribution License v1.0 which accompany this distribution.
+ * 
+ * The Eclipse Public License is available at
+ *    http://www.eclipse.org/legal/epl-v20.html
+ * and the Eclipse Distribution License is available at
+ *    http://www.eclipse.org/org/documents/edl-v10.html.
+ * 
+ * Contributors:
+ *    Rikard Höglund (RISE SICS)
+ *    
+ ******************************************************************************/
+package org.eclipse.californium.oscore.group;
+
+import java.util.Arrays;
+
+import org.eclipse.californium.cose.CoseException;
+import org.eclipse.californium.cose.OneKey;
+import org.eclipse.californium.elements.util.Bytes;
+
+import com.upokecenter.cbor.CBORObject;
+
+//TODO: Need clone?
+public class MultiKey {
+
+	private byte[] rawKeyBytes;
+	private OneKey coseKey;
+
+<span class="fc" id="L33">	public MultiKey(byte[] rawKeyBytes) {</span>
+<span class="fc" id="L34">		this.rawKeyBytes = rawKeyBytes.clone();</span>
+<span class="fc" id="L35">		coseKey = convertToCoseKey(rawKeyBytes, null);</span>
+
+<span class="fc" id="L37">	}</span>
+
+<span class="fc" id="L39">	public MultiKey(byte[] rawKeyBytes, byte[] privateKeyOnly) {</span>
+<span class="fc" id="L40">		this.rawKeyBytes = rawKeyBytes.clone();</span>
+<span class="fc" id="L41">		coseKey = convertToCoseKey(rawKeyBytes, privateKeyOnly);</span>
+
+<span class="fc" id="L43">	}</span>
+
+	public byte[] getRawKey() {
+<span class="fc" id="L46">		return rawKeyBytes.clone();</span>
+	}
+
+	public OneKey getCoseKey() {
+<span class="fc" id="L50">		return coseKey;</span>
+	}
+
+	private void addPrivate(byte[] privateKey) {
+<span class="nc" id="L54">		coseKey.add(CBORObject.FromObject(-4), CBORObject.FromObject(privateKey));</span>
+<span class="nc" id="L55">	}</span>
+
+	private OneKey convertToCoseKey(byte[] rawKeyBytes, byte[] privateKeyOnly) {
+<span class="fc" id="L58">		CBORObject cborKey = CBORObject.DecodeFromBytes(rawKeyBytes);</span>
+<span class="fc" id="L59">		OneKey keyy = null;</span>
+
+		// CWT claims set
+<span class="pc bpc" id="L62" title="2 of 4 branches missed.">		if (cborKey.get(8) != null &amp;&amp; cborKey.get(8).get(1) != null) {</span>
+
+			// System.out.println(&quot;*CWT claims set&quot;);
+
+			// System.out.println(cborKey.toString());
+
+<span class="fc" id="L68">			CBORObject test2 = cborKey.get(8);</span>
+
+			// System.out.println(test2.toString());
+
+<span class="fc" id="L72">			CBORObject test3 = test2.get(1);</span>
+			// Add private key
+<span class="fc bfc" id="L74" title="All 2 branches covered.">			if (privateKeyOnly != null) {</span>
+<span class="fc" id="L75">				test3.Add(CBORObject.FromObject(-4), CBORObject.FromObject(privateKeyOnly));</span>
+			}
+
+			// System.out.println(test3.toString());
+
+			try {
+<span class="fc" id="L81">				keyy = new OneKey(test3);</span>
+<span class="nc" id="L82">			} catch (CoseException e) {</span>
+<span class="nc" id="L83">				System.err.println(&quot;Error converting CWT claims set key bytes to COSE Key&quot;);</span>
+<span class="nc" id="L84">				e.printStackTrace();</span>
+<span class="fc" id="L85">			}</span>
+<span class="fc" id="L86">		} else {</span>
+			// COSE Key
+
+			// System.out.println(&quot;*COSE Key&quot;);
+			// System.out.println(cborKey.toString());
+
+			// Save private key and strip from byte array if present
+<span class="nc" id="L93">			byte[] privateKey = null;</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">			if (cborKey.get(-4) != null) {</span>
+				// System.out.println(&quot;Has private part&quot;);
+
+<span class="nc" id="L97">				privateKey = cborKey.get(-4).GetByteString();</span>
+				// cborKey.Remove(CBORObject.FromObject(-4));
+
+<span class="nc" id="L100">				byte[] privateBytesHeader = new byte[] { 0x23, 0x58, 0x20 };</span>
+<span class="nc" id="L101">				byte[] privateBytes = Bytes.concatenate(privateBytesHeader, privateKey);</span>
+
+<span class="nc" id="L103">				int index = indexOf(rawKeyBytes, privateBytes);</span>
+
+				// System.out.println(&quot;index: &quot; + index);
+
+<span class="nc" id="L107">				byte[] part1 = Arrays.copyOf(rawKeyBytes, index);</span>
+<span class="nc" id="L108">				byte[] part2 = Arrays.copyOfRange(rawKeyBytes, index + privateBytes.length, rawKeyBytes.length);</span>
+
+				// System.out.println(&quot;Part 1: &quot; + Utils.bytesToHex(part1));
+				// System.out.println(&quot;Part 2: &quot; + Utils.bytesToHex(part2));
+
+<span class="nc" id="L113">				this.rawKeyBytes = Bytes.concatenate(part1, part2);</span>
+<span class="nc" id="L114">				this.rawKeyBytes[0]--; // Reduce array length</span>
+			}
+
+			try {
+<span class="nc" id="L118">				keyy = new OneKey(cborKey);</span>
+<span class="nc" id="L119">			} catch (CoseException e) {</span>
+<span class="nc" id="L120">				System.err.println(&quot;Error converting COSE Key key bytes to COSE Key&quot;);</span>
+<span class="nc" id="L121">				e.printStackTrace();</span>
+<span class="nc" id="L122">			}</span>
+
+			// if (cborKey.get(-4) != null) {
+			// System.out.println(&quot;Adding private part&quot;);
+			// if (privateKey == null) {
+			// System.err.println(&quot;Error adding private part&quot;);
+			// }
+			// keyy.add(CBORObject.FromObject(-4),
+			// CBORObject.FromObject(privateKey));
+			// }
+
+		}
+
+<span class="fc" id="L135">		return keyy;</span>
+	}
+
+	/**
+	 * Search the data byte array for the first occurrence of the byte array
+	 * pattern.
+	 */
+	public static int indexOf(byte[] data, byte[] pattern) {
+<span class="nc" id="L143">		int[] failure = computeFailure(pattern);</span>
+
+<span class="nc" id="L145">		int j = 0;</span>
+
+<span class="nc bnc" id="L147" title="All 2 branches missed.">		for (int i = 0; i &lt; data.length; i++) {</span>
+<span class="nc bnc" id="L148" title="All 4 branches missed.">			while (j &gt; 0 &amp;&amp; pattern[j] != data[i]) {</span>
+<span class="nc" id="L149">				j = failure[j - 1];</span>
+			}
+<span class="nc bnc" id="L151" title="All 2 branches missed.">			if (pattern[j] == data[i]) {</span>
+<span class="nc" id="L152">				j++;</span>
+			}
+<span class="nc bnc" id="L154" title="All 2 branches missed.">			if (j == pattern.length) {</span>
+<span class="nc" id="L155">				return i - pattern.length + 1;</span>
+			}
+		}
+<span class="nc" id="L158">		return -1;</span>
+	}
+
+	/**
+	 * Computes the failure function using a boot-strapping process, where the
+	 * pattern is matched against itself.
+	 */
+	private static int[] computeFailure(byte[] pattern) {
+<span class="nc" id="L166">		int[] failure = new int[pattern.length];</span>
+
+<span class="nc" id="L168">		int j = 0;</span>
+<span class="nc bnc" id="L169" title="All 2 branches missed.">		for (int i = 1; i &lt; pattern.length; i++) {</span>
+<span class="nc bnc" id="L170" title="All 4 branches missed.">			while (j &gt; 0 &amp;&amp; pattern[j] != pattern[i]) {</span>
+<span class="nc" id="L171">				j = failure[j - 1];</span>
+			}
+<span class="nc bnc" id="L173" title="All 2 branches missed.">			if (pattern[j] == pattern[i]) {</span>
+<span class="nc" id="L174">				j++;</span>
+			}
+<span class="nc" id="L176">			failure[i] = j;</span>
+		}
+
+<span class="nc" id="L179">		return failure;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

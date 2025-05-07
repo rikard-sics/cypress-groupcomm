@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Signer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.cose</a> &gt; <span class="el_source">Signer.java</span></div><h1>Signer.java</h1><pre class="source lang-java linenums">/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package org.eclipse.californium.cose;
+
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * The Signer class is used to implement the COSE_Signer object.
+ * This provides the information dealing with a single signature for the SignMessage class.
+ * &lt;p&gt;
+ * Create a Signer object for adding a new signature to a message, existing signers will have a Signer object created for them when a SignMessage object is created by Message.DecodeFromBytes.
+ * &lt;p&gt;
+ * Examples of using this class can be found in
+ * &lt;br&gt;&lt;a href=&quot;https://github.com/cose-wg/COSE-JAVA/wiki/Sign-Message-Example&quot;&gt;Single Signer Example&lt;/a&gt; an example of signing and verify a message with a single signature.
+ * &lt;br&gt;&lt;a href=&quot;https://github.com/cose-wg/COSE-JAVA/wiki/Multi-Sign-Example&quot;&gt;Multiple Signer Example&lt;/a&gt; an example of signing and verifying a message which has multiple signatures.
+ * @author jimsch
+ */
+public class Signer extends Attribute {
+    protected byte[] rgbSignature;
+    protected String contextString;
+    OneKey cnKey;
+    
+    /**
+     * Create a new signer object to add to a SignMessage
+     */
+<span class="fc" id="L32">    public Signer() {</span>
+<span class="fc" id="L33">        contextString = &quot;Signature&quot;;</span>
+<span class="fc" id="L34">    }</span>
+    
+    /**
+     * Create a new signer object for a SignMessage and set the key to be used.
+     * 
+     * @param key key to use for signing.
+     */
+<span class="fc" id="L41">    public Signer(OneKey key) {</span>
+<span class="fc" id="L42">        contextString = &quot;Signature&quot;;</span>
+<span class="fc" id="L43">        cnKey = key;</span>
+<span class="fc" id="L44">    }</span>
+        
+    /**
+     * Remove the key object from the signer
+     * 
+     * @since COSE 0.9.1
+     */
+    public void clearKey() {
+<span class="nc" id="L52">        cnKey = null;</span>
+<span class="nc" id="L53">    }</span>
+    
+    /**
+     * Set a key object on a signer
+     * 
+     * @since COSE 0.9.1
+     * @param keyIn key to be used for signing or verification
+     * @throws CoseException - Invalid key passed in
+     */
+    public void setKey(OneKey keyIn) throws CoseException {
+<span class="fc" id="L63">        setupKey(keyIn);</span>
+<span class="fc" id="L64">    }</span>
+    
+    /**
+     * Set the key on the object, if there is not a signature on this object then set
+     * the algorithm and the key id from the key if they exist on the key and do not exist in the message.
+     * 
+     * @param key key to be used]
+     */
+    private void setupKey(OneKey key) throws CoseException {
+        CBORObject cn2;
+        CBORObject cn;
+        
+<span class="fc" id="L76">        cnKey = key;</span>
+
+<span class="pc bpc" id="L78" title="1 of 2 branches missed.">        if (rgbSignature != null) return;</span>
+        
+<span class="nc" id="L80">        cn = key.get(KeyKeys.Algorithm);</span>
+<span class="nc bnc" id="L81" title="All 2 branches missed.">        if (cn != null) {</span>
+<span class="nc" id="L82">            cn2 = findAttribute(HeaderKeys.Algorithm);</span>
+<span class="nc bnc" id="L83" title="All 2 branches missed.">            if (cn2 == null) addAttribute(HeaderKeys.Algorithm, cn, Attribute.PROTECTED);</span>
+        }
+        
+<span class="nc" id="L86">        cn = key.get(KeyKeys.KeyId);</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">        if (cn != null) {</span>
+<span class="nc" id="L88">            cn2 = findAttribute(HeaderKeys.KID);</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">            if (cn2 == null) addAttribute(HeaderKeys.KID, cn, Attribute.UNPROTECTED);</span>
+        }
+<span class="nc" id="L91">    }</span>
+    
+    /**
+     * Internal function used in creating a Sign1Message object from a byte string.
+     * 
+     * @param obj COSE_Sign1 encoded object.
+     * @throws CoseException Errors generated by the COSE module
+     */
+    protected void DecodeFromCBORObject(CBORObject obj) throws CoseException {
+<span class="nc bnc" id="L100" title="All 2 branches missed.">        if (obj.getType() != CBORType.Array) throw new CoseException(&quot;Invalid Signer structure&quot;);</span>
+        
+<span class="nc bnc" id="L102" title="All 2 branches missed.">        if (obj.size() != 3) throw new CoseException(&quot;Invalid Signer structure&quot;);</span>
+        
+<span class="nc bnc" id="L104" title="All 2 branches missed.">        if (obj.get(0).getType() == CBORType.ByteString) {</span>
+<span class="nc" id="L105">            rgbProtected = obj.get(0).GetByteString();</span>
+<span class="nc bnc" id="L106" title="All 2 branches missed.">            if (rgbProtected.length == 0) {</span>
+<span class="nc" id="L107">                objProtected = CBORObject.NewMap();</span>
+            }
+            else {
+<span class="nc" id="L110">                objProtected = CBORObject.DecodeFromBytes(rgbProtected);</span>
+<span class="nc bnc" id="L111" title="All 2 branches missed.">                if (objProtected.size() == 0) rgbProtected = new byte[0];</span>
+            }
+        }
+<span class="nc" id="L114">        else throw new CoseException(&quot;Invalid Signer structure&quot;);</span>
+        
+<span class="nc bnc" id="L116" title="All 2 branches missed.">        if (obj.get(1).getType() == CBORType.Map) {</span>
+<span class="nc" id="L117">            objUnprotected = obj.get(1);</span>
+        }
+<span class="nc" id="L119">        else throw new CoseException(&quot;Invalid Signer structure&quot;);</span>
+        
+<span class="nc bnc" id="L121" title="All 2 branches missed.">        if (obj.get(2).getType() == CBORType.ByteString) rgbSignature = obj.get(2).GetByteString();</span>
+<span class="nc bnc" id="L122" title="All 2 branches missed.">        else if (!obj.get(2).isNull()) throw new CoseException(&quot;Invalid Signer structure&quot;);</span>
+
+<span class="nc" id="L124">        CBORObject countersignature = this.findAttribute(HeaderKeys.CounterSignature, UNPROTECTED);</span>
+<span class="nc bnc" id="L125" title="All 2 branches missed.">        if (countersignature != null) {</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">            if ((countersignature.getType() != CBORType.Array) ||</span>
+<span class="nc bnc" id="L127" title="All 2 branches missed.">                    (countersignature.getValues().isEmpty())) {</span>
+<span class="nc" id="L128">                throw new CoseException(&quot;Invalid countersignature attribute&quot;);</span>
+            }
+            
+<span class="nc bnc" id="L131" title="All 2 branches missed.">            if (countersignature.get(0).getType() == CBORType.Array) {</span>
+<span class="nc bnc" id="L132" title="All 2 branches missed.">                for (CBORObject csObj : countersignature.getValues()) {</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">                    if (csObj.getType() != CBORType.Array) {</span>
+<span class="nc" id="L134">                        throw new CoseException(&quot;Invalid countersignature attribute&quot;);</span>
+                    }
+                    
+<span class="nc" id="L137">                    CounterSign cs = new CounterSign(csObj);</span>
+<span class="nc" id="L138">                    cs.setObject(this);</span>
+<span class="nc" id="L139">                    this.addCountersignature(cs);</span>
+<span class="nc" id="L140">                }</span>
+            }
+            else {
+<span class="nc" id="L143">                CounterSign cs = new CounterSign(countersignature);</span>
+<span class="nc" id="L144">                cs.setObject(this);</span>
+<span class="nc" id="L145">                this.addCountersignature(cs);</span>
+            }
+        }
+        
+<span class="nc" id="L149">        countersignature = this.findAttribute(HeaderKeys.CounterSignature0, UNPROTECTED);</span>
+<span class="nc bnc" id="L150" title="All 2 branches missed.">        if (countersignature != null) {</span>
+<span class="nc bnc" id="L151" title="All 2 branches missed.">            if (countersignature.getType() != CBORType.ByteString) {</span>
+<span class="nc" id="L152">                throw new CoseException(&quot;Invalid Countersignature0 attribute&quot;);</span>
+            }
+            
+<span class="nc" id="L155">            CounterSign1 cs = new CounterSign1(countersignature.GetByteString());</span>
+<span class="nc" id="L156">            cs.setObject(this);</span>
+<span class="nc" id="L157">            this.counterSign1 = cs;</span>
+        }
+<span class="nc" id="L159">    }    </span>
+    
+    /**
+     * Internal function used to create a serialization of a COSE_Sign1 message
+     * 
+     * @return CBOR object which can be encoded.
+     * @throws CoseException Errors generated by the COSE module
+     */
+
+    protected CBORObject EncodeToCBORObject() throws CoseException {
+<span class="nc bnc" id="L169" title="All 2 branches missed.">        if (rgbSignature == null) throw new CoseException(&quot;Message not yet signed&quot;);</span>
+<span class="nc bnc" id="L170" title="All 2 branches missed.">        if (rgbProtected == null) throw new CoseException(&quot;Internal Error&quot;);</span>
+<span class="nc" id="L171">        CBORObject obj = CBORObject.NewArray();</span>
+        
+<span class="nc" id="L173">        obj.Add(rgbProtected);</span>
+<span class="nc" id="L174">        obj.Add(objUnprotected);</span>
+<span class="nc" id="L175">        obj.Add(rgbSignature);</span>
+        
+<span class="nc" id="L177">        return obj;</span>
+    }
+
+    public void sign(byte[] rgbBodyProtected, byte[] rgbContent) throws CoseException
+    {
+<span class="pc bpc" id="L182" title="1 of 2 branches missed.">        if (rgbProtected == null) {</span>
+<span class="pc bpc" id="L183" title="1 of 2 branches missed.">            if(objProtected.size() == 0) rgbProtected = new byte[0];</span>
+<span class="nc" id="L184">            else rgbProtected = objProtected.EncodeToBytes();</span>
+        }
+        
+<span class="fc" id="L187">        CBORObject obj = CBORObject.NewArray();</span>
+<span class="fc" id="L188">        obj.Add(contextString);</span>
+<span class="fc" id="L189">        obj.Add(rgbBodyProtected);</span>
+<span class="fc" id="L190">        obj.Add(rgbProtected);</span>
+<span class="fc" id="L191">        obj.Add(externalData);</span>
+<span class="fc" id="L192">        obj.Add(rgbContent);</span>
+
+<span class="fc" id="L194">        AlgorithmID alg = AlgorithmID.FromCBOR(findAttribute(HeaderKeys.Algorithm));</span>
+        
+<span class="fc" id="L196">        rgbSignature = SignCommon.computeSignature(alg, obj.EncodeToBytes(), cnKey);   </span>
+        
+<span class="fc" id="L198">        ProcessCounterSignatures();</span>
+<span class="fc" id="L199">    }</span>
+    
+    public boolean validate(byte[] rgbBodyProtected, byte[] rgbContent) throws CoseException
+    {
+<span class="fc" id="L203">        CBORObject obj = CBORObject.NewArray();</span>
+<span class="fc" id="L204">        obj.Add(contextString);</span>
+<span class="fc" id="L205">        obj.Add(rgbBodyProtected);</span>
+<span class="fc" id="L206">        obj.Add(rgbProtected);</span>
+<span class="fc" id="L207">        obj.Add(externalData);</span>
+<span class="fc" id="L208">        obj.Add(rgbContent);</span>
+
+<span class="fc" id="L210">        AlgorithmID alg = AlgorithmID.FromCBOR(findAttribute(HeaderKeys.Algorithm));</span>
+
+<span class="fc" id="L212">        return SignCommon.validateSignature(alg, obj.EncodeToBytes(), rgbSignature, cnKey);        </span>
+    }
+
+    
+    
+<span class="fc" id="L217">    List&lt;CounterSign&gt; counterSignList = new ArrayList&lt;CounterSign&gt;();</span>
+    CounterSign1 counterSign1;
+    
+    public void addCountersignature(CounterSign countersignature)
+    {
+<span class="nc" id="L222">        counterSignList.add(countersignature);</span>
+<span class="nc" id="L223">    }</span>
+    
+    public List&lt;CounterSign&gt; getCountersignerList() {
+<span class="nc" id="L226">        return counterSignList;</span>
+    }
+    
+    public CounterSign1 getCountersign1() {
+<span class="nc" id="L230">        return counterSign1;</span>
+    }
+    
+    public void setCountersign1(CounterSign1 value) {
+<span class="nc" id="L234">        counterSign1 = value;</span>
+<span class="nc" id="L235">    }</span>
+    
+    protected void ProcessCounterSignatures() throws CoseException {
+<span class="pc bpc" id="L238" title="1 of 2 branches missed.">        if (!counterSignList.isEmpty()) {</span>
+<span class="nc bnc" id="L239" title="All 2 branches missed.">            if (counterSignList.size() == 1) {</span>
+<span class="nc" id="L240">                counterSignList.get(0).sign(rgbProtected, rgbSignature);</span>
+<span class="nc" id="L241">                addAttribute(HeaderKeys.CounterSignature, counterSignList.get(0).EncodeToCBORObject(), Attribute.UNPROTECTED);</span>
+            }
+            else {
+<span class="nc" id="L244">                CBORObject list = CBORObject.NewArray();</span>
+<span class="nc bnc" id="L245" title="All 2 branches missed.">                for (CounterSign sig : counterSignList) {</span>
+<span class="nc" id="L246">                    sig.sign(rgbProtected, rgbSignature);</span>
+<span class="nc" id="L247">                    list.Add(sig.EncodeToCBORObject());</span>
+<span class="nc" id="L248">                }</span>
+<span class="nc" id="L249">                addAttribute(HeaderKeys.CounterSignature, list, Attribute.UNPROTECTED);</span>
+            }
+        }
+        
+<span class="pc bpc" id="L253" title="1 of 2 branches missed.">        if (counterSign1 != null) {</span>
+<span class="nc" id="L254">            counterSign1.sign(rgbProtected, rgbSignature);</span>
+<span class="nc" id="L255">            addAttribute(HeaderKeys.CounterSignature0, counterSign1.EncodeToCBORObject(), Attribute.UNPROTECTED);</span>
+        }
+<span class="fc" id="L257">    }</span>
+    
+    public boolean validate(CounterSign1 countersignature) throws CoseException {
+<span class="nc" id="L260">        return countersignature.validate(rgbProtected, rgbSignature);</span>
+    }
+    
+    public boolean validate(CounterSign countersignature) throws CoseException {
+<span class="nc" id="L264">        return countersignature.validate(rgbProtected, rgbSignature);</span>
+    }
+    
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Message.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace</a> &gt; <span class="el_source">Message.java</span></div><h1>Message.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace;
+
+import java.util.Map;
+import java.util.Set;
+
+import org.eclipse.californium.core.coap.CoAP;
+
+import com.upokecenter.cbor.CBORObject;
+
+/**
+ * A protocol message for either /token, /introspect or /authz-info.
+ * This abstract class is meant to be protocol independent, classes that implement
+ * concrete instances could e.g. represent a CoAP message. 
+ * Messages are expected to have a Map of parameters (which may be empty).
+ * 
+ * @author Ludwig Seitz
+ *
+ */
+public interface Message {
+	
+    /**
+     * Request has been fulfilled, resulting in the creation of a new resource.
+     */
+<span class="fc" id="L55">    public static int CREATED = CoAP.ResponseCode.CREATED.value;</span>
+    
+	/**
+	 * Generic failure reasons code (following REST/HTTP/COAP).
+	 */
+<span class="fc" id="L60">	public static int FAIL_BAD_REQUEST = CoAP.ResponseCode.BAD_REQUEST.value;</span>
+	
+	/**
+	 * Request was not authorized, the requester should try to authenticate
+	 */
+<span class="fc" id="L65">	public static int FAIL_UNAUTHORIZED = CoAP.ResponseCode.UNAUTHORIZED.value;</span>
+	
+	/**
+	 * Requester lacks permission to perform this request
+	 */
+<span class="fc" id="L70">	public static int FAIL_FORBIDDEN = CoAP.ResponseCode.FORBIDDEN.value;</span>
+	
+	/**
+	 * Requested resource was not found
+	 */
+<span class="fc" id="L75">	public static int FAIL_NOT_FOUND = CoAP.ResponseCode.NOT_FOUND.value;</span>
+	
+	/**
+	 * The requested operation on the resource is not allowed for this
+	 * 	requester
+	 */ 
+<span class="fc" id="L81">	public static int FAIL_METHOD_NOT_ALLOWED </span>
+	    = CoAP.ResponseCode.METHOD_NOT_ALLOWED.value;
+	
+	/**
+	 * The responder cannot generate acceptable data format in the response
+	 */
+<span class="fc" id="L87">	public static int FAIL_NOT_ACCEPTABLE </span>
+	    =  CoAP.ResponseCode.NOT_ACCEPTABLE.value;
+	
+	/**
+	 * The request contained payload in a unsupported data format
+	 */
+<span class="fc" id="L93">	public static int FAIL_UNSUPPORTED_CONTENT_FORMAT </span>
+	    =  CoAP.ResponseCode.UNSUPPORTED_CONTENT_FORMAT.value;
+	
+	/**
+	 * The server had some internal problem
+	 */
+<span class="fc" id="L99">	public static int FAIL_INTERNAL_SERVER_ERROR </span>
+	    = CoAP.ResponseCode.INTERNAL_SERVER_ERROR.value;
+	
+	/**
+	 * The server doesn't implement some part required for this request
+	 */
+<span class="fc" id="L105">	public static int FAIL_NOT_IMPLEMENTED </span>
+	    = CoAP.ResponseCode.NOT_IMPLEMENTED.value;
+
+	/**
+	 * @return  the success/failure code
+	 */
+	public int getMessageCode();
+	
+	
+	/**
+	 * @return  the raw bytes of the payload, null if the payload is empty.
+	 */ 
+	public byte[] getRawPayload();
+	
+	/**
+	 * @return  The senders identity. This is assumed to have been authenticated by a lower
+	 * 	level protocol. Null if we don't have an authenticated identity
+	 */
+	public String getSenderId();
+	
+	/**
+	 * @return  a set of the parameter names (abbreviated), 
+	 *     null if the message does not have a parameter map in the payload. 
+	 */
+	public Set&lt;Short&gt; getParameterNames();
+	
+	/**
+     * Returns a parameter, or null if the parameter does not exist.
+     * 
+	 * @param name  the name abbreviation of the parameter
+	 * @return  the parameter value or null if it doesn't exist or the 
+	 *     message does not have a parameter map in the payload.
+	 */
+	public CBORObject getParameter(Short name);
+	
+	/**
+	 * @return  the &lt;code&gt;Map&lt;/code&gt; of parameters for this message or
+	 *     null if the message does not have a parameter map in the    
+	 *     payload.  This MUST provide the unabbreviated parameter names.
+	 */
+	public Map&lt;Short, CBORObject&gt; getParameters();
+	
+	/**
+	 * Generate a reply message indicating success.
+	 * 
+	 * @param code  the success code
+	 * @param payload  the payload of the reply, can be null.
+	 * 
+	 * @return  the reply message or null if the implementing class does not 
+     *     support generating messages
+	 */
+	public abstract Message successReply(int code, CBORObject payload);
+	
+	/**
+	 * Generate a reply message indicating failure.
+	 * 
+	 * @param failureReason  the failure reason code.
+	 * @param payload  the payload of the reply, can be null.
+	 * 
+	 * @return  the reply message or null if the implementing class does not 
+	 *     support generating messages
+	 */
+	public abstract Message failReply(int failureReason, CBORObject payload);
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

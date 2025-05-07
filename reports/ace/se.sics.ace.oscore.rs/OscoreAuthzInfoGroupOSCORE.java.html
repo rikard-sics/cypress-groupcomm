@@ -1,0 +1,544 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OscoreAuthzInfoGroupOSCORE.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.oscore.rs</a> &gt; <span class="el_source">OscoreAuthzInfoGroupOSCORE.java</span></div><h1>OscoreAuthzInfoGroupOSCORE.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.oscore.rs;
+
+import java.io.IOException;
+import java.security.SecureRandom;
+import java.util.Base64;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import org.eclipse.californium.oscore.OSCoreCtx;
+import org.eclipse.californium.oscore.OSCoreCtxDB;
+import org.eclipse.californium.oscore.OSException;
+
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+
+import se.sics.ace.AceException;
+import se.sics.ace.Constants;
+import se.sics.ace.Message;
+import se.sics.ace.TimeProvider;
+import se.sics.ace.coap.CoapReq;
+import se.sics.ace.coap.rs.oscoreProfile.OscoreCtxDbSingleton;
+import se.sics.ace.coap.rs.oscoreProfile.OscoreSecurityContext;
+import se.sics.ace.cwt.CwtCryptoCtx;
+import se.sics.ace.oscore.GroupInfo;
+import se.sics.ace.rs.AudienceValidator;
+import se.sics.ace.rs.AuthzInfo;
+import se.sics.ace.rs.IntrospectionHandler;
+import se.sics.ace.rs.ScopeValidator;
+import se.sics.ace.rs.TokenRepository;
+
+
+/**
+ * This class implements the /authz_info endpoint at the RS that receives
+ * access tokens, verifies if they are valid and then stores them.
+ * 
+ * Note this implementation requires the following claims in a CWT:
+ * iss, sub, scope, aud.
+ * 
+ * @author Marco Tiloca
+ *
+ */
+public class OscoreAuthzInfoGroupOSCORE extends AuthzInfo {
+	
+    /**
+     * The logger
+     */
+<span class="fc" id="L82">    private static final Logger LOGGER </span>
+<span class="fc" id="L83">        = Logger.getLogger(OscoreAuthzInfoGroupOSCORE.class.getName());</span>
+
+    /**
+     * Temporary storage for the CNF claim
+     */
+    private CBORObject cnf;
+    
+    /**
+	 * Handles audience validation
+	 */
+	private GroupOSCOREJoinValidator audience;
+    
+    /**
+     * OSCORE groups active under the Group Manager
+     */
+
+	private Map&lt;String, GroupInfo&gt; activeGroups;
+	
+<span class="fc" id="L101">	private final String rootGroupMembershipResource = &quot;ace-group&quot;;</span>
+	
+	/**
+	 * Constructor.
+	 * 
+	 * @param tr  a token repository
+	 * @param issuers  the list of acceptable issuer of access tokens
+	 * @param time  the time provider
+	 * @param intro  the introspection handler (can be null)
+	 * @param rsId  the identifier of the Resource Server
+	 * @param audience  the audience validator
+	 * @param ctx  the crypto context to use with the As
+	 * @param tokenFile  the file where to save tokens when persisting
+     * @param scopeValidator  the application specific scope validator 
+	 * @param checkCnonce  true if this RS uses cnonces for freshness validation
+	 * @throws IOException 
+	 * @throws AceException 
+	 */
+	public OscoreAuthzInfoGroupOSCORE(List&lt;String&gt; issuers, 
+			TimeProvider time, IntrospectionHandler intro, String rsId, 
+			AudienceValidator audience, CwtCryptoCtx ctx, String tokenFile,
+			ScopeValidator scopeValidator, boolean checkCnonce) 
+			        throws AceException, IOException {
+
+<span class="fc" id="L125">		super(issuers, time, intro, rsId, audience, ctx, null, 0, tokenFile, </span>
+		        scopeValidator, checkCnonce);
+		
+<span class="fc" id="L128">		this.audience = (GroupOSCOREJoinValidator) audience;</span>
+		
+<span class="fc" id="L130">	}</span>
+
+	@Override
+	public synchronized Message processMessage(Message msg) {
+<span class="fc" id="L134">	    LOGGER.log(Level.INFO, &quot;received message: &quot; + msg);</span>
+<span class="fc" id="L135">	    CBORObject token = null;</span>
+<span class="fc" id="L136">	    CBORObject cbor = null;</span>
+<span class="fc" id="L137">	    boolean provideSignInfo = false;</span>
+<span class="fc" id="L138">	    boolean provideEcdhInfo = false;</span>
+<span class="fc" id="L139">	    boolean invalid = false;</span>
+	    
+<span class="fc bfc" id="L141" title="All 2 branches covered.">		if (msg instanceof CoapReq) {</span>
+			// Check that the content-format is application/ace+cbor
+<span class="pc bpc" id="L143" title="1 of 2 branches missed.">			if (((CoapReq) msg).getOptions().getContentFormat() != Constants.APPLICATION_ACE_CBOR) {</span>
+<span class="nc" id="L144">				LOGGER.info(&quot;Invalid content-format&quot;);</span>
+<span class="nc" id="L145">				CBORObject map = CBORObject.NewMap();</span>
+<span class="nc" id="L146">				map.Add(Constants.ERROR, Constants.INVALID_REQUEST);</span>
+<span class="nc" id="L147">				map.Add(Constants.ERROR_DESCRIPTION, &quot;Invalid content-format&quot;);</span>
+<span class="nc" id="L148">				return msg.failReply(Message.FAIL_BAD_REQUEST, map);</span>
+			}
+		}
+	    
+        try {
+<span class="fc" id="L153">            cbor = CBORObject.DecodeFromBytes(msg.getRawPayload());</span>
+<span class="nc" id="L154">        } catch (Exception e) {</span>
+<span class="nc" id="L155">            LOGGER.info(&quot;Invalid payload at authz-info: &quot; + e.getMessage());</span>
+<span class="nc" id="L156">            CBORObject map = CBORObject.NewMap();</span>
+<span class="nc" id="L157">            map.Add(Constants.ERROR, Constants.INVALID_REQUEST);</span>
+<span class="nc" id="L158">            map.Add(Constants.ERROR_DESCRIPTION, &quot;Invalid payload&quot;);</span>
+<span class="nc" id="L159">            return msg.failReply(Message.FAIL_BAD_REQUEST, map);</span>
+<span class="fc" id="L160">        }</span>
+        
+<span class="pc bpc" id="L162" title="1 of 2 branches missed.">        if (!cbor.getType().equals(CBORType.Map)) {</span>
+<span class="nc" id="L163">            LOGGER.info(&quot;Invalid payload at authz-info: not a cbor map&quot;);</span>
+<span class="nc" id="L164">            CBORObject map = CBORObject.NewMap();</span>
+<span class="nc" id="L165">            map.Add(Constants.ERROR, Constants.INVALID_REQUEST);</span>
+<span class="nc" id="L166">            map.Add(Constants.ERROR_DESCRIPTION, </span>
+                    &quot;Payload to authz-info must be a CBOR map&quot;);
+<span class="nc" id="L168">            return msg.failReply(Message.FAIL_BAD_REQUEST, map);</span>
+        }
+        
+<span class="fc" id="L171">        CBORObject nonce = null;</span>
+<span class="fc" id="L172">        CBORObject senderIdCBOR = null;</span>
+        
+<span class="fc" id="L174">        String subject = msg.getSenderId();</span>
+        
+        // This Token POST is not protected; then the parameters Nonce1 and Id1 have to be present.
+        // Otherwise, if the Token POST is protected, these parameters are not expected, and are silently ignored if present
+<span class="fc bfc" id="L178" title="All 2 branches covered.">        if (subject == null) {</span>
+<span class="fc" id="L179">	        nonce = cbor.get(CBORObject.FromObject(Constants.NONCE1));</span>
+<span class="pc bpc" id="L180" title="2 of 4 branches missed.">	        if (nonce == null || !nonce.getType().equals(CBORType.ByteString)) {</span>
+<span class="nc" id="L181">	            LOGGER.info(&quot;Missing or invalid parameter type for:&quot;</span>
+	                    + &quot;'nonce1', must be present and byte-string&quot;);
+<span class="nc" id="L183">	            CBORObject map = CBORObject.NewMap();</span>
+<span class="nc" id="L184">	            map.Add(Constants.ERROR, Constants.INVALID_REQUEST);</span>
+<span class="nc" id="L185">	            map.Add(Constants.ERROR_DESCRIPTION, </span>
+	                    &quot;Malformed or missing parameter 'nonce1'&quot;);
+<span class="nc" id="L187">	            return msg.failReply(Message.FAIL_BAD_REQUEST, map); </span>
+	        }
+	        
+<span class="fc" id="L190">	        senderIdCBOR = cbor.get(CBORObject.FromObject(Constants.ACE_CLIENT_RECIPIENTID));</span>
+<span class="pc bpc" id="L191" title="2 of 4 branches missed.">	        if (senderIdCBOR == null || !senderIdCBOR.getType().equals(CBORType.ByteString)) {</span>
+<span class="nc" id="L192">	            LOGGER.info(&quot;Missing or invalid parameter type for:&quot;</span>
+	                    + &quot;'id1', must be present and byte-string&quot;);
+<span class="nc" id="L194">	            CBORObject map = CBORObject.NewMap();</span>
+<span class="nc" id="L195">	            map.Add(Constants.ERROR, Constants.INVALID_REQUEST);</span>
+<span class="nc" id="L196">	            map.Add(Constants.ERROR_DESCRIPTION, </span>
+	                    &quot;Malformed or missing parameter 'id1'&quot;);
+<span class="nc" id="L198">	            return msg.failReply(Message.FAIL_BAD_REQUEST, map); </span>
+	        }
+        }
+        
+<span class="fc" id="L202">        token = cbor.get(CBORObject.FromObject(Constants.ACCESS_TOKEN));</span>
+<span class="pc bpc" id="L203" title="1 of 2 branches missed.">        if (token == null) {</span>
+<span class="nc" id="L204">            LOGGER.info(&quot;Missing parameter 'access_token'&quot;);</span>
+<span class="nc" id="L205">            CBORObject map = CBORObject.NewMap();</span>
+<span class="nc" id="L206">            map.Add(Constants.ERROR, Constants.INVALID_REQUEST);</span>
+<span class="nc" id="L207">            map.Add(Constants.ERROR_DESCRIPTION, &quot;Missing mandatory parameter 'access_token'&quot;);</span>
+<span class="nc" id="L208">            return msg.failReply(Message.FAIL_BAD_REQUEST, map);</span>
+        }
+<span class="pc bpc" id="L210" title="1 of 2 branches missed.">        if (!token.getType().equals(CBORType.ByteString)) {</span>
+<span class="nc" id="L211">            LOGGER.info(&quot;Invalid parameter type for 'access_token', it must be a byte-string&quot;);</span>
+<span class="nc" id="L212">            CBORObject map = CBORObject.NewMap();</span>
+<span class="nc" id="L213">            map.Add(Constants.ERROR, Constants.INVALID_REQUEST);</span>
+<span class="nc" id="L214">            map.Add(Constants.ERROR_DESCRIPTION, &quot;Unknown token format&quot;);</span>
+<span class="nc" id="L215">            return msg.failReply(Message.FAIL_BAD_REQUEST, map);</span>
+        }
+
+<span class="fc" id="L218">        CBORObject tokenAsCbor = CBORObject.DecodeFromBytes(token.GetByteString());</span>
+<span class="pc bpc" id="L219" title="2 of 4 branches missed.">        if (!tokenAsCbor.getType().equals(CBORType.ByteString) &amp;&amp; !tokenAsCbor.getType().equals(CBORType.Array)) {</span>
+<span class="nc" id="L220">            LOGGER.info(&quot;Invalid parameter type for 'access_token', must be present and byte-string&quot;);</span>
+<span class="nc" id="L221">            CBORObject map = CBORObject.NewMap();</span>
+<span class="nc" id="L222">            map.Add(Constants.ERROR, Constants.INVALID_REQUEST);</span>
+<span class="nc" id="L223">            map.Add(Constants.ERROR_DESCRIPTION,&quot;Failed deserialization of parameter 'access_token'&quot;);</span>
+<span class="nc" id="L224">            return msg.failReply(Message.FAIL_BAD_REQUEST, map);</span>
+        }        
+        
+<span class="fc bfc" id="L227" title="All 2 branches covered.">        if (cbor.ContainsKey(CBORObject.FromObject(Constants.SIGN_INFO))) {</span>
+<span class="pc bpc" id="L228" title="1 of 2 branches missed.">    		if (cbor.get(CBORObject.FromObject(Constants.SIGN_INFO)).equals(CBORObject.Null)) {</span>
+<span class="fc" id="L229">    			provideSignInfo = true;</span>
+    		}
+<span class="nc" id="L231">    		else invalid = true;</span>
+    	}
+    	
+<span class="fc bfc" id="L234" title="All 2 branches covered.">        if (cbor.ContainsKey(CBORObject.FromObject(Constants.ECDH_INFO))) {</span>
+<span class="pc bpc" id="L235" title="1 of 2 branches missed.">    		if (cbor.get(CBORObject.FromObject(Constants.ECDH_INFO)).equals(CBORObject.Null)) {</span>
+<span class="fc" id="L236">    			provideEcdhInfo = true;</span>
+    		}
+<span class="nc" id="L238">    		else invalid = true;</span>
+    	}
+        
+<span class="pc bpc" id="L241" title="1 of 2 branches missed.">        if (invalid) {</span>
+<span class="nc" id="L242">            LOGGER.info(&quot;Invalid format for 'sign_info'&quot;);</span>
+<span class="nc" id="L243">            CBORObject map = CBORObject.NewMap();</span>
+<span class="nc" id="L244">            map.Add(Constants.ERROR, Constants.INVALID_REQUEST);</span>
+<span class="nc" id="L245">            map.Add(Constants.ERROR_DESCRIPTION, </span>
+                    &quot;Invalid format for 'sign_info'&quot;);
+<span class="nc" id="L247">            return msg.failReply(Message.FAIL_BAD_REQUEST, map);</span>
+        }
+        
+<span class="fc" id="L250">        Message reply = super.processToken(tokenAsCbor, msg);</span>
+<span class="pc bpc" id="L251" title="1 of 2 branches missed.">        if (reply.getMessageCode() != Message.CREATED) {</span>
+<span class="nc" id="L252">            return reply;</span>
+        }
+        
+<span class="pc bpc" id="L255" title="1 of 2 branches missed.">        if (this.cnf == null) { //Should never happen, caught in TokenRepository</span>
+<span class="nc" id="L256">            LOGGER.info(&quot;Missing required parameter 'cnf'&quot;);</span>
+<span class="nc" id="L257">            CBORObject map = CBORObject.NewMap();</span>
+<span class="nc" id="L258">            map.Add(Constants.ERROR, Constants.INVALID_REQUEST);</span>
+<span class="nc" id="L259">            return msg.failReply(Message.FAIL_BAD_REQUEST, map); </span>
+        }
+        
+<span class="fc" id="L262">        CBORObject payload = CBORObject.NewMap();</span>
+        
+<span class="fc" id="L264">        CBORObject authzInfoResponse = CBORObject.DecodeFromBytes(reply.getRawPayload());</span>
+        
+        
+        // If the Token POST was a non protected request, then Nonces and IDs have
+        // to be exchanged, and a new OSCORE Security Context has to be established
+<span class="fc bfc" id="L269" title="All 2 branches covered.">        if (subject == null) {</span>
+<span class="fc" id="L270">	        String recipientIdString = authzInfoResponse.get(</span>
+<span class="fc" id="L271">	                CBORObject.FromObject(Constants.CLIENT_ID)).AsString();</span>
+<span class="pc bpc" id="L272" title="1 of 2 branches missed.">	        if (recipientIdString == null) {</span>
+<span class="nc" id="L273">	            LOGGER.info(&quot;Missing mandatory parameter 'client_id'&quot;);</span>
+<span class="nc" id="L274">	            return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);</span>
+	        }
+<span class="fc" id="L276">	        byte[] recipientId = Base64.getDecoder().decode(recipientIdString);</span>
+	        
+<span class="fc" id="L278">	        byte[] n1 = nonce.GetByteString();</span>
+<span class="fc" id="L279">	        byte[] n2 = new byte[8];</span>
+<span class="fc" id="L280">	        new SecureRandom().nextBytes(n2);</span>
+	                
+	        OscoreSecurityContext osc;
+	        try {
+<span class="fc" id="L284">	            osc = new OscoreSecurityContext(this.cnf);</span>
+<span class="nc" id="L285">	        } catch (AceException e) {</span>
+<span class="nc" id="L286">	            CBORObject map = CBORObject.NewMap();</span>
+<span class="nc" id="L287">	            map.Add(Constants.ERROR, Constants.INVALID_REQUEST);</span>
+<span class="nc" id="L288">	            map.Add(Constants.ERROR_DESCRIPTION, e.getMessage());</span>
+<span class="nc" id="L289">	            return msg.failReply(Message.FAIL_BAD_REQUEST, map); </span>
+<span class="fc" id="L290">	        }</span>
+	            
+	        OSCoreCtx ctx;
+	        try {
+<span class="fc" id="L294">	            ctx = osc.getContext(false, n1, n2);</span>
+	
+<span class="fc" id="L296">	            OSCoreCtxDB db = OscoreCtxDbSingleton.getInstance();</span>
+	            
+<span class="fc" id="L298">	            synchronized(db) {</span>
+	            	
+<span class="fc" id="L300">	            	boolean install = true;</span>
+<span class="fc" id="L301">					byte[] idContext = null;</span>
+	            	
+<span class="fc" id="L303">					CBORObject responseMap = CBORObject.DecodeFromBytes(reply.getRawPayload());</span>
+<span class="fc" id="L304">					CBORObject subjectCbor = responseMap.get(Constants.SUB);</span>
+<span class="fc" id="L305">					String subjectStr = subjectCbor.AsString();</span>
+<span class="fc" id="L306">					int index = subjectStr.indexOf(&quot;:&quot;);</span>
+
+<span class="pc bpc" id="L308" title="1 of 2 branches missed.">					if (index &gt;= 0) {</span>
+						// Extract the OSCORE ID Context
+<span class="nc" id="L310">						String idContextStr = subjectStr.substring(0, index);</span>
+<span class="nc" id="L311">						idContext = Base64.getDecoder().decode(idContextStr);</span>
+					}
+	            	
+	    			try {
+    					
+	    				// Double check in the database that the OSCORE Security Context
+	    				// with the selected Recipient ID is actually still not present
+<span class="pc bpc" id="L318" title="2 of 4 branches missed.">						if (idContext == null &amp;&amp; db.getContext(recipientId) != null) {</span>
+	        				// A Security Context with this Recipient ID exists!
+<span class="nc" id="L320">	        				install = false;</span>
+	        			}
+<span class="pc bpc" id="L322" title="3 of 4 branches missed.">						else if (idContext != null &amp;&amp; db.getContext(recipientId, idContext) != null) {</span>
+							// A Security Context with this ID Context and Recipient ID exists!
+<span class="nc" id="L324">							install = false;</span>
+						}
+
+	    			}
+<span class="nc" id="L328">	        		catch(RuntimeException e) {</span>
+	    				// Multiple Security Contexts with this Recipient ID exist!
+<span class="nc" id="L330">	    				install = false;</span>
+<span class="fc" id="L331">	        		}</span>
+	            	
+<span class="pc bpc" id="L333" title="1 of 2 branches missed.">	    			if (install)</span>
+<span class="fc" id="L334">	    				db.addContext(ctx);</span>
+	    			else {
+<span class="nc" id="L336">	    	            LOGGER.info(&quot;An OSCORE Security Context with the same Recipient ID&quot;</span>
+					               + &quot; has been installed while running the OSCORE profile&quot;);
+	    	            
+	    	            // Delete the stored Access Token to prevent a deadlock
+<span class="nc" id="L340">	    	    	    CBORObject ctiCbor = responseMap.get(Constants.CTI);</span>
+<span class="nc" id="L341">	    	    	    String cti = Base64.getEncoder().encodeToString(ctiCbor.GetByteString());</span>
+	    	    	    try {
+<span class="nc" id="L343">	    	    	    	TokenRepository.getInstance().removeToken(cti);</span>
+	    	    	    }
+<span class="nc" id="L345">	    	    	    catch (AceException e) {</span>
+<span class="nc" id="L346">	    	                LOGGER.info(&quot;Error while deleting an Access Token: &quot; + e.getMessage());</span>
+<span class="nc" id="L347">	    	    	    }</span>
+<span class="nc" id="L348">	    	            return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);</span>
+	    			}
+<span class="fc" id="L350">	            }</span>
+	
+<span class="nc" id="L352">	        } catch (OSException e) {</span>
+<span class="nc" id="L353">	            LOGGER.info(&quot;Error while creating OSCORE context: &quot; </span>
+<span class="nc" id="L354">	                    + e.getMessage());</span>
+<span class="nc" id="L355">	            CBORObject map = CBORObject.NewMap();</span>
+<span class="nc" id="L356">	            map.Add(Constants.ERROR, Constants.INVALID_REQUEST);</span>
+<span class="nc" id="L357">	            map.Add(Constants.ERROR_DESCRIPTION, </span>
+	                    &quot;Error while creating OSCORE security context: &quot;
+<span class="nc" id="L359">	                    + e.getMessage());</span>
+<span class="nc" id="L360">	            return msg.failReply(Message.FAIL_BAD_REQUEST, map);</span>
+<span class="fc" id="L361">	        }</span>
+	        
+<span class="fc" id="L363">	        payload.Add(Constants.NONCE2, n2);</span>
+<span class="fc" id="L364">	        payload.Add(Constants.ACE_SERVER_RECIPIENTID, recipientId);</span>
+        
+        }
+        
+        //Return the cti or the local identifier assigned to the token
+<span class="fc" id="L369">	    CBORObject responseMap = CBORObject.DecodeFromBytes(reply.getRawPayload());</span>
+<span class="fc" id="L370">	    CBORObject cti = responseMap.get(CBORObject.FromObject(Constants.CTI));</span>
+<span class="fc" id="L371">	    payload.Add(Constants.CTI, cti);</span>
+	    	
+<span class="fc" id="L373">    	boolean error = true;</span>
+    	
+<span class="fc" id="L375">	    String ctiStr = Base64.getEncoder().encodeToString(cti.GetByteString());</span>
+<span class="fc" id="L376">	    Map&lt;Short, CBORObject&gt; claims = TokenRepository.getInstance().getClaims(ctiStr);</span>
+    	
+    	// Check that audience and scope are consistent with the access to a join resource.
+	    // Consistency checks have been already performed when processing the Token upon posting
+	    
+<span class="fc" id="L381">    	CBORObject scope = claims.get(Constants.SCOPE);</span>
+    	
+<span class="fc bfc" id="L383" title="All 2 branches covered.">    	if (scope.getType().equals(CBORType.ByteString)) {</span>
+    		
+<span class="fc" id="L385">    		Set&lt;String&gt; myGMAudiences = this.audience.getAllGMAudiences();</span>
+<span class="fc" id="L386">    		Set&lt;String&gt; myJoinResources = this.audience.getAllJoinResources();</span>
+    		
+<span class="fc" id="L388">    		CBORObject audCbor = claims.get(Constants.AUD);</span>
+<span class="fc" id="L389">    		String aud = audCbor.AsString();</span>
+    		
+    		
+<span class="fc" id="L392">    		byte[] rawScope = scope.GetByteString();</span>
+<span class="fc" id="L393">    		CBORObject cborScope = CBORObject.DecodeFromBytes(rawScope);</span>
+<span class="fc" id="L394">    		Set&lt;String&gt; groupNames = new HashSet&lt;&gt;();</span>
+    		
+    		// Check that the audience is in fact a Group Manager
+<span class="pc bpc" id="L397" title="1 of 2 branches missed.">			if (myGMAudiences.contains(aud)) {</span>
+<span class="fc" id="L398">				error = false;</span>
+	    	}
+    		
+<span class="fc bfc" id="L401" title="All 2 branches covered.">      	  	for (int entryIndex = 0; entryIndex &lt; cborScope.size(); entryIndex++)</span>
+<span class="fc" id="L402">      	  		groupNames.add(cborScope.get(entryIndex).get(0).AsString());</span>
+    		
+    		// Check that all the group names in scope refer to group-membership resources
+<span class="pc bpc" id="L405" title="1 of 2 branches missed.">    		if (error == false) {</span>
+<span class="fc bfc" id="L406" title="All 2 branches covered.">    			for (String groupName : groupNames) {</span>
+<span class="pc bpc" id="L407" title="1 of 2 branches missed.">    				if (myJoinResources.contains(rootGroupMembershipResource + &quot;/&quot; + groupName) == false) {</span>
+<span class="nc" id="L408">    					error = true;</span>
+<span class="nc" id="L409">    					break;</span>
+    				}
+<span class="fc" id="L411">    			}</span>
+    		}
+    		
+<span class="pc bpc" id="L414" title="1 of 2 branches missed.">    		if (error == true) {</span>
+<span class="nc" id="L415">                LOGGER.info(&quot;The audience must be a Group Manager; group name must point at group-membership resources of that Group Manager&quot;);</span>
+<span class="nc" id="L416">                CBORObject map = CBORObject.NewMap();</span>
+<span class="nc" id="L417">                map.Add(Constants.ERROR, Constants.INVALID_REQUEST);</span>
+<span class="nc" id="L418">                return msg.failReply(Message.FAIL_BAD_REQUEST, map); </span>
+            }
+    		
+        	// Add the nonce for PoP of the Client's private key in the Join Request
+<span class="fc" id="L422">            byte[] rsnonce = new byte[8];</span>
+<span class="fc" id="L423">            new SecureRandom().nextBytes(rsnonce);</span>
+<span class="fc" id="L424">            payload.Add(Constants.KDCCHALLENGE, rsnonce);</span>
+            
+<span class="fc" id="L426">    	    CBORObject sid = responseMap.get(CBORObject.FromObject(Constants.SUB));</span>
+    	    
+<span class="pc bpc" id="L428" title="1 of 2 branches missed.">    	    if (sid == null) { // This should never happen, as handled in TokenRepository.</span>
+<span class="nc" id="L429">                LOGGER.info(&quot;Missing Sender ID after valid Access Token Posting&quot;);</span>
+<span class="nc" id="L430">                CBORObject map = CBORObject.NewMap();</span>
+<span class="nc" id="L431">                map.Add(Constants.ERROR, Constants.INVALID_REQUEST);</span>
+<span class="nc" id="L432">                return msg.failReply(Message.FAIL_BAD_REQUEST, map); </span>
+            }
+    	    
+    	    // Add to the Token Repository an entry (sid, rsnonce)
+<span class="fc" id="L436">    	    TokenRepository.getInstance().setRsnonce(sid.AsString(), Base64.getEncoder().encodeToString(rsnonce));</span>
+    	    
+<span class="pc bpc" id="L438" title="3 of 4 branches missed.">	    	if (provideSignInfo || provideEcdhInfo) {</span>
+	    	    
+<span class="fc" id="L440">	    		CBORObject signInfo = CBORObject.NewArray();</span>
+<span class="fc" id="L441">	    		CBORObject ecdhInfo = CBORObject.NewArray();</span>
+	    	
+<span class="fc bfc" id="L443" title="All 2 branches covered.">				for (String groupName : groupNames) {</span>
+					
+		        	// Retrieve the entry for the target group, using the name of the OSCORE group
+<span class="fc" id="L446">		        	GroupInfo myGroup = this.activeGroups.get(groupName);</span>
+					
+		        	// The group uses the group mode
+<span class="pc bpc" id="L449" title="2 of 4 branches missed.">		        	if (provideSignInfo &amp;&amp; myGroup.getMode() != Constants.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {</span>
+		        	
+<span class="fc" id="L451">						CBORObject signInfoEntry = CBORObject.NewArray();</span>
+						
+						// 'id' element
+<span class="fc" id="L454">						signInfoEntry.Add(CBORObject.FromObject(groupName));</span>
+						
+						// 'sign_alg' element
+<span class="fc" id="L457">						signInfoEntry.Add(myGroup.getSignAlg().AsCBOR());</span>
+				    	
+						// 'sign_parameters' element (The algorithm capabilities)
+<span class="fc" id="L460">				    	CBORObject arrayElem = myGroup.getSignParams().get(0);</span>
+<span class="pc bpc" id="L461" title="1 of 2 branches missed.">				    	if (arrayElem == null)</span>
+<span class="nc" id="L462">				    		signInfoEntry.Add(CBORObject.Null);</span>
+				    	else
+<span class="fc" id="L464">				    		signInfoEntry.Add(arrayElem);</span>
+				    	
+				    	// 'sign_key_parameters' element (The key type capabilities)
+<span class="fc" id="L467">				    	arrayElem = myGroup.getSignParams().get(1);</span>
+<span class="pc bpc" id="L468" title="1 of 2 branches missed.">				    	if (arrayElem == null)</span>
+<span class="nc" id="L469">				    		signInfoEntry.Add(CBORObject.Null);</span>
+				    	else
+<span class="fc" id="L471">				    		signInfoEntry.Add(arrayElem);</span>
+				    	
+				    	// 'cred_fmt' element
+<span class="fc" id="L474">				    	signInfoEntry.Add(myGroup.getAuthCredFormat());</span>
+	
+<span class="fc" id="L476">					    signInfo.Add(signInfoEntry);</span>
+		        	}
+		        	
+		        	// The group uses the pairwise mode
+<span class="pc bpc" id="L480" title="2 of 4 branches missed.">		        	if (provideEcdhInfo &amp;&amp; myGroup.getMode() != Constants.GROUP_OSCORE_GROUP_MODE_ONLY) {</span>
+		        	
+<span class="fc" id="L482">						CBORObject ecdhEntry = CBORObject.NewArray();</span>
+						
+						// 'id' element
+<span class="fc" id="L485">						ecdhEntry.Add(CBORObject.FromObject(groupName));</span>
+						
+						// 'ecdh_alg' element
+<span class="fc" id="L488">						ecdhEntry.Add(myGroup.getEcdhAlg().AsCBOR());</span>
+				    	
+						// 'ecdh_parameters' element (The algorithm capabilities)
+<span class="fc" id="L491">				    	CBORObject arrayElem = myGroup.getEcdhParams().get(0);</span>
+<span class="pc bpc" id="L492" title="1 of 2 branches missed.">				    	if (arrayElem == null)</span>
+<span class="nc" id="L493">				    		ecdhEntry.Add(CBORObject.Null);</span>
+				    	else
+<span class="fc" id="L495">				    		ecdhEntry.Add(arrayElem);</span>
+				    	
+				    	// 'ecdh_key_parameters' element (The key type capabilities)
+<span class="fc" id="L498">				    	arrayElem = myGroup.getEcdhParams().get(1);</span>
+<span class="pc bpc" id="L499" title="1 of 2 branches missed.">				    	if (arrayElem == null)</span>
+<span class="nc" id="L500">				    		ecdhEntry.Add(CBORObject.Null);</span>
+				    	else
+<span class="fc" id="L502">				    		ecdhEntry.Add(arrayElem);</span>
+				    	
+				    	// 'cred_fmt' element
+<span class="fc" id="L505">				    	ecdhEntry.Add(myGroup.getAuthCredFormat());</span>
+	
+<span class="fc" id="L507">					    ecdhInfo.Add(ecdhEntry);</span>
+		        	}
+				    
+<span class="fc" id="L510">				}</span>
+
+<span class="pc bpc" id="L512" title="2 of 4 branches missed.">				if (provideSignInfo &amp;&amp; signInfo.size() != 0)</span>
+<span class="fc" id="L513">					payload.Add(Constants.SIGN_INFO, signInfo);</span>
+				
+<span class="pc bpc" id="L515" title="2 of 4 branches missed.">				if (provideEcdhInfo &amp;&amp; ecdhInfo.size() != 0)</span>
+<span class="fc" id="L516">					payload.Add(Constants.ECDH_INFO, ecdhInfo);</span>
+		    
+	    	}
+    		
+    	}
+    	
+<span class="fc" id="L522">        LOGGER.info(&quot;Successfully processed OSCORE token&quot;);</span>
+<span class="fc" id="L523">        return msg.successReply(reply.getMessageCode(), payload);</span>
+	}
+
+	/**
+	 * @param activeGroups
+	 */
+	public synchronized void setActiveGroups(Map&lt;String, GroupInfo&gt; activeGroups) {
+<span class="fc" id="L530">		this.activeGroups = activeGroups;</span>
+<span class="fc" id="L531">	}</span>
+	
+	@Override
+	protected synchronized void processOther(Map&lt;Short, CBORObject&gt; claims) {
+<span class="fc" id="L535">	    this.cnf = claims.get(Constants.CNF);</span>
+<span class="fc" id="L536">	}</span>
+
+    @Override
+    public void close() throws AceException {
+<span class="fc" id="L540">       super.close();</span>
+        
+<span class="fc" id="L542">    }	</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

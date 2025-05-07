@@ -1,0 +1,586 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ContextRederivation.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore</a> &gt; <span class="el_source">ContextRederivation.java</span></div><h1>ContextRederivation.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019 RISE SICS and others.
+ * 
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * and Eclipse Distribution License v1.0 which accompany this distribution.
+ * 
+ * The Eclipse Public License is available at
+ *    http://www.eclipse.org/legal/epl-v20.html
+ * and the Eclipse Distribution License is available at
+ *    http://www.eclipse.org/org/documents/edl-v10.html.
+ * 
+ * Contributors:
+ *    Rikard Höglund (RISE SICS)
+ *    
+ ******************************************************************************/
+package org.eclipse.californium.oscore;
+
+import java.security.SecureRandom;
+import java.util.Arrays;
+
+import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+import org.eclipse.californium.cose.CoseException;
+import org.eclipse.californium.elements.exception.ConnectorException;
+import org.eclipse.californium.elements.util.Bytes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.upokecenter.cbor.CBORException;
+import com.upokecenter.cbor.CBORObject;
+
+/**
+ * Methods for perform re-derivation of contexts as detailed in Appendix B.2. It
+ * uses two message exchanges together with varying the Context ID field in the
+ * OSCORE option to securely generate a new shared context. The second exchange
+ * will be for the request the client actually wants to send.
+ * 
+ * Note that the implementation requires that no additional requests are sent
+ * without first getting the response to the pending request during the 2
+ * request/response exchanges of the procedure.
+ *
+ * See https://tools.ietf.org/html/rfc8613#appendix-B.2
+ */
+<span class="nc" id="L44">public class ContextRederivation {</span>
+
+<span class="fc" id="L46">	private static SecureRandom random = new SecureRandom();</span>
+
+	private static final String SCHEME = &quot;coap://&quot;;
+
+	/**
+	 * The different phases of the re-derivation procedure.
+	 *
+	 */
+<span class="fc" id="L54">	public static enum PHASE {</span>
+<span class="fc" id="L55">		INACTIVE, CLIENT_INITIATE, SERVER_INITIATE, SERVER_PHASE_1, SERVER_PHASE_2, SERVER_PHASE_3, CLIENT_PHASE_1, CLIENT_PHASE_2, CLIENT_PHASE_3;</span>
+	}
+
+	/**
+	 * Length of each segment (ID1, S2 and R3) in the Context ID when performing
+	 * context re-derivation. R2 will be of length 2 segments since it is
+	 * actually composed of S2 || HMAC(S2).
+	 */
+<span class="fc" id="L63">	protected static int SEGMENT_LENGTH = 8;</span>
+
+	/**
+	 * The logger
+	 */
+<span class="fc" id="L68">	private static final Logger LOGGER = LoggerFactory.getLogger(ContextRederivation.class);</span>
+
+	/**
+	 * Method to indicate that the mutable parts of an OSCORE context has been
+	 * lost. In such case the context re-derivation procedure is triggered.
+	 * 
+	 * @param db context DB
+	 * @param uri the URI associated with context information has been lost for
+	 * @throws CoapOSException if re-generation of the context fails
+	 */
+	public static void setLostContext(OSCoreCtxDB db, String uri) throws CoapOSException
+	{
+		try {
+<span class="fc" id="L81">			initiateRequest(db, uri);</span>
+<span class="nc" id="L82">		} catch (ConnectorException | OSException e) {</span>
+<span class="nc" id="L83">			LOGGER.error(ErrorDescriptions.CONTEXT_REGENERATION_FAILED);</span>
+<span class="nc" id="L84">			throw new CoapOSException(ErrorDescriptions.CONTEXT_REGENERATION_FAILED, ResponseCode.BAD_REQUEST);</span>
+<span class="fc" id="L85">		}</span>
+<span class="fc" id="L86">	}</span>
+
+	/* Client side related methods below */
+
+	/**
+	 * This method will be triggered by the client before sending a request that
+	 * initiates the context re-derivation procedure. This request is identified
+	 * as request #1 in Appendix B.2.
+	 * 
+	 * @param db context db
+	 * @param uri uri
+	 * @throws ConnectorException if send/receiving messages failed
+	 * @throws OSException if context re-derivation fails
+	 */
+	private static void initiateRequest(OSCoreCtxDB db, String uri) throws ConnectorException, OSException {
+
+		// Retrieve the context for the target URI
+<span class="fc" id="L103">		OSCoreCtx ctx = db.getContext(uri);</span>
+
+		// Check that context re-derivation is enabled for this context
+<span class="pc bpc" id="L106" title="1 of 2 branches missed.">		if (ctx.getContextRederivationEnabled() == false) {</span>
+<span class="nc" id="L107">			LOGGER.error(&quot;Context re-derivation is not enabled for this context.&quot;);</span>
+<span class="nc" id="L108">			throw new IllegalStateException(&quot;Context re-derivation is not enabled for this context.&quot;);</span>
+		}
+
+<span class="fc" id="L111">		printStateLogging(ctx);</span>
+
+		// Generate a random Context ID (ID1)
+<span class="fc" id="L114">		byte[] contextID1 = Bytes.createBytes(random, SEGMENT_LENGTH);</span>
+
+		// Create new context with the generated Context ID
+<span class="fc" id="L117">		OSCoreCtx newCtx = rederiveWithContextID(ctx, contextID1);</span>
+
+		// In the request include ID1 as a CBOR byte string (bstr)
+<span class="fc" id="L120">		newCtx.setIncludeContextId(encodeToCborBstrBytes(contextID1));</span>
+<span class="fc" id="L121">		newCtx.setContextRederivationPhase(ContextRederivation.PHASE.CLIENT_PHASE_1);</span>
+<span class="fc" id="L122">		db.removeContext(ctx);</span>
+<span class="fc" id="L123">		db.addContext(uri, newCtx);</span>
+<span class="fc" id="L124">	}</span>
+
+	/**
+	 * Handle incoming response messages (for client).
+	 * 
+	 * @param db the context db
+	 * @param ctx the context
+	 * @param contextID the context ID in the incoming response
+	 * @return an updated context
+	 * @throws OSException if context re-derivation fails
+	 */
+	static OSCoreCtx incomingResponse(OSCoreCtxDB db, OSCoreCtx ctx, byte[] contextID) throws OSException {
+
+		// Check if context re-derivation is enabled for this context
+<span class="fc bfc" id="L138" title="All 2 branches covered.">		if (ctx.getContextRederivationEnabled() == false) {</span>
+<span class="fc" id="L139">			LOGGER.debug(&quot;Context re-derivation not considered due to it being disabled for this context&quot;);</span>
+<span class="fc" id="L140">			return ctx;</span>
+		}
+
+		// Handle client phase 3 operations
+<span class="fc bfc" id="L144" title="All 2 branches covered.">		if (ctx.getContextRederivationPhase() == PHASE.CLIENT_PHASE_3) {</span>
+
+<span class="fc" id="L146">			printStateLogging(ctx);</span>
+
+<span class="fc" id="L148">			ctx.setIncludeContextId(false);</span>
+<span class="fc" id="L149">			ctx.setContextRederivationPhase(PHASE.INACTIVE);</span>
+<span class="fc" id="L150">			return ctx;</span>
+<span class="fc bfc" id="L151" title="All 2 branches covered.">		} else if (ctx.getContextRederivationPhase() == PHASE.CLIENT_PHASE_1) {</span>
+
+<span class="fc" id="L153">			printStateLogging(ctx);</span>
+
+			// Handle client phase 1 operations (reception of response #1)
+
+			// The Context ID in the incoming response is identified as R2
+			// It is first decoded as it is a CBOR byte string
+<span class="fc" id="L159">			byte[] contextR2 = decodeFromCborBstrBytes(contextID);</span>
+
+			// The Context ID of the original request in this exchange is ID1
+<span class="fc" id="L162">			byte[] contextID1 = ctx.getIdContext();</span>
+
+			// Create Context ID to generate the new context with (R2 || ID1)
+<span class="fc" id="L165">			byte[] verifyContextID = Bytes.concatenate(contextR2, contextID1);</span>
+
+			// Generate a new context with the concatenated Context ID
+<span class="fc" id="L168">			OSCoreCtx newCtx = rederiveWithContextID(ctx, verifyContextID);</span>
+
+			// Add the new context to the context DB (replacing the old)
+<span class="fc" id="L171">			newCtx.setContextRederivationPhase(PHASE.CLIENT_PHASE_2);</span>
+<span class="fc" id="L172">			db.removeContext(ctx);</span>
+<span class="fc" id="L173">			db.addContext(SCHEME + ctx.getUri(), newCtx);</span>
+<span class="fc" id="L174">			return newCtx;</span>
+<span class="pc bpc" id="L175" title="1 of 2 branches missed.">		} else if (ctx.getContextRederivationPhase() == PHASE.INACTIVE) {</span>
+
+<span class="fc" id="L177">			printStateLogging(ctx);</span>
+
+			// It may be that it was the server that lost the mutable parts of
+			// the context. In this case, if context re-derivation is explicitly
+			// enabled on the client, it should check if the response is in fact
+			// part of a context re-derivation procedure initiated by the
+			// server. This situation would be the client receiving a response
+			// #1 without sending request #1 (which would be just a normal
+			// client request).
+
+			// For this to be a valid response #1 from the server it must have a
+			// contextID set and not match the one used in the client's context
+			// (ID1 is different from R2)
+<span class="pc bpc" id="L190" title="1 of 4 branches missed.">			if (contextID == null || Arrays.equals(ctx.getIdContext(), contextID) == true) {</span>
+<span class="fc" id="L191">				return ctx;</span>
+			}
+
+			// The Context ID in the incoming response is identified as R2
+			// It is first decoded as it is a CBOR byte string
+<span class="fc" id="L196">			byte[] contextR2 = decodeFromCborBstrBytes(contextID);</span>
+
+			// The Context ID of the original request in this exchange is ID1
+<span class="fc" id="L199">			byte[] contextID1 = ctx.getIdContext();</span>
+
+			// Create Context ID to generate the new context with (R2 || ID1)
+<span class="fc" id="L202">			byte[] verifyContextID = Bytes.concatenate(contextR2, contextID1);</span>
+
+			// Generate a new context with the concatenated Context ID
+<span class="fc" id="L205">			OSCoreCtx newCtx = rederiveWithContextID(ctx, verifyContextID);</span>
+
+			// Add the new context to the context DB (replacing the old)
+<span class="fc" id="L208">			newCtx.setContextRederivationPhase(PHASE.CLIENT_PHASE_2);</span>
+<span class="fc" id="L209">			db.removeContext(ctx);</span>
+<span class="fc" id="L210">			db.addContext(SCHEME + ctx.getUri(), newCtx);</span>
+<span class="fc" id="L211">			return newCtx;</span>
+		}
+
+<span class="nc" id="L214">		return ctx;</span>
+	}
+
+	/**
+	 * Handle outgoing request messages (for client).
+	 * 
+	 * @param db the context db
+	 * @param ctx the context
+	 * @return an updated context
+	 * @throws OSException if context re-derivation fails
+	 */
+	static OSCoreCtx outgoingRequest(OSCoreCtxDB db, OSCoreCtx ctx) throws OSException {
+
+		// Handle client phase 2 operations (sending of request #2)
+<span class="fc bfc" id="L228" title="All 2 branches covered.">		if (ctx.getContextRederivationPhase() == PHASE.CLIENT_PHASE_2) {</span>
+
+<span class="fc" id="L230">			printStateLogging(ctx);</span>
+
+			// Extract the R2 Context ID value from the current context
+			// Currently the value will be R2 || ID1
+<span class="fc" id="L234">			byte[] currentContextID = ctx.getIdContext();</span>
+<span class="fc" id="L235">			byte[] contextR2 = Arrays.copyOfRange(currentContextID, 0, currentContextID.length - SEGMENT_LENGTH);</span>
+
+			// Now create the random Context ID value R3
+<span class="fc" id="L238">			byte[] contextR3 = Bytes.createBytes(random, SEGMENT_LENGTH);</span>
+
+			// Concatenate R2 and R3 to get the Context ID to use
+<span class="fc" id="L241">			byte[] protectContextID = Bytes.concatenate(contextR2, contextR3);</span>
+
+			// Generate a new context with the concatenated Context ID
+<span class="fc" id="L244">			OSCoreCtx newCtx = rederiveWithContextID(ctx, protectContextID);</span>
+
+			// In the outgoing request from this context, include the Context ID
+			// as a CBOR byte string
+<span class="fc" id="L248">			newCtx.setIncludeContextId(encodeToCborBstrBytes(protectContextID));</span>
+
+			// Indicate that the context re-derivation procedure is ongoing
+<span class="fc" id="L251">			newCtx.setContextRederivationPhase(PHASE.CLIENT_PHASE_3);</span>
+
+			// Add the new context to the context DB (replacing the old)
+<span class="fc" id="L254">			db.removeContext(ctx);</span>
+<span class="fc" id="L255">			db.addContext(SCHEME + ctx.getUri(), newCtx);</span>
+<span class="fc" id="L256">			return newCtx;</span>
+		}
+
+<span class="fc" id="L259">		return ctx;</span>
+	}
+
+	/* Server side related methods below */
+
+	/**
+	 * Handle incoming request messages (for server).
+	 * 
+	 * @param db db the context db
+	 * @param ctx the context
+	 * @param contextID the context ID in the incoming request
+	 * @param rid the RID in the incoming request
+	 * @return an updated context
+	 * @throws OSException if context re-derivation fails
+	 */
+	static OSCoreCtx incomingRequest(OSCoreCtxDB db, OSCoreCtx ctx, byte[] contextID, byte[] rid) throws OSException {
+
+		// Try to retrieve the context based on the RID only if no context was
+		// found. Since the ID Context in the initial request will be a new one
+		// and not match existing contexts.
+<span class="fc bfc" id="L279" title="All 2 branches covered.">		if (ctx == null) {</span>
+<span class="fc" id="L280">			ctx = db.getContext(rid);</span>
+		}
+
+		// No context found still
+<span class="fc bfc" id="L284" title="All 2 branches covered.">		if (ctx == null) {</span>
+<span class="fc" id="L285">			return null;</span>
+		}
+
+		// Check if context re-derivation is enabled for this context
+<span class="fc bfc" id="L289" title="All 2 branches covered.">		if (ctx.getContextRederivationEnabled() == false) {</span>
+<span class="fc" id="L290">			LOGGER.debug(&quot;Context re-derivation not initiated due to it being disabled for this context&quot;);</span>
+<span class="fc" id="L291">			return ctx;</span>
+		 }
+
+		// Handle server phase 2 operations (reception of request #2)
+<span class="fc bfc" id="L295" title="All 2 branches covered.">		if (ctx.getContextRederivationPhase() == PHASE.SERVER_PHASE_2) {</span>
+
+<span class="fc" id="L297">			printStateLogging(ctx);</span>
+
+			/*
+			 * Verify the Context ID (R2) using S2 and an HMAC function. The
+			 * Context ID in this message is (R2 || R3). R2 in turn is composed
+			 * of S2 || HMAC output.
+			 */
+
+			// Extract S2 from the Context ID
+<span class="fc" id="L306">			byte[] contextS2 = Arrays.copyOfRange(ctx.getIdContext(), 0, SEGMENT_LENGTH);</span>
+
+			// Generate HMAC output using S2
+<span class="fc" id="L309">			byte[] hmacOutput = performHMAC(ctx.getContextRederivationKey(), contextS2);</span>
+
+			// Compare the HMAC output with the equivalent in the message
+<span class="fc" id="L312">			byte[] messageHmacOutput = Arrays.copyOfRange(ctx.getIdContext(), SEGMENT_LENGTH, SEGMENT_LENGTH * 2);</span>
+<span class="pc bpc" id="L313" title="1 of 2 branches missed.">			if (Arrays.equals(hmacOutput, messageHmacOutput) == false) {</span>
+<span class="nc" id="L314">				throw new OSException(ErrorDescriptions.CONTEXT_REGENERATION_FAILED);</span>
+			}
+
+			// Generate a new context with the received Context ID, after
+			// decoded from a CBOR byte string
+<span class="fc" id="L319">			byte[] contextIdParsed = decodeFromCborBstrBytes(contextID);</span>
+<span class="fc" id="L320">			OSCoreCtx newCtx = rederiveWithContextID(ctx, contextIdParsed);</span>
+
+			// Set the next phase of the re-derivation procedure
+<span class="fc" id="L323">			newCtx.setContextRederivationPhase(PHASE.SERVER_PHASE_3);</span>
+
+			// Add the new context to the context DB (replacing the old)
+<span class="fc" id="L326">			db.removeContext(ctx);</span>
+<span class="fc" id="L327">			db.addContext(newCtx);</span>
+
+<span class="fc" id="L329">			return newCtx;</span>
+<span class="fc bfc" id="L330" title="All 2 branches covered.">		} else if (ctx.getContextRederivationPhase() == PHASE.INACTIVE) {</span>
+
+<span class="fc" id="L332">			printStateLogging(ctx);</span>
+
+			// Handle initiation of re-derivation procedure (reception of
+			// request #1)
+
+			// Check if the received Context ID (ID1) matches the one in the
+			// context, if so do nothing. This means that this is a normal
+			// message and not meant to initiate context re-derivation.
+<span class="pc bpc" id="L340" title="1 of 4 branches missed.">			if (contextID == null || Arrays.equals(contextID, ctx.getIdContext())) {</span>
+<span class="fc" id="L341">				return ctx;</span>
+			}
+
+			// If this is about context re-derivation decode the Context ID as a
+			// CBOR byte string. The Context ID in the request is identified as
+			// ID1. If the ID Context in the incoming request is not a CBOR byte
+			// string the re-derivation procedure will be aborted.
+<span class="fc" id="L348">			byte[] contextID1 = null;</span>
+			try {
+<span class="fc" id="L350">				contextID1 = decodeFromCborBstrBytes(contextID);</span>
+<span class="nc" id="L351">			} catch (CBORException e) {</span>
+<span class="nc" id="L352">				LOGGER.debug(</span>
+						&quot;Client initiated context re-derivation not started as ID Context in request is not a CBOR byte string.&quot;);
+<span class="nc" id="L354">				return ctx;</span>
+<span class="fc" id="L355">			}</span>
+
+			// Generate a new context with the received Context ID
+<span class="fc" id="L358">			OSCoreCtx newCtx = rederiveWithContextID(ctx, contextID1);</span>
+
+			// Set next phase of the re-derivation procedure
+<span class="fc" id="L361">			newCtx.setContextRederivationPhase(PHASE.SERVER_PHASE_1);</span>
+
+			// Add the new context to the context DB (replacing the old)
+<span class="fc" id="L364">			db.removeContext(ctx);</span>
+<span class="fc" id="L365">			db.addContext(newCtx);</span>
+<span class="fc" id="L366">			return newCtx;</span>
+<span class="pc bpc" id="L367" title="1 of 2 branches missed.">		} else if (ctx.getContextRederivationPhase() == PHASE.SERVER_INITIATE) {</span>
+
+<span class="fc" id="L369">			printStateLogging(ctx);</span>
+
+			// Handle initiation of re-derivation procedure
+			// In this case it is the server that initiates this procedure since
+			// it lost the mutable parts of the context. This situation would be
+			// the server sending response #1 without first getting a request #1
+			// from the client (which would just be a normal request)
+
+			// The Context ID to use as ID1 is the same as the one used in the
+			// old context. The client may not include this in the request.
+<span class="fc" id="L379">			byte[] contextID1 = ctx.getIdContext();</span>
+
+			// Generate a new context with the received Context ID
+<span class="fc" id="L382">			OSCoreCtx newCtx = rederiveWithContextID(ctx, contextID1);</span>
+
+			// Set next phase of the re-derivation procedure
+<span class="fc" id="L385">			newCtx.setContextRederivationPhase(PHASE.SERVER_PHASE_1);</span>
+
+			// Add the new context to the context DB (replacing the old)
+<span class="fc" id="L388">			db.removeContext(ctx);</span>
+<span class="fc" id="L389">			db.addContext(newCtx);</span>
+<span class="fc" id="L390">			return newCtx;</span>
+		}
+
+<span class="nc" id="L393">		return ctx;</span>
+	}
+
+	/**
+	 * Handle outgoing response messages (for server).
+	 * 
+	 * @param db the context db
+	 * @param ctx the context
+	 * @return an updated context
+	 * @throws OSException if context re-derivation fails
+	 */
+	static OSCoreCtx outgoingResponse(OSCoreCtxDB db, OSCoreCtx ctx) throws OSException {
+
+		// Handle server phase 3 operations (sending of response #2)
+<span class="fc bfc" id="L407" title="All 2 branches covered.">		if (ctx.getContextRederivationPhase() == PHASE.SERVER_PHASE_3) {</span>
+
+<span class="fc" id="L409">			printStateLogging(ctx);</span>
+
+<span class="fc" id="L411">			ctx.setIncludeContextId(false);</span>
+<span class="fc" id="L412">			ctx.setContextRederivationPhase(PHASE.INACTIVE);</span>
+<span class="fc" id="L413">			return ctx;</span>
+<span class="fc bfc" id="L414" title="All 2 branches covered.">		} else if (ctx.getContextRederivationPhase() == PHASE.SERVER_PHASE_1) {</span>
+
+<span class="fc" id="L416">			printStateLogging(ctx);</span>
+
+			// Handle server phase 1 operations (sending of response #1)
+
+			// Set a random context re-derivation key
+<span class="fc" id="L421">			int keyLength = ctx.getSenderKey().length;</span>
+<span class="fc" id="L422">			byte[] contextRederivationKey = Bytes.createBytes(random, keyLength);</span>
+<span class="fc" id="L423">			ctx.setContextRederivationKey(contextRederivationKey);</span>
+
+			// The Context ID in the original request is identified as ID1
+<span class="fc" id="L426">			byte[] contextID1 = ctx.getIdContext();</span>
+
+			/*
+			 * Generate new Context ID (R2) with a byte array (S2) &amp; an HMAC
+			 * function.
+			 */
+
+			// Generate S2
+<span class="fc" id="L434">			byte[] contextS2 = Bytes.createBytes(random, SEGMENT_LENGTH);</span>
+
+			// Generate HMAC output using S2
+<span class="fc" id="L437">			byte[] hmacOutput = performHMAC(ctx.getContextRederivationKey(), contextS2);</span>
+
+			// Create R2 by concatenating S2 and the HMAC output
+<span class="fc" id="L440">			byte[] contextR2 = Bytes.concatenate(contextS2, hmacOutput);</span>
+
+			/* Create Context ID to generate the new context with (R2 || ID1) */
+
+<span class="fc" id="L444">			byte[] protectContextID = Bytes.concatenate(contextR2, contextID1);</span>
+
+			// Generate a new context with the concatenated Context ID
+<span class="fc" id="L447">			OSCoreCtx newCtx = rederiveWithContextID(ctx, protectContextID);</span>
+<span class="fc" id="L448">			newCtx.setReceiverSeq(0);</span>
+
+			// Outgoing response from this context only uses R2 as
+			// Context ID (not concatenated one used to generate the context).
+			// It will be encoded as a CBOR byte string.
+<span class="fc" id="L453">			newCtx.setIncludeContextId(encodeToCborBstrBytes(contextR2));</span>
+
+			// Respond with new partial IV
+<span class="fc" id="L456">			newCtx.setResponsesIncludePartialIV(true);</span>
+
+			// Indicate that the context re-derivation procedure is ongoing
+<span class="fc" id="L459">			newCtx.setContextRederivationPhase(PHASE.SERVER_PHASE_2);</span>
+
+			// Add the new context to the context DB (replacing the old)
+<span class="fc" id="L462">			db.removeContext(ctx);</span>
+<span class="fc" id="L463">			db.addContext(newCtx);</span>
+<span class="fc" id="L464">			return newCtx;</span>
+		}
+
+<span class="fc" id="L467">		return ctx;</span>
+	}
+
+	/**
+	 * Re-derive a context with the same input parameters except Context ID.
+	 * Also retain the same context re-derivation key.
+	 * 
+	 * @param ctx the OSCORE context to re-derive
+	 * @param contextID the new context ID to use
+	 * @return the new re-derived context
+	 * @throws OSException if the KDF is not supported
+	 */
+	private static OSCoreCtx rederiveWithContextID(OSCoreCtx ctx, byte[] contextID) throws OSException {
+<span class="fc" id="L480">		OSCoreCtx newCtx = new OSCoreCtx(ctx.getMasterSecret(), true, ctx.getAlg(), ctx.getSenderId(),</span>
+<span class="fc" id="L481">				ctx.getRecipientId(), ctx.getKdf(), ctx.getRecipientReplaySize(), ctx.getSalt(),</span>
+<span class="fc" id="L482">				contextID, ctx.getMaxUnfragmentedSize());</span>
+<span class="fc" id="L483">		newCtx.setContextRederivationKey(ctx.getContextRederivationKey());</span>
+<span class="fc" id="L484">		newCtx.setContextRederivationEnabled(ctx.getContextRederivationEnabled());</span>
+<span class="fc" id="L485">		return newCtx;</span>
+	}
+
+	/**
+	 * Perform HMAC on input data with a key.
+	 * 
+	 * @param contextRederivationKey the context re-derivation key
+	 * @param input the input data
+	 * @return HMAC output
+	 * @throws OSException if performing the HMAC fails
+	 */
+	private static byte[] performHMAC(byte[] contextRederivationKey, byte[] input) throws OSException {
+<span class="fc" id="L497">		byte[] key = null;</span>
+		try {
+<span class="fc" id="L499">			key = OSCoreCtx.deriveKey(contextRederivationKey, contextRederivationKey, SEGMENT_LENGTH, &quot;SHA256&quot;, input);</span>
+<span class="nc" id="L500">		} catch (CoseException e) {</span>
+<span class="nc" id="L501">			throw new OSException(ErrorDescriptions.CONTEXT_REGENERATION_FAILED);</span>
+<span class="fc" id="L502">		}</span>
+<span class="fc" id="L503">		return key;</span>
+	}
+
+	/**
+	 * Returns the byte representation of the input Java byte array encoded as a
+	 * CBOR byte string. The input Java array is first made into a CBORObject
+	 * representing a CBOR byte string, the byte representation of this CBOR
+	 * byte string is returned.
+	 * 
+	 * @param array the input Java byte array to encode
+	 * @return encoded bytes
+	 */
+	private static byte[] encodeToCborBstrBytes(byte[] array) {
+<span class="fc" id="L516">		CBORObject arrayBstr = CBORObject.FromObject(array);</span>
+<span class="fc" id="L517">		return arrayBstr.EncodeToBytes();</span>
+	}
+
+	/**
+	 * Returns a Java byte array decoded from the input CBOR byte string. The
+	 * input is the bytes of the encoded CBOR byte string, which when decoded
+	 * into a CBORObject represents a CBOR byte string. The contents of this
+	 * CBOR byte string is returned.
+	 * 
+	 * @param bstr a byte array containing the encoded CBOR byte string
+	 * @return decoded bytes
+	 */
+	private static byte[] decodeFromCborBstrBytes(byte[] bstr) {
+<span class="fc" id="L530">		CBORObject arrayBstr = CBORObject.DecodeFromBytes(bstr);</span>
+<span class="fc" id="L531">		return arrayBstr.GetByteString();</span>
+	}
+
+	/**
+	 * Provides logging output indicating the current state. Uses debug level
+	 * output for the inactive state since that is the default for typical use.
+	 * 
+	 * @param ctx the OSCORE context in use
+	 */
+	private static void printStateLogging(OSCoreCtx ctx) {
+<span class="fc" id="L541">		PHASE currentPhase = ctx.getContextRederivationPhase();</span>
+
+<span class="fc" id="L543">		String supplemental = &quot;&quot;;</span>
+<span class="pc bpc" id="L544" title="1 of 10 branches missed.">		switch (currentPhase) {</span>
+		case INACTIVE:
+<span class="fc" id="L546">			supplemental = &quot;client/server context re-derivation inactive&quot;;</span>
+<span class="fc" id="L547">			break;</span>
+		case CLIENT_INITIATE:
+<span class="fc" id="L549">			supplemental = &quot;client will initiate context re-derivation&quot;;</span>
+<span class="fc" id="L550">			break;</span>
+		case SERVER_INITIATE:
+<span class="fc" id="L552">			supplemental = &quot;server will initiate context re-derivation&quot;;</span>
+<span class="fc" id="L553">			break;</span>
+		case CLIENT_PHASE_1:
+<span class="fc" id="L555">			supplemental = &quot;client has sent the first request in the procedure and is receving the response&quot;;</span>
+<span class="fc" id="L556">			break;</span>
+		case CLIENT_PHASE_2:
+<span class="fc" id="L558">			supplemental = &quot;client is sending the second request in the procedure&quot;;</span>
+<span class="fc" id="L559">			break;</span>
+		case CLIENT_PHASE_3:
+<span class="fc" id="L561">			supplemental = &quot;client has received the second response in the procedure and is concluding&quot;;</span>
+<span class="fc" id="L562">			break;</span>
+		case SERVER_PHASE_1:
+<span class="fc" id="L564">			supplemental = &quot;server has received the first request in the procedure and is sending the response&quot;;</span>
+<span class="fc" id="L565">			break;</span>
+		case SERVER_PHASE_2:
+<span class="fc" id="L567">			supplemental = &quot;server is receiving the second request in the procedure&quot;;</span>
+<span class="fc" id="L568">			break;</span>
+		case SERVER_PHASE_3:
+<span class="fc" id="L570">			supplemental = &quot;server has sent the second response in the procedure and is concluding&quot;;</span>
+<span class="fc" id="L571">			break;</span>
+		default:
+<span class="nc" id="L573">			supplemental = &quot;context re-derivation is in unknown state indicating a problem&quot;;</span>
+			break;
+		}
+
+<span class="fc" id="L577">		String output = &quot;Context re-derivation phase: &quot; + currentPhase + &quot; (&quot; + supplemental + &quot;)&quot;;</span>
+<span class="fc bfc" id="L578" title="All 2 branches covered.">		if (currentPhase == PHASE.INACTIVE) {</span>
+<span class="fc" id="L579">			LOGGER.debug(output);</span>
+		} else {
+<span class="fc" id="L581">			LOGGER.info(output);</span>
+		}
+<span class="fc" id="L583">	}</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

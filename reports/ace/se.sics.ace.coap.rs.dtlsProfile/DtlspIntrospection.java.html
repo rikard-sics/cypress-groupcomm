@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DtlspIntrospection.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.coap.rs.dtlsProfile</a> &gt; <span class="el_source">DtlspIntrospection.java</span></div><h1>DtlspIntrospection.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.coap.rs.dtlsProfile;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.logging.Logger;
+
+import org.eclipse.californium.core.CoapClient;
+import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+import org.eclipse.californium.core.CoapResponse;
+import org.eclipse.californium.core.network.CoapEndpoint;
+import org.eclipse.californium.elements.auth.RawPublicKeyIdentity;
+import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.elements.exception.ConnectorException;
+import org.eclipse.californium.scandium.DTLSConnector;
+import org.eclipse.californium.scandium.config.DtlsConfig;
+import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
+import org.eclipse.californium.scandium.dtls.CertificateType;
+import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
+import org.eclipse.californium.scandium.dtls.x509.AsyncNewAdvancedCertificateVerifier;
+import org.eclipse.californium.scandium.dtls.x509.SingleCertificateProvider;
+
+import com.upokecenter.cbor.CBORObject;
+
+import org.eclipse.californium.cose.CoseException;
+import org.eclipse.californium.cose.KeyKeys;
+import org.eclipse.californium.cose.OneKey;
+import se.sics.ace.AceException;
+import se.sics.ace.Constants;
+import se.sics.ace.Util;
+import se.sics.ace.coap.BksStore;
+import se.sics.ace.rs.IntrospectionException;
+import se.sics.ace.rs.IntrospectionHandler;
+
+/**
+ * An introspection handler using CoAPS (i.e. CoAP over DTLS) to connect to an AS.
+ *
+ * @author Ludwig Seitz
+ *
+ */
+public class DtlspIntrospection implements IntrospectionHandler {
+    
+    /**
+     * The logger
+     */
+<span class="fc" id="L86">    private static final Logger LOGGER </span>
+<span class="fc" id="L87">        = Logger.getLogger(DtlspIntrospection.class.getName());</span>
+    
+     /**
+     * The CoAP client
+     */
+<span class="fc" id="L92">    private CoapClient client = null;</span>
+    
+    // Authentication asymmetric key pair of the Resource Server
+    // ECDSA with P-256
+<span class="fc" id="L96">    private static String rsX_ECDSA = &quot;73B7D755827D5D59D73FD4015D47B445762F7CDB59799CD966714AB2727F1BA5&quot;;</span>
+<span class="fc" id="L97">    private static String rsY_ECDSA = &quot;1A84F5C82797643D33F7E6E6AFCF016522238CE430E1BF21A218E6B4DEEAC37A&quot;;</span>
+<span class="fc" id="L98">    private static String rsD_ECDSA = &quot;00EA086573C683477D74EB7A0C63A6D031D5DEB10F3CC2876FDA6D3400CAA4E507&quot;;</span>
+<span class="fc" id="L99">    private static OneKey rsRPK = null;</span>
+    
+    /**
+     * Constructor, builds a client that uses raw public keys.
+     * 
+     * @param rpk  the raw public key 
+     * @param introspectAddress  the IP address of the introspect endpoint
+     * 
+     * 
+     * @throws CoseException
+     * @throws IOException 
+     * 
+     */
+    public DtlspIntrospection(OneKey rpk, String introspectAddress) 
+<span class="fc" id="L113">            throws CoseException, IOException {</span>
+    	
+<span class="fc" id="L115">        Configuration dtlsConfig = Configuration.getStandard();</span>
+<span class="fc" id="L116">        dtlsConfig.set(DtlsConfig.DTLS_CIPHER_SUITES, Collections.singletonList(CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8));</span>
+    	
+<span class="fc" id="L118">        DtlsConnectorConfig.Builder builder = new DtlsConnectorConfig.Builder(dtlsConfig)</span>
+<span class="fc" id="L119">                .setAddress(new InetSocketAddress(0));</span>
+<span class="fc" id="L120">        builder.setCertificateIdentityProvider(</span>
+<span class="fc" id="L121">                new SingleCertificateProvider(rpk.AsPrivateKey(), rpk.AsPublicKey()));</span>
+
+<span class="fc" id="L123">        ArrayList&lt;CertificateType&gt; certTypes = new ArrayList&lt;CertificateType&gt;();</span>
+<span class="fc" id="L124">        certTypes.add(CertificateType.RAW_PUBLIC_KEY);</span>
+<span class="fc" id="L125">        certTypes.add(CertificateType.X_509);</span>
+<span class="fc" id="L126">        AsyncNewAdvancedCertificateVerifier verifier = new AsyncNewAdvancedCertificateVerifier(new X509Certificate[0],</span>
+                new RawPublicKeyIdentity[0], certTypes);
+<span class="fc" id="L128">        builder.setAdvancedCertificateVerifier(verifier);</span>
+
+<span class="fc" id="L130">        DTLSConnector dtlsConnector = new DTLSConnector(builder.build());</span>
+<span class="fc" id="L131">        CoapEndpoint e = new CoapEndpoint.Builder()</span>
+<span class="fc" id="L132">                .setConnector(dtlsConnector)</span>
+<span class="fc" id="L133">                .setConfiguration(Configuration.getStandard())</span>
+<span class="fc" id="L134">                .build();</span>
+<span class="fc" id="L135">        LOGGER.fine(&quot;Creating CoAPS client for introspection to: &quot; </span>
+                + introspectAddress + &quot; with RPK&quot;);
+<span class="fc" id="L137">        this.client = new CoapClient(introspectAddress);</span>
+<span class="fc" id="L138">        this.client.setEndpoint(e);</span>
+<span class="fc" id="L139">        dtlsConnector.start();</span>
+<span class="fc" id="L140">    }</span>
+    
+    /**
+     * Constructor, builds a client that uses pre-shared symmetric keys.
+     * 
+     * @param psk  the pre-shared key
+     * @param pskIdentity  the identity associated to the pre-shared key
+     * @param keystoreLocation 
+     * @param keystorePwd 
+     * @param addr2idFile 
+     * @param introspectAddress  the IP address of the introspect endpoint
+     * 
+     * 
+     * @throws CoseException
+     * @throws IOException 
+     * @throws NoSuchProviderException 
+     * @throws KeyStoreException 
+     * @throws CertificateException 
+     * @throws NoSuchAlgorithmException 
+     * 
+     */
+    public DtlspIntrospection(byte[] psk, String pskIdentity,
+            String keystoreLocation, String keystorePwd, String addr2idFile,
+            String introspectAddress) throws CoseException, IOException,
+            NoSuchAlgorithmException, CertificateException, KeyStoreException,
+<span class="fc" id="L165">            NoSuchProviderException {</span>
+    	
+<span class="fc" id="L167">        Configuration dtlsConfig = Configuration.getStandard();</span>
+<span class="fc" id="L168">        dtlsConfig.set(DtlsConfig.DTLS_CIPHER_SUITES, Arrays.asList(CipherSuite.TLS_PSK_WITH_AES_128_CCM_8, CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8));</span>
+<span class="fc" id="L169">        dtlsConfig.set(DtlsConfig.DTLS_USE_SERVER_NAME_INDICATION,  false);</span>
+    	
+<span class="fc" id="L171">        DtlsConnectorConfig.Builder builder = new DtlsConnectorConfig.Builder(dtlsConfig)</span>
+<span class="fc" id="L172">                .setAddress(new InetSocketAddress(0));</span>
+<span class="fc" id="L173">        BksStore keystore = new BksStore(</span>
+                keystoreLocation, keystorePwd, addr2idFile);
+<span class="fc" id="L175">        builder.setAdvancedPskStore(keystore);</span>
+
+        
+<span class="fc" id="L178">        CBORObject rpkData = CBORObject.NewMap();</span>
+<span class="fc" id="L179">        rpkData = Util.buildRpkData(KeyKeys.EC2_P256.AsInt32(), rsX_ECDSA, rsY_ECDSA, rsD_ECDSA);</span>
+<span class="fc" id="L180">        rsRPK = new OneKey(rpkData);</span>
+<span class="fc" id="L181">        String keyId = new RawPublicKeyIdentity(rsRPK.AsPublicKey()).getName();</span>
+<span class="fc" id="L182">        rsRPK.add(KeyKeys.KeyId, CBORObject.FromObject(keyId.getBytes(Constants.charset)));</span>
+
+<span class="fc" id="L184">        builder.setCertificateIdentityProvider(</span>
+<span class="fc" id="L185">                new SingleCertificateProvider(rsRPK.AsPrivateKey(), rsRPK.AsPublicKey()));</span>
+
+<span class="fc" id="L187">        ArrayList&lt;CertificateType&gt; certTypes = new ArrayList&lt;CertificateType&gt;();</span>
+<span class="fc" id="L188">        certTypes.add(CertificateType.RAW_PUBLIC_KEY);</span>
+<span class="fc" id="L189">        certTypes.add(CertificateType.X_509);</span>
+<span class="fc" id="L190">        AsyncNewAdvancedCertificateVerifier verifier = new AsyncNewAdvancedCertificateVerifier(</span>
+                                                            new X509Certificate[0],
+                                                            new RawPublicKeyIdentity[0],
+                                                            certTypes);
+<span class="fc" id="L194">        builder.setAdvancedCertificateVerifier(verifier);</span>
+        
+        
+<span class="fc" id="L197">        DTLSConnector dtlsConnector = new DTLSConnector(builder.build());</span>
+        
+<span class="fc" id="L199">        CoapEndpoint e = new CoapEndpoint.Builder()</span>
+<span class="fc" id="L200">                .setConnector(dtlsConnector)</span>
+<span class="fc" id="L201">                .setConfiguration(Configuration.getStandard())</span>
+<span class="fc" id="L202">                .build();</span>
+<span class="fc" id="L203">        LOGGER.fine(&quot;Creating CoAPS client for introspection to: &quot; </span>
+                + introspectAddress + &quot; with RPK&quot;);
+<span class="fc" id="L205">        this.client = new CoapClient(introspectAddress);</span>
+<span class="fc" id="L206">        this.client.setEndpoint(e);</span>
+<span class="fc" id="L207">        dtlsConnector.start();</span>
+<span class="fc" id="L208">    }</span>
+    
+    @Override
+    public Map&lt;Short, CBORObject&gt; getParams(byte[] tokenReference) 
+            throws AceException, IntrospectionException {
+<span class="fc" id="L213">        LOGGER.info(&quot;Sending introspection request on &quot; + tokenReference);</span>
+<span class="fc" id="L214">        Map&lt;Short, CBORObject&gt; params = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L215">        params.put(Constants.TOKEN, CBORObject.FromObject(CBORObject.FromObject(tokenReference).EncodeToBytes()));</span>
+<span class="fc" id="L216">        params.put(Constants.TOKEN_TYPE_HINT, CBORObject.FromObject(&quot;pop&quot;)); </span>
+        CoapResponse response;
+        try {
+<span class="fc" id="L219">            response = this.client.post(</span>
+<span class="fc" id="L220">                    Constants.getCBOR(params).EncodeToBytes(), </span>
+                    Constants.APPLICATION_ACE_CBOR);
+<span class="nc" id="L222">        } catch (ConnectorException | IOException e) {</span>
+<span class="nc" id="L223">            throw new AceException(&quot;Connector/IO Error: &quot; + e.getMessage());</span>
+<span class="fc" id="L224">        }    </span>
+<span class="pc bpc" id="L225" title="1 of 2 branches missed.">        if (response == null) {</span>
+<span class="nc" id="L226">            throw new AceException(&quot;AS didn't respond&quot;);</span>
+        }
+<span class="pc bpc" id="L228" title="1 of 2 branches missed.">        if (!response.getCode().equals(ResponseCode.CREATED)) {</span>
+            //Some error happened
+<span class="nc bnc" id="L230" title="All 2 branches missed.">            if (response.getPayload() == null) {//This was a server error</span>
+<span class="nc" id="L231">                throw new IntrospectionException(response.getCode().value, &quot;&quot;);</span>
+            }
+            //Client error
+<span class="nc" id="L234">            throw new IntrospectionException(response.getCode().value, </span>
+<span class="nc" id="L235">                    CBORObject.DecodeFromBytes(</span>
+<span class="nc" id="L236">                            response.getPayload()).toString());</span>
+        }
+<span class="fc" id="L238">        CBORObject res = CBORObject.DecodeFromBytes(response.getPayload());</span>
+<span class="fc" id="L239">        Map&lt;Short, CBORObject&gt; map = Constants.getParams(res);</span>
+<span class="fc" id="L240">        return map;</span>
+        
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

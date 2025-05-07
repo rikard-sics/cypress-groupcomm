@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>KeySet.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.cose</a> &gt; <span class="el_source">KeySet.java</span></div><h1>KeySet.java</h1><pre class="source lang-java linenums">/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package org.eclipse.californium.cose;
+
+import com.upokecenter.cbor.CBORObject;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ *
+ * @author jimsch
+ */
+public class KeySet {
+    private List&lt;OneKey&gt; keys;
+    
+<span class="nc" id="L19">    public KeySet() {</span>
+<span class="nc" id="L20">        keys = new ArrayList&lt;OneKey&gt;();</span>
+<span class="nc" id="L21">    }</span>
+
+    
+<span class="nc" id="L24">    public KeySet(CBORObject keysIn) {</span>
+<span class="nc" id="L25">        keys = new ArrayList&lt;OneKey&gt;();</span>
+        
+        //  Ignore keys which we cannot deal with or are malformed.
+        
+<span class="nc bnc" id="L29" title="All 2 branches missed.">        for (int i=0; i&lt;keysIn.size(); i++) {</span>
+            try {
+<span class="nc" id="L31">                keys.add(new OneKey(keysIn.get(i)));</span>
+<span class="nc" id="L32">            } catch(CoseException e) {</span>
+                ;
+<span class="nc" id="L34">            }</span>
+        }
+<span class="nc" id="L36">    }</span>
+    
+    public void add(OneKey key) {
+<span class="nc" id="L39">        keys.add(key);</span>
+<span class="nc" id="L40">    }</span>
+    
+    public List&lt;OneKey&gt; getList() {
+<span class="nc" id="L43">        return keys;</span>
+    }
+    
+    public void remove(OneKey key) {
+<span class="nc" id="L47">        keys.remove(key);</span>
+<span class="nc" id="L48">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

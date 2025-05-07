@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GetToken.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.client</a> &gt; <span class="el_source">GetToken.java</span></div><h1>GetToken.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.client;
+
+import com.upokecenter.cbor.CBORObject;
+
+import se.sics.ace.AceException;
+import se.sics.ace.Constants;
+
+/**
+ * This class is an utility that produces the CBOR payload for a GET 
+ * request to the AS.  Profile specific implementations of the client
+ * can use this to generate the payload. 
+ * 
+ * @author Ludwig Seitz
+ *
+ */
+<span class="nc" id="L47">public class GetToken {</span>
+    
+    /**
+     * Get the payload for an Access Token Request using
+     * the Authorization Code Grant.
+     *  
+     * @param code  the authorization code, must not be null
+     * @param redirectUri  REQUIRED if present earlier
+     * @param clientId   REQUIRED if client not authenticating
+     * @param aud  Audience restriction. OPTIONAL
+     * @param cnf  Proof-of-Possession key requested. OPTIONAL
+     * @param scope  The requested scope. OPTIONAL
+     * 
+     * @return  the CBOR map representing the access token request
+     *      payload
+     * @throws AceException 
+     */
+    public static CBORObject getAuthzCodeRequest(CBORObject code, 
+            CBORObject redirectUri, CBORObject clientId, CBORObject aud, 
+            CBORObject scope, CBORObject cnf) throws AceException {
+<span class="nc" id="L67">        CBORObject payload = CBORObject.NewMap();</span>
+<span class="nc" id="L68">        payload.Add(Constants.GRANT_TYPE, Constants.GT_AUTHZ_CODE);</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">        if (code == null) {</span>
+<span class="nc" id="L70">            throw new AceException(&quot;authorization code must be non-null&quot;);</span>
+        }
+<span class="nc" id="L72">        payload.Add(Constants.CODE, code);</span>
+<span class="nc bnc" id="L73" title="All 2 branches missed.">        if (redirectUri != null) {</span>
+<span class="nc" id="L74">            payload.Add(Constants.REDIRECT_URI, redirectUri);</span>
+        }
+<span class="nc bnc" id="L76" title="All 2 branches missed.">        if (clientId != null) {</span>
+<span class="nc" id="L77">            payload.Add(Constants.CLIENT_ID, clientId);</span>
+        }
+<span class="nc bnc" id="L79" title="All 2 branches missed.">        if (aud != null) {</span>
+<span class="nc" id="L80">            payload.Add(Constants.AUDIENCE, aud);</span>
+        }
+<span class="nc bnc" id="L82" title="All 2 branches missed.">        if (scope != null) {</span>
+<span class="nc" id="L83">            payload.Add(Constants.SCOPE, scope);</span>
+        }
+<span class="nc bnc" id="L85" title="All 2 branches missed.">        if (cnf != null) {</span>
+<span class="nc" id="L86">            payload.Add(Constants.CNF, cnf);</span>
+        }
+<span class="nc" id="L88">        return payload;</span>
+    }
+    
+
+    /**
+     * Get the payload for an Authorization Request using
+     * the Implicit Grant.  Note that this grant flow does not include a 
+     * separate Access Token Request.
+     *  
+     * @param clientId  REQUIRED
+     * @param redirectURI  OPTIONAL
+     * @param scope  The requested scope. OPTIONAL
+     * @param state  State between request and callback. RECOMMENDED
+     * @param aud  Audience restriction. OPTIONAL
+     * @param cnf  Proof-of-Possession key requested. OPTIONAL
+     * @return  the CBOR map representing the authorization request
+     *      payload
+     * @throws AceException
+     */
+    public static CBORObject getImplicitRequest(CBORObject clientId, 
+            CBORObject redirectURI, CBORObject scope, CBORObject state, 
+            CBORObject aud, CBORObject cnf) throws AceException {
+<span class="nc" id="L110">        CBORObject payload = CBORObject.NewMap();</span>
+<span class="nc" id="L111">        payload.Add(Constants.RESPONSE_TYPE, &quot;token&quot;);</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">        if (clientId == null) {</span>
+<span class="nc" id="L113">            throw new AceException(&quot;client-id must be non-null&quot;);</span>
+        }
+<span class="nc" id="L115">        payload.Add(Constants.CLIENT_ID, clientId);</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">        if (redirectURI != null) {</span>
+<span class="nc" id="L117">            payload.Add(Constants.REDIRECT_URI, redirectURI);</span>
+        }
+<span class="nc bnc" id="L119" title="All 2 branches missed.">        if (aud != null) {</span>
+<span class="nc" id="L120">            payload.Add(Constants.AUDIENCE, aud);</span>
+        }
+<span class="nc bnc" id="L122" title="All 2 branches missed.">        if (scope != null) {</span>
+<span class="nc" id="L123">            payload.Add(Constants.SCOPE, scope);</span>
+        }
+<span class="nc bnc" id="L125" title="All 2 branches missed.">        if (cnf != null) {</span>
+<span class="nc" id="L126">            payload.Add(Constants.CNF, cnf);</span>
+        }
+<span class="nc bnc" id="L128" title="All 2 branches missed.">        if (state != null) {</span>
+<span class="nc" id="L129">            payload.Add(Constants.STATE, state);</span>
+        }
+<span class="nc" id="L131">        return payload;</span>
+    }
+
+    /**
+     * Get the payload for a Resource Owner Password Credentials Grant.
+     *
+     * @param username  the resource owner username. REQUIRED.
+     * @param password   the resource onwer's password. REQUIRED.
+     * @param aud  Audience restriction. OPTIONAL
+     * @param scope  The requested scope. OPTIONAL 
+     * @param cnf  Proof-of-Possession key requested. OPTIONAL 
+     *   
+     * @return  the CBOR map representing the access token request
+     *      payload.
+     * @throws AceException 
+     */
+    public static CBORObject getROPasswordRequest(CBORObject username,
+            CBORObject password, CBORObject aud, CBORObject scope,
+            CBORObject cnf) throws AceException {
+<span class="nc" id="L150">        CBORObject payload = CBORObject.NewMap();</span>
+<span class="nc" id="L151">        payload.Add(Constants.GRANT_TYPE, Constants.GT_PASSWORD);</span>
+<span class="nc bnc" id="L152" title="All 2 branches missed.">        if (username == null) {</span>
+<span class="nc" id="L153">            throw new AceException(&quot;username must be non-null&quot;);</span>
+        }
+<span class="nc" id="L155">        payload.Add(Constants.USERNAME, username);</span>
+        
+<span class="nc bnc" id="L157" title="All 2 branches missed.">        if (password == null) {</span>
+<span class="nc" id="L158">            throw new AceException(&quot;password must be non-null&quot;);</span>
+        }
+<span class="nc" id="L160">        payload.Add(Constants.PASSWORD, password);</span>
+        
+<span class="nc bnc" id="L162" title="All 2 branches missed.">        if (aud != null) {</span>
+<span class="nc" id="L163">            payload.Add(Constants.AUDIENCE, aud);</span>
+        }
+<span class="nc bnc" id="L165" title="All 2 branches missed.">        if (scope != null) {</span>
+<span class="nc" id="L166">            payload.Add(Constants.SCOPE, scope);</span>
+        }
+<span class="nc bnc" id="L168" title="All 2 branches missed.">        if (cnf != null) {</span>
+<span class="nc" id="L169">            payload.Add(Constants.CNF, cnf);</span>
+        }
+<span class="nc" id="L171">        return payload;</span>
+    }
+
+    /**
+     * Get the payload for a Client Credentials Grant.
+     *   
+     * @param aud  Audience restriction. OPTIONAL
+     * @param scope  The requested scope. OPTIONAL 
+     * @param req_cnf  Proof-of-Possession key requested. OPTIONAL 
+     *   
+     * @return  the CBOR map representing the access token request
+     *      payload
+     */
+    public static CBORObject getClientCredentialsRequest(CBORObject aud, 
+            CBORObject scope, CBORObject reqCnf) {
+<span class="fc" id="L186">        CBORObject payload = CBORObject.NewMap();</span>
+<span class="pc bpc" id="L187" title="1 of 2 branches missed.">        if (aud != null) {</span>
+<span class="fc" id="L188">            payload.Add(Constants.AUDIENCE, aud);</span>
+        }
+<span class="pc bpc" id="L190" title="1 of 2 branches missed.">        if (scope != null) {</span>
+<span class="fc" id="L191">            payload.Add(Constants.SCOPE, scope);</span>
+        }
+<span class="fc bfc" id="L193" title="All 2 branches covered.">        if (reqCnf != null) {</span>
+<span class="fc" id="L194">            payload.Add(Constants.REQ_CNF, reqCnf);</span>
+        }
+<span class="fc" id="L196">        return payload;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

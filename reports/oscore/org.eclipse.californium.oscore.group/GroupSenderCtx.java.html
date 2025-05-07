@@ -1,0 +1,326 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GroupSenderCtx.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore.group</a> &gt; <span class="el_source">GroupSenderCtx.java</span></div><h1>GroupSenderCtx.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2023 RISE SICS and others.
+ * 
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * and Eclipse Distribution License v1.0 which accompany this distribution.
+ * 
+ * The Eclipse Public License is available at
+ *    http://www.eclipse.org/legal/epl-v20.html
+ * and the Eclipse Distribution License is available at
+ *    http://www.eclipse.org/org/documents/edl-v10.html.
+ * 
+ * Contributors:
+ *    Rikard Höglund (RISE SICS)
+ *    
+ ******************************************************************************/
+package org.eclipse.californium.oscore.group;
+
+import java.util.HashMap;
+import java.util.Map.Entry;
+
+
+
+import org.eclipse.californium.cose.AlgorithmID;
+import org.eclipse.californium.cose.CoseException;
+import org.eclipse.californium.cose.OneKey;
+import org.eclipse.californium.elements.util.Base64;
+import org.eclipse.californium.elements.util.Bytes;
+import org.eclipse.californium.oscore.ByteId;
+import org.eclipse.californium.oscore.OSCoreCtx;
+import org.eclipse.californium.oscore.OSException;
+
+/**
+ * Class implementing a Group OSCORE sender context.
+ *
+ */
+public class GroupSenderCtx extends OSCoreCtx {
+
+	private final static int DEFAULT_MAX_UNFRAGMENTED_SIZE = 4096;
+
+	GroupCtx commonCtx;
+	OneKey ownPrivateKey;
+<span class="fc" id="L43">	byte[] ownPublicKeyRaw = Bytes.EMPTY;</span>
+
+	HashMap&lt;ByteId, byte[]&gt; pairwiseSenderKeys;
+
+	GroupSenderCtx(byte[] master_secret, boolean client, AlgorithmID alg, byte[] sender_id, byte[] recipient_id,
+			AlgorithmID kdf, Integer replay_size, byte[] master_salt, byte[] contextId, OneKey ownPrivateKey,
+			byte[] ownPublicKeyRaw, GroupCtx commonCtx) throws OSException {
+		// Build OSCORE Context using OSCoreCtx constructor
+<span class="fc" id="L51">		super(master_secret, client, alg, sender_id, recipient_id, kdf, replay_size, master_salt, contextId,</span>
+				DEFAULT_MAX_UNFRAGMENTED_SIZE);
+
+<span class="fc" id="L54">		this.commonCtx = commonCtx;</span>
+<span class="fc" id="L55">		this.ownPrivateKey = ownPrivateKey;</span>
+<span class="fc bfc" id="L56" title="All 2 branches covered.">		if (ownPublicKeyRaw != null) {</span>
+<span class="fc" id="L57">			this.ownPublicKeyRaw = ownPublicKeyRaw;</span>
+		}
+
+<span class="fc" id="L60">		pairwiseSenderKeys = new HashMap&lt;ByteId, byte[]&gt;();</span>
+<span class="fc" id="L61">	}</span>
+
+	/**
+	 * Derive pairwise keys for this sender context and all associated recipient
+	 * contexts
+	 */
+	void derivePairwiseKeys() {
+
+<span class="fc bfc" id="L69" title="All 2 branches covered.">		for (Entry&lt;ByteId, GroupRecipientCtx&gt; entry : commonCtx.recipientCtxMap.entrySet()) {</span>
+<span class="fc" id="L70">			GroupRecipientCtx recipientCtx = entry.getValue();</span>
+
+<span class="fc" id="L72">			ByteId rid = new ByteId(recipientCtx.getRecipientId());</span>
+			
+			// If the key has already been generated skip it
+<span class="fc bfc" id="L75" title="All 2 branches covered.">			if (pairwiseSenderKeys.get(rid) != null) {</span>
+<span class="fc" id="L76">				continue;</span>
+			}
+
+<span class="fc" id="L79">			byte[] pairwiseSenderKey = commonCtx.derivePairwiseSenderKey(recipientCtx.getRecipientId(),</span>
+<span class="fc" id="L80">					recipientCtx.getRecipientKey(), recipientCtx.getPublicKey(), recipientCtx.getPublicKeyRaw());</span>
+<span class="fc" id="L81">			pairwiseSenderKeys.put(rid, pairwiseSenderKey);</span>
+
+<span class="fc" id="L83">		}</span>
+<span class="fc" id="L84">	}</span>
+
+	/**
+	 * Get if responses should use pairwise mode. // TODO: Implement elsewhere
+	 * to avoid cast?
+	 * 
+	 * @return if responses should use pairwise mode
+	 */
+	public boolean getPairwiseModeResponses() {
+<span class="fc" id="L93">		return commonCtx.pairwiseModeResponses;</span>
+	}
+
+	// TODO: Implement elsewhere to avoid cast?
+	@Deprecated
+	public boolean getPairwiseModeRequests() {
+<span class="nc" id="L99">		return commonCtx.pairwiseModeRequests;</span>
+	}
+
+	/**
+	 * Get the pairwise sender key for this context for a specific other
+	 * recipient.
+	 * 
+	 * @param recipientId the recipient ID of the other party
+	 * @return the pairwise sender key to recipient
+	 */
+	public byte[] getPairwiseSenderKey(byte[] recipientId) {
+<span class="fc" id="L110">		return pairwiseSenderKeys.get(new ByteId(recipientId));</span>
+	}
+
+	// Just for interop tests
+	public void setAsymmetricSenderKey(OneKey key) {
+<span class="nc" id="L115">		ownPrivateKey = key;</span>
+<span class="nc" id="L116">	}</span>
+
+	/**
+	 * Get the alg sign value.
+	 * 
+	 * @return the alg sign value
+	 */
+	public AlgorithmID getAlgSign() {
+<span class="fc" id="L124">		return commonCtx.algSign;</span>
+	}
+
+	/**
+	 * Get the alg sign enc value.
+	 * 
+	 * @return the alg sign enc value
+	 */
+	public AlgorithmID getAlgSignEnc() {
+<span class="fc" id="L133">		return commonCtx.algSignEnc;</span>
+	}
+
+	/**
+	 * Get the alg pairwise key agreement value.
+	 * 
+	 * @return the alg pairwise key agreement value.
+	 */
+	public AlgorithmID getAlgKeyAgreement() {
+<span class="fc" id="L142">		return commonCtx.algKeyAgreement;</span>
+	}
+
+	/**
+	 * Get the length of the countersignature depending on the countersignature
+	 * algorithm currently used.
+	 * 
+	 * @return the length of the countersiganture
+	 */
+	public int getCountersignatureLen() {
+<span class="fc" id="L152">		return commonCtx.getCountersignatureLen();</span>
+	}
+
+	/**
+	 * Get the par countersign value for the external aad.
+	 * 
+	 * @return the par countersign value
+	 */
+	public int[][] getParCountersign() {
+<span class="nc" id="L161">		return commonCtx.parCountersign;</span>
+	}
+
+	/**
+	 * Get the alg countersign key value for the external aad.
+	 * 
+	 * @return the alg countersign key value
+	 */
+	public int[] getParCountersignKey() {
+<span class="nc" id="L170">		return commonCtx.parCountersign[1];</span>
+	}
+
+	/**
+	 * Get the private key associated to this sender context, meaning your own
+	 * private key.
+	 * 
+	 * @return the private key
+	 */
+	public OneKey getPrivateKey() {
+<span class="fc" id="L180">		return ownPrivateKey;</span>
+	}
+
+	/**
+	 * Get the raw bytes of the public key associated to this sender context,
+	 * meaning your own public key.
+	 * 
+	 * @return the bytes of the public key
+	 */
+	public byte[] getPublicKeyRaw() {
+<span class="fc" id="L190">		return ownPublicKeyRaw;</span>
+	}
+
+	@Override
+	protected GroupSenderCtx getSenderCtx() {
+<span class="nc" id="L195">		return this;</span>
+	}
+
+	/**
+	 * Get the common context associated to this GroupSenderCtx.
+	 * 
+	 * @return the common context associated to this GroupSenderCtx
+	 */
+	public GroupCtx getCommonCtx() {
+<span class="fc" id="L204">		return commonCtx;</span>
+	}
+
+	// ------- TODO: Remove methods below -------
+
+	public OneKey getPublicKey() {
+<span class="nc" id="L210">		StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();</span>
+<span class="nc" id="L211">		System.err.println(&quot;Bad call to getPublicKey on GroupSenderCtx&quot; + stackTraceElements[2].toString());</span>
+<span class="nc" id="L212">		return null;</span>
+	}
+
+	// Rikard: Generate a key to be used for Countersignatures
+	public static void generateCounterSignKey(AlgorithmID alg) throws CoseException {
+<span class="nc" id="L217">		OneKey myKey = OneKey.generateKey(alg);</span>
+
+		// Print base64 encoded version with both public &amp; private keys
+<span class="nc" id="L220">		byte[] keyObjectBytes = myKey.EncodeToBytes();</span>
+<span class="nc" id="L221">		String base64_encoded = Base64.encodeBytes(keyObjectBytes);</span>
+<span class="nc" id="L222">		System.out.println(&quot;Public &amp; Private: &quot; + base64_encoded);</span>
+
+		// Print base64 encoded version with only public keys
+<span class="nc" id="L225">		OneKey publicKey = myKey.PublicKey();</span>
+
+<span class="nc" id="L227">		keyObjectBytes = publicKey.EncodeToBytes();</span>
+<span class="nc" id="L228">		base64_encoded = Base64.encodeBytes(keyObjectBytes);</span>
+<span class="nc" id="L229">		System.out.println(&quot;Public only: &quot; + base64_encoded);</span>
+
+<span class="nc" id="L231">	}</span>
+
+
+	/**
+	 * @return size of recipient replay window
+	 */
+	@Override
+	public int getRecipientReplaySize() {
+<span class="nc" id="L239">		System.err.println(&quot;Bad call to getRecipientReplaySize&quot;);</span>
+<span class="nc" id="L240">		StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();</span>
+<span class="nc" id="L241">		System.err.println(&quot;Bad call to getRecipientReplaySize on GroupSenderCtx&quot; + stackTraceElements[2].toString());</span>
+<span class="nc" id="L242">		System.exit(0);</span>
+<span class="nc" id="L243">		return recipient_replay_window_size;</span>
+	}
+
+	/**
+	 * @return recipient replay window
+	 */
+	@Override
+	public int getRecipientReplayWindow() {
+<span class="nc" id="L251">		System.err.println(&quot;Bad call to getRecipientReplayWindow&quot;);</span>
+<span class="nc" id="L252">		StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();</span>
+<span class="nc" id="L253">		System.err.println(&quot;Bad call to getRecipientReplayWindow on GroupSenderCtx&quot; + stackTraceElements[2].toString());</span>
+<span class="nc" id="L254">		System.exit(0);</span>
+<span class="nc" id="L255">		return recipient_replay_window;</span>
+	}
+
+	@Override
+	public void setRecipientKey(byte[] recipientKey) {
+<span class="nc" id="L260">		StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();</span>
+<span class="nc" id="L261">		System.err.println(&quot;Bad call to setRecipientKey on GroupSenderCtx&quot; + stackTraceElements[2].toString());</span>
+<span class="nc" id="L262">		System.exit(0);</span>
+<span class="nc" id="L263">		System.exit(0);</span>
+<span class="nc" id="L264">		super.setRecipientKey(recipientKey);</span>
+<span class="nc" id="L265">	}</span>
+
+	/**
+	 * @param seq the recipient sequence number to set
+	 */
+	public synchronized void setReceiverSeq(int seq) {
+<span class="nc" id="L271">		StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();</span>
+<span class="nc" id="L272">		System.err.println(&quot;Bad call to setReceiverSeq on GroupSenderCtx&quot; + stackTraceElements[2].toString());</span>
+<span class="nc" id="L273">		System.exit(0);</span>
+<span class="nc" id="L274">		super.setReceiverSeq(seq);</span>
+<span class="nc" id="L275">	}</span>
+
+	public int rollbackRecipientSeq() {
+<span class="nc" id="L278">		StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();</span>
+<span class="nc" id="L279">		System.err.println(&quot;Bad call to rollbackRecipientSeq on GroupSenderCtx&quot; + stackTraceElements[2].toString());</span>
+<span class="nc" id="L280">		System.exit(0);</span>
+<span class="nc" id="L281">		return super.rollbackRecipientSeq();</span>
+	}
+
+	public int rollbackRecipientReplay() {
+<span class="nc" id="L285">		StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();</span>
+<span class="nc" id="L286">		System.err.println(&quot;Bad call to rollbackRecipientReplay on GroupSenderCtx&quot; + stackTraceElements[2].toString());</span>
+<span class="nc" id="L287">		System.exit(0);</span>
+<span class="nc" id="L288">		return super.rollbackRecipientReplay();</span>
+	}
+
+	/**
+	 * @return the repipient's identifier
+	 */
+	public byte[] getRecipientId() {
+<span class="nc" id="L295">		StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();</span>
+		// System.err.println(&quot;Bad call to getRecipientId on GroupSenderCtx. &quot; +
+		// stackTraceElements[1].toString());
+<span class="nc" id="L298">		System.err.println(&quot;Bad call to getRecipientId on GroupSenderCtx. &quot; + stackTraceElements[2].toString());</span>
+		// System.err.println(&quot;Bad call to getRecipientId on GroupSenderCtx. &quot; +
+		// stackTraceElements[3].toString());
+<span class="nc" id="L301">		System.exit(0);</span>
+<span class="nc" id="L302">		return super.getRecipientId();</span>
+	}
+
+	/**
+	 * @return get the receiver sequence number
+	 */
+	public synchronized int getReceiverSeq() {
+<span class="nc" id="L309">		StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();</span>
+<span class="nc" id="L310">		System.err.println(&quot;Bad call to getReceiverSeq on GroupSenderCtx&quot; + stackTraceElements[2].toString());</span>
+<span class="nc" id="L311">		System.exit(0);</span>
+<span class="nc" id="L312">		return super.getReceiverSeq();</span>
+	}
+
+	/**
+	 * @return get the recipient key
+	 */
+	public byte[] getRecipientKey() {
+<span class="nc" id="L319">		StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();</span>
+<span class="nc" id="L320">		System.err.println(&quot;Bad call to getRecipientKey on GroupSenderCtx&quot; + stackTraceElements[2].toString());</span>
+<span class="nc" id="L321">		System.exit(0);</span>
+<span class="nc" id="L322">		return super.getRecipientKey();</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

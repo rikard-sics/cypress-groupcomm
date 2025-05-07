@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OneKeyDecoder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore.group</a> &gt; <span class="el_source">OneKeyDecoder.java</span></div><h1>OneKeyDecoder.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2023 RISE SICS and others.
+ * 
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * and Eclipse Distribution License v1.0 which accompany this distribution.
+ * 
+ * The Eclipse Public License is available at
+ *    http://www.eclipse.org/legal/epl-v20.html
+ * and the Eclipse Distribution License is available at
+ *    http://www.eclipse.org/org/documents/edl-v10.html.
+ * 
+ * Contributors:
+ *    Rikard Höglund (RISE SICS)
+ *    
+ ******************************************************************************/
+package org.eclipse.californium.oscore.group;
+
+import org.eclipse.californium.cose.AlgorithmID;
+import org.eclipse.californium.cose.CoseException;
+import org.eclipse.californium.cose.KeyKeys;
+import org.eclipse.californium.cose.OneKey;
+import org.eclipse.californium.elements.util.Base64;
+import org.eclipse.californium.elements.util.StringUtil;
+
+import com.upokecenter.cbor.CBORObject;
+
+import net.i2p.crypto.eddsa.Utils;
+
+/**
+ * Various functions for decoding OneKeys that can be useful for interop
+ * testing.
+ * 
+ */
+<span class="nc" id="L35">public class OneKeyDecoder {</span>
+
+	/**
+	 * Create OneKey from raw bytes representing a public key. This is what one
+	 * party had during the last interop test.
+	 * 
+	 * @param alg the algorithm used
+	 * @param publicKey the bytes of the public key
+	 * 
+	 * @return the built OneKey object
+	 */
+	public static OneKey fromRawPublicBytes(AlgorithmID alg, byte[] publicKey) {
+
+<span class="pc bpc" id="L48" title="1 of 2 branches missed.">		switch (alg) {</span>
+		case EDDSA:
+<span class="fc" id="L50">			String keyStringStart = &quot;{1: 1, -2: h'&quot;;</span>
+<span class="fc" id="L51">			String keyStringEnd = &quot;', -1: 6, 3: -8}&quot;;</span>
+<span class="fc" id="L52">			String publicKeyString = Utils.bytesToHex(publicKey);</span>
+<span class="fc" id="L53">			String fullKeyString = keyStringStart + publicKeyString + keyStringEnd;</span>
+<span class="fc" id="L54">			return parseDiagnostic(fullKeyString);</span>
+		default:
+<span class="nc" id="L56">			System.err.println(&quot;Conversion using this algorithm not supported.&quot;);</span>
+<span class="nc" id="L57">			return null;</span>
+		}
+	}
+
+	/**
+	 * As below but returns a CBOR Object.
+	 * 
+	 * @param keyString string representing a OneKey in diagnostic notation
+	 * @return a CBOR object built from the string
+	 */
+	public static CBORObject parseDiagnosticToCbor(String keyString) {
+<span class="fc" id="L68">		return parseDiagnostic(keyString).AsCBOR();</span>
+	}
+
+	/**
+	 * As below but returns a Base64 encoded string.
+	 * 
+	 * @param keyString string representing a OneKey in diagnostic notation
+	 * @return a base 64 encoded representation built from the string
+	 */
+	public static String parseDiagnosticToBase64(String keyString) {
+
+<span class="nc" id="L79">		OneKey key = parseDiagnostic(keyString);</span>
+<span class="nc" id="L80">		byte[] keyObjectBytes = key.EncodeToBytes();</span>
+<span class="nc" id="L81">		String base64Encoded = Base64.encodeBytes(keyObjectBytes);</span>
+
+<span class="nc" id="L83">		return base64Encoded;</span>
+	}
+
+	/**
+	 * Parse a string representing a COSE OneKey in diagnostic notation. This
+	 * method first builds a CBOR Object from the values in the string. A COSE
+	 * OneKey is then created from that CBOR Object.
+	 * 
+	 * @param keyString string representing a OneKey in diagnostic notation
+	 * @return a OneKey object built from the string
+	 */
+	public static OneKey parseDiagnostic(String keyString) {
+
+		// Add algorithm to key if missing
+<span class="fc" id="L97">		boolean addAlgorithm = false;</span>
+
+		// Change alternative version of single quotes
+<span class="fc" id="L100">		keyString = keyString.replace(&quot;’&quot;, &quot;'&quot;);</span>
+
+		// Convert to lower case
+<span class="fc" id="L103">		keyString = keyString.toLowerCase();</span>
+
+		// Remove { and } characters
+<span class="fc" id="L106">		keyString = keyString.replace(&quot;{&quot;, &quot;&quot;);</span>
+<span class="fc" id="L107">		keyString = keyString.replace(&quot;}&quot;, &quot;&quot;);</span>
+		// Remove spaces
+<span class="fc" id="L109">		keyString = keyString.replace(&quot; &quot;, &quot;&quot;);</span>
+
+		// Split the string into sections at the , and : character
+<span class="fc" id="L112">		String[] segments = keyString.split(&quot;[,:]&quot;);</span>
+
+		// Build CBOR Object from the segments
+<span class="fc" id="L115">		CBORObject keyCbor = CBORObject.NewMap();</span>
+
+<span class="fc bfc" id="L117" title="All 2 branches covered.">		for (int i = 0; i &lt; segments.length; i += 2) {</span>
+<span class="fc" id="L118">			int key = Integer.parseInt(segments[i]);</span>
+<span class="fc" id="L119">			String value = segments[i + 1];</span>
+
+			// Handle byte array values
+<span class="fc bfc" id="L122" title="All 4 branches covered.">			if (value.length() &gt;= 2 &amp;&amp; value.substring(0, 2).equals(&quot;h'&quot;)) {</span>
+<span class="fc" id="L123">				String arrayString = value.replace(&quot;h'&quot;, &quot;&quot;).replace(&quot;'&quot;, &quot;&quot;);</span>
+<span class="fc" id="L124">				byte[] array = StringUtil.hex2ByteArray(arrayString);</span>
+<span class="fc" id="L125">				keyCbor.Add(key, array);</span>
+<span class="fc" id="L126">			} else {</span>
+				// Handle integer values
+<span class="fc" id="L128">				int valueInt = Integer.parseInt(value);</span>
+<span class="fc" id="L129">				keyCbor.Add(key, valueInt);</span>
+			}
+		}
+
+		// Set the algorithm if missing (which it sometimes is) TODO: Needed?
+<span class="pc bpc" id="L134" title="3 of 4 branches missed.">		if (addAlgorithm &amp;&amp; keyCbor.get(KeyKeys.Algorithm.AsCBOR()) == null) {</span>
+
+			// System.out.println(&quot;AlgorithmID in diagnostic string is null,
+			// setting it.&quot;);
+
+<span class="nc" id="L139">			AlgorithmID countersignAlg = OneKeyDecoder.getAlgFromCurve(keyCbor);</span>
+<span class="nc" id="L140">			keyCbor.set(KeyKeys.Algorithm.AsCBOR(), countersignAlg.AsCBOR());</span>
+		}
+
+		// Create a COSE key from CBOR Object
+<span class="fc" id="L144">		OneKey key = null;</span>
+		try {
+<span class="fc" id="L146">			key = new OneKey(keyCbor);</span>
+<span class="nc" id="L147">		} catch (CoseException e) {</span>
+<span class="nc" id="L148">			System.err.println(&quot;Error: Failed to decode COSE OneKey from diagnostic notation.&quot;);</span>
+<span class="nc" id="L149">			e.printStackTrace();</span>
+<span class="fc" id="L150">		}</span>
+
+<span class="fc" id="L152">		return key;</span>
+	}
+
+	/**
+	 * Get the algorithm used from the curve information in a OneKey
+	 * 
+	 * @param key the OneKey to check
+	 * @return the algorithm used
+	 */
+	public static AlgorithmID getAlgFromCurve(OneKey key) {
+<span class="fc" id="L162">		CBORObject ec2Curve = null;</span>
+<span class="fc" id="L163">		CBORObject okpCurve = null;</span>
+
+		try {
+<span class="fc" id="L166">			okpCurve = key.get(KeyKeys.OKP_Curve.AsCBOR());</span>
+<span class="fc" id="L167">			ec2Curve = key.get(KeyKeys.EC2_Curve.AsCBOR());</span>
+<span class="nc" id="L168">		} catch (CoseException e) {</span>
+<span class="nc" id="L169">			System.err.println(&quot;Failed to identify algorithm used from curve.&quot;);</span>
+<span class="nc" id="L170">			e.printStackTrace();</span>
+<span class="fc" id="L171">		}</span>
+
+		// Checks and returns the algorithm by looking at the curve used
+<span class="fc bfc" id="L174" title="All 2 branches covered.">		if (ec2Curve == KeyKeys.EC2_P256) {</span>
+			// ECDSA 256
+<span class="fc" id="L176">			return AlgorithmID.ECDSA_256;</span>
+<span class="pc bpc" id="L177" title="1 of 2 branches missed.">		} else if (ec2Curve == KeyKeys.EC2_P384) {</span>
+			// ECDSA 384
+<span class="nc" id="L179">			return AlgorithmID.ECDSA_384;</span>
+<span class="pc bpc" id="L180" title="1 of 2 branches missed.">		} else if (ec2Curve == KeyKeys.EC2_P521) {</span>
+			// ECDSA 512
+<span class="nc" id="L182">			return AlgorithmID.ECDSA_256;</span>
+<span class="pc bpc" id="L183" title="1 of 2 branches missed.">		} else if (okpCurve == KeyKeys.OKP_Ed25519) {</span>
+			// EdDSA
+<span class="fc" id="L185">			return AlgorithmID.EDDSA;</span>
+		} else {
+<span class="nc" id="L187">			return null;</span>
+		}
+	}
+
+	/**
+	 * Get the algorithm used from the curve information in a CBOR Object
+	 * 
+	 * @param key the CBOR Object to check
+	 * @return the algorithm used
+	 */
+	public static AlgorithmID getAlgFromCurve(CBORObject key) {
+<span class="nc" id="L198">		CBORObject ec2Curve = key.get(KeyKeys.EC2_Curve.AsCBOR());</span>
+<span class="nc" id="L199">		CBORObject okpCurve = key.get(KeyKeys.OKP_Curve.AsCBOR());</span>
+
+		// Checks and returns the algorithm by looking at the curve used
+<span class="nc bnc" id="L202" title="All 2 branches missed.">		if (ec2Curve == KeyKeys.EC2_P256) {</span>
+			// ECDSA 256
+<span class="nc" id="L204">			return AlgorithmID.ECDSA_256;</span>
+<span class="nc bnc" id="L205" title="All 2 branches missed.">		} else if (ec2Curve == KeyKeys.EC2_P384) {</span>
+			// ECDSA 384
+<span class="nc" id="L207">			return AlgorithmID.ECDSA_384;</span>
+<span class="nc bnc" id="L208" title="All 2 branches missed.">		} else if (ec2Curve == KeyKeys.EC2_P521) {</span>
+			// ECDSA 512
+<span class="nc" id="L210">			return AlgorithmID.ECDSA_256;</span>
+<span class="nc bnc" id="L211" title="All 2 branches missed.">		} else if (okpCurve == KeyKeys.OKP_Ed25519) {</span>
+			// EdDSA
+<span class="nc" id="L213">			return AlgorithmID.EDDSA;</span>
+		} else {
+<span class="nc" id="L215">			return null;</span>
+		}
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

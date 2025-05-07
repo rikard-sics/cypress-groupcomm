@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EndpointUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.as</a> &gt; <span class="el_source">EndpointUtils.java</span></div><h1>EndpointUtils.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.as;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import com.upokecenter.cbor.CBORObject;
+
+import org.eclipse.californium.cose.AlgorithmID;
+import org.eclipse.californium.cose.Attribute;
+import org.eclipse.californium.cose.CoseException;
+import org.eclipse.californium.cose.HeaderKeys;
+import org.eclipse.californium.cose.KeyKeys;
+import org.eclipse.californium.cose.MessageTag;
+import org.eclipse.californium.cose.OneKey;
+import org.eclipse.californium.cose.Recipient;
+import se.sics.ace.AceException;
+import se.sics.ace.COSEparams;
+import se.sics.ace.cwt.CwtCryptoCtx;
+
+/**
+ * Utility methods for the token and introspect endpoints.
+ * 
+ * @author Ludwig Seitz
+ *
+ */
+<span class="nc" id="L60">public class EndpointUtils {</span>
+
+    
+    /**
+     * Create a common CWT crypto context for the given audience.
+     * 
+     * @param aud  the audiences
+     * @param db  the database connector
+     * @param asymKey  the asymmetric key of the AS if Sign1 is
+     *      to be used, null otherwise 
+     * @param verify  true if the context is needed for verifying, false if
+     *  it is for signing.
+     * 
+     * @return  a common crypto context or null if there isn't any
+     * 
+     * @throws CoseException 
+     * @throws AceException 
+     */
+    public static CwtCryptoCtx makeCommonCtx(Set&lt;String&gt; aud, DBConnector db, 
+            OneKey asymKey, boolean verify) throws AceException, CoseException {
+<span class="fc" id="L80">        COSEparams cose = db.getSupportedCoseParams(aud);</span>
+<span class="pc bpc" id="L81" title="1 of 2 branches missed.">        if (cose == null) {</span>
+<span class="nc" id="L82">            return null;</span>
+        }
+<span class="fc" id="L84">        MessageTag tag = cose.getTag();</span>
+<span class="pc bpc" id="L85" title="4 of 7 branches missed.">        switch (tag) {</span>
+        case Encrypt:
+<span class="nc" id="L87">            AlgorithmID ealg = cose.getAlg();</span>
+<span class="nc" id="L88">            return CwtCryptoCtx.encrypt(makeRecipients(aud, cose, db), </span>
+<span class="nc" id="L89">                    ealg.AsCBOR());</span>
+        case Encrypt0:
+<span class="fc" id="L91">            byte[] ekey = getCommonSecretKey(aud, db);</span>
+<span class="pc bpc" id="L92" title="1 of 2 branches missed.">            if (ekey == null) {</span>
+<span class="nc" id="L93">                return null;</span>
+            }
+<span class="fc" id="L95">            return CwtCryptoCtx.encrypt0(ekey, cose.getAlg().AsCBOR());</span>
+        case MAC:
+
+<span class="nc" id="L98">            return CwtCryptoCtx.mac(makeRecipients(aud, cose, db), </span>
+<span class="nc" id="L99">                    cose.getAlg().AsCBOR());</span>
+        case MAC0:
+<span class="fc" id="L101">            byte[] mkey = getCommonSecretKey(aud, db);</span>
+<span class="pc bpc" id="L102" title="1 of 2 branches missed.">            if (mkey == null) {</span>
+<span class="fc" id="L103">                return null;</span>
+            }
+<span class="nc" id="L105">            return CwtCryptoCtx.mac0(mkey, cose.getAlg().AsCBOR());</span>
+        case Sign:
+            // Access tokens with multiple signers not supported
+<span class="nc" id="L108">            return null;</span>
+        case Sign1:
+<span class="fc bfc" id="L110" title="All 2 branches covered.">            if (verify) {</span>
+<span class="fc" id="L111">                return CwtCryptoCtx.sign1Verify(asymKey.PublicKey(), </span>
+<span class="fc" id="L112">                        cose.getAlg().AsCBOR());</span>
+            }
+<span class="fc" id="L114">            return CwtCryptoCtx.sign1Create(</span>
+<span class="fc" id="L115">                    asymKey, cose.getAlg().AsCBOR());</span>
+        default:
+<span class="nc" id="L117">            throw new IllegalArgumentException(&quot;Unknown COSE message type&quot;);</span>
+        }
+    }
+    
+    /**
+     * Tries to find a common PSK for the given audience.
+     * 
+     * @param aud  the audience
+     * @param db  the database connector
+     * 
+     * @return  a common PSK or null if there isn't any
+     * @throws AceException 
+     */
+    private static byte[] getCommonSecretKey(Set&lt;String&gt; aud, DBConnector db) 
+            throws AceException {
+<span class="fc" id="L132">        Set&lt;String&gt; rss = new HashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L133" title="All 2 branches covered.">        for (String audE : aud) {</span>
+<span class="fc" id="L134">            rss.addAll(db.getRSS(audE));</span>
+<span class="fc" id="L135">        }</span>
+<span class="fc" id="L136">        byte[] key = null;</span>
+<span class="fc bfc" id="L137" title="All 2 branches covered.">        for (String rs : rss) {</span>
+<span class="fc" id="L138">            OneKey cose = db.getRsTokenPSK(rs);</span>
+<span class="fc bfc" id="L139" title="All 2 branches covered.">            if (cose == null) {</span>
+<span class="fc" id="L140">                return null;</span>
+            }
+<span class="fc" id="L142">            byte[] secKey = cose.get(KeyKeys.Octet_K).GetByteString();</span>
+<span class="pc bpc" id="L143" title="1 of 2 branches missed.">            if (key == null) {</span>
+<span class="fc" id="L144">                key = Arrays.copyOf(secKey, secKey.length);</span>
+            } else {
+<span class="nc bnc" id="L146" title="All 2 branches missed.">                if (!Arrays.equals(key, secKey)) {</span>
+<span class="nc" id="L147">                    return null;</span>
+                }
+            }
+<span class="fc" id="L150">        }</span>
+<span class="fc" id="L151">        return key;</span>
+    }
+      
+    /**
+     * Create a recipient list for an audience.
+     * 
+     * @param aud  the audience
+     * @param cose  the COSE parameters
+     * @param db  the database connector
+     * 
+     * @return  the recipient list
+     * @throws AceException 
+     * @throws CoseException 
+     */
+    private static List&lt;Recipient&gt; makeRecipients(Set&lt;String&gt; aud, COSEparams cose,
+            DBConnector db) throws AceException, CoseException {
+<span class="nc" id="L167">        List&lt;Recipient&gt; rl = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L168" title="All 2 branches missed.">        for (String audE : aud) {</span>
+<span class="nc bnc" id="L169" title="All 2 branches missed.">            for (String rs : db.getRSS(audE)) {</span>
+<span class="nc" id="L170">                Recipient r = new Recipient();</span>
+<span class="nc" id="L171">                r.addAttribute(HeaderKeys.Algorithm, </span>
+<span class="nc" id="L172">                        cose.getKeyWrap().AsCBOR(), </span>
+                        Attribute.UNPROTECTED);
+<span class="nc" id="L174">                CBORObject key = CBORObject.NewMap();</span>
+<span class="nc" id="L175">                key.Add(KeyKeys.KeyType.AsCBOR(), KeyKeys.KeyType_Octet);</span>
+<span class="nc" id="L176">                key.Add(KeyKeys.Octet_K.AsCBOR(), CBORObject.FromObject(</span>
+<span class="nc" id="L177">                        db.getRsTokenPSK(rs)));</span>
+<span class="nc" id="L178">                OneKey coseKey = new OneKey(key);</span>
+<span class="nc" id="L179">                r.SetKey(coseKey); </span>
+<span class="nc" id="L180">                rl.add(r);</span>
+<span class="nc" id="L181">            }</span>
+<span class="nc" id="L182">        }</span>
+<span class="nc" id="L183">        return rl;</span>
+    }
+
+
+   
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

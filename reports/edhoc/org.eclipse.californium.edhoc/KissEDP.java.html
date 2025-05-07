@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>KissEDP.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-EDHOC</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.edhoc</a> &gt; <span class="el_source">KissEDP.java</span></div><h1>KissEDP.java</h1><pre class="source lang-java linenums">package org.eclipse.californium.edhoc;
+
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+
+/*
+ * A simple processor of External Authorization Data, for testing purpose
+ * 
+ */
+
+<span class="nc" id="L11">public class KissEDP implements EDP {</span>
+
+	// Process the External Authorization Data EAD_1 from EDHOC message_1
+	@Override
+	public void processEAD1(CBORObject[] ead1) {
+
+<span class="nc" id="L17">		System.out.println(&quot;Entered processEAD1()&quot;);</span>
+		
+<span class="nc" id="L19">		overviewEAD(ead1);</span>
+<span class="nc" id="L20">	}</span>
+	
+	// Process the External Authorization Data EAD_2 from EDHOC message_2
+	@Override
+	public void processEAD2(CBORObject[] ead2) {
+
+<span class="nc" id="L26">		System.out.println(&quot;Entered processEAD2()&quot;);</span>
+
+<span class="nc" id="L28">		overviewEAD(ead2);</span>
+<span class="nc" id="L29">	}</span>
+	
+	// Process the External Authorization Data EAD_3 from EDHOC message_3
+	@Override
+	public void processEAD3(CBORObject[] ead3) {
+
+<span class="nc" id="L35">		System.out.println(&quot;Entered processEAD3()&quot;);</span>
+		
+<span class="nc" id="L37">		overviewEAD(ead3);</span>
+<span class="nc" id="L38">	}</span>
+	
+	// Process the External Authorization Data EAD_4 from EDHOC message_4
+	@Override
+	public void processEAD4(CBORObject[] ead4) {
+
+<span class="nc" id="L44">		System.out.println(&quot;Entered processEAD4()&quot;);</span>
+		
+<span class="nc" id="L46">		overviewEAD(ead4);</span>
+<span class="nc" id="L47">	}</span>
+	
+	// Print a generic overview of External Authorization Data from an EDHOC message
+	private void overviewEAD(CBORObject[] ead) {
+		
+<span class="nc" id="L52">		System.out.println(&quot;EAD overview\n&quot;);</span>
+		
+<span class="nc bnc" id="L54" title="All 2 branches missed.">		for (int i = 0; i &lt; ead.length; i++) {</span>
+			
+			// This element must be an integer different than 0, indicating the EAD Label
+<span class="nc bnc" id="L57" title="All 2 branches missed.">			if (i % 2 == 0) {</span>
+<span class="nc bnc" id="L58" title="All 4 branches missed.">				if (ead[i].getType() != CBORType.Integer || ead[i].AsInt32() == 0) {</span>
+<span class="nc" id="L59">					System.out.println(&quot;Malformed or invalid data item #&quot; + (i/2));</span>
+<span class="nc" id="L60">					i += 2; // skip the companion data element</span>
+<span class="nc" id="L61">					continue;</span>
+				}
+<span class="nc" id="L63">				System.out.println(&quot;The EAD item #&quot; + (i/2) + &quot; has EAD Label &quot; + ead[i].AsInt32());</span>
+			}
+			
+			// This element includes the actual EAD Value according to the specified EAD Label
+<span class="nc bnc" id="L67" title="All 2 branches missed.">			if (i % 2 == 1) {</span>
+<span class="nc" id="L68">				Util.nicePrint(&quot;The EAD item #&quot; + (i/2) + &quot; has Value &quot;, ead[i].GetByteString());</span>
+			}
+			
+		}
+
+<span class="nc" id="L73">		System.out.println(&quot;\n&quot;);</span>
+<span class="nc" id="L74">	}</span>
+	
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

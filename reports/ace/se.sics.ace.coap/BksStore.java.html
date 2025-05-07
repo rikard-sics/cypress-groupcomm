@@ -1,0 +1,338 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BksStore.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.coap</a> &gt; <span class="el_source">BksStore.java</span></div><h1>BksStore.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.coap;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintWriter;
+import java.net.InetSocketAddress;
+import java.security.Key;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.Security;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.logging.Logger;
+
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+
+import org.eclipse.californium.scandium.dtls.ConnectionId;
+import org.eclipse.californium.scandium.dtls.HandshakeResultHandler;
+import org.eclipse.californium.scandium.dtls.PskPublicInformation;
+import org.eclipse.californium.scandium.dtls.PskSecretResult;
+import org.eclipse.californium.scandium.dtls.pskstore.AdvancedPskStore;
+import org.eclipse.californium.scandium.util.ServerNames;
+
+/**
+ * A PskStore implementation based on BKS.
+ * 
+ * This will retrieve keys from a BKS keystore.
+ * 
+ * In order too keep this manageable all keys will 
+ * have the same password as the keystore.
+ * 
+ * @author Ludwig Seitz
+ *
+ */
+public class BksStore implements AdvancedPskStore {
+    
+    /**
+     * The logger
+     */
+<span class="fc" id="L82">    private static final Logger LOGGER </span>
+<span class="fc" id="L83">        = Logger.getLogger(BksStore.class.getName());</span>
+
+    /**
+     * The underlying BKS keystore
+     */
+<span class="fc" id="L88">    private KeyStore keystore = null;</span>
+    
+    /**
+     * The in-memory map of addresses to identities
+     */
+<span class="fc" id="L93">    private Map&lt;String, String&gt; addr2id = new HashMap&lt;&gt;();</span>
+    
+    /**
+     * The file storing the keystore
+     */
+    private String keystoreFile;
+    
+    /**
+     * The keystore password
+     */
+    private String keystorePwd;
+    
+    private String addr2IdFile;
+    
+    static {
+<span class="fc" id="L108">        Security.addProvider(</span>
+                new org.bouncycastle.jce.provider.BouncyCastleProvider());
+<span class="fc" id="L110">    }</span>
+    
+    /**
+     * Constructor.
+     * 
+     * @param keystoreLocation  the location of the keystore file
+     * @param keystorePwd the password to the keystore
+     * @param addr2idFile  the location of the file mapping addresses to identities
+     * 
+     * @throws IOException 
+     * @throws CertificateException 
+     * @throws NoSuchAlgorithmException 
+     * @throws KeyStoreException 
+     * @throws NoSuchProviderException 
+     */
+    public BksStore(String keystoreLocation, String keystorePwd, String addr2idFile) 
+            throws NoSuchAlgorithmException, CertificateException, 
+<span class="fc" id="L127">            IOException, KeyStoreException, NoSuchProviderException {</span>
+<span class="fc" id="L128">        this.keystoreFile = keystoreLocation;</span>
+<span class="fc" id="L129">        this.keystorePwd = keystorePwd;</span>
+<span class="fc" id="L130">        InputStream keystoreStream = new FileInputStream(keystoreLocation);</span>
+<span class="fc" id="L131">        this.keystore = KeyStore.getInstance(&quot;BKS&quot;, &quot;BC&quot;);</span>
+<span class="fc" id="L132">        this.keystore.load(keystoreStream, keystorePwd.toCharArray());</span>
+<span class="fc" id="L133">        keystoreStream.close();   </span>
+<span class="fc" id="L134">        this.addr2IdFile  = addr2idFile;</span>
+<span class="fc" id="L135">        BufferedReader in = new BufferedReader(new FileReader(addr2idFile));</span>
+<span class="fc" id="L136">        String line = &quot;&quot;;</span>
+<span class="fc bfc" id="L137" title="All 2 branches covered.">        while ((line = in.readLine()) != null) {</span>
+<span class="fc" id="L138">            String parts[] = line.split(&quot;:&quot;);</span>
+<span class="fc" id="L139">            this.addr2id.put((parts[0].trim() + &quot;:&quot; + parts[1].trim()),</span>
+<span class="fc" id="L140">                    parts[2].trim());</span>
+<span class="fc" id="L141">        }</span>
+<span class="fc" id="L142">        in.close();</span>
+<span class="fc" id="L143">    }</span>
+    
+    /**
+     * Create the initial keystore and address2identity mapping file.
+     * 
+     * @param keystoreLocation  the location of the keystore file
+     * @param keystorePwd the password to the keystore
+     * @param addr2idFile  the location of the file mapping addresses to identities
+     * 
+     * @throws NoSuchProviderException 
+     * @throws KeyStoreException 
+     * @throws IOException 
+     * @throws FileNotFoundException 
+     * @throws CertificateException 
+     * @throws NoSuchAlgorithmException 
+     */
+    public static void init(String keystoreLocation, String keystorePwd,
+            String addr2idFile) throws KeyStoreException, 
+            NoSuchProviderException, NoSuchAlgorithmException, 
+            CertificateException, FileNotFoundException, IOException {
+<span class="fc" id="L163">        KeyStore keyStore = KeyStore.getInstance(&quot;BKS&quot;, &quot;BC&quot;);</span>
+<span class="fc" id="L164">        keyStore.load(null, keystorePwd.toCharArray());</span>
+<span class="fc" id="L165">        FileOutputStream fo = new FileOutputStream(keystoreLocation);</span>
+<span class="fc" id="L166">        keyStore.store(fo, keystorePwd.toCharArray());</span>
+<span class="fc" id="L167">        fo.close();   </span>
+<span class="fc" id="L168">        File file = new File(addr2idFile);</span>
+<span class="fc" id="L169">        file.createNewFile();        </span>
+<span class="fc" id="L170">    }</span>
+
+    @Override
+    public PskSecretResult requestPskSecretResult(ConnectionId cid, ServerNames serverName,
+            PskPublicInformation identity, String hmacAlgorithm, SecretKey otherSecret, byte[] seed,
+            boolean useExtendedMasterSecret) {
+
+<span class="fc" id="L177">        String identityStr = identity.getPublicInfoAsString();</span>
+        try {
+<span class="fc bfc" id="L179" title="All 2 branches covered.">            if (!this.keystore.containsAlias(identityStr)) {</span>
+<span class="fc" id="L180">                return null;</span>
+            }
+<span class="nc" id="L182">        } catch (KeyStoreException e) {</span>
+<span class="nc" id="L183">            LOGGER.severe(&quot;KeyStoreException: &quot; + e.getMessage());</span>
+<span class="nc" id="L184">            return null;</span>
+<span class="fc" id="L185">        }</span>
+
+        Key key;
+        try {
+            // XXX: Note that we use the keystore password for all key passwords
+<span class="fc" id="L190">            key = this.keystore.getKey(identityStr, this.keystorePwd.toCharArray());</span>
+<span class="nc" id="L191">        } catch (UnrecoverableKeyException | KeyStoreException | NoSuchAlgorithmException e) {</span>
+<span class="nc" id="L192">            LOGGER.severe(e.getClass().getName() + &quot;: &quot; + e.getMessage());</span>
+<span class="nc" id="L193">            return null;</span>
+<span class="fc" id="L194">        }</span>
+
+<span class="fc" id="L196">        return new PskSecretResult(cid, identity, (SecretKey) key);</span>
+    }
+
+    public SecretKey getKey(PskPublicInformation info) {
+<span class="fc" id="L200">        PskSecretResult result = requestPskSecretResult(ConnectionId.EMPTY, null, info, null, null, null, false);</span>
+
+<span class="fc bfc" id="L202" title="All 2 branches covered.">        if (result == null) {</span>
+<span class="fc" id="L203">            return null;</span>
+        } else {
+<span class="fc" id="L205">            return result.getSecret();</span>
+        }
+
+    }
+
+    @Override
+    public PskPublicInformation getIdentity(InetSocketAddress inetAddress, ServerNames virtualHost) {
+<span class="fc" id="L212">        String id = inetAddress.getHostString() + &quot;:&quot; + inetAddress.getPort();</span>
+<span class="fc" id="L213">        String identity = this.addr2id.get(id);</span>
+<span class="fc bfc" id="L214" title="All 2 branches covered.">        if (identity != null) {</span>
+<span class="fc" id="L215">            return new PskPublicInformation(identity);</span>
+        }
+<span class="fc" id="L217">        return null;</span>
+
+    }
+
+    public PskPublicInformation getIdentity(InetSocketAddress inetAddress) {
+<span class="fc" id="L222">        return getIdentity(inetAddress, null);</span>
+
+    }
+
+    /**
+     * Add a new symmetric key to the keystore or overwrite the existing
+     * one associated to this identity.
+     * 
+     * @param key  the bytes of java.security.Key.getEncoded()
+     * @param identity  the key identity
+     * @param address  the address to associate with this key (can be null)
+     * @throws KeyStoreException 
+     * @throws IOException 
+     * @throws FileNotFoundException 
+     * @throws CertificateException 
+     * @throws NoSuchAlgorithmException 
+     */
+    public void addKey(byte[] key, String identity) 
+            throws KeyStoreException, NoSuchAlgorithmException, 
+            CertificateException, FileNotFoundException, IOException {
+<span class="pc bpc" id="L242" title="1 of 4 branches missed.">        if (identity == null || key == null) {</span>
+<span class="fc" id="L243">            throw new KeyStoreException(&quot;Key and identity must not be null&quot;);</span>
+        }
+<span class="pc bpc" id="L245" title="1 of 2 branches missed.">        if (this.keystore != null) {</span>
+<span class="fc" id="L246">            Key k = new SecretKeySpec(key, PskSecretResult.ALGORITHM_PSK);</span>
+            //XXX: Note that we use the keystore password for all key passwords
+<span class="fc" id="L248">            this.keystore.setKeyEntry(identity, k, </span>
+<span class="fc" id="L249">                    this.keystorePwd.toCharArray(), null);</span>
+<span class="fc" id="L250">            FileOutputStream fos = new FileOutputStream(this.keystoreFile);</span>
+<span class="fc" id="L251">            this.keystore.store(fos, this.keystorePwd.toCharArray());</span>
+<span class="fc" id="L252">            fos.close();</span>
+        }
+<span class="fc" id="L254">    }</span>
+    
+    /**
+     * Add a new mapping of key identity to Internet address.
+     * 
+     * @param address the Internet address
+     * @param identity  the key identity
+     * @throws KeyStoreException 
+     * @throws IOException 
+     */
+    public void addAddress(InetSocketAddress address, String identity) 
+            throws KeyStoreException, IOException {
+<span class="pc bpc" id="L266" title="1 of 2 branches missed.">        if (hasKey(identity)) {</span>
+<span class="fc" id="L267">            this.addr2id.put(address.getHostString()+&quot;:&quot;+address.getPort(),</span>
+                    identity);
+        }
+<span class="fc" id="L270">        PrintWriter writer = new PrintWriter(this.addr2IdFile, &quot;UTF-8&quot;);</span>
+        for (Map.Entry&lt;String, String&gt; e 
+<span class="fc bfc" id="L272" title="All 2 branches covered.">                : this.addr2id.entrySet()) {        </span>
+<span class="fc" id="L273">            String line = e.getKey() + &quot;:&quot; + e.getValue();</span>
+<span class="fc" id="L274">            writer.println(line);  </span>
+<span class="fc" id="L275">        }</span>
+<span class="fc" id="L276">        writer.close();      </span>
+<span class="fc" id="L277">    }</span>
+    
+    /**
+     * Checks if a key for a certain identity is present.
+     * 
+     * @param identity  the key identity
+     * 
+     * @return  true if the identity is in the keystore, false otherwise
+     * 
+     * @throws KeyStoreException 
+     */
+    public boolean hasKey(String identity) throws KeyStoreException {
+<span class="pc bpc" id="L289" title="1 of 2 branches missed.">        if (identity != null) {</span>
+<span class="pc bpc" id="L290" title="1 of 2 branches missed.">            if (this.keystore != null) {</span>
+<span class="fc" id="L291">                return this.keystore.isKeyEntry(identity);</span>
+            }
+<span class="nc" id="L293">            throw new KeyStoreException(&quot;No keystore loaded&quot;);</span>
+        }
+<span class="nc" id="L295">        throw new KeyStoreException(&quot;Key identity can not be null&quot;);</span>
+    }
+    
+    /**
+     * Remove a symmetric key from the keystore, will do nothing if the
+     * key doesn't exist.
+     * 
+     * @param identity  the key identity
+     * @throws KeyStoreException 
+     * @throws IOException 
+     * @throws CertificateException 
+     * @throws NoSuchAlgorithmException 
+     */
+    public void removeKey(String identity) throws KeyStoreException, 
+           NoSuchAlgorithmException, CertificateException, IOException {
+<span class="fc bfc" id="L310" title="All 2 branches covered.">        if (identity != null) {</span>
+<span class="pc bpc" id="L311" title="1 of 2 branches missed.">            if (this.keystore != null) {</span>
+<span class="pc bpc" id="L312" title="1 of 2 branches missed.">                if (this.keystore.isKeyEntry(identity)) {</span>
+<span class="fc" id="L313">                    this.keystore.deleteEntry(identity);</span>
+<span class="fc" id="L314">                    FileOutputStream fos = new FileOutputStream(this.keystoreFile);</span>
+<span class="fc" id="L315">                    this.keystore.store(fos, this.keystorePwd.toCharArray());</span>
+<span class="fc" id="L316">                    fos.close();</span>
+                }
+<span class="fc" id="L318">                return;</span>
+            }
+<span class="nc" id="L320">            throw new KeyStoreException(&quot;No keystore loaded&quot;);</span>
+        }
+<span class="fc" id="L322">        throw new KeyStoreException(&quot;Key identity can not be null&quot;);</span>
+    }
+
+    @Override
+    public boolean hasEcdhePskSupported() {
+        // TODO Auto-generated method stub
+<span class="fc" id="L328">        return false;</span>
+    }
+
+    @Override
+    public void setResultHandler(HandshakeResultHandler resultHandler) {
+        // TODO Auto-generated method stub
+
+<span class="fc" id="L335">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

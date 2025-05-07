@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OSCOREInputMaterialObjectParameters.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.oscore</a> &gt; <span class="el_source">OSCOREInputMaterialObjectParameters.java</span></div><h1>OSCOREInputMaterialObjectParameters.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.oscore;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+
+import se.sics.ace.AceException;
+
+/**
+ * Constants for use in the OSCORE Input Material Object
+ *  
+ * @author Marco Tiloca
+ *
+ */
+ 
+<span class="nc" id="L49"> public class OSCOREInputMaterialObjectParameters {</span>
+
+		/**
+		 *  'id' - OSCORE Input Material Identifier
+		 */
+		public static final short id = 0;  // Major type 2 (byte string)
+	 
+		/**
+		 *  'version' - OSCORE Master Secret Value
+		 */
+		public static final short version = 1;  // Major type 0 (unsigned integer)
+	 
+		/**
+		 *  'ms' - OSCORE Master Secret Value
+		 */
+		public static final short ms = 2;  // Major type 2 (byte string)
+		
+		/**
+		 *  'hkdf' - OSCORE HKDF value
+		 */
+		public static final short hkdf = 3; // Major type 0 (unsigned integer) or 1 (negative integer) or 3 (text string)
+		
+		/**
+		 *  'alg' - OSCORE AEAD Algorithm value
+		 */
+		public static final short alg = 4; // Major type 0 (unsigned integer) or 1 (negative integer) or 3 (text string)
+		
+		/**
+		 *  'salt' - OSCORE Master Salt Value
+		 */
+		public static final short salt = 5; // Major type 2 (byte string)
+		
+		/**
+		 *  'contextId' - OSCORE ID Context Value
+		 */
+		public static final short contextId = 6; // Major type 2 (byte string)		
+		
+		/**
+	     * The string values for the OSCORE Security Context Object parameter abbreviations (use for debugging)
+	     */
+<span class="nc" id="L89">	    public static final String[] CONTEXT_PARAMETER = {&quot;id&quot;, &quot;version&quot;, &quot;ms&quot;, &quot;hkdf&quot;, &quot;alg&quot;, &quot;salt&quot;, &quot;contextId&quot;};</span>
+	    
+	    /**
+	     * Takes a CBORObject that is a map and transforms it
+	     * into Map&lt;Short, CBORObject&gt;
+	     * @param cbor  the CBOR map
+	     * @return  the Map
+	     * @throws AceException if the cbor parameter is not a CBOR map or
+	     *  if a key is not a short
+	     */
+	    public static Map&lt;Short, CBORObject&gt; getParams(CBORObject cbor) 
+	            throws AceException {
+<span class="nc bnc" id="L101" title="All 2 branches missed.">	        if (!cbor.getType().equals(CBORType.Map)) {</span>
+<span class="nc" id="L102">	            throw new AceException(&quot;CBOR object is not a Map&quot;); </span>
+	        }
+<span class="nc" id="L104">	        Map&lt;Short, CBORObject&gt; ret = new HashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L105" title="All 2 branches missed.">	        for (CBORObject key : cbor.getKeys()) {</span>
+<span class="nc bnc" id="L106" title="All 2 branches missed.">	            if (!key.getType().equals(CBORType.Integer)) {</span>
+<span class="nc" id="L107">	                throw new AceException(&quot;CBOR key was not a Short: &quot;</span>
+<span class="nc" id="L108">	                        + key.toString());</span>
+	            }
+<span class="nc" id="L110">	            ret.put(key.AsNumber().ToInt16Checked(), cbor.get(key));</span>
+<span class="nc" id="L111">	        }</span>
+<span class="nc" id="L112">	        return ret;</span>
+	    }
+	    
+	    /**
+	     * Takes a  Map&lt;Short, CBORObject&gt; and transforms it into a CBOR map.
+	     * 
+	     * @param map  the map
+	     * @return  the CBOR map
+	     */
+	    public static CBORObject getCBOR(Map&lt;Short, CBORObject&gt; map) {
+<span class="nc" id="L122">	        CBORObject cbor = CBORObject.NewMap();</span>
+<span class="nc bnc" id="L123" title="All 2 branches missed.">	        for (Map.Entry&lt;Short, CBORObject&gt; e : map.entrySet()) {</span>
+<span class="nc" id="L124">	            cbor.Add(e.getKey(), e.getValue());</span>
+<span class="nc" id="L125">	        }</span>
+<span class="nc" id="L126">	        return cbor;</span>
+	    }
+	 
+ }
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

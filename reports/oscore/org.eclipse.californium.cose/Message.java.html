@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Message.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.cose</a> &gt; <span class="el_source">Message.java</span></div><h1>Message.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+
+ * Original from https://github.com/cose-wg/COSE-JAVA Commit 1a20373
+ *
+ * Copyright (c) 2016, Jim Schaad
+ * Copyright (c) 2018, Ludwig Seitz, RISE SICS
+ * Copyright (c) 2018, Rikard HÃ¶glund, RISE SICS
+ * All rights reserved.
+
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+
+ * Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer.
+
+ * Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
+
+ * Neither the name of COSE-JAVA nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot;
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+ * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * 
+ * Contributors:
+ *    Achim Kraus (Bosch Software Innovations GmbH) - update to cbor 4.0.0
+ *                                                    align with cose 1.0
+ *                                                    commit 629912b94ea80c4c6
+ ******************************************************************************/
+package org.eclipse.californium.cose;
+
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.eclipse.californium.elements.util.StandardCharsets;
+
+/**
+ * The Message class provides a common class that all of the COSE message classes
+ * inherit from.  It provides the function used for decoding all of the known
+ * messages.
+ * 
+ * @author jimsch
+ */
+<span class="fc" id="L58">public abstract class Message extends Attribute {</span>
+    /**
+     * Is the tag identifying the message emitted?
+     */
+<span class="fc" id="L62">    protected boolean emitTag = true;</span>
+    
+    /**
+     * Is the content emitted as part of the message?
+     */
+<span class="fc" id="L67">    protected boolean emitContent = true;</span>
+    
+    /**
+     * What message tag identifies this message?
+    */
+<span class="fc" id="L72">    protected MessageTag messageTag = MessageTag.Unknown;</span>
+    
+    /**
+     * What is the plain text content of the message.
+     */
+<span class="fc" id="L77">    protected byte[] rgbContent = null;</span>
+  
+    /**
+     * Decode a COSE message object.  This function assumes that the message
+     * has a leading CBOR tag to identify the message type.  If this is not
+     * true then use {#link DecodeFromBytes(byte[], MessageTag)}.
+     * 
+     * @param rgbData byte stream to be decoded
+     * @return the decoded message object
+     * @throws CoseException on a decode failure
+     */
+    public static Message DecodeFromBytes(byte[] rgbData) throws CoseException {
+<span class="nc" id="L89">        return DecodeFromBytes(rgbData, MessageTag.Unknown);</span>
+    }
+    
+    /**
+     * Decode a COSE message object. Use a value of {@code MessageTag.Unknown}
+     * to decode a generic structure with tagging.  Use a specific value if
+     * the tagging is absent or if a known structure is passed in.
+     * 
+     * @param rgbData byte stream to be decoded
+     * @param defaultTag assumed message type to be decoded
+     * @return the decoded message object
+     * @throws CoseException on a decode failure.
+     */
+    public static Message DecodeFromBytes(byte[] rgbData, MessageTag defaultTag) throws CoseException {
+<span class="nc" id="L103">        CBORObject messageObject = CBORObject.DecodeFromBytes(rgbData);</span>
+        
+<span class="nc bnc" id="L105" title="All 2 branches missed.">        if (messageObject.getType() != CBORType.Array)  throw new CoseException(&quot;Message is not a COSE security Message&quot;);</span>
+        
+<span class="nc bnc" id="L107" title="All 2 branches missed.">        if (messageObject.isTagged()) {</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">            if (messageObject.getTagCount() != 1) throw new CoseException(&quot;Malformed message - too many tags&quot;);</span>
+            
+<span class="nc bnc" id="L110" title="All 2 branches missed.">            if (defaultTag == MessageTag.Unknown) {</span>
+<span class="nc" id="L111">                defaultTag = MessageTag.FromInt(messageObject.getMostInnerTag().ToInt32Unchecked());</span>
+            }
+<span class="nc bnc" id="L113" title="All 2 branches missed.">            else if (defaultTag != MessageTag.FromInt(messageObject.getMostInnerTag().ToInt32Unchecked())) {</span>
+<span class="nc" id="L114">                throw new CoseException(&quot;Passed in tag does not match actual tag&quot;);</span>
+            }
+        }
+        
+        Message msg;
+        
+<span class="nc bnc" id="L120" title="All 8 branches missed.">        switch (defaultTag) {</span>
+            case Unknown: // Unknown
+<span class="nc" id="L122">                throw new CoseException(&quot;Message was not tagged and no default tagging option given&quot;);</span>
+		
+            case Encrypt:
+<span class="nc" id="L125">			msg = new EncryptMessage();</span>
+<span class="nc" id="L126">			break;</span>
+
+		case Encrypt0:
+<span class="nc" id="L129">			msg = new Encrypt0Message();</span>
+<span class="nc" id="L130">			break;</span>
+
+            case MAC: 
+<span class="nc" id="L133">			msg = new MACMessage();</span>
+<span class="nc" id="L134">			break;</span>
+
+		case MAC0:
+<span class="nc" id="L137">			msg = new MAC0Message();</span>
+<span class="nc" id="L138">			break;</span>
+
+            case Sign1:
+<span class="nc" id="L141">			msg = new Sign1Message();</span>
+<span class="nc" id="L142">			break;</span>
+
+            case Sign:
+<span class="nc" id="L145">			msg = new SignMessage();</span>
+<span class="nc" id="L146">			break;</span>
+                
+            default:
+<span class="nc" id="L149">                throw new CoseException(&quot;Message is not recognized as a COSE security Object&quot;);</span>
+        }
+    
+<span class="nc" id="L152">        msg.DecodeFromCBORObject(messageObject);</span>
+<span class="nc" id="L153">        return msg;</span>
+        
+    }
+
+    /**
+     * Encode the message to a byte array.  This function will force cryptographic operations to be executed as needed.
+     * 
+     * @return byte encoded object 
+     * @throws CoseException Internal COSE Exception
+     */
+    public byte[] EncodeToBytes() throws CoseException {
+<span class="fc" id="L164">        return EncodeToCBORObject().EncodeToBytes();</span>
+    }
+
+    /**
+     * Given a CBOR tree, parse the message.  This is an abstract function that is implemented for each different supported COSE message. 
+     * 
+     * @param messageObject CBORObject to be converted to a message.
+     * @throws CoseException Internal COSE Exception
+     */
+    
+    protected abstract void DecodeFromCBORObject(CBORObject messageObject) throws CoseException;
+    
+    /**
+     * Encode the COSE message object to a CBORObject tree.  This function call will force cryptographic operations to be executed as needed.
+     * This is an internal function, as such it does not add the tag on the front and is implemented on a per message object.
+     * 
+     * @return CBORObject representing the message.
+     * @throws CoseException Internal COSE Exception
+     */
+    protected abstract CBORObject EncodeCBORObject() throws CoseException;
+    
+    /**
+     * Encode the COSE message object to a CBORObject tree.  This function call will force cryptographic operations to be executed as needed.
+     * 
+     * @return CBORObject representing the message.
+     * @throws CoseException Internal COSE Exception
+     */
+    public CBORObject EncodeToCBORObject() throws CoseException {
+        CBORObject obj;
+        
+<span class="fc" id="L194">        obj = EncodeCBORObject();</span>
+        
+<span class="pc bpc" id="L196" title="1 of 2 branches missed.">        if (emitTag) {</span>
+<span class="fc" id="L197">            obj = CBORObject.FromObjectAndTag(obj, messageTag.value);</span>
+        }
+        
+<span class="fc" id="L200">        return obj;</span>
+    }
+
+    /**
+     * Return the content bytes of the message
+     * 
+     * @return bytes of the content
+     */
+    public byte[] GetContent() {
+<span class="fc" id="L209">        return rgbContent;</span>
+    }
+    
+    /**
+     * Does the message current have content?
+     * 
+     * @return true if it has content 
+     */
+    public boolean HasContent() {
+<span class="nc bnc" id="L218" title="All 2 branches missed.">        return rgbContent != null;</span>
+    }
+    
+    /**
+     * Set the content bytes of the message.  If the message was transmitted with 
+     * detached content, this must be called before doing cryptographic processing on the message.
+     * 
+     * @param rgbData bytes to set as the content
+     */
+    public void SetContent(byte[] rgbData) {
+<span class="fc" id="L228">        rgbContent = rgbData;</span>
+<span class="fc" id="L229">    }</span>
+    
+    /**
+     * Set the content bytes as a text string.  The string will be encoded using UTF8 into a byte string.
+     * 
+     * @param strData string to set as the content
+     */
+    public void SetContent(String strData) {
+<span class="nc" id="L237">        rgbContent = strData.getBytes(StandardCharsets.UTF_8);</span>
+<span class="nc" id="L238">    }</span>
+
+<span class="fc" id="L240">	List&lt;CounterSign&gt; counterSignList = new ArrayList&lt;CounterSign&gt;();</span>
+	CounterSign1 counterSign1;
+
+	public void addCountersignature(CounterSign countersignature) {
+<span class="nc" id="L244">		counterSignList.add(countersignature);</span>
+<span class="nc" id="L245">	}</span>
+
+	public List&lt;CounterSign&gt; getCountersignerList() {
+<span class="nc" id="L248">		return counterSignList;</span>
+	}
+
+	public CounterSign1 getCountersign1() {
+<span class="nc" id="L252">		return counterSign1;</span>
+	}
+
+	public void setCountersign1(CounterSign1 value) {
+<span class="fc" id="L256">		counterSign1 = value;</span>
+<span class="fc" id="L257">	}</span>
+
+	protected void ProcessCounterSignatures() throws CoseException {
+<span class="nc bnc" id="L260" title="All 2 branches missed.">		if (!counterSignList.isEmpty()) {</span>
+<span class="nc bnc" id="L261" title="All 2 branches missed.">			if (counterSignList.size() == 1) {</span>
+<span class="nc" id="L262">				counterSignList.get(0).sign(rgbProtected, rgbContent);</span>
+<span class="nc" id="L263">				addAttribute(HeaderKeys.CounterSignature, counterSignList.get(0).EncodeToCBORObject(),</span>
+						Attribute.UNPROTECTED);
+			} else {
+<span class="nc" id="L266">				CBORObject list = CBORObject.NewArray();</span>
+<span class="nc bnc" id="L267" title="All 2 branches missed.">				for (CounterSign sig : counterSignList) {</span>
+<span class="nc" id="L268">					sig.sign(rgbProtected, rgbContent);</span>
+<span class="nc" id="L269">					list.Add(sig.EncodeToCBORObject());</span>
+<span class="nc" id="L270">				}</span>
+<span class="nc" id="L271">				addAttribute(HeaderKeys.CounterSignature, list, Attribute.UNPROTECTED);</span>
+			}
+		}
+
+<span class="nc bnc" id="L275" title="All 2 branches missed.">		if (counterSign1 != null) {</span>
+<span class="nc" id="L276">			counterSign1.sign(rgbProtected, rgbContent);</span>
+<span class="nc" id="L277">			addAttribute(HeaderKeys.CounterSignature0, counterSign1.EncodeToCBORObject(), Attribute.UNPROTECTED);</span>
+		}
+<span class="nc" id="L279">	}</span>
+
+	public boolean validate(CounterSign1 countersignature) throws CoseException {
+<span class="nc" id="L282">		return countersignature.validate(rgbProtected, rgbContent);</span>
+	}
+
+	public boolean validate(CounterSign countersignature) throws CoseException {
+<span class="nc" id="L286">		return countersignature.validate(rgbProtected, rgbContent);</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

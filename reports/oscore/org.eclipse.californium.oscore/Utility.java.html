@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Utility.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore</a> &gt; <span class="el_source">Utility.java</span></div><h1>Utility.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2018 RISE SICS and others.
+ * 
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * and Eclipse Distribution License v1.0 which accompany this distribution.
+ * 
+ * The Eclipse Public License is available at
+ *    http://www.eclipse.org/legal/epl-v10.html
+ * and the Eclipse Distribution License is available at
+ *    http://www.eclipse.org/org/documents/edl-v10.html.
+ * 
+ * Contributors:
+ *    Rikard Höglund (RISE SICS)
+ *    
+ ******************************************************************************/
+package org.eclipse.californium.oscore;
+
+
+import java.util.Collection;
+
+import org.eclipse.californium.cose.AlgorithmID;
+import org.eclipse.californium.cose.OneKey;
+import org.eclipse.californium.elements.util.Base64;
+import org.eclipse.californium.oscore.group.GroupCtx;
+import org.eclipse.californium.oscore.group.GroupRecipientCtx;
+import org.eclipse.californium.oscore.group.GroupSenderCtx;
+
+import net.i2p.crypto.eddsa.Utils;
+
+/**
+ * 
+ * Support functions for debugging and interop client/server.
+ * FIXME: Use org.eclipse.californium.core.Utils.toHexText() instead?
+ *
+ */
+<span class="nc" id="L37">public class Utility {</span>
+	
+	/**
+	 * Set debug levels.
+	 * Normal DEBUG will print key information.
+	 * DETAILED_DEBUG will also print information per messages sent like AAD.
+	 */
+	private final static boolean DEBUG = true;
+	public final static boolean DETAILED_DEBUG = true;
+	
+	/*
+	 * Method for printing a byte array as hexadecimal
+	 * 
+	 * 
+	 */
+	public static String arrayToString(byte[] array) {
+<span class="nc" id="L53">		StringBuilder s = new StringBuilder();</span>
+		
+<span class="nc bnc" id="L55" title="All 2 branches missed.">		if(array == null) {</span>
+<span class="nc" id="L56">			s.append(&quot;null&quot;);</span>
+<span class="nc" id="L57">			return s.toString();</span>
+		}
+
+<span class="nc" id="L60">		s.append(Utils.bytesToHex(array).toUpperCase());</span>
+<span class="nc" id="L61">		s.append(&quot; (&quot; + array.length + &quot; bytes)&quot;);</span>
+		
+<span class="nc" id="L63">		return s.toString();</span>
+	}
+	
+	/*
+	 * Method for printing the currently used key information.
+	 * 
+	 * 
+	 */
+	public static void printContextInfo(GroupCtx ctx) {
+		if(!DEBUG) {
+			return;
+		}
+		
+		
+		byte[] master_secret, master_salt, common_iv, id_context;
+		byte[] sender_id, sender_key;
+		int sender_seq_number;
+		//byte[] recipient_id, recipient_key;	
+		OneKey sender_private_key;
+		Integer par_countersign;
+		AlgorithmID alg_countersign;
+		int countersign_length;
+		
+		//Common context
+<span class="nc" id="L87">		master_secret = ctx.getSenderCtx().getMasterSecret();</span>
+<span class="nc" id="L88">		master_salt = ctx.getSenderCtx().getSalt();</span>
+<span class="nc" id="L89">		common_iv = ctx.getSenderCtx().getCommonIV();</span>
+<span class="nc" id="L90">		id_context = ctx.getSenderCtx().getIdContext();</span>
+		
+		//Sender context
+<span class="nc" id="L93">		sender_id = ctx.getSenderCtx().getSenderId();</span>
+<span class="nc" id="L94">		sender_key = ctx.getSenderCtx().getSenderKey();</span>
+<span class="nc" id="L95">		sender_seq_number = ctx.getSenderCtx().getSenderSeq();</span>
+		
+		//New from Group OSCORE
+<span class="nc" id="L98">		sender_private_key = ctx.getSenderCtx().getPrivateKey();</span>
+		// par_countersign = ctx.getParCountersign(); FIXME
+		// alg_countersign = ctx.getAlgCountersign();
+		
+		//Extra for convenience
+<span class="nc" id="L103">		countersign_length = ctx.getSenderCtx().getCountersignatureLen();</span>
+		
+<span class="nc" id="L105">		System.out.println(&quot;Group OSCORE Context:&quot;);</span>
+<span class="nc" id="L106">		System.out.println(&quot;Common Context:&quot;);</span>
+<span class="nc" id="L107">		System.out.print(&quot;\tMaster Secret: &quot;);</span>
+<span class="nc" id="L108">		System.out.println(arrayToString(master_secret));</span>
+<span class="nc" id="L109">		System.out.print(&quot;\tMaster Salt: &quot;);</span>
+<span class="nc" id="L110">		System.out.println(arrayToString(master_salt));</span>
+<span class="nc" id="L111">		System.out.print(&quot;\tCommon IV: &quot;);</span>
+<span class="nc" id="L112">		System.out.println(arrayToString(common_iv));</span>
+<span class="nc" id="L113">		System.out.print(&quot;\tID Context: &quot;);</span>
+<span class="nc" id="L114">		System.out.println(arrayToString(id_context));</span>
+		
+<span class="nc" id="L116">		System.out.println(&quot;Sender Context:&quot;);</span>
+<span class="nc" id="L117">		System.out.print(&quot;\tSender ID: &quot;);</span>
+<span class="nc" id="L118">		System.out.println(arrayToString(sender_id));</span>
+<span class="nc" id="L119">		System.out.print(&quot;\tSender Key: &quot;);</span>
+<span class="nc" id="L120">		System.out.println(arrayToString(sender_key));</span>
+<span class="nc" id="L121">		System.out.print(&quot;\tSender Seq Number: &quot;);</span>
+<span class="nc" id="L122">		System.out.println(sender_seq_number);</span>
+		
+<span class="nc" id="L124">		System.out.println(&quot;Further:&quot;);</span>
+<span class="nc" id="L125">		System.out.print(&quot;\tSender Private Key: &quot;);</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">		if(sender_private_key != null) {</span>
+<span class="nc" id="L127">			byte[] keyObjectBytes = sender_private_key.AsCBOR().EncodeToBytes();</span>
+<span class="nc" id="L128">			String sender_private_key_base64 = Base64.encodeBytes(keyObjectBytes);</span>
+<span class="nc" id="L129">			System.out.println(sender_private_key_base64);</span>
+<span class="nc" id="L130">		} else {</span>
+<span class="nc" id="L131">			System.out.println(&quot;Null&quot;);</span>
+		}
+		// System.out.print(&quot;\talg_countersign: &quot;); //FIXME
+		// System.out.println(alg_countersign);
+		// System.out.print(&quot;\tpar_countersign: &quot;);
+		// System.out.println(par_countersign);
+<span class="nc" id="L137">		System.out.print(&quot;\tCountersignature length: &quot;);</span>
+<span class="nc" id="L138">		System.out.println(countersign_length);</span>
+		
+//		System.out.println(&quot;Recipient Context: &quot;);
+//		System.out.print(&quot;\tRecipient ID: &quot;);
+//		System.out.print(&quot;\tRecipient Key: &quot;);
+		
+<span class="nc" id="L144">		printAllRecipientContextInfo(ctx);</span>
+<span class="nc" id="L145">	}</span>
+	
+	//Printing for OSCORE Context
+	public static void printContextInfo(OSCoreCtx ctx) {
+		if(!DEBUG) {
+			return;
+		}
+				
+		byte[] master_secret, master_salt, common_iv, id_context;
+		byte[] sender_id, sender_key;
+		int sender_seq_number;
+		//byte[] recipient_id, recipient_key;	
+		
+		//Common context
+<span class="nc" id="L159">		master_secret = ctx.getMasterSecret();</span>
+<span class="nc" id="L160">		master_salt = ctx.getSalt();</span>
+<span class="nc" id="L161">		common_iv = ctx.getCommonIV();</span>
+<span class="nc" id="L162">		id_context = ctx.getIdContext();</span>
+		
+		//Sender context
+<span class="nc" id="L165">		sender_id = ctx.getSenderId();</span>
+<span class="nc" id="L166">		sender_key = ctx.getSenderKey();</span>
+<span class="nc" id="L167">		sender_seq_number = ctx.getSenderSeq();</span>
+
+<span class="nc" id="L169">		System.out.println(&quot;OSCORE Context:&quot;);</span>
+<span class="nc" id="L170">		System.out.println(&quot;Common Context:&quot;);</span>
+<span class="nc" id="L171">		System.out.print(&quot;\tMaster Secret: &quot;);</span>
+<span class="nc" id="L172">		System.out.println(arrayToString(master_secret));</span>
+<span class="nc" id="L173">		System.out.print(&quot;\tMaster Salt: &quot;);</span>
+<span class="nc" id="L174">		System.out.println(arrayToString(master_salt));</span>
+<span class="nc" id="L175">		System.out.print(&quot;\tCommon IV: &quot;);</span>
+<span class="nc" id="L176">		System.out.println(arrayToString(common_iv));</span>
+<span class="nc" id="L177">		System.out.print(&quot;\tID Context: &quot;);</span>
+<span class="nc" id="L178">		System.out.println(arrayToString(id_context));</span>
+		
+<span class="nc" id="L180">		System.out.println(&quot;Sender Context:&quot;);</span>
+<span class="nc" id="L181">		System.out.print(&quot;\tSender ID: &quot;);</span>
+<span class="nc" id="L182">		System.out.println(arrayToString(sender_id));</span>
+<span class="nc" id="L183">		System.out.print(&quot;\tSender Key: &quot;);</span>
+<span class="nc" id="L184">		System.out.println(arrayToString(sender_key));</span>
+<span class="nc" id="L185">		System.out.print(&quot;\tSender Seq Number: &quot;);</span>
+<span class="nc" id="L186">		System.out.println(sender_seq_number);</span>
+
+		byte[] recipient_id, recipient_key;
+		//int recipient_seq_number;
+
+<span class="nc" id="L191">		recipient_id = ctx.getRecipientId();</span>
+<span class="nc" id="L192">		recipient_key = ctx.recipient_key;</span>
+		//recipient_seq_number = rcpCtx.recipient_seq;
+		
+<span class="nc" id="L195">		System.out.println(&quot;Recipient Context:&quot;);</span>
+<span class="nc" id="L196">		System.out.print(&quot;\tRecipient ID: &quot;);</span>
+<span class="nc" id="L197">		System.out.println(arrayToString(recipient_id));</span>
+<span class="nc" id="L198">		System.out.print(&quot;\tRecipient Key: &quot;);</span>
+<span class="nc" id="L199">		System.out.println(arrayToString(recipient_key));</span>
+		//System.out.print(&quot;\tRecipient Seq Number: &quot;);
+		//System.out.println(recipient_seq_number);
+		
+<span class="nc" id="L203">	}</span>
+	
+	
+	/**
+	 * Print information about all recipient context in a Group Context 
+	 * @param ctx
+	 */
+	public static void printAllRecipientContextInfo(GroupCtx ctx) {
+		if(!DEBUG) {
+			return;
+		}
+		
+<span class="nc" id="L215">		Collection&lt;GroupRecipientCtx&gt; rcpCtxs = ctx.getRecipientContexts().values();</span>
+
+<span class="nc bnc" id="L217" title="All 2 branches missed.">		for (GroupRecipientCtx rcpCtx : rcpCtxs) {</span>
+<span class="nc" id="L218">			printRecipientContextInfo(rcpCtx);</span>
+<span class="nc" id="L219">		}</span>
+		
+<span class="nc" id="L221">	}</span>
+	
+	/**
+	 * Print information about specific recipient context in a Group OSCORE Context 
+	 * @param ctx
+	 */
+	public static void printRecipientContextInfo(GroupRecipientCtx rcpCtx) {
+		if(!DEBUG) {
+			return;
+		}
+		byte[] recipient_id, recipient_key;
+		OneKey recipient_public_key;
+		//int recipient_seq_number;
+
+<span class="nc" id="L235">		recipient_id = rcpCtx.recipient_id;</span>
+<span class="nc" id="L236">		recipient_key = rcpCtx.recipient_key;</span>
+<span class="nc" id="L237">		recipient_public_key = rcpCtx.getPublicKey();</span>
+		//recipient_seq_number = rcpCtx.recipient_seq;
+		
+<span class="nc" id="L240">		System.out.println(&quot;Recipient Context:&quot;);</span>
+<span class="nc" id="L241">		System.out.print(&quot;\tRecipient ID: &quot;);</span>
+<span class="nc" id="L242">		System.out.println(arrayToString(recipient_id));</span>
+<span class="nc" id="L243">		System.out.print(&quot;\tRecipient Key: &quot;);</span>
+<span class="nc" id="L244">		System.out.println(arrayToString(recipient_key));</span>
+		//System.out.print(&quot;\tRecipient Seq Number: &quot;);
+		//System.out.println(recipient_seq_number);
+		
+<span class="nc" id="L248">		System.out.print(&quot;\tRecipient Public Key: &quot;);</span>
+<span class="nc bnc" id="L249" title="All 2 branches missed.">		if(recipient_public_key != null) {</span>
+<span class="nc" id="L250">			byte[] keyObjectBytes = recipient_public_key.AsCBOR().EncodeToBytes();</span>
+<span class="nc" id="L251">			String recipient_public_key_base64 = Base64.encodeBytes(keyObjectBytes);</span>
+<span class="nc" id="L252">			System.out.println(recipient_public_key_base64);</span>
+<span class="nc" id="L253">		} else {</span>
+<span class="nc" id="L254">			System.out.println(&quot;Null&quot;);</span>
+		}
+<span class="nc" id="L256">	}</span>
+	
+	public static void printContextInfo(HashMapCtxDB db, String baseUri) {
+<span class="nc" id="L259">		OSCoreCtx aCtx = null;</span>
+		
+		try {
+<span class="nc" id="L262">			aCtx = db.getContext(baseUri);</span>
+<span class="nc" id="L263">		} catch (OSException e) {</span>
+			// TODO Auto-generated catch block
+<span class="nc" id="L265">			e.printStackTrace();</span>
+<span class="nc" id="L266">		}</span>
+		
+<span class="nc bnc" id="L268" title="All 2 branches missed.">		if (aCtx instanceof GroupRecipientCtx) {</span>
+<span class="nc" id="L269">			printContextInfo(((GroupRecipientCtx) aCtx).getCommonCtx());</span>
+<span class="nc bnc" id="L270" title="All 2 branches missed.">		} else if (aCtx instanceof GroupSenderCtx) {</span>
+<span class="nc" id="L271">			printContextInfo(((GroupSenderCtx) aCtx).getCommonCtx());</span>
+		} else {
+<span class="nc" id="L273">			System.err.println(&quot;Can only print for Group OSCORE Contexts!&quot;);</span>
+		}
+	
+<span class="nc" id="L276">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

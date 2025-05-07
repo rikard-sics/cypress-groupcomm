@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MySQLDBAdapter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.examples</a> &gt; <span class="el_source">MySQLDBAdapter.java</span></div><h1>MySQLDBAdapter.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.examples;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Properties;
+
+import se.sics.ace.AceException;
+import se.sics.ace.as.DBConnector;
+
+/**
+ * This class handles proper MySQL Db SQL.
+ *
+ * @author Sebastian Echeverria and Marco Tiloca
+ *
+ */
+<span class="fc" id="L49">public class MySQLDBAdapter implements SQLDBAdapter {</span>
+    
+    /**
+     * The default admin-user name
+     */
+
+    /**
+     * The default connection URL for the database.
+     */
+    public static final String DEFAULT_DB_URL = &quot;jdbc:mysql://localhost:3306&quot;;
+
+    protected String user;
+    protected String password;
+    protected String dbUrl;
+    protected String dbName;
+
+    @Override
+    public void setParams(String user, String pwd, String dbName, String dbUrl) {
+<span class="fc" id="L67">        this.user = user;</span>
+<span class="pc bpc" id="L68" title="1 of 2 branches missed.">        if(this.user == null)</span>
+        {
+<span class="nc" id="L70">            this.user = DBConnector.DEFAULT_USER;</span>
+        }
+<span class="fc" id="L72">        this.password = pwd;</span>
+<span class="pc bpc" id="L73" title="1 of 2 branches missed.">        if(this.password == null)</span>
+        {
+<span class="nc" id="L75">            this.password = DBConnector.DEFAULT_PASSWORD;</span>
+        }
+<span class="fc" id="L77">        this.dbName = dbName;</span>
+<span class="pc bpc" id="L78" title="1 of 2 branches missed.">        if(this.dbName == null)</span>
+        {
+<span class="nc" id="L80">            this.dbName = DBConnector.DEFAULT_DB_NAME;</span>
+        }
+<span class="fc" id="L82">        this.dbUrl = dbUrl;</span>
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">        if(this.dbUrl == null)</span>
+        {
+<span class="fc" id="L85">            this.dbUrl = DEFAULT_DB_URL;</span>
+        }
+<span class="fc" id="L87">    }</span>
+
+    @Override
+    public Connection getAdminConnection(String adminUser, String adminPwd) throws SQLException {
+<span class="fc" id="L91">        Properties connectionProps = new Properties();</span>
+<span class="fc" id="L92">        connectionProps.put(&quot;user&quot;, adminUser);</span>
+<span class="fc" id="L93">        connectionProps.put(&quot;password&quot;, adminPwd);</span>
+<span class="fc" id="L94">        return DriverManager.getConnection(this.dbUrl + &quot;/?useSSL=FALSE&amp;allowPublicKeyRetrieval=true&quot;, connectionProps);</span>
+    }
+
+    @Override
+    public Connection getDBConnection() throws SQLException {
+<span class="fc" id="L99">        Properties connectionProps = new Properties();</span>
+<span class="fc" id="L100">        connectionProps.put(&quot;user&quot;, this.user);</span>
+<span class="fc" id="L101">        connectionProps.put(&quot;password&quot;, this.password);</span>
+<span class="fc" id="L102">        return DriverManager.getConnection(this.dbUrl + &quot;/&quot; </span>
+                + this.dbName + &quot;?useSSL=FALSE&amp;allowPublicKeyRetrieval=true&quot;, connectionProps);
+    }
+
+    @Override
+    public synchronized void createUser(String adminUser, String adminPwd) throws AceException {
+<span class="fc" id="L108">        String cUser = &quot;CREATE USER IF NOT EXISTS'&quot; + this.user</span>
+                + &quot;'@'%' IDENTIFIED BY '&quot; + this.password
+                + &quot;';&quot;;
+<span class="fc" id="L111">        String authzUser = &quot;GRANT DELETE, INSERT, SELECT, UPDATE, CREATE ON &quot;</span>
+                + this.dbName + &quot;.* TO '&quot; + this.user + &quot;'@'%';&quot;;
+
+<span class="fc" id="L114">        try (Connection adminConn = getAdminConnection(adminUser, adminPwd);</span>
+<span class="fc" id="L115">        	Statement stmt = adminConn.createStatement()) {</span>
+<span class="fc" id="L116">            stmt.execute(cUser);</span>
+<span class="fc" id="L117">            stmt.execute(authzUser);</span>
+<span class="nc" id="L118">        } catch (SQLException e) {</span>
+<span class="nc" id="L119">            throw new AceException(e.getMessage());</span>
+<span class="fc" id="L120">        }</span>
+<span class="fc" id="L121">    }</span>
+
+    @Override
+    public synchronized void createDBAndTables(String adminUser, String adminPwd) throws AceException {
+
+<span class="fc" id="L126">        String createDB = &quot;CREATE DATABASE IF NOT EXISTS &quot; + this.dbName</span>
+                + &quot; CHARACTER SET utf8 COLLATE utf8_bin;&quot;;
+
+        //rs id, cose encoding, default expiration time, psk, rpk
+<span class="fc" id="L130">        String createRs = &quot;CREATE TABLE IF NOT EXISTS &quot; + this.dbName</span>
+                + &quot;.&quot; + DBConnector.rsTable + &quot;(&quot;
+                + DBConnector.rsIdColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.expColumn + &quot; bigint NOT NULL, &quot;
+                + DBConnector.tokenPskColumn + &quot; varbinary(64), &quot;
+                + DBConnector.authPskColumn + &quot; varbinary(64), &quot;
+                + DBConnector.rpkColumn + &quot; varbinary(255), &quot;
+                + DBConnector.exiSeqNumColumn + &quot; int NOT NULL,&quot;
+                + &quot; PRIMARY KEY (&quot; + DBConnector.rsIdColumn + &quot;));&quot;;
+
+<span class="fc" id="L140">        String createC = &quot;CREATE TABLE IF NOT EXISTS &quot; + this.dbName</span>
+                + &quot;.&quot; + DBConnector.cTable + &quot; (&quot;
+                + DBConnector.clientIdColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.defaultAud + &quot; varchar(255), &quot;
+                + DBConnector.defaultScope + &quot; varchar(255), &quot;
+                + DBConnector.authPskColumn + &quot; varbinary(64), &quot;
+                + DBConnector.rpkColumn + &quot; varbinary(255),&quot;
+                + &quot; PRIMARY KEY (&quot; + DBConnector.clientIdColumn + &quot;));&quot;;
+
+<span class="fc" id="L149">        String createProfiles = &quot;CREATE TABLE IF NOT EXISTS &quot;</span>
+                + this.dbName + &quot;.&quot;
+                + DBConnector.profilesTable + &quot;(&quot;
+                + DBConnector.idColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.profileColumn + &quot; varchar(255) NOT NULL);&quot;;
+
+<span class="fc" id="L155">        String createKeyTypes = &quot;CREATE TABLE IF NOT EXISTS &quot;</span>
+                + this.dbName + &quot;.&quot;
+                + DBConnector.keyTypesTable + &quot;(&quot;
+                + DBConnector.idColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.keyTypeColumn + &quot; enum('PSK', 'RPK', 'TST'));&quot;;
+
+<span class="fc" id="L161">        String createScopes = &quot;CREATE TABLE IF NOT EXISTS &quot;</span>
+                + this.dbName + &quot;.&quot;
+                + DBConnector.scopesTable + &quot;(&quot;
+                + DBConnector.rsIdColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.scopeColumn + &quot; varchar(255) NOT NULL);&quot;;
+
+<span class="fc" id="L167">        String createTokenTypes = &quot;CREATE TABLE IF NOT EXISTS &quot;</span>
+                + this.dbName + &quot;.&quot;
+                + DBConnector.tokenTypesTable + &quot;(&quot;
+                + DBConnector.rsIdColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.tokenTypeColumn + &quot; enum('CWT', 'REF', 'TST'));&quot;;
+
+<span class="fc" id="L173">        String createAudiences = &quot;CREATE TABLE IF NOT EXISTS &quot;</span>
+                + this.dbName + &quot;.&quot;
+                + DBConnector.audiencesTable + &quot;(&quot;
+                + DBConnector.rsIdColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.audColumn + &quot; varchar(255) NOT NULL);&quot;;
+
+<span class="fc" id="L179">        String createOSCOREGroupManagers = &quot;CREATE TABLE IF NOT EXISTS &quot;</span>
+        		+ this.dbName + &quot;.&quot;
+        		+ DBConnector.oscoreGroupManagersTable + &quot;(&quot;
+        		+ DBConnector.rsIdColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.audColumn + &quot; varchar(255) NOT NULL);&quot;;
+        
+<span class="fc" id="L185">        String createCose =  &quot;CREATE TABLE IF NOT EXISTS &quot;</span>
+                + this.dbName + &quot;.&quot;
+                + DBConnector.coseTable + &quot;(&quot;
+                + DBConnector.rsIdColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.coseColumn + &quot; varchar(255) NOT NULL);&quot;;
+
+<span class="fc" id="L191">        String createClaims = &quot;CREATE TABLE IF NOT EXISTS &quot;</span>
+                + this.dbName + &quot;.&quot;
+                + DBConnector.claimsTable + &quot;(&quot;
+                + DBConnector.ctiColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.claimNameColumn + &quot; SMALLINT NOT NULL,&quot;
+                + DBConnector.claimValueColumn + &quot; varbinary(255));&quot;;
+
+<span class="fc" id="L198">        String createOldTokens = &quot;CREATE TABLE IF NOT EXISTS &quot;</span>
+                + this.dbName + &quot;.&quot;
+                + DBConnector.oldTokensTable + &quot;(&quot;
+                + DBConnector.ctiColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.claimNameColumn + &quot; SMALLINT NOT NULL,&quot;
+                + DBConnector.claimValueColumn + &quot; varbinary(255));&quot;;
+        
+<span class="fc" id="L205">        String createCtiCtr = &quot;CREATE TABLE IF NOT EXISTS &quot;</span>
+                + this.dbName + &quot;.&quot;
+                + DBConnector.ctiCounterTable + &quot;(&quot;
+                + DBConnector.ctiCounterColumn + &quot; int unsigned);&quot;;
+
+<span class="fc" id="L210">        String initCtiCtr = &quot;INSERT INTO &quot;</span>
+                + this.dbName + &quot;.&quot; 
+                + DBConnector.ctiCounterTable
+                + &quot; VALUES (0);&quot;;
+
+<span class="fc" id="L215">        String createTokenLog = &quot;CREATE TABLE IF NOT EXISTS &quot;</span>
+                + this.dbName + &quot;.&quot;
+                + DBConnector.cti2clientTable + &quot;(&quot;
+                + DBConnector.ctiColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.clientIdColumn + &quot; varchar(255) NOT NULL,&quot;
+                + &quot; PRIMARY KEY (&quot; + DBConnector.ctiColumn + &quot;));&quot;;
+        
+<span class="fc" id="L222">        String createGrant2Cti = &quot;CREATE TABLE IF NOT EXISTS &quot;</span>
+                + this.dbName + &quot;.&quot;
+                + DBConnector.grant2ctiTable + &quot;(&quot;
+                + DBConnector.grantColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.ctiColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.grantValidColumn + &quot; BOOLEAN DEFAULT TRUE, &quot;
+                + &quot; PRIMARY KEY (&quot; + DBConnector.grantColumn + &quot;,&quot;
+                + DBConnector.ctiColumn + &quot;));&quot;;
+        
+<span class="fc" id="L231">        String createGrant2RSInfo = &quot;CREATE TABLE IF NOT EXISTS &quot;</span>
+                + this.dbName + &quot;.&quot;
+                + DBConnector.grant2RSInfoTable + &quot;(&quot;
+                + DBConnector.grantColumn + &quot; varchar(255) NOT NULL, &quot;
+                + DBConnector.claimNameColumn + &quot; SMALLINT NOT NULL,&quot;
+                + DBConnector.claimValueColumn + &quot; varbinary(255));&quot;;
+
+
+<span class="fc" id="L239">        try (Connection adminConn = getAdminConnection(adminUser, adminPwd);</span>
+<span class="fc" id="L240">            Statement stmt = adminConn.createStatement()) {</span>
+<span class="fc" id="L241">            stmt.execute(createDB);</span>
+<span class="fc" id="L242">            stmt.execute(createRs);</span>
+<span class="fc" id="L243">            stmt.execute(createC);</span>
+<span class="fc" id="L244">            stmt.execute(createProfiles);</span>
+<span class="fc" id="L245">            stmt.execute(createKeyTypes);</span>
+<span class="fc" id="L246">            stmt.execute(createScopes);</span>
+<span class="fc" id="L247">            stmt.execute(createTokenTypes);</span>
+<span class="fc" id="L248">            stmt.execute(createAudiences);</span>
+<span class="fc" id="L249">            stmt.execute(createOSCOREGroupManagers);</span>
+<span class="fc" id="L250">            stmt.execute(createCose);</span>
+<span class="fc" id="L251">            stmt.execute(createClaims);</span>
+<span class="fc" id="L252">            stmt.execute(createOldTokens);</span>
+<span class="fc" id="L253">            stmt.execute(createCtiCtr);</span>
+<span class="fc" id="L254">            stmt.execute(initCtiCtr);</span>
+<span class="fc" id="L255">            stmt.execute(createTokenLog);</span>
+<span class="fc" id="L256">            stmt.execute(createGrant2Cti);</span>
+<span class="fc" id="L257">            stmt.execute(createGrant2RSInfo);</span>
+<span class="fc" id="L258">            adminConn.close();</span>
+<span class="fc" id="L259">            stmt.close();</span>
+<span class="nc" id="L260">        } catch (SQLException e) {</span>
+<span class="nc" id="L261">            throw new AceException(e.getMessage());</span>
+<span class="fc" id="L262">        }</span>
+<span class="fc" id="L263">    }</span>
+
+    @Override
+    public String updateEngineSpecificSQL(String sqlQuery)
+    {
+        // Nothing to do here, as the default SQL statements in is compatible with MySQL.
+<span class="fc" id="L269">        return sqlQuery;</span>
+    }
+
+    @Override
+    public void wipeDB(String adminUser, String adminPwd) throws AceException
+    {
+<span class="fc" id="L275">    	try (Connection adminConn = getAdminConnection(adminUser, adminPwd);</span>
+<span class="fc" id="L276">            Statement stmt = adminConn.createStatement())</span>
+        {
+<span class="fc" id="L278">            String dropDB = &quot;DROP DATABASE IF EXISTS &quot; + this.dbName + &quot;;&quot;;</span>
+<span class="fc" id="L279">            String dropUser = &quot;DROP USER IF EXISTS '&quot; + this.user </span>
+                    + &quot;'@'%';&quot;;
+<span class="fc" id="L281">            stmt.execute(dropDB);</span>
+<span class="fc" id="L282">            stmt.execute(dropUser);</span>
+<span class="nc" id="L283">        } catch (SQLException e) {</span>
+<span class="nc" id="L284">            throw new AceException(e.getMessage());</span>
+<span class="fc" id="L285">        }</span>
+<span class="fc" id="L286">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

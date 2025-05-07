@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AsRequestCreationHints.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.rs</a> &gt; <span class="el_source">AsRequestCreationHints.java</span></div><h1>AsRequestCreationHints.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.rs;
+
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.eclipse.californium.core.coap.Request;
+
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+
+import se.sics.ace.AceException;
+import se.sics.ace.Constants;
+
+/**
+ * This class manages the creation of AS Request Creation Hints at the RS.
+ * 
+ * @author Ludwig Seitz and Marco Tiloca
+ *
+ */
+public class AsRequestCreationHints {
+
+    /**
+     * Flag signaling whether to include the scope
+     */
+    private boolean includeScope;
+    
+    /**
+     * The URI of the AS in charge of this RS
+     */
+    private String asUri;
+    
+    /**
+     * The audience this RS identifies with, can be null
+     */
+    private String aud;
+    
+    /**
+     * Flag signaling whether to create a client nonce
+     */
+    private boolean createNonce;
+    
+
+    /**
+     * Constructor. Specifies which parameters are to be included in a AsRequestCreationHints
+     * 
+     * @param asUri  the required URI of the AS responsible for this RS
+     * @param aud  the audience this RS identifies with or null if this parameter is to be omitted
+     * @param includeScope  true if the scope is to be included  
+     * @param createNonce  true if a nonce is to be created  
+     */
+    public AsRequestCreationHints(String asUri, 
+<span class="fc" id="L86">            String aud, boolean includeScope, boolean createNonce) {</span>
+<span class="fc bfc" id="L87" title="All 4 branches covered.">        if (asUri == null || asUri.isEmpty()) {</span>
+<span class="fc" id="L88">            throw new IllegalArgumentException(</span>
+                    &quot;Cannot create an AsRequestCreationHints object &quot;
+                            + &quot;with null or empty asUri field&quot;);
+        }
+<span class="fc" id="L92">        this.includeScope = includeScope;</span>
+<span class="fc" id="L93">        this.createNonce = createNonce;</span>
+<span class="fc" id="L94">        this.asUri = asUri;</span>
+<span class="fc" id="L95">        this.aud = aud;       </span>
+<span class="fc" id="L96">    }</span>
+    
+    /**
+     * Create the AS Request Creation Hints based on the configuration
+     * of this class. 
+     * 
+     * Note: The token repository must have been initialized 
+     * before calling this.
+     * 
+     * @param req  the client's request
+     * @param kid  the kid linked to a the key used in the secure connection
+     *  with the client, null if we don't have a secure connection
+     *  
+     * @return  the AS Request Creation Hints
+     * @throws AceException   if the TokenRepository is not initialized
+     * @throws InvalidKeyException  if the nonce creation fails
+     * @throws NoSuchAlgorithmException  if the nonce creation fails
+     */
+    public CBORObject getHints(Request req, String kid) 
+            throws InvalidKeyException, NoSuchAlgorithmException, AceException {
+<span class="fc" id="L116">        CBORObject cbor = CBORObject.NewMap();</span>
+<span class="fc" id="L117">        cbor.Add(Constants.AS, this.asUri);          </span>
+<span class="fc bfc" id="L118" title="All 2 branches covered.">        if (kid != null) {</span>
+<span class="pc bpc" id="L119" title="1 of 2 branches missed.">        	if (kid != null) {</span>
+<span class="fc" id="L120">	            byte[] kidB = Base64.getDecoder().decode(kid);</span>
+<span class="fc" id="L121">	            cbor.Add(Constants.KID, kidB);</span>
+        	}
+        }
+<span class="pc bpc" id="L124" title="1 of 2 branches missed.">        if (this.includeScope) {</span>
+<span class="nc bnc" id="L125" title="All 2 branches missed.">            if (req == null) {</span>
+<span class="nc" id="L126">                throw new IllegalArgumentException(&quot;Request&quot;</span>
+                        + &quot; must both be non-null for scope creation&quot;);
+            }
+
+            
+<span class="nc" id="L131">            String resource = req.getOptions().getUriPathString();</span>
+<span class="nc" id="L132">            short action = (short) req.getCode().value;  </span>
+            
+<span class="nc bnc" id="L134" title="All 2 branches missed.">            if (TokenRepository.getInstance() == null) {</span>
+<span class="nc" id="L135">                throw new AceException(&quot;TokenRepository not initialized&quot;);</span>
+            }
+<span class="nc" id="L137">            CBORObject scope = TokenRepository.getInstance().getScope(resource, action);</span>
+            
+<span class="nc" id="L139">            cbor.Add(Constants.SCOPE, scope);   </span>
+        }  
+<span class="pc bpc" id="L141" title="1 of 2 branches missed.">        if (this.aud != null) {</span>
+<span class="nc" id="L142">            cbor.Add(Constants.AUDIENCE, this.aud);</span>
+        }        
+       
+<span class="fc bfc" id="L145" title="All 2 branches covered.">        if (this.createNonce) {</span>
+<span class="fc" id="L146">            byte[] cnonce = CnonceHandler.getInstance().createNonce();</span>
+<span class="fc" id="L147">            cbor.Add(Constants.CNONCE, cnonce);</span>
+        }        
+<span class="fc" id="L149">        return cbor;</span>
+    }
+
+    /**
+     * Parse a CBOR object containing AS Request Creation Hints to a Map.
+     * 
+     * @param hints  the CBOR object, must be a CBOR Map containing at least
+     * the AS parameter.
+     * 
+     * @return  a Map of the hints
+     */
+    public static Map&lt;Short, CBORObject&gt; parseHints(CBORObject hints) {
+<span class="pc bpc" id="L161" title="1 of 2 branches missed.">        if (!hints.getType().equals(CBORType.Map)) {</span>
+<span class="nc" id="L162">            throw new IllegalArgumentException(&quot;AS Request Creation Hints must&quot;</span>
+                    + &quot;be a CBOR map&quot;);
+        }
+<span class="fc" id="L165">        Map&lt;Short, CBORObject&gt; h = new HashMap&lt;&gt;();</span>
+<span class="pc bpc" id="L166" title="1 of 2 branches missed.">        if (!hints.ContainsKey(CBORObject.FromObject(Constants.AS))){</span>
+<span class="nc" id="L167">            throw new IllegalArgumentException(&quot;AS Request Creation Hints&quot;</span>
+                    + &quot;malformed, must contain AS parameter&quot;);
+        }
+<span class="fc" id="L170">        h.put(Constants.AS, hints.get(CBORObject.FromObject(Constants.AS)));</span>
+<span class="pc bpc" id="L171" title="1 of 2 branches missed.">        if (hints.ContainsKey(CBORObject.FromObject(Constants.KID))) {</span>
+<span class="nc" id="L172">            h.put(Constants.KID, hints.get(</span>
+<span class="nc" id="L173">                    CBORObject.FromObject(Constants.KID)));</span>
+        }
+<span class="pc bpc" id="L175" title="1 of 2 branches missed.">        if (hints.ContainsKey(CBORObject.FromObject(Constants.SCOPE))) {</span>
+<span class="nc" id="L176">            h.put(Constants.SCOPE, hints.get(</span>
+<span class="nc" id="L177">                    CBORObject.FromObject(Constants.SCOPE)));</span>
+        }
+<span class="pc bpc" id="L179" title="1 of 2 branches missed.">        if (hints.ContainsKey(CBORObject.FromObject(Constants.AUDIENCE))) {</span>
+<span class="nc" id="L180">            h.put(Constants.AUDIENCE, hints.get(</span>
+<span class="nc" id="L181">                    CBORObject.FromObject(Constants.AUDIENCE)));</span>
+        }
+<span class="pc bpc" id="L183" title="1 of 2 branches missed.">        if (hints.ContainsKey(CBORObject.FromObject(Constants.CNONCE))) {</span>
+<span class="nc" id="L184">            h.put(Constants.CNONCE, hints.get(</span>
+<span class="nc" id="L185">                    CBORObject.FromObject(Constants.CNONCE)));</span>
+        }
+<span class="fc" id="L187">        return h;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

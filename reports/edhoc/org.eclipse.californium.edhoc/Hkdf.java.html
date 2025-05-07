@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Hkdf.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-EDHOC</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.edhoc</a> &gt; <span class="el_source">Hkdf.java</span></div><h1>Hkdf.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2020 RISE and others.
+ * 
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * and Eclipse Distribution License v1.0 which accompany this distribution.
+ * 
+ * The Eclipse Public License is available at
+ *    http://www.eclipse.org/legal/epl-v20.html
+ * and the Eclipse Distribution License is available at
+ *    http://www.eclipse.org/org/documents/edl-v10.html.
+ * 
+ * Contributors:
+ *    Rikard Höglund (RISE)
+ *    
+ ******************************************************************************/
+package org.eclipse.californium.edhoc;
+
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+
+/**
+ * HMAC-based Extract-and-Expand Key Derivation Function.
+ *
+ * https://tools.ietf.org/html/rfc5869
+ * 
+ */
+<span class="nc" id="L31">public class Hkdf {</span>
+		
+	/**
+	 * HKDF Extract-and-Expand.
+	 * 
+	 * @param salt optional salt value
+	 * @param ikm input keying material
+	 * @param info context and application specific information
+	 * @param len length of output keying material in octets
+	 * @return output keying material
+	 * 
+	 * @throws InvalidKeyException if the HMAC procedure fails
+	 * @throws NoSuchAlgorithmException if an unknown HMAC is used
+	 */
+	static byte[] extractExpand(byte[] salt, byte[] ikm, byte[] info, int len)
+			throws InvalidKeyException, NoSuchAlgorithmException {
+
+<span class="fc" id="L48">		final String digest = &quot;SHA256&quot;; // Hash to use</span>
+
+<span class="fc" id="L50">		String HMAC_ALG_NAME = &quot;Hmac&quot; + digest;</span>
+<span class="fc" id="L51">		Mac hmac = Mac.getInstance(HMAC_ALG_NAME);</span>
+<span class="fc" id="L52">		int hashLen = hmac.getMacLength();</span>
+
+		// Perform extract
+<span class="fc bfc" id="L55" title="All 2 branches covered.">		if (salt.length == 0) {</span>
+<span class="fc" id="L56">			salt = new byte[] { 0x00 };</span>
+		}
+<span class="fc" id="L58">		hmac.init(new SecretKeySpec(salt, HMAC_ALG_NAME));</span>
+<span class="fc" id="L59">		byte[] prk = hmac.doFinal(ikm);</span>
+
+		// Perform expand
+<span class="fc" id="L62">		hmac.init(new SecretKeySpec(prk, HMAC_ALG_NAME));</span>
+<span class="fc" id="L63">		int c = (len / hashLen) + 1;</span>
+<span class="fc" id="L64">		byte[] okm = new byte[len];</span>
+<span class="pc bpc" id="L65" title="1 of 2 branches missed.">		int maxLen = (hashLen * c &gt; len) ? hashLen * c : len;</span>
+<span class="fc" id="L66">		byte[] T = new byte[maxLen];</span>
+<span class="fc" id="L67">		byte[] last = new byte[0];</span>
+<span class="fc bfc" id="L68" title="All 2 branches covered.">		for (int i = 0; i &lt; c; i++) {</span>
+<span class="fc" id="L69">			hmac.reset();</span>
+<span class="fc" id="L70">			hmac.update(last);</span>
+<span class="fc" id="L71">			hmac.update(info);</span>
+<span class="fc" id="L72">			hmac.update((byte) (i + 1));</span>
+<span class="fc" id="L73">			last = hmac.doFinal();</span>
+<span class="fc" id="L74">			System.arraycopy(last, 0, T, i * hashLen, hashLen);</span>
+		}
+<span class="fc" id="L76">		System.arraycopy(T, 0, okm, 0, len);</span>
+<span class="fc" id="L77">		return okm;</span>
+	}
+
+	/**
+	 * HKDF-Extract.
+	 * 
+	 * @param salt optional salt value
+	 * @param ikm input keying material
+	 * @return the pseudorandom key
+	 * 
+	 * @throws InvalidKeyException if the HMAC procedure fails
+	 * @throws NoSuchAlgorithmException if an unknown HMAC is used
+	 */
+	static byte[] extract(byte[] salt, byte[] ikm) throws InvalidKeyException, NoSuchAlgorithmException {
+
+<span class="fc" id="L92">		final String digest = &quot;SHA256&quot;; // Hash to use</span>
+
+<span class="fc" id="L94">		String HMAC_ALG_NAME = &quot;Hmac&quot; + digest;</span>
+<span class="fc" id="L95">		Mac hmac = Mac.getInstance(HMAC_ALG_NAME);</span>
+
+		// Perform extract
+<span class="fc bfc" id="L98" title="All 2 branches covered.">		if (salt.length == 0) {</span>
+<span class="fc" id="L99">			salt = new byte[] { 0x00 };</span>
+		}
+<span class="fc" id="L101">		hmac.init(new SecretKeySpec(salt, HMAC_ALG_NAME));</span>
+<span class="fc" id="L102">		byte[] prk = hmac.doFinal(ikm);</span>
+
+<span class="fc" id="L104">		return prk;</span>
+	}
+
+	/**
+	 * HKDF-Expand.
+	 * 
+	 * @param prk the pseudorandom key
+	 * @param info context and application specific information
+	 * @param len length of output keying material in octets
+	 * @return output keying material
+	 * 
+	 * @throws InvalidKeyException if the HMAC procedure fails
+	 * @throws NoSuchAlgorithmException if an unknown HMAC is used
+	 */
+	static byte[] expand(byte[] prk, byte[] info, int len) throws InvalidKeyException, NoSuchAlgorithmException {
+
+<span class="fc" id="L120">		final String digest = &quot;SHA256&quot;; // Hash to use</span>
+
+<span class="fc" id="L122">		String HMAC_ALG_NAME = &quot;Hmac&quot; + digest;</span>
+<span class="fc" id="L123">		Mac hmac = Mac.getInstance(HMAC_ALG_NAME);</span>
+<span class="fc" id="L124">		int hashLen = hmac.getMacLength();</span>
+
+		// Perform expand
+<span class="fc" id="L127">		hmac.init(new SecretKeySpec(prk, HMAC_ALG_NAME));</span>
+<span class="fc" id="L128">		int c = (len / hashLen) + 1;</span>
+<span class="fc" id="L129">		byte[] okm = new byte[len];</span>
+<span class="pc bpc" id="L130" title="1 of 2 branches missed.">		int maxLen = (hashLen * c &gt; len) ? hashLen * c : len;</span>
+<span class="fc" id="L131">		byte[] T = new byte[maxLen];</span>
+<span class="fc" id="L132">		byte[] last = new byte[0];</span>
+<span class="fc bfc" id="L133" title="All 2 branches covered.">		for (int i = 0; i &lt; c; i++) {</span>
+<span class="fc" id="L134">			hmac.reset();</span>
+<span class="fc" id="L135">			hmac.update(last);</span>
+<span class="fc" id="L136">			hmac.update(info);</span>
+<span class="fc" id="L137">			hmac.update((byte) (i + 1));</span>
+<span class="fc" id="L138">			last = hmac.doFinal();</span>
+<span class="fc" id="L139">			System.arraycopy(last, 0, T, i * hashLen, hashLen);</span>
+		}
+<span class="fc" id="L141">		System.arraycopy(T, 0, okm, 0, len);</span>
+<span class="fc" id="L142">		return okm;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

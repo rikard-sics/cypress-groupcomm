@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Aif.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.examples</a> &gt; <span class="el_source">Aif.java</span></div><h1>Aif.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.examples;
+
+import java.util.HashSet;
+import java.util.Set;
+
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+
+import se.sics.ace.AceException;
+import se.sics.ace.rs.ScopeValidator;
+
+/**
+ * This implements the scope format proposed in draft-bormann-core-ace-aif
+ * 
+ * @author Ludwig Seitz and Marco Tiloca
+ *
+ */
+public class Aif implements ScopeValidator {
+
+    /**
+     * Representation of GET in the AIF
+     */
+<span class="fc" id="L54">    public static short GET = 0;</span>
+    
+    /**
+     *  Representation of POST in the AIF
+     */
+<span class="fc" id="L59">    public static short POST = 1;</span>
+    
+    /**
+     *  Representation of PUT in the AIF
+     */
+<span class="fc" id="L64">    public static short PUT = 2;</span>
+    
+    /**
+     *  Representation of DELETE in the AIF
+     */
+<span class="fc" id="L69">    public static short DELETE = 3;</span>
+    
+    /**
+     * Representation of FETCH in the AIF
+     */
+<span class="fc" id="L74">    public static short FETCH = 4;</span>
+    
+    /**
+     * Representation of PATCH in the AIF
+     */
+<span class="fc" id="L79">    public static short PATCH = 5;</span>
+    
+    /**
+     * Representation of iPATCH in the AIF
+     */
+<span class="fc" id="L84">    public static short iPATCH = 6;</span>
+    
+    
+    /**
+     * The powers of two starting with 0 up to 6
+     */
+<span class="fc" id="L90">    private static short[] powers = {1, 2, 4, 8, 16, 32, 64};</span>
+    
+    /**
+     * The resources served by this Aif
+     */
+    private Set&lt;String&gt; resources;
+    
+    /**
+     * @param resources  the resources served by this Aif.
+     */
+<span class="fc" id="L100">    public Aif(Set&lt;String&gt; resources) {</span>
+<span class="fc" id="L101">        this.resources = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L102">        this.resources.addAll(resources);</span>
+<span class="fc" id="L103">    }</span>
+    
+    @Override
+    public boolean scopeMatch(CBORObject scope, String resourceId, Object actionId)
+            throws AceException {
+                 
+<span class="fc bfc" id="L109" title="All 2 branches covered.">        if (!(actionId instanceof Short)) {</span>
+<span class="fc" id="L110">            throw new AceException(&quot;actionId must be a short&quot;);</span>
+        }
+        
+<span class="pc bpc" id="L113" title="1 of 2 branches missed.">        if (!scope.getType().equals(CBORType.Array)) {  </span>
+<span class="nc" id="L114">            throw new AceException(&quot;scope must be a CBOR array in Aif&quot;);</span>
+        }
+        
+<span class="fc bfc" id="L117" title="All 2 branches covered.">        for (int i=0; i&lt;scope.size();i++) {</span>
+<span class="fc" id="L118">            CBORObject scopeElement = scope.get(i);</span>
+<span class="pc bpc" id="L119" title="1 of 2 branches missed.">            if (!scopeElement.getType().equals(CBORType.Array)) {</span>
+<span class="nc" id="L120">                throw new AceException(&quot;Invalid scope format&quot;);</span>
+            }
+<span class="fc" id="L122">            String resource = scopeElement.get(0).AsString();</span>
+<span class="fc" id="L123">            short action = scopeElement.get(1).AsNumber().ToInt16Checked();</span>
+<span class="fc bfc" id="L124" title="All 2 branches covered.">            if (resource.equals(resourceId)) {</span>
+                //Check action
+<span class="fc bfc" id="L126" title="All 2 branches covered.">                if ((action &amp; powers[(short)actionId]) != 0) {</span>
+<span class="fc" id="L127">                    return true;</span>
+                }
+            }
+        }
+<span class="fc" id="L131">        return false;</span>
+    }
+
+    @Override
+    public boolean scopeMatchResource(CBORObject scope, String resourceId)
+            throws AceException {
+        
+<span class="pc bpc" id="L138" title="1 of 2 branches missed.">        if (!scope.getType().equals(CBORType.Array)) {</span>
+<span class="nc" id="L139">            throw new AceException(&quot;scope must be a CBOR array in Aif&quot;);</span>
+        }
+
+<span class="fc bfc" id="L142" title="All 2 branches covered.">        for (int i=0; i&lt;scope.size();i++) {</span>
+<span class="fc" id="L143">            CBORObject scopeElement = scope.get(i);</span>
+<span class="pc bpc" id="L144" title="1 of 2 branches missed.">            if (!scopeElement.getType().equals(CBORType.Array)) {</span>
+<span class="nc" id="L145">                throw new AceException(&quot;Invalid scope format&quot;);</span>
+            }
+<span class="fc" id="L147">            String resource = scopeElement.get(0).AsString();</span>
+<span class="fc bfc" id="L148" title="All 2 branches covered.">            if (resource.equals(resourceId)) {</span>
+<span class="fc" id="L149">                return true;</span>
+            }
+        }
+<span class="fc" id="L152">        return false;</span>
+    }
+
+    @Override
+    public boolean isScopeMeaningful(CBORObject scope) throws AceException {
+<span class="pc bpc" id="L157" title="1 of 2 branches missed.">        if (!scope.getType().equals(CBORType.Array)) {</span>
+<span class="nc" id="L158">            throw new AceException(&quot;Scope must be a CBOR array in Aif&quot;);</span>
+        }
+        
+        //Find the resource
+<span class="pc bpc" id="L162" title="1 of 2 branches missed.">        for (int i=0; i&lt;scope.size();i++) {</span>
+<span class="fc" id="L163">            CBORObject scopeElement = scope.get(i);</span>
+<span class="pc bpc" id="L164" title="1 of 2 branches missed.">            if (!scopeElement.getType().equals(CBORType.Array)) {</span>
+<span class="nc" id="L165">                throw new AceException(&quot;Invalid scope format&quot;);</span>
+            }
+<span class="fc" id="L167">            String resource = scopeElement.get(0).AsString();</span>
+<span class="pc bpc" id="L168" title="1 of 2 branches missed.">            if (this.resources.contains(resource)) {</span>
+<span class="fc" id="L169">                return true;</span>
+            }
+        }
+<span class="nc" id="L172">        return false; //No resource found</span>
+    }
+
+    @Override
+    public CBORObject getScope(String resource, short action) {
+<span class="nc" id="L177">        CBORObject scope = CBORObject.NewArray();</span>
+<span class="nc" id="L178">        CBORObject scopeElement = CBORObject.NewArray();</span>
+<span class="nc" id="L179">        scopeElement.Add(resource);</span>
+<span class="nc" id="L180">        scopeElement.Add(powers[action]);</span>
+<span class="nc" id="L181">        scope.Add(scopeElement);</span>
+<span class="nc" id="L182">        return scope;</span>
+    }
+    
+    // This method performs as isScopeMeaningful(CBORObject scope) for this Validator
+    @Override
+    public boolean isScopeMeaningful(CBORObject scope, String aud) throws AceException {
+<span class="fc" id="L188">    	return isScopeMeaningful(scope);</span>
+    }
+    
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

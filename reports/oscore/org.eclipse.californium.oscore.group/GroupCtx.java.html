@@ -1,0 +1,556 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GroupCtx.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore.group</a> &gt; <span class="el_source">GroupCtx.java</span></div><h1>GroupCtx.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2023 RISE SICS and others.
+ * 
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * and Eclipse Distribution License v1.0 which accompany this distribution.
+ * 
+ * The Eclipse Public License is available at
+ *    http://www.eclipse.org/legal/epl-v20.html
+ * and the Eclipse Distribution License is available at
+ *    http://www.eclipse.org/org/documents/edl-v10.html.
+ * 
+ * Contributors:
+ *    Rikard Höglund (RISE SICS)
+ *    
+ ******************************************************************************/
+package org.eclipse.californium.oscore.group;
+
+import java.security.GeneralSecurityException;
+import java.security.interfaces.ECPrivateKey;
+import java.security.interfaces.ECPublicKey;
+import java.util.HashMap;
+import java.util.Map.Entry;
+
+import javax.crypto.KeyAgreement;
+
+import org.eclipse.californium.cose.AlgorithmID;
+import org.eclipse.californium.cose.CoseException;
+import org.eclipse.californium.cose.KeyKeys;
+import org.eclipse.californium.cose.OneKey;
+import org.eclipse.californium.elements.util.Bytes;
+import org.eclipse.californium.oscore.ByteId;
+import org.eclipse.californium.oscore.HashMapCtxDB;
+import org.eclipse.californium.oscore.OSCoreCtx;
+import org.eclipse.californium.oscore.OSException;
+
+import com.upokecenter.cbor.CBORObject;
+
+/**
+ * Class implementing a Group OSCORE context. It has one sender context and
+ * multiple recipient contexts.
+ *
+ */
+public class GroupCtx {
+
+	// Parameters in common context
+	byte[] masterSecret;
+	byte[] masterSalt;
+	AlgorithmID aeadAlg;
+	AlgorithmID hkdfAlg;
+	byte[] idContext;
+	AlgorithmID algSign;
+	AlgorithmID algSignEnc;
+	int[][] parCountersign;
+	AlgorithmID algKeyAgreement;
+	int[][] parSecret;
+	byte[] groupEncryptionKey;
+	byte[] gmPublicKey;
+
+	// Reference to the associated sender context
+	GroupSenderCtx senderCtx;
+
+	// References to the associated recipient contexts
+	HashMap&lt;ByteId, GroupRecipientCtx&gt; recipientCtxMap;
+
+	// References to public keys without existing contexts
+	// (For dynamic context generation)
+	// TODO: Avoid double storage
+	HashMap&lt;ByteId, OneKey&gt; publicKeysMap;
+
+<span class="fc" id="L71">	boolean pairwiseModeResponses = false;</span>
+<span class="fc" id="L72">	boolean pairwiseModeRequests = false;</span>
+
+	/**
+	 * Construct a Group OSCORE context.
+	 * 
+	 * @param masterSecret
+	 * @param masterSalt
+	 * @param aeadAlg
+	 * @param hkdfAlg
+	 * @param idContext
+	 * @param algSign
+	 * @param gmPublicKey
+	 */
+	public GroupCtx(byte[] masterSecret, byte[] masterSalt, AlgorithmID aeadAlg, AlgorithmID hkdfAlg, byte[] idContext,
+<span class="fc" id="L86">			AlgorithmID algSign, byte[] gmPublicKey) {</span>
+
+<span class="fc" id="L88">		this.masterSecret = masterSecret;</span>
+<span class="fc" id="L89">		this.masterSalt = masterSalt;</span>
+<span class="fc" id="L90">		this.aeadAlg = aeadAlg;</span>
+<span class="fc" id="L91">		this.hkdfAlg = hkdfAlg;</span>
+<span class="fc" id="L92">		this.idContext = idContext;</span>
+<span class="fc" id="L93">		this.algSign = algSign;</span>
+<span class="fc" id="L94">		this.gmPublicKey = gmPublicKey;</span>
+<span class="fc" id="L95">		this.algSignEnc = aeadAlg; // Same if not indicated</span>
+
+<span class="fc" id="L97">		recipientCtxMap = new HashMap&lt;ByteId, GroupRecipientCtx&gt;();</span>
+<span class="fc" id="L98">		publicKeysMap = new HashMap&lt;ByteId, OneKey&gt;();</span>
+
+		// Default since not indicated
+<span class="fc" id="L101">		this.algKeyAgreement = AlgorithmID.ECDH_SS_HKDF_256;</span>
+<span class="fc" id="L102">	}</span>
+
+	/**
+	 * Construct a Group OSCORE context. New one to be used.
+	 * 
+	 * @param masterSecret
+	 * @param masterSalt
+	 * @param aeadAlg
+	 * @param hkdfAlg
+	 * @param idContext
+	 * @param algSign
+	 * @param gmPublicKey
+	 * @param algSignEnc
+	 * @param algKeyAgreement
+	 */
+	public GroupCtx(byte[] masterSecret, byte[] masterSalt, AlgorithmID aeadAlg, AlgorithmID hkdfAlg, byte[] idContext,
+<span class="fc" id="L118">			AlgorithmID algSign, AlgorithmID algSignEnc, AlgorithmID algKeyAgreement, byte[] gmPublicKey) {</span>
+
+<span class="fc" id="L120">		this.masterSecret = masterSecret;</span>
+<span class="fc" id="L121">		this.masterSalt = masterSalt;</span>
+<span class="fc" id="L122">		this.aeadAlg = aeadAlg;</span>
+<span class="fc" id="L123">		this.hkdfAlg = hkdfAlg;</span>
+<span class="fc" id="L124">		this.idContext = idContext;</span>
+<span class="fc" id="L125">		this.algSign = algSign;</span>
+<span class="fc" id="L126">		this.gmPublicKey = gmPublicKey;</span>
+<span class="fc" id="L127">		this.algSignEnc = algSignEnc;</span>
+<span class="fc" id="L128">		this.algKeyAgreement = algKeyAgreement;</span>
+
+<span class="fc" id="L130">		recipientCtxMap = new HashMap&lt;ByteId, GroupRecipientCtx&gt;();</span>
+<span class="fc" id="L131">		publicKeysMap = new HashMap&lt;ByteId, OneKey&gt;();</span>
+
+<span class="fc" id="L133">	}</span>
+
+	/**
+	 * Add a recipient context.
+	 * 
+	 * @param recipientId
+	 * @param replayWindow
+	 * @param otherEndpointPubKey
+	 * @throws OSException
+	 */
+	public void addRecipientCtx(byte[] recipientId, int replayWindow, OneKey otherEndpointPubKey) throws OSException {
+<span class="fc" id="L144">		GroupRecipientCtx recipientCtx = new GroupRecipientCtx(masterSecret, false, aeadAlg, null, recipientId, hkdfAlg,</span>
+<span class="fc" id="L145">				replayWindow, masterSalt, idContext, otherEndpointPubKey,</span>
+				null, this);
+
+<span class="fc" id="L148">		recipientCtxMap.put(new ByteId(recipientId), recipientCtx);</span>
+
+<span class="fc" id="L150">	}</span>
+
+	/**
+	 * Add a sender context.
+	 * 
+	 * @param senderId
+	 * @param ownPrivateKey
+	 * @throws OSException
+	 */
+	public void addSenderCtx(byte[] senderId, OneKey ownPrivateKey) throws OSException {
+
+<span class="pc bpc" id="L161" title="1 of 2 branches missed.">		if (senderCtx != null) {</span>
+<span class="nc" id="L162">			throw new OSException(&quot;Cannot add more than one Sender Context.&quot;);</span>
+		}
+
+<span class="fc" id="L165">		GroupSenderCtx senderCtx = new GroupSenderCtx(masterSecret, false, aeadAlg, senderId, null, hkdfAlg, 0,</span>
+				masterSalt, idContext, ownPrivateKey, null, this);
+<span class="fc" id="L167">		this.senderCtx = senderCtx;</span>
+
+<span class="fc" id="L169">		this.groupEncryptionKey = deriveGroupEncryptionKey();</span>
+<span class="fc" id="L170">	}</span>
+
+	//
+	/**
+	 * Add a recipient context with (U)CCS.
+	 * 
+	 * @param recipientId
+	 * @param replayWindow
+	 * @param otherEndpointPubKey
+	 * @throws OSException
+	 */
+	public void addRecipientCtxCcs(byte[] recipientId, int replayWindow, MultiKey otherEndpointPubKey)
+			throws OSException {
+		GroupRecipientCtx recipientCtx;
+<span class="fc bfc" id="L184" title="All 2 branches covered.">		if (otherEndpointPubKey != null) {</span>
+<span class="fc" id="L185">			recipientCtx = new GroupRecipientCtx(masterSecret, false, aeadAlg, null, recipientId, hkdfAlg, replayWindow,</span>
+<span class="fc" id="L186">					masterSalt, idContext, otherEndpointPubKey.getCoseKey(), otherEndpointPubKey.getRawKey(), this);</span>
+		} else {
+<span class="fc" id="L188">			recipientCtx = new GroupRecipientCtx(masterSecret, false, aeadAlg, null, recipientId, hkdfAlg, replayWindow,</span>
+					masterSalt, idContext, null, null, this);
+		}
+
+<span class="fc" id="L192">		recipientCtxMap.put(new ByteId(recipientId), recipientCtx);</span>
+
+<span class="fc" id="L194">	}</span>
+
+	/**
+	 * Add a sender context with (U)CCS.
+	 * 
+	 * @param senderId
+	 * @param ownPrivateKey
+	 * @throws OSException
+	 */
+	public void addSenderCtxCcs(byte[] senderId, MultiKey ownPrivateKey) throws OSException {
+
+<span class="pc bpc" id="L205" title="1 of 2 branches missed.">		if (senderCtx != null) {</span>
+<span class="nc" id="L206">			throw new OSException(&quot;Cannot add more than one Sender Context.&quot;);</span>
+		}
+
+<span class="fc" id="L209">		GroupSenderCtx senderCtx = new GroupSenderCtx(masterSecret, false, aeadAlg, senderId, null, hkdfAlg, 0,</span>
+<span class="fc" id="L210">				masterSalt, idContext, ownPrivateKey.getCoseKey(), ownPrivateKey.getRawKey(), this);</span>
+<span class="fc" id="L211">		this.senderCtx = senderCtx;</span>
+
+<span class="fc" id="L213">		this.groupEncryptionKey = deriveGroupEncryptionKey();</span>
+<span class="fc" id="L214">	}</span>
+	//
+
+	/**
+	 * Retrieve the public key for the Group Manager associated to this context.
+	 * 
+	 * @return the public key for the GM for this context
+	 */
+	public byte[] getGmPublicKey() {
+<span class="fc" id="L223">		return gmPublicKey;</span>
+	}
+
+	public int getCountersignatureLen() {
+<span class="pc bpc" id="L227" title="1 of 4 branches missed.">		switch (algSign) {</span>
+		case EDDSA:
+		case ECDSA_256:
+<span class="fc" id="L230">			return 64;</span>
+		case ECDSA_384:
+<span class="fc" id="L232">			return 96;</span>
+		case ECDSA_512:
+<span class="fc" id="L234">			return 132; // Why 132 and not 128?</span>
+		default:
+<span class="nc" id="L236">			throw new RuntimeException(&quot;Unsupported countersignature algorithm!&quot;);</span>
+
+		}
+	}
+
+	public GroupSenderCtx getSenderCtx() {
+<span class="fc" id="L242">		return senderCtx;</span>
+	}
+
+	public HashMap&lt;ByteId, GroupRecipientCtx&gt; getRecipientContexts() {
+<span class="fc" id="L246">		return recipientCtxMap;</span>
+	}
+	
+	/**
+	 * Get the countersign_alg_capab array for an algorithm.
+	 * 
+	 * See Draft section 4.3.1 &amp; Appendix H.
+	 * 
+	 * @param alg the countersignature algorithm
+	 * @return the array countersign_alg_capab
+	 */
+	private int[] getCountersignAlgCapab(AlgorithmID alg) {
+<span class="nc bnc" id="L258" title="All 3 branches missed.">		switch (alg) {</span>
+		case EDDSA:
+<span class="nc" id="L260">			return new int[] { KeyKeys.KeyType_OKP.AsInt32() };</span>
+		case ECDSA_256:
+		case ECDSA_384:
+		case ECDSA_512:
+<span class="nc" id="L264">			return new int[] { KeyKeys.KeyType_EC2.AsInt32() };</span>
+		default:
+<span class="nc" id="L266">			return null;</span>
+		}
+	}
+
+	/**
+	 * Get the countersign_key_type_capab array for an algorithm.
+	 * 
+	 * See Draft section 4.3.1 &amp; Appendix H.
+	 * 
+	 * @param alg the countersignature algorithm
+	 * @return the array countersign_key_type_capab
+	 */
+	private int[] getCountersignKeyTypeCapab(AlgorithmID alg) {
+<span class="nc bnc" id="L279" title="All 5 branches missed.">		switch (alg) {</span>
+		case EDDSA:
+<span class="nc" id="L281">			return new int[] { KeyKeys.KeyType_OKP.AsInt32(), KeyKeys.OKP_Ed25519.AsInt32() };</span>
+		case ECDSA_256:
+<span class="nc" id="L283">			return new int[] { KeyKeys.KeyType_EC2.AsInt32(), KeyKeys.EC2_P256.AsInt32() };</span>
+		case ECDSA_384:
+<span class="nc" id="L285">			return new int[] { KeyKeys.KeyType_EC2.AsInt32(), KeyKeys.EC2_P384.AsInt32() };</span>
+		case ECDSA_512:
+<span class="nc" id="L287">			return new int[] { KeyKeys.KeyType_EC2.AsInt32(), KeyKeys.EC2_P521.AsInt32() };</span>
+		default:
+<span class="nc" id="L289">			return null;</span>
+		}
+	}
+
+	/**
+	 * Allow adding loose public keys without an associated context. These will
+	 * be used during the dynamic context generation.
+	 * 
+	 * @param rid the RID for the other endpoint
+	 * @param publicKey the public key
+	 */
+	public void addPublicKeyForRID(byte[] rid, OneKey publicKey) {
+<span class="fc" id="L301">		publicKeysMap.put(new ByteId(rid), publicKey);</span>
+<span class="fc" id="L302">	}</span>
+
+	/**
+	 * Get the public key added for a particular RID.
+	 * 
+	 * @param rid the RID
+	 */
+	OneKey getPublicKeyForRID(byte[] rid) {
+<span class="fc" id="L310">		return publicKeysMap.get(new ByteId(rid));</span>
+	}
+
+	/**
+	 * Enable or disable using pairwise responses. TODO: Implement elsewhere to
+	 * avoid cast?
+	 * 
+	 * @param b Whether pairwise responses should be used
+	 */
+	public void setPairwiseModeResponses(boolean b) {
+<span class="fc" id="L320">		this.pairwiseModeResponses = b;</span>
+<span class="fc" id="L321">	}</span>
+
+	@Deprecated
+	void setPairwiseModeRequests(boolean b) {
+<span class="nc" id="L325">		this.pairwiseModeRequests = b;</span>
+<span class="nc" id="L326">	}</span>
+
+	/**
+	 * Enable or disable using including a Partial IV in responses.
+	 * 
+	 * @param b Whether responses should include a PIV
+	 */
+	public void setResponsesIncludePartialIV(boolean b) {
+<span class="fc" id="L334">		senderCtx.setResponsesIncludePartialIV(b);</span>
+<span class="fc" id="L335">	}</span>
+
+	/**
+	 * Add this Group context to the context database. In essence it will its
+	 * sender context and all its recipient context to the database. // TODO:
+	 * Move to HashMapCtxDB?
+	 * 
+	 * @param uri
+	 * @param db
+	 * @throws OSException
+	 */
+	public void addToDb(String uri, HashMapCtxDB db) throws OSException {
+
+		// Add the sender context and derive its pairwise keys
+<span class="fc" id="L349">		senderCtx.derivePairwiseKeys();</span>
+<span class="fc" id="L350">		db.addContext(uri, senderCtx);</span>
+
+		// Add the recipient contexts and derive their pairwise keys
+<span class="fc bfc" id="L353" title="All 2 branches covered.">		for (Entry&lt;ByteId, GroupRecipientCtx&gt; entry : recipientCtxMap.entrySet()) {</span>
+<span class="fc" id="L354">			GroupRecipientCtx recipientCtx = entry.getValue();</span>
+<span class="fc" id="L355">			recipientCtx.derivePairwiseKey();</span>
+
+<span class="fc" id="L357">			db.addContext(recipientCtx);</span>
+<span class="fc" id="L358">		}</span>
+
+<span class="fc" id="L360">	}</span>
+
+	// TODO: Merge with below?
+	byte[] deriveGroupEncryptionKey() {
+
+<span class="fc" id="L365">		String digest = &quot;&quot;;</span>
+<span class="fc bfc" id="L366" title="All 2 branches covered.">		if (senderCtx.getKdf().toString().contains(&quot;SHA_256&quot;)) {</span>
+<span class="fc" id="L367">			digest = &quot;SHA256&quot;;</span>
+<span class="pc bpc" id="L368" title="1 of 2 branches missed.">		} else if (senderCtx.getKdf().toString().contains(&quot;SHA_512&quot;)) {</span>
+<span class="fc" id="L369">			digest = &quot;SHA512&quot;;</span>
+		}
+
+<span class="fc" id="L372">		CBORObject info = CBORObject.NewArray();</span>
+<span class="fc" id="L373">		int keyLength = this.algSignEnc.getKeySize() / 8;</span>
+
+		// Then derive the group encryption key
+<span class="fc" id="L376">		info = CBORObject.NewArray();</span>
+<span class="fc" id="L377">		info.Add(Bytes.EMPTY);</span>
+<span class="fc" id="L378">		info.Add(this.idContext);</span>
+<span class="fc" id="L379">		info.Add(this.aeadAlg.AsCBOR());</span>
+<span class="fc" id="L380">		info.Add(CBORObject.FromObject(&quot;Group Encryption Key&quot;));</span>
+<span class="fc" id="L381">		info.Add(keyLength);</span>
+
+<span class="fc" id="L383">		byte[] groupEncryptionKey = null;</span>
+		try {
+<span class="fc" id="L385">			groupEncryptionKey = OSCoreCtx.deriveKey(senderCtx.getMasterSecret(), senderCtx.getSalt(), keyLength,</span>
+<span class="fc" id="L386">					digest, info.EncodeToBytes());</span>
+
+<span class="nc" id="L388">		} catch (CoseException e) {</span>
+<span class="nc" id="L389">			System.err.println(e.getMessage());</span>
+<span class="fc" id="L390">		}</span>
+
+<span class="fc" id="L392">		return groupEncryptionKey;</span>
+	}
+
+	// TODO: Merge with below?
+	byte[] derivePairwiseSenderKey(byte[] recipientId, byte[] recipientKey, OneKey recipientPublicKey,
+			byte[] recipientPublicKeyRaw) {
+
+		// TODO: Move? See below also
+<span class="pc bpc" id="L400" title="1 of 4 branches missed.">		if (recipientPublicKey == null || senderCtx.getPrivateKey() == null) {</span>
+<span class="fc" id="L401">			return null;</span>
+		}
+
+<span class="fc" id="L404">		String digest = &quot;&quot;;</span>
+<span class="fc bfc" id="L405" title="All 2 branches covered.">		if (senderCtx.getKdf().toString().contains(&quot;SHA_256&quot;)) {</span>
+<span class="fc" id="L406">			digest = &quot;SHA256&quot;;</span>
+<span class="pc bpc" id="L407" title="1 of 2 branches missed.">		} else if (senderCtx.getKdf().toString().contains(&quot;SHA_512&quot;)) {</span>
+<span class="fc" id="L408">			digest = &quot;SHA512&quot;;</span>
+		}
+
+<span class="fc" id="L411">		CBORObject info = CBORObject.NewArray();</span>
+<span class="fc" id="L412">		int keyLength = this.aeadAlg.getKeySize() / 8;</span>
+
+<span class="fc" id="L414">		byte[] sharedSecret = null;</span>
+
+<span class="fc bfc" id="L416" title="All 2 branches covered.">		if (this.algSign == AlgorithmID.EDDSA) {</span>
+<span class="fc" id="L417">			sharedSecret = generateSharedSecretEdDSA(senderCtx.getPrivateKey(), recipientPublicKey);</span>
+<span class="pc bpc" id="L418" title="1 of 6 branches missed.">		} else if (this.algSign == AlgorithmID.ECDSA_256 || this.algSign == AlgorithmID.ECDSA_384</span>
+				|| this.algSign == AlgorithmID.ECDSA_512) {
+<span class="fc" id="L420">			sharedSecret = generateSharedSecretECDSA(senderCtx.getPrivateKey(), recipientPublicKey);</span>
+		} else {
+<span class="nc" id="L422">			System.err.println(&quot;Error: Unknown countersignature!&quot;);</span>
+		}
+
+		// Then derive the pairwise sender key (for this recipient)
+<span class="fc" id="L426">		info = CBORObject.NewArray();</span>
+<span class="fc" id="L427">		info.Add(senderCtx.getSenderId());</span>
+<span class="fc" id="L428">		info.Add(this.idContext);</span>
+<span class="fc" id="L429">		info.Add(this.aeadAlg.AsCBOR());</span>
+<span class="fc" id="L430">		info.Add(CBORObject.FromObject(&quot;Key&quot;));</span>
+<span class="fc" id="L431">		info.Add(this.aeadAlg.getKeySize() / 8);</span>
+
+<span class="fc" id="L433">		byte[] keysConcatenated = Bytes.concatenate(senderCtx.getPublicKeyRaw(), recipientPublicKeyRaw);</span>
+<span class="fc" id="L434">		byte[] ikmSender = Bytes.concatenate(keysConcatenated, sharedSecret);</span>
+
+<span class="fc" id="L436">		byte[] pairwiseSenderKey = null;</span>
+		try {
+<span class="fc" id="L438">			pairwiseSenderKey = OSCoreCtx.deriveKey(ikmSender, senderCtx.getSenderKey(), keyLength, digest,</span>
+<span class="fc" id="L439">					info.EncodeToBytes());</span>
+
+<span class="nc" id="L441">		} catch (CoseException e) {</span>
+<span class="nc" id="L442">			System.err.println(e.getMessage());</span>
+<span class="fc" id="L443">		}</span>
+
+<span class="fc" id="L445">		return pairwiseSenderKey;</span>
+	}
+
+	byte[] derivePairwiseRecipientKey(byte[] recipientId, byte[] recipientKey, OneKey recipientPublicKey,
+			byte[] recipientPublicKeyRaw) {
+
+<span class="pc bpc" id="L451" title="1 of 4 branches missed.">		if (recipientPublicKey == null || senderCtx.getPrivateKey() == null) {</span>
+<span class="fc" id="L452">			return null;</span>
+		}
+
+<span class="fc" id="L455">		String digest = &quot;&quot;;</span>
+<span class="fc bfc" id="L456" title="All 2 branches covered.">		if (senderCtx.getKdf().toString().contains(&quot;SHA_256&quot;)) {</span>
+<span class="fc" id="L457">			digest = &quot;SHA256&quot;;</span>
+<span class="pc bpc" id="L458" title="1 of 2 branches missed.">		} else if (senderCtx.getKdf().toString().contains(&quot;SHA_512&quot;)) {</span>
+<span class="fc" id="L459">			digest = &quot;SHA512&quot;;</span>
+		}
+
+<span class="fc" id="L462">		CBORObject info = CBORObject.NewArray();</span>
+<span class="fc" id="L463">		int keyLength = this.aeadAlg.getKeySize() / 8;</span>
+
+<span class="fc" id="L465">		byte[] pairwiseRecipientKey = null;</span>
+
+		// First derive the recipient key
+<span class="fc" id="L468">		info = CBORObject.NewArray();</span>
+<span class="fc" id="L469">		info.Add(recipientId);</span>
+<span class="fc" id="L470">		info.Add(this.idContext);</span>
+<span class="fc" id="L471">		info.Add(this.aeadAlg.AsCBOR());</span>
+<span class="fc" id="L472">		info.Add(CBORObject.FromObject(&quot;Key&quot;));</span>
+<span class="fc" id="L473">		info.Add(keyLength);</span>
+
+<span class="fc" id="L475">		byte[] sharedSecret = null;</span>
+
+<span class="fc bfc" id="L477" title="All 2 branches covered.">		if (this.algSign == AlgorithmID.EDDSA) {</span>
+<span class="fc" id="L478">			sharedSecret = generateSharedSecretEdDSA(senderCtx.getPrivateKey(), recipientPublicKey);</span>
+<span class="pc bpc" id="L479" title="1 of 6 branches missed.">		} else if (this.algSign == AlgorithmID.ECDSA_256 || this.algSign == AlgorithmID.ECDSA_384</span>
+				|| this.algSign == AlgorithmID.ECDSA_512) {
+<span class="fc" id="L481">			sharedSecret = generateSharedSecretECDSA(senderCtx.getPrivateKey(), recipientPublicKey);</span>
+		} else {
+<span class="nc" id="L483">			System.err.println(&quot;Error: Unknown countersignature!&quot;);</span>
+		}
+
+<span class="fc" id="L486">		byte[] keysConcatenated = Bytes.concatenate(recipientPublicKeyRaw, senderCtx.getPublicKeyRaw());</span>
+<span class="fc" id="L487">		byte[] ikmRecipient = Bytes.concatenate(keysConcatenated, sharedSecret);</span>
+
+		try {
+<span class="fc" id="L490">			pairwiseRecipientKey = OSCoreCtx.deriveKey(ikmRecipient, recipientKey, keyLength, digest,</span>
+<span class="fc" id="L491">					info.EncodeToBytes());</span>
+
+<span class="nc" id="L493">		} catch (CoseException e) {</span>
+<span class="nc" id="L494">			System.err.println(e.getMessage());</span>
+<span class="fc" id="L495">		}</span>
+
+<span class="fc" id="L497">		return pairwiseRecipientKey;</span>
+	}
+
+	/**
+	 * Generate a shared secret when using ECDSA.
+	 * 
+	 * @param senderPrivateKey the public/private key of the sender
+	 * @param recipientPublicKey the public key of the recipient
+	 * @return the shared secret
+	 */
+	private byte[] generateSharedSecretECDSA(OneKey senderPrivateKey, OneKey recipientPublicKey) {
+
+<span class="fc" id="L509">		byte[] sharedSecret = null;</span>
+
+		try {
+<span class="fc" id="L512">			ECPublicKey recipientPubKey = (ECPublicKey) recipientPublicKey.AsPublicKey();</span>
+<span class="fc" id="L513">			ECPrivateKey senderPrivKey = (ECPrivateKey) senderPrivateKey.AsPrivateKey();</span>
+
+<span class="fc" id="L515">			KeyAgreement keyAgreement = KeyAgreement.getInstance(&quot;ECDH&quot;);</span>
+<span class="fc" id="L516">			keyAgreement.init(senderPrivKey);</span>
+<span class="fc" id="L517">			keyAgreement.doPhase(recipientPubKey, true);</span>
+
+<span class="fc" id="L519">			sharedSecret = keyAgreement.generateSecret();</span>
+<span class="nc" id="L520">		} catch (GeneralSecurityException | CoseException e) {</span>
+<span class="nc" id="L521">			System.err.println(&quot;Could not generate the shared secret: &quot; + e);</span>
+<span class="fc" id="L522">		}</span>
+
+<span class="fc" id="L524">		return sharedSecret;</span>
+	}
+
+	/**
+	 * Generate a shared secret when using EdDSA.
+	 * 
+	 * @param senderPrivateKey the public/private key of the sender
+	 * @param recipientPublicKey the public key of the recipient
+	 * @return the shared secret
+	 */
+	private byte[] generateSharedSecretEdDSA(OneKey senderPrivateKey, OneKey recipientPublicKey) {
+
+<span class="fc" id="L536">		byte[] sharedSecret = null;</span>
+		try {
+<span class="fc" id="L538">			sharedSecret = SharedSecretCalculation.calculateSharedSecret(recipientPublicKey, senderPrivateKey);</span>
+<span class="nc" id="L539">		} catch (CoseException e) {</span>
+<span class="nc" id="L540">			System.err.println(&quot;Could not generate the shared secret: &quot; + e);</span>
+<span class="fc" id="L541">		}</span>
+
+<span class="fc" id="L543">		return sharedSecret;</span>
+	}
+
+	/**
+	 * Get the group encryption key from the common context (used for making a
+	 * keystream to encrypt the signature).
+	 * 
+	 * @return the group encryption key
+	 */
+	public byte[] getGroupEncryptionKey() {
+<span class="fc" id="L553">		return groupEncryptionKey;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

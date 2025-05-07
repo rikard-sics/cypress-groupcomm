@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CwtCryptoCtx.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.cwt</a> &gt; <span class="el_source">CwtCryptoCtx.java</span></div><h1>CwtCryptoCtx.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.cwt;
+
+import java.security.Security;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+import com.upokecenter.cbor.CBORObject;
+
+import org.eclipse.californium.cose.MessageTag;
+import org.eclipse.californium.cose.OneKey;
+import org.eclipse.californium.cose.Recipient;
+import org.eclipse.californium.cose.Signer;
+
+/**
+ * This class holds the singing/mac-ing/encrypting context for a CWT or COSE message.
+ * 
+ * Instead of a constructor, use the static methods, which give you an indication
+ * what parameters are expected for the different COSE message types.
+ * 
+ * @author Ludwig Seitz
+ *
+ */
+public class CwtCryptoCtx {
+
+	static {
+<span class="fc" id="L58">        Security.addProvider(</span>
+                new org.bouncycastle.jce.provider.BouncyCastleProvider());
+<span class="fc" id="L60">    }</span>
+	
+    /**
+     * What kind of COSE message does this context allow to create
+     */
+    private MessageTag what;
+    
+<span class="fc" id="L67">	private List&lt;Signer&gt; signers = Collections.emptyList();</span>
+	
+<span class="fc" id="L69">	private OneKey privatekey = null;</span>
+	
+<span class="fc" id="L71">	private List&lt;Recipient&gt; recipients = Collections.emptyList();</span>
+	
+<span class="fc" id="L73">	private byte[] rawSymmetricKey = null;</span>
+
+<span class="fc" id="L75">	private OneKey publicKey = null;</span>
+	
+<span class="fc" id="L77">	private CBORObject alg = null;</span>
+	
+<span class="fc" id="L79">	protected CwtCryptoCtx(MessageTag what, byte[] key, CBORObject alg) {</span>
+<span class="fc" id="L80">	    this.what = what;</span>
+<span class="fc" id="L81">		this.rawSymmetricKey = key;</span>
+<span class="fc" id="L82">		this.alg = alg;</span>
+<span class="fc" id="L83">	}</span>
+	
+	protected CwtCryptoCtx(MessageTag what, OneKey publicKey, 
+<span class="fc" id="L86">	        OneKey privateKey, CBORObject alg) {</span>
+<span class="fc" id="L87">	    this.what = what;</span>
+<span class="fc" id="L88">		this.publicKey = publicKey;</span>
+<span class="fc" id="L89">		this.privatekey = privateKey;</span>
+<span class="fc" id="L90">		this.alg = alg;</span>
+<span class="fc" id="L91">	}</span>
+
+	protected CwtCryptoCtx(MessageTag what, List&lt;Recipient&gt; recipients, 
+<span class="fc" id="L94">	        CBORObject alg) {</span>
+<span class="fc" id="L95">	    this.what = what;</span>
+<span class="fc" id="L96">		this.recipients = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L97">		this.recipients.addAll(recipients);</span>
+<span class="fc" id="L98">		this.alg = alg;</span>
+<span class="fc" id="L99">	}</span>
+
+	
+	protected CwtCryptoCtx(MessageTag what, List&lt;Signer&gt; signers, 
+<span class="fc" id="L103">	        CBORObject alg, boolean sign) {</span>
+<span class="fc" id="L104">	    this.what = what;</span>
+<span class="fc" id="L105">		this.signers = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L106">		this.signers.addAll(signers);</span>
+<span class="fc" id="L107">		this.alg = alg;</span>
+<span class="pc bpc" id="L108" title="1 of 2 branches missed.">		if (sign) {//Do nothing, this is needed so this constructor will </span>
+			//not be shadowed by the Recipients constructor
+		}
+<span class="fc" id="L111">	}</span>
+
+	/**
+	 * Creates a context for making or verifying Encrypt COSE messages.
+	 * 
+	 * @param recipients  the list of recipients.
+	 * @param alg  the encryption algorithm (from AlgorithmID.*.ASCBOR())
+	 * @return  the matching context
+	 */	
+	public static CwtCryptoCtx encrypt(List&lt;Recipient&gt; recipients, CBORObject alg) {
+<span class="fc" id="L121">		return new CwtCryptoCtx(MessageTag.Encrypt, recipients, alg);</span>
+	}
+
+	/**
+	 * Creates a context for encrypting and decrypting Encrypt0 COSE messages.
+	 * 
+	 * @param rawSymmetrickey  the raw symmetric key
+	 * @param alg  the encryption algorithm (from AlgorithmID.*.ASCBOR())
+	 * 
+	 * @return  the matching context
+	 */
+	public static CwtCryptoCtx encrypt0(byte[] rawSymmetrickey, CBORObject alg) {
+<span class="fc" id="L133">		return new CwtCryptoCtx(MessageTag.Encrypt0, rawSymmetrickey, alg);</span>
+	}
+	
+	/**
+	 * Creates a context for making or verifying MAC COSE messages.
+	 * 
+	 * @param recipients  the list of recipients.
+	 * @param alg  the mac algorithm (from AlgorithmID.*.ASCBOR())
+	 * @return  the matching context
+	 */
+	public static CwtCryptoCtx mac(List&lt;Recipient&gt; recipients, CBORObject alg) {
+<span class="fc" id="L144">		return new CwtCryptoCtx(MessageTag.MAC, recipients, alg);</span>
+	}
+	
+	/**
+	 * Creates a context for making or verifying MAC0 COSE messages.
+	 * 
+	 * @param rawSymmetricKey  the raw symmetric key
+	 * @param alg  the algorithm
+	 * 
+	 * @return  the matching context
+	 */
+	public static CwtCryptoCtx mac0(byte[] rawSymmetricKey, CBORObject alg) {
+<span class="fc" id="L156">		return new CwtCryptoCtx(MessageTag.MAC0, rawSymmetricKey, alg);</span>
+	}
+	
+	/**
+	 * Create a context for making Sign COSE messages.
+	 * 
+	 * @param signers  the signers
+	 * @param alg  the signature algorithm (from AlgorithmID.*.ASCBOR())
+	 * @return  the matching context
+	 */
+	public static CwtCryptoCtx signCreate(List&lt;Signer&gt; signers, CBORObject alg) {
+<span class="fc" id="L167">		return new CwtCryptoCtx(MessageTag.Sign, signers, alg, true);</span>
+	}
+	
+	
+	/**
+	 * Create a context for verifying Sign COSE Messages.
+	 * 
+	 * @param publicKey  the public key to verify the signature
+	 * @param alg   the signature algorithm (from AlgorithmID.*.ASCBOR())
+	 * @return  the matching context
+	 */
+	public static CwtCryptoCtx signVerify(OneKey publicKey, CBORObject alg) {
+<span class="fc" id="L179">		return new CwtCryptoCtx(MessageTag.Sign, publicKey, null, alg);</span>
+	}
+	
+	/**
+	 * Creates a context for verifying Sign1 COSE messages.
+	 * 
+	 * @param publicKey  the public key of the signer
+	 * @param alg  the signing algorithm (from  AlgorithmID.*.ASCBOR())
+	 * 
+	 * @return  the matching context
+	 */
+	public static CwtCryptoCtx sign1Verify(OneKey publicKey, CBORObject alg) {
+<span class="fc" id="L191">			return new CwtCryptoCtx(MessageTag.Sign1, publicKey, null, alg);</span>
+	}
+	
+	/**
+	 * Creates a context for signing Sign1 COSE messages.
+	 * 
+	 * @param privateKey  the private key of the signer
+	 * @param alg  the signing algorithm (from  AlgorithmID.*.ASCBOR())
+	 * 
+	 * @return  the matching context
+	 */
+	public static CwtCryptoCtx sign1Create(OneKey privateKey, CBORObject alg) {
+<span class="fc" id="L203">		return new CwtCryptoCtx(MessageTag.Sign1, null, privateKey, alg);</span>
+	}
+		
+	/**
+	 * @return  the signers
+	 */
+	public List&lt;Signer&gt; getSigners() {
+<span class="fc" id="L210">		return this.signers;</span>
+	}
+	
+	/**
+	 * @return  the private key
+	 */
+	public OneKey getPrivateKey() {
+<span class="fc" id="L217">		return this.privatekey;</span>
+	}
+	
+	/**
+	 * @return  the algorithm
+	 */
+	public CBORObject getAlg() {
+<span class="fc" id="L224">		return this.alg;</span>
+	}
+
+	/**
+	 * @return  the symmetric key
+	 */
+	public byte[] getKey() {
+<span class="fc" id="L231">		return this.rawSymmetricKey;</span>
+	}
+	
+	/**
+	 * @return  the recipients
+	 */
+	public List&lt;Recipient&gt; getRecipients() {
+<span class="fc" id="L238">		return this.recipients;</span>
+	}
+
+	/**
+	 * @return  the public key
+	 */
+	public OneKey getPublicKey() {
+<span class="fc" id="L245">		return this.publicKey;</span>
+	}
+	
+	/**
+	 * @return  the message type
+	 */
+	public MessageTag getMessageType() {
+<span class="fc" id="L252">	    return this.what;</span>
+	}
+}   
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

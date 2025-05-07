@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OscoreAS.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.coap.as</a> &gt; <span class="el_source">OscoreAS.java</span></div><h1>OscoreAS.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.coap.as;
+
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Map;
+import java.util.Set;
+import java.util.logging.Logger;
+
+import org.eclipse.californium.core.CoapServer;
+import org.eclipse.californium.core.coap.CoAP;
+import org.eclipse.californium.core.network.CoapEndpoint;
+import org.eclipse.californium.oscore.OSCoreCoapStackFactory;
+import org.eclipse.californium.oscore.OSCoreCtx;
+import org.eclipse.californium.oscore.OSException;
+import org.eclipse.californium.scandium.dtls.PskPublicInformation;
+
+import org.eclipse.californium.cose.OneKey;
+
+import se.sics.ace.AceException;
+import se.sics.ace.TimeProvider;
+import se.sics.ace.as.Introspect;
+import se.sics.ace.as.PDP;
+import se.sics.ace.as.Token;
+import se.sics.ace.coap.rs.oscoreProfile.OscoreCtxDbSingleton;
+
+/**
+ * An Authorization Server that offers secure connections and authentication via OSCORE.
+ * 
+ * This server uses the following conventions:
+ * 
+ * alg = AES_CCM_16_64_128
+ * salt = null
+ * kdf = HMAC_SHA_256
+ * recipient_replay_window_size = 32
+ * id_context = null
+ * sender_id = asId
+ * recipient_id = rs/client id
+ * 
+ * @author Ludwig Seitz and Marco Tiloca
+ *
+ */
+public class OscoreAS extends CoapServer implements AutoCloseable {
+
+    /**
+     * The logger
+     */
+<span class="fc" id="L78">    private static final Logger LOGGER </span>
+<span class="fc" id="L79">        = Logger.getLogger(OscoreAS.class.getName());</span>
+    
+    /**
+     * The token endpoint
+     */
+<span class="fc" id="L84">    Token t = null;</span>
+    
+    /**
+     * The introspect endpoint
+     */
+<span class="fc" id="L89">    Introspect i = null;</span>
+
+    private OscoreAceEndpoint token;
+
+    private OscoreAceEndpoint introspect;
+    
+    private final static int MAX_UNFRAGMENTED_SIZE = 4096;
+    
+    /**
+     * Constructor.
+     * 
+     * @param asId  identifier of the AS
+     * @param db    database connector of the AS
+     * @param pdp   PDP for deciding who gets which token
+     * @param time  time provider, must not be null
+     * @param asymmetricKey  asymmetric key pair of the AS or 
+     *      null if it hasn't any
+     * @param port  the port number to run the server on
+     * 
+     * @throws AceException 
+     * @throws OSException 
+     * 
+     */
+    public OscoreAS(String asId, CoapDBConnector db, 
+            PDP pdp, TimeProvider time, 
+            OneKey asymmetricKey, int port,
+            Map&lt;String, String&gt; peerNamesToIdentities,
+            Map&lt;String, String&gt; peerIdentitiesToNames,
+            Map&lt;String, String&gt; myIdentities) 
+                    throws AceException, OSException {
+<span class="nc" id="L119">        this(asId, db, pdp, time, asymmetricKey, &quot;token&quot;, &quot;introspect&quot;, port,</span>
+                null, false, (short)0, false, peerNamesToIdentities,
+                peerIdentitiesToNames, myIdentities);
+<span class="nc" id="L122">    }</span>
+    
+    
+    /**
+     * Constructor.
+     * 
+     * @param asId  identifier of the AS
+     * @param db    database connector of the AS
+     * @param pdp   PDP for deciding who gets which token
+     * @param time  time provider, must not be null
+     * @param asymmetricKey  asymmetric key pair of the AS or 
+     *      null if it hasn't any
+     * @throws AceException 
+     * @throws OSException 
+     * 
+     */
+    public OscoreAS(String asId, CoapDBConnector db, PDP pdp, TimeProvider time, 
+            OneKey asymmetricKey, Map&lt;String, String&gt; peerNamesToIdentities,
+            Map&lt;String, String&gt; peerIdentitiesToNames,
+            Map&lt;String, String&gt; myIdentities) throws AceException, OSException {
+<span class="nc" id="L142">        this(asId, db, pdp, time, asymmetricKey, &quot;token&quot;, &quot;introspect&quot;,</span>
+                CoAP.DEFAULT_COAP_PORT, null, false, (short)0, false,
+                peerNamesToIdentities, peerIdentitiesToNames, myIdentities);
+<span class="nc" id="L145">    }</span>
+    
+    
+    /**
+     * Constructor.
+     * 
+     * @param asId  identifier of the AS
+     * @param db    database connector of the AS
+     * @param pdp   PDP for deciding who gets which token
+     * @param time  time provider, must not be null
+     * @param asymmetricKey  asymmetric key pair of the AS or 
+     *      null if it hasn't any
+     * @param tokenName the name of the token endpoint 
+     *      (will be converted into the address as well)
+     * @param introspectName  the name of the introspect endpoint 
+     *      (will be converted into the address as well), if this is null,
+     *      no introspection endpoint will be offered
+     * @param port  the port number to run the server on
+     * @param claims  the claim types to include in tokens issued by this 
+     *                AS, can be null to use default set
+     * @param setAudHeader  insert the AUD as header in the CWT.
+     * @param masterSaltSize  the size in bytes of the Master Salt to provide. It can be 0 to not provide a Master Salt
+     * @param provideIdContext  true if the Id Context has to provided, or false otherwise
+     * @param peerNamesToIdentities  mapping between the names of the peers and their OSCORE identities
+     * @param myIdentities  mapping between the names of the peers and the OSCORE identities that the AS uses with them
+     * 
+     * @throws AceException 
+     * @throws OSException 
+     * 
+     */
+    public OscoreAS(String asId, CoapDBConnector db,
+            PDP pdp, TimeProvider time, OneKey asymmetricKey, String tokenName,
+            String introspectName, int port, Set&lt;Short&gt; claims, 
+            boolean setAudHeader, short masterSaltSize, boolean provideIdContext,
+            Map&lt;String, String&gt; peerNamesToIdentities,
+            Map&lt;String, String&gt; peerIdentitiesToNames,
+<span class="fc" id="L181">            Map&lt;String, String&gt; myIdentities) throws AceException, OSException {</span>
+<span class="fc" id="L182">        this.t = new Token(asId, pdp, db, time, asymmetricKey, claims, setAudHeader,</span>
+        				   masterSaltSize, provideIdContext, peerIdentitiesToNames);
+<span class="fc" id="L184">        this.token = new OscoreAceEndpoint(tokenName, this.t);</span>
+<span class="fc" id="L185">        add(this.token);</span>
+                
+<span class="pc bpc" id="L187" title="1 of 2 branches missed.">        if (introspectName != null) {</span>
+<span class="pc bpc" id="L188" title="1 of 2 branches missed.">            if (asymmetricKey == null) {</span>
+<span class="nc" id="L189">                this.i = new Introspect(pdp, db, time, null, peerIdentitiesToNames);</span>
+            } else {
+<span class="fc" id="L191">                this.i = new Introspect(pdp, db, time, asymmetricKey.PublicKey(), peerIdentitiesToNames);</span>
+            }
+<span class="fc" id="L193">            this.introspect = new OscoreAceEndpoint(introspectName, this.i);</span>
+<span class="fc" id="L194">            add(this.introspect);    </span>
+        }
+<span class="fc" id="L196">        this.addEndpoint(new CoapEndpoint.Builder()</span>
+<span class="fc" id="L197">                .setCoapStackFactory(new OSCoreCoapStackFactory())</span>
+<span class="fc" id="L198">                .setPort(port)</span>
+<span class="fc" id="L199">                .setCustomCoapStackArgument(OscoreCtxDbSingleton.getInstance())</span>
+<span class="fc" id="L200">                .build());  </span>
+<span class="fc" id="L201">        loadOscoreCtx(db, peerNamesToIdentities, myIdentities);</span>
+
+<span class="fc" id="L203">    }</span>
+
+    /**
+     * Load the OSCORE contexts from the database
+     * 
+     * @param db  the database connector
+     * @param asId  the AS identifier
+     * @param peerNamesToIdentities  mapping between the names of the peers and their OSCORE identities
+     * @param myIdentities  mapping between the names of the peers and the OSCORE identities that the AS uses with them
+     * 
+     * @throws AceException
+     * @throws OSException
+     */
+    private static void loadOscoreCtx(CoapDBConnector db,
+    								  Map&lt;String, String&gt; peerNamesToIdentities,
+    								  Map&lt;String, String&gt; myIdentities) throws AceException, OSException {
+<span class="fc" id="L219">        Set&lt;String&gt; ids = db.getRSS();</span>
+<span class="fc" id="L220">        ids.addAll(db.getClients());</span>
+        
+<span class="fc bfc" id="L222" title="All 2 branches covered.">        for (String id : ids) {</span>
+<span class="fc" id="L223">            byte[] key = db.getKey(new PskPublicInformation(id)).getEncoded();</span>
+                        
+            // The identity that this AS uses with this peer
+<span class="fc" id="L226">            String identity = myIdentities.get(id);</span>
+<span class="fc" id="L227">            IdPair idPair = new IdPair(identity);</span>
+<span class="pc bpc" id="L228" title="1 of 2 branches missed.">            if (idPair.getSenderId() == null) {</span>
+            	// This identity is malformed; proceed to the next one
+            }
+<span class="fc" id="L231">            byte[] senderId = idPair.getSenderId();</span>
+<span class="fc" id="L232">            byte[] contextId = idPair.getContextId();</span>
+            
+            // The identity that this peer uses with this AS
+<span class="fc" id="L235">            identity = peerNamesToIdentities.get(id);</span>
+<span class="fc" id="L236">            idPair = new IdPair(identity);</span>
+<span class="pc bpc" id="L237" title="1 of 2 branches missed.">            if (idPair.getSenderId() == null) {</span>
+            	// This identity is malformed; proceed to the next one
+            }
+<span class="fc" id="L240">            byte[] recipientId = idPair.getSenderId();</span>
+<span class="fc" id="L241">            byte[] contextIdBis = idPair.getContextId();</span>
+            
+            // This are all error conditions; skipped this peer and proceed to the next one
+<span class="pc bpc" id="L244" title="1 of 2 branches missed.">            if (!Arrays.equals(contextId, contextIdBis)) {</span>
+<span class="nc" id="L245">            	continue;</span>
+            }
+            
+<span class="fc" id="L248">            OSCoreCtx ctx = new OSCoreCtx(key, false, null, senderId, </span>
+            		recipientId, null, null, null, contextId, MAX_UNFRAGMENTED_SIZE);
+<span class="fc" id="L250">            OscoreCtxDbSingleton.getInstance().addContext(ctx);</span>
+            
+<span class="fc" id="L252">        }</span>
+<span class="fc" id="L253">        LOGGER.finest(&quot;Loaded OSCORE contexts&quot;);</span>
+<span class="fc" id="L254">    }</span>
+
+    @Override
+    public void close() throws Exception {
+<span class="nc" id="L258">        LOGGER.info(&quot;Closing down OscoreAS ...&quot;);</span>
+<span class="nc" id="L259">        this.token.close();</span>
+<span class="nc" id="L260">        this.introspect.close();       </span>
+<span class="nc" id="L261">    }</span>
+    
+    public static class IdPair {
+    	
+    	private byte[] senderId;
+    	private byte[] contextId;
+    	
+<span class="fc" id="L268">    	public IdPair(String identity) {</span>
+    		
+<span class="fc" id="L270">    		senderId = null;</span>
+<span class="fc" id="L271">    		contextId = null;</span>
+    		
+<span class="fc" id="L273">    		int index = identity.indexOf(&quot;:&quot;);</span>
+    		
+<span class="pc bpc" id="L275" title="1 of 2 branches missed.">    		if (index != -1) {</span>
+    			// The Context ID is present
+<span class="nc" id="L277">    			contextId = Base64.getDecoder().decode(identity.substring(0, index));</span>
+    		}
+<span class="fc" id="L279">    		index++; // This becomes 0 if the Context ID was not present</span>
+<span class="fc" id="L280">    		senderId = Base64.getDecoder().decode(identity.substring(index, identity.length()));</span>
+    		
+<span class="fc" id="L282">    	}</span>
+    	
+    	public byte[] getSenderId() {
+<span class="fc" id="L285">    		return senderId;</span>
+    	}
+    	
+    	public byte[] getContextId() {
+<span class="fc" id="L289">    		return contextId;</span>
+    	}
+    	
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

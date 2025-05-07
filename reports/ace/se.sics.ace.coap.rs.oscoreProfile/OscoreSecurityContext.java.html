@@ -1,0 +1,319 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OscoreSecurityContext.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.coap.rs.oscoreProfile</a> &gt; <span class="el_source">OscoreSecurityContext.java</span></div><h1>OscoreSecurityContext.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.coap.rs.oscoreProfile;
+
+import java.util.logging.Logger;
+
+import org.eclipse.californium.cose.AlgorithmID;
+import org.eclipse.californium.cose.CoseException;
+import org.eclipse.californium.oscore.OSCoreCtx;
+import org.eclipse.californium.oscore.OSException;
+
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+
+import se.sics.ace.AceException;
+import se.sics.ace.Constants;
+
+/**
+ * Utility class to parse, verify and access  OSCORE_Input_Material in a cnf element
+ * 
+ * @author Ludwig Seitz and Marco Tiloca
+ *
+ */
+public class OscoreSecurityContext {
+    
+    /**
+     * The logger
+     */
+<span class="fc" id="L58">    private static final Logger LOGGER </span>
+<span class="fc" id="L59">        = Logger.getLogger(OscoreSecurityContext.class.getName());</span>
+    
+    /**
+     * The Master Secret
+     */
+    private byte[] ms;
+    
+    /**
+     * The OSCORE Input Material Identifier
+     */
+    private byte[] id;
+    
+    /**
+     * The server identifier
+     */
+    private byte[] serverId;
+    
+    /**
+     * The client identifier
+     */
+    private byte[] clientId;
+    
+    /**
+     * The context id, can be null
+     */
+    private byte[] contextId;
+    
+    /**
+     * The key derivation function, can be null for default: HMAC_SHA_256
+     */
+    private AlgorithmID hkdf;
+    
+    /**
+     * The encryption algorithm, can be null for default: AES_CCM_16_64_128
+     */
+    private AlgorithmID alg;
+    
+    /**
+     * The Master Salt, can be null
+     */
+    private byte[] salt;
+
+    /**
+     * The replay window size
+     */
+    private Integer replaySize;
+    
+    /**
+     * Max unfragmented size parameter for OSCORE
+     */
+    private final static int MAX_UNFRAGMENTED_SIZE = 4096;
+    
+    /**
+     * Constructor.
+     * 
+     * @param cnf  the confirmation CBORObject containing 
+     *      the OSCORE Security Context.
+     * 
+     * @throws AceException 
+     */
+<span class="fc" id="L119">    public OscoreSecurityContext(CBORObject cnf) throws AceException {</span>
+<span class="fc" id="L120">        CBORObject osc = cnf.get(Constants.OSCORE_Input_Material);</span>
+<span class="pc bpc" id="L121" title="2 of 4 branches missed.">        if (osc == null || !osc.getType().equals(CBORType.Map)) {</span>
+<span class="nc" id="L122">            LOGGER.info(&quot;Missing or invalid parameter type for &quot;</span>
+                    + &quot;'OSCORE_Input_Material', must be CBOR-map&quot;);
+<span class="nc" id="L124">            throw new AceException(&quot;invalid/missing OSCORE_Input_Material&quot;);</span>
+        }
+        
+<span class="fc" id="L127">        CBORObject algC = osc.get(Constants.OS_ALG);</span>
+<span class="fc" id="L128">        this.alg = null;</span>
+<span class="fc bfc" id="L129" title="All 2 branches covered.">        if (algC != null) {</span>
+            try {
+<span class="nc" id="L131">                this.alg = AlgorithmID.FromCBOR(algC);</span>
+<span class="fc" id="L132">            } catch (CoseException e) {</span>
+<span class="fc" id="L133">                LOGGER.info(&quot;Invalid algorithmId: &quot; + e.getMessage());</span>
+<span class="fc" id="L134">                throw new AceException(</span>
+                        &quot;Malformed algorithm Id in OSCORE security context&quot;);
+<span class="nc" id="L136">            }</span>
+        }
+        
+<span class="fc" id="L139">        CBORObject clientIdC = osc.get(Constants.OS_CLIENTID);</span>
+<span class="pc bpc" id="L140" title="1 of 2 branches missed.">        if (clientIdC != null) {</span>
+<span class="pc bpc" id="L141" title="1 of 2 branches missed.">            if (!clientIdC.getType().equals(CBORType.ByteString)) {</span>
+<span class="nc" id="L142">                LOGGER.info(&quot;Invalid parameter: 'clientId',&quot;</span>
+                        + &quot; must be byte-array&quot;);
+<span class="nc" id="L144">                throw new AceException(</span>
+                        &quot;Malformed client Id in OSCORE security context&quot;);
+            }
+<span class="fc" id="L147">            this.clientId = clientIdC.GetByteString();</span>
+        }
+               
+<span class="fc" id="L150">        CBORObject ctxIdC = osc.get(Constants.OS_CONTEXTID);</span>
+<span class="fc bfc" id="L151" title="All 2 branches covered.">        if (ctxIdC != null) {</span>
+<span class="pc bpc" id="L152" title="1 of 2 branches missed.">            if (!ctxIdC.getType().equals(CBORType.ByteString)) {</span>
+<span class="nc" id="L153">                LOGGER.info(&quot;Invalid parameter: 'contextID',&quot;</span>
+                        + &quot;must be byte-array&quot;);
+<span class="nc" id="L155">                throw new AceException( </span>
+                        &quot;Malformed context Id in OSCORE security context&quot;);
+            }
+<span class="fc" id="L158">            this.contextId = ctxIdC.GetByteString();</span>
+        }
+        else {
+<span class="fc" id="L161">        	this.contextId = null;</span>
+        }
+
+<span class="fc" id="L164">        CBORObject kdfC = osc.get(Constants.OS_HKDF);</span>
+<span class="fc bfc" id="L165" title="All 2 branches covered.">        if (kdfC != null) {</span>
+            try {
+<span class="fc" id="L167">                this.hkdf = AlgorithmID.FromCBOR(kdfC);</span>
+<span class="fc" id="L168">            } catch (CoseException e) {</span>
+<span class="fc" id="L169">                LOGGER.info(&quot;Invalid kdf: &quot; + e.getMessage());</span>
+<span class="fc" id="L170">                throw new AceException(</span>
+                        &quot;Malformed KDF in OSCORE security context&quot;);
+<span class="fc" id="L172">            }</span>
+        }
+
+<span class="fc" id="L175">        CBORObject msC = osc.get(Constants.OS_MS);</span>
+<span class="pc bpc" id="L176" title="1 of 4 branches missed.">        if (msC == null || !msC.getType().equals(CBORType.ByteString)) {</span>
+<span class="fc" id="L177">            LOGGER.info(&quot;Missing or invalid parameter: 'master secret',&quot;</span>
+                    + &quot; must be byte-array&quot;);
+<span class="fc" id="L179">            throw new AceException(&quot;malformed or missing master secret&quot;</span>
+                    + &quot; in OSCORE security context&quot;);
+        }
+<span class="fc" id="L182">        this.ms = msC.GetByteString();</span>
+
+<span class="fc" id="L184">        CBORObject idC = osc.get(Constants.OS_ID);</span>
+<span class="pc bpc" id="L185" title="1 of 4 branches missed.">        if (idC == null || !idC.getType().equals(CBORType.ByteString)) {</span>
+<span class="fc" id="L186">            LOGGER.info(&quot;Missing or invalid parameter: 'id',&quot;</span>
+                    + &quot; must be byte-array&quot;);
+<span class="fc" id="L188">            throw new AceException(&quot;malformed or missing input material identifier&quot;</span>
+                    + &quot; in OSCORE security context&quot;);
+        }
+<span class="fc" id="L191">        this.id = idC.GetByteString();</span>
+        
+<span class="fc" id="L193">        CBORObject saltC = osc.get(Constants.OS_SALT);</span>
+<span class="fc bfc" id="L194" title="All 2 branches covered.">        if (saltC != null) {</span>
+<span class="fc bfc" id="L195" title="All 2 branches covered.">            if (!saltC.getType().equals(CBORType.ByteString)) {</span>
+<span class="fc" id="L196">                LOGGER.info(&quot;Invalid parameter: 'master salt',&quot;</span>
+                        + &quot; must be byte-array&quot;);
+<span class="fc" id="L198">                throw new AceException(&quot;malformed master salt&quot;</span>
+                        + &quot; in OSCORE security context&quot;);
+            }
+<span class="fc" id="L201">            this.salt = saltC.GetByteString();</span>
+        }        
+        
+<span class="fc" id="L204">        CBORObject serverIdC = osc.get(Constants.OS_SERVERID);</span>
+<span class="pc bpc" id="L205" title="1 of 2 branches missed.">        if (serverIdC == null </span>
+<span class="pc bpc" id="L206" title="1 of 2 branches missed.">                || !serverIdC.getType().equals(CBORType.ByteString)) {</span>
+<span class="nc" id="L207">            LOGGER.info(&quot;Missing or invalid parameter: 'serverId',&quot;</span>
+                    + &quot; must be byte-array&quot;);
+<span class="nc" id="L209">            throw new AceException(&quot;malformed or missing server id&quot;</span>
+                    + &quot; in OSCORE security context&quot;);
+        }
+<span class="fc" id="L212">        this.serverId = serverIdC.GetByteString();</span>
+        
+<span class="fc" id="L214">    }</span>
+    
+    /**
+     * @param isClient
+     * @param n1  the client's nonce
+     * @param n2  the server's nonce
+     * @return  an OSCORE context based on this object 
+     * @throws OSException 
+     */
+    public OSCoreCtx getContext(boolean isClient, byte[] n1, byte[] n2) 
+            throws OSException {
+        byte[] senderId;
+        byte[] recipientId;
+
+        byte[] finalSalt;
+        
+        // The final Master Salt is the concatenation of whole CBOR byte strings
+<span class="fc" id="L231">        byte[] saltEncoded = null;</span>
+<span class="fc" id="L232">        byte[] n1Encoded = null;</span>
+<span class="fc" id="L233">        byte[] n2Encoded = null;</span>
+<span class="fc bfc" id="L234" title="All 2 branches covered.">        if (this.salt != null) {</span>
+<span class="fc" id="L235">            CBORObject saltCBOR = CBORObject.FromObject(this.salt);</span>
+<span class="fc" id="L236">        	saltEncoded  = saltCBOR.EncodeToBytes();</span>
+        }
+<span class="fc" id="L238">        CBORObject n1CBOR = CBORObject.FromObject(n1);</span>
+<span class="fc" id="L239">        CBORObject n2CBOR = CBORObject.FromObject(n2);</span>
+<span class="fc" id="L240">        n1Encoded = n1CBOR.EncodeToBytes();</span>
+<span class="fc" id="L241">        n2Encoded = n2CBOR.EncodeToBytes();</span>
+<span class="fc bfc" id="L242" title="All 2 branches covered.">        if (saltEncoded != null) {</span>
+<span class="fc" id="L243">            finalSalt = new byte[saltEncoded.length + n1Encoded.length + n2Encoded.length];</span>
+<span class="fc" id="L244">            System.arraycopy(saltEncoded, 0, finalSalt, 0, saltEncoded.length);</span>
+<span class="fc" id="L245">            System.arraycopy(n1Encoded, 0, finalSalt, saltEncoded.length, n1Encoded.length);</span>
+<span class="fc" id="L246">            System.arraycopy(n2Encoded, 0, finalSalt, saltEncoded.length + n1Encoded.length, n2Encoded.length);</span>
+        } else {
+<span class="fc" id="L248">            finalSalt = new byte[n1Encoded.length + n2Encoded.length];</span>
+<span class="fc" id="L249">            System.arraycopy(n1Encoded, 0, finalSalt, 0, n1Encoded.length);</span>
+<span class="fc" id="L250">            System.arraycopy(n2Encoded, 0, finalSalt, n1Encoded.length, n2Encoded.length);</span>
+        }
+                
+<span class="fc bfc" id="L253" title="All 2 branches covered.">        if (isClient) {</span>
+        	/*
+            senderId = id2;
+            recipientId = id1;
+            */
+<span class="fc" id="L258">            senderId = this.clientId;</span>
+<span class="fc" id="L259">            recipientId = this.serverId;</span>
+            
+        } else {
+        	/*
+            senderId = id1;
+            recipientId = id2;
+            */
+<span class="fc" id="L266">            senderId = this.serverId;</span>
+<span class="fc" id="L267">            recipientId = this.clientId;</span>
+        }
+        
+<span class="fc" id="L270">        org.eclipse.californium.cose.AlgorithmID algId = null;</span>
+<span class="fc" id="L271">        org.eclipse.californium.cose.AlgorithmID hkdfId = null;</span>
+        try {
+<span class="pc bpc" id="L273" title="1 of 2 branches missed.">            if(this.alg != null) {</span>
+<span class="nc" id="L274">                algId = org.eclipse.californium.cose.AlgorithmID.FromCBOR(this.alg.AsCBOR());</span>
+            }
+            
+<span class="fc bfc" id="L277" title="All 2 branches covered.">            if(this.hkdf != null) {</span>
+<span class="fc" id="L278">                hkdfId = org.eclipse.californium.cose.AlgorithmID.FromCBOR(this.hkdf.AsCBOR());</span>
+            }
+<span class="nc" id="L280">        } catch (org.eclipse.californium.cose.CoseException e) {</span>
+<span class="nc" id="L281">            System.err.println(&quot;Failed conversion of alg or hkdf to create OSCORE Context!&quot;);</span>
+<span class="nc" id="L282">            e.printStackTrace();</span>
+<span class="fc" id="L283">        }</span>
+        
+<span class="fc" id="L285">        return new OSCoreCtx(this.ms, isClient, algId, senderId, </span>
+                recipientId, hkdfId, this.replaySize, finalSalt, 
+                this.contextId, MAX_UNFRAGMENTED_SIZE);
+    }
+    
+    /**
+     * @return  the client identifier
+     */
+    public byte[] getClientId() {
+<span class="fc" id="L294">        return this.clientId;</span>
+    }
+    
+    /**
+     * @return  the server identifier
+     */
+    public byte[] getServerId() {
+<span class="nc" id="L301">        return this.serverId;</span>
+    }
+    
+    /**
+     * @return  the input material identifier
+     */
+    public byte[] getId() {
+<span class="fc" id="L308">        return this.id;</span>
+    }
+    
+    /**
+     * @return  the context id
+     */
+    public byte[] getContextId() {
+<span class="fc" id="L315">        return this.contextId;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -1,0 +1,502 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ObjectSecurityLayer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore</a> &gt; <span class="el_source">ObjectSecurityLayer.java</span></div><h1>ObjectSecurityLayer.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019 RISE SICS and others.
+ * 
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * and Eclipse Distribution License v1.0 which accompany this distribution.
+ * 
+ * The Eclipse Public License is available at
+ *    http://www.eclipse.org/legal/epl-v20.html
+ * and the Eclipse Distribution License is available at
+ *    http://www.eclipse.org/org/documents/edl-v10.html.
+ * 
+ * Contributors:
+ *    Joakim Brorsson
+ *    Tobias Andersson (RISE SICS)
+ *    Rikard Höglund (RISE SICS)
+ *    
+ ******************************************************************************/
+package org.eclipse.californium.oscore;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.eclipse.californium.core.coap.EmptyMessage;
+import org.eclipse.californium.core.coap.Message;
+import org.eclipse.californium.core.coap.MessageObserverAdapter;
+import org.eclipse.californium.core.coap.OptionNumberRegistry;
+import org.eclipse.californium.core.coap.OptionSet;
+import org.eclipse.californium.core.coap.Request;
+import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.coap.Token;
+
+import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+import org.eclipse.californium.core.network.Exchange;
+import org.eclipse.californium.core.network.stack.AbstractLayer;
+import org.eclipse.californium.elements.util.Bytes;
+import org.eclipse.californium.oscore.ContextRederivation.PHASE;
+import org.eclipse.californium.oscore.group.OptionEncoder;
+
+/**
+ * 
+ * Applies OSCORE mechanics at stack layer.
+ *
+ */
+public class ObjectSecurityLayer extends AbstractLayer {
+
+	/**
+	 * The logger
+	 */
+<span class="fc" id="L50">	private static final Logger LOGGER = LoggerFactory.getLogger(ObjectSecurityLayer.class);</span>
+
+	private final OSCoreCtxDB ctxDb;
+
+<span class="fc" id="L54">	public ObjectSecurityLayer(OSCoreCtxDB ctxDb) {</span>
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">		if (ctxDb == null) {</span>
+<span class="nc" id="L56">			throw new NullPointerException(&quot;OSCoreCtxDB must be provided!&quot;);</span>
+		}
+<span class="fc" id="L58">		this.ctxDb = ctxDb;</span>
+<span class="fc" id="L59">	}</span>
+
+	/**
+	 * Encrypt an outgoing request using the OSCore context.
+	 * 
+	 * @param message the message
+	 * @param ctxDb the context database used
+	 * 
+	 * @return the encrypted message
+	 * 
+	 * @throws OSException error while encrypting request
+	 */
+	public static Request prepareSend(OSCoreCtxDB ctxDb, Request message) throws OSException {
+<span class="fc" id="L72">		return RequestEncryptor.encrypt(ctxDb, message);</span>
+	}
+
+	/**
+	 * Encrypt an outgoing response using the OSCore context.
+	 * 
+	 * @param ctxDb the OSCore context DB
+	 * @param message the message
+	 * @param ctx the OSCore context
+	 * @param newPartialIV boolean to indicate whether to use a new partial IV or not
+	 * @param outerBlockwise boolean to indicate whether the block-wise options
+	 *            should be encrypted or not
+	 * @param requestOption the OSCORE option of the corresponding request
+	 * 
+	 * @return the encrypted message
+	 * 
+	 * @throws OSException error while encrypting response
+	 */
+	public static Response prepareSend(OSCoreCtxDB ctxDb, Response message, OSCoreCtx ctx, final boolean newPartialIV,
+			boolean outerBlockwise, byte[] requestOption) throws OSException {
+<span class="fc" id="L92">		return ResponseEncryptor.encrypt(ctxDb, message, ctx, newPartialIV, outerBlockwise, requestOption);</span>
+	}
+
+	/**
+	 * Decrypt an incoming request using the right OSCore context
+	 *
+	 * @param ctxDb the context database used
+	 * @param request the incoming request
+	 * @param ctx the OSCore context
+	 * 
+	 * @return the decrypted and verified request
+	 * 
+	 * @throws CoapOSException error while decrypting request
+	 */
+	public static Request prepareReceive(OSCoreCtxDB ctxDb, Request request, OSCoreCtx ctx) throws CoapOSException {
+<span class="fc" id="L107">		return RequestDecryptor.decrypt(ctxDb, request, ctx);</span>
+	}
+
+	/**
+	 * Decrypt an incoming response using the right OSCore context
+	 *
+	 * @param ctxDb the context database used
+	 * @param response the incoming request
+	 * @return the decrypted and verified response
+	 * 
+	 * @throws OSException error while decrypting response
+	 */
+	public static Response prepareReceive(OSCoreCtxDB ctxDb, Response response) throws OSException {
+<span class="fc" id="L120">		return ResponseDecryptor.decrypt(ctxDb, response);</span>
+	}
+
+	@Override
+	public void sendRequest(final Exchange exchange, final Request request) {
+<span class="fc" id="L125">		Request req = request;</span>
+<span class="pc bpc" id="L126" title="1 of 2 branches missed.">		if (shouldProtectRequest(request)) {</span>
+			try {
+				// Handle outgoing requests for more data from a responder that
+				// is responding with outer block-wise. These requests should
+				// not be processed with OSCORE.
+<span class="pc bpc" id="L131" title="1 of 4 branches missed.">				boolean outerBlockwise = request.getOptions().hasBlock2() &amp;&amp; exchange.getCurrentResponse() != null</span>
+<span class="fc bfc" id="L132" title="All 2 branches covered.">						&amp;&amp; ctxDb.getContextByToken(exchange.getCurrentResponse().getToken()) != null;</span>
+<span class="fc bfc" id="L133" title="All 2 branches covered.">				if (outerBlockwise) {</span>
+<span class="fc" id="L134">					super.sendRequest(exchange, req);</span>
+<span class="fc" id="L135">					return;</span>
+				}
+
+<span class="fc" id="L138">				String uri = request.getURI();</span>
+				
+				// Check if parameters in the option was set by the application
+<span class="fc bfc" id="L141" title="All 2 branches covered.">				if (request.getOptions().getOscore().length != 0) {</span>
+					// Use the URI from the option to find the correct context
+<span class="fc" id="L143">					uri = OptionEncoder.getContextUri(request.getOptions().getOscore());</span>
+				}
+				
+<span class="pc bpc" id="L146" title="1 of 2 branches missed.">				if (uri == null) {</span>
+<span class="nc" id="L147">					LOGGER.error(ErrorDescriptions.URI_NULL);</span>
+<span class="nc" id="L148">					throw new OSException(ErrorDescriptions.URI_NULL);</span>
+				}
+
+<span class="fc" id="L151">				OSCoreCtx ctx = ctxDb.getContext(uri);</span>
+
+<span class="pc bpc" id="L153" title="1 of 2 branches missed.">				if (ctx == null) {</span>
+<span class="nc" id="L154">					LOGGER.error(ErrorDescriptions.CTX_NULL);</span>
+<span class="nc" id="L155">					throw new OSException(ErrorDescriptions.CTX_NULL);</span>
+				}
+
+				// Initiate context re-derivation procedure if flag is set
+<span class="pc bpc" id="L159" title="1 of 2 branches missed.">				if (ctx.getContextRederivationPhase() == PHASE.CLIENT_INITIATE) {</span>
+<span class="nc" id="L160">					throw new IllegalStateException(&quot;must be handled in ObjectSecurityContextLayer!&quot;);</span>
+				}
+
+				/*
+				 * Sets an operator on the exchange. This operator will in
+				 * turn set information about the OSCORE context used in the
+				 * endpoint context that will be created after the request is sent.
+				 */
+<span class="fc" id="L168">				OSCoreEndpointContextInfo.sendingRequest(ctx, exchange);</span>
+
+<span class="fc" id="L170">				final int seqByToken = ctx.getSenderSeq();</span>
+
+<span class="fc" id="L172">				final Request preparedRequest = prepareSend(ctxDb, request);</span>
+<span class="fc" id="L173">				final OSCoreCtx finalCtx = ctxDb.getContext(uri);</span>
+
+<span class="fc" id="L175">				exchange.setCryptographicContextID(preparedRequest.getOptions().getOscore());</span>
+
+<span class="fc bfc" id="L177" title="All 2 branches covered.">				if (outgoingExceedsMaxUnfragSize(preparedRequest, outerBlockwise, ctx.getMaxUnfragmentedSize())) {</span>
+<span class="fc" id="L178">					throw new IllegalStateException(&quot;outgoing request is exceeding the MAX_UNFRAGMENTED_SIZE!&quot;);</span>
+				}
+
+<span class="fc" id="L181">				preparedRequest.addMessageObserver(0, new MessageObserverAdapter() {</span>
+
+					// TODO: New observer for more Token handling?
+
+					@Override
+					public void onReadyToSend() {
+<span class="fc" id="L187">						Token token = preparedRequest.getToken();</span>
+
+						// add at head of message observers to update
+						// the token of the original request first,
+						// before calling other message observers!
+<span class="fc bfc" id="L192" title="All 2 branches covered.">						if (request.getToken() == null) {</span>
+<span class="fc" id="L193">							request.setToken(token);</span>
+						}
+
+<span class="fc" id="L196">						ctxDb.addContext(token, finalCtx);</span>
+<span class="fc" id="L197">						ctxDb.addSeqByToken(token, seqByToken);</span>
+<span class="fc" id="L198">					}</span>
+				});
+
+<span class="fc" id="L201">				req = preparedRequest;</span>
+
+<span class="nc" id="L203">			} catch (OSException e) {</span>
+<span class="nc" id="L204">				LOGGER.error(&quot;Error sending request: &quot; + e.getMessage());</span>
+<span class="nc" id="L205">				return;</span>
+<span class="nc" id="L206">			} catch (IllegalArgumentException e) {</span>
+<span class="nc" id="L207">				LOGGER.error(&quot;Unable to send request because of illegal argument: &quot; + e.getMessage());</span>
+<span class="nc" id="L208">				return;</span>
+<span class="fc" id="L209">			}</span>
+		}
+<span class="fc" id="L211">		LOGGER.info(&quot;Request: &quot; + exchange.getRequest().toString());</span>
+<span class="fc" id="L212">		super.sendRequest(exchange, req);</span>
+<span class="fc" id="L213">	}</span>
+
+	@Override
+	public void sendResponse(Exchange exchange, Response response) {
+		/* If the request contained the Observe option always add a partial IV to the response.
+		 * A partial IV will also be added if the responsesIncludePartialIV flag is set in the context. */
+		boolean addPartialIV;
+		
+		/*
+		 * If the original request used outer block-wise options so should the
+		 * response. (They are not encrypted but external unprotected options.)
+		 */
+		boolean outerBlockwise;
+
+<span class="fc bfc" id="L227" title="All 2 branches covered.">		if (shouldProtectResponse(exchange)) {</span>
+			// If the current block-request still has a non-empty OSCORE option it
+			// means it was not unprotected by OSCORE as and individual request.
+			// Rather it was not processed by OSCORE until after being re-assembled
+			// by the block-wise layer. Thus the response should use outer block options.
+<span class="fc bfc" id="L232" title="All 2 branches covered.">			outerBlockwise = exchange.getCurrentRequest().getOptions().hasOscore()</span>
+<span class="fc bfc" id="L233" title="All 2 branches covered.">					&amp;&amp; exchange.getCurrentRequest().getOptions().getOscore().length != 0;</span>
+
+			try {
+				// TODO: Don't just use Token as key, also use the addressing
+				// information. Maybe consider using Token and RID + ID Context
+				// instead. Need to change the map to take 3 things instead of
+				// just Token.
+				//
+				// Or actually use the requestOption KID and KID Context
+				// directly. (Indirectly using the Token).
+<span class="fc" id="L243">				OSCoreCtx ctx = ctxDb.getContextByToken(exchange.getCurrentRequest().getToken());</span>
+<span class="pc bpc" id="L244" title="1 of 4 branches missed.">				addPartialIV = ctx.getResponsesIncludePartialIV() || exchange.getRequest().getOptions().hasObserve();</span>
+
+<span class="fc" id="L246">				byte[] requestOption = exchange.getCryptographicContextID();</span>
+<span class="fc" id="L247">				Response preparedResponse = prepareSend(ctxDb, response, ctx, addPartialIV, outerBlockwise,</span>
+						requestOption);
+
+<span class="pc bpc" id="L250" title="1 of 2 branches missed.">				if (outgoingExceedsMaxUnfragSize(preparedResponse, outerBlockwise, ctx.getMaxUnfragmentedSize())) {</span>
+<span class="nc" id="L251">					super.sendResponse(exchange,</span>
+<span class="nc" id="L252">							Response.createResponse(exchange.getCurrentRequest(), ResponseCode.INTERNAL_SERVER_ERROR));</span>
+<span class="nc" id="L253">					throw new IllegalStateException(&quot;outgoing response is exceeding the MAX_UNFRAGMENTED_SIZE!&quot;);</span>
+				}
+
+<span class="fc" id="L256">				response = preparedResponse;</span>
+<span class="fc" id="L257">				exchange.setResponse(response);</span>
+<span class="nc" id="L258">			} catch (OSException e) {</span>
+<span class="nc" id="L259">				LOGGER.error(&quot;Error sending response: &quot; + e.getMessage());</span>
+<span class="nc" id="L260">				return;</span>
+<span class="fc" id="L261">			}</span>
+		}
+
+		// Remove token after response is transmitted, unless ongoing Observe.
+		// Takes token from corresponding request
+<span class="pc bpc" id="L266" title="1 of 4 branches missed.">		if (response.getOptions().hasObserve() == false || exchange.getRequest().isObserveCancel()) {</span>
+<span class="fc" id="L267">			ctxDb.removeToken(exchange.getCurrentRequest().getToken());</span>
+		}
+
+<span class="fc" id="L270">		super.sendResponse(exchange, response);</span>
+<span class="fc" id="L271">	}</span>
+
+	@Override
+	public void sendEmptyMessage(Exchange exchange, EmptyMessage message) {
+<span class="nc" id="L275">		super.sendEmptyMessage(exchange, message);</span>
+<span class="nc" id="L276">	}</span>
+
+	@Override
+	public void receiveRequest(Exchange exchange, Request request) {
+<span class="pc bpc" id="L280" title="1 of 2 branches missed.">		if (isProtected(request)) {</span>
+
+			// Retrieve the OSCORE context associated with this RID and ID Context
+<span class="fc" id="L283">			byte[] rid = OptionJuggle.getRid(request.getOptions().getOscore());</span>
+<span class="fc" id="L284">			byte[] IDContext = OptionJuggle.getIDContext(request.getOptions().getOscore());</span>
+			
+<span class="fc" id="L286">			OSCoreCtx ctx = null;</span>
+			try {
+<span class="fc" id="L288">				ctx = ctxDb.getContext(rid, IDContext);</span>
+<span class="fc" id="L289">			} catch (CoapOSException e) {</span>
+<span class="fc" id="L290">				LOGGER.error(&quot;Error while receiving OSCore request: &quot; + e.getMessage());</span>
+				Response error;
+<span class="fc" id="L292">				error = CoapOSExceptionHandler.manageError(e, request);</span>
+<span class="pc bpc" id="L293" title="1 of 2 branches missed.">				if (error != null) {</span>
+<span class="fc" id="L294">					super.sendResponse(exchange, error);</span>
+				}
+<span class="fc" id="L296">				return;</span>
+<span class="fc" id="L297">			}</span>
+
+			// For OSCORE-protected requests with the outer block1-option let
+			// them pass through to be re-assembled by the block-wise layer
+<span class="fc bfc" id="L301" title="All 2 branches covered.">			if (request.getOptions().hasBlock1()) {</span>
+
+<span class="pc bpc" id="L303" title="1 of 2 branches missed.">				if (request.getMaxResourceBodySize() == 0) {</span>
+<span class="fc" id="L304">					int maxPayloadSize = getIncomingMaxUnfragSize(request, ctx);</span>
+<span class="fc" id="L305">					request.setMaxResourceBodySize(maxPayloadSize);</span>
+				}
+
+<span class="fc" id="L308">				super.receiveRequest(exchange, request);</span>
+<span class="fc" id="L309">				return;</span>
+			}
+
+<span class="fc" id="L312">			byte[] oscoreOption = null;</span>
+			try {
+<span class="fc" id="L314">				request = prepareReceive(ctxDb, request, ctx);</span>
+<span class="fc" id="L315">				oscoreOption = request.getOptions().getOscore();</span>
+<span class="fc" id="L316">				request.getOptions().setOscore(Bytes.EMPTY);</span>
+<span class="fc" id="L317">				exchange.setRequest(request);</span>
+<span class="fc" id="L318">			} catch (CoapOSException e) {</span>
+<span class="fc" id="L319">				LOGGER.error(&quot;Error while receiving OSCore request: &quot; + e.getMessage());</span>
+				Response error;
+<span class="fc" id="L321">				error = CoapOSExceptionHandler.manageError(e, request);</span>
+<span class="pc bpc" id="L322" title="1 of 2 branches missed.">				if (error != null) {</span>
+<span class="fc" id="L323">					super.sendResponse(exchange, error);</span>
+				}
+<span class="fc" id="L325">				return;</span>
+<span class="fc" id="L326">			}</span>
+<span class="fc" id="L327">			exchange.setCryptographicContextID(oscoreOption);</span>
+		}
+<span class="fc" id="L329">		super.receiveRequest(exchange, request);</span>
+<span class="fc" id="L330">	}</span>
+
+	//Always accepts unprotected responses, which is needed for reception of error messages
+	@Override
+	public void receiveResponse(Exchange exchange, Response response) {
+<span class="fc" id="L335">		Request request = exchange.getCurrentRequest();</span>
+<span class="pc bpc" id="L336" title="1 of 2 branches missed.">		if (request == null) {</span>
+<span class="nc" id="L337">			LOGGER.error(&quot;No request tied to this response&quot;);</span>
+<span class="nc" id="L338">			return;</span>
+		}
+
+		try {
+			//Printing of status information.
+			//Warns when expecting OSCORE response but unprotected response is received
+<span class="pc bpc" id="L344" title="1 of 4 branches missed.">			if (!isProtected(response) &amp;&amp; responseShouldBeProtected(exchange, response)) {</span>
+<span class="fc" id="L345">				LOGGER.warn(&quot;Incoming response is NOT OSCORE protected!&quot;);</span>
+<span class="pc bpc" id="L346" title="1 of 2 branches missed.">			} else if (isProtected(response)) {</span>
+<span class="fc" id="L347">				LOGGER.info(&quot;Incoming response is OSCORE protected&quot;);</span>
+			}
+
+			// For OSCORE-protected response with the outer block2-option let
+			// them pass through to be re-assembled by the block-wise layer
+<span class="fc bfc" id="L352" title="All 2 branches covered.">			if (response.getOptions().hasBlock2()) {</span>
+
+<span class="pc bpc" id="L354" title="1 of 2 branches missed.">				if (response.getMaxResourceBodySize() == 0) {</span>
+<span class="fc" id="L355">					int maxPayloadSize = getIncomingMaxUnfragSize(response, ctxDb);</span>
+<span class="fc" id="L356">					response.setMaxResourceBodySize(maxPayloadSize);</span>
+				}
+
+<span class="fc" id="L359">				super.receiveResponse(exchange, response);</span>
+<span class="fc" id="L360">				return;</span>
+			}
+
+			//If response is protected with OSCORE parse it first with prepareReceive
+<span class="fc bfc" id="L364" title="All 2 branches covered.">			if (isProtected(response)) {</span>
+				
+<span class="fc" id="L366">				boolean groupModeResp = OptionJuggle.getGroupModeBit(response.getOptions().getOscore());</span>
+
+<span class="fc bfc" id="L368" title="All 2 branches covered.">				if(groupModeResp) {</span>
+<span class="fc" id="L369">					System.out.println(&quot;Incoming Group Mode Response payload size: &quot; + response.getPayloadSize());</span>
+				} else {
+<span class="fc" id="L371">					System.out.println(&quot;Incoming Pairwise Mode Response payload size: &quot; + response.getPayloadSize());</span>
+				}
+				
+				
+<span class="fc" id="L375">				response = prepareReceive(ctxDb, response);</span>
+			}
+<span class="nc" id="L377">		} catch (OSException e) {</span>
+<span class="nc" id="L378">			LOGGER.error(&quot;Error while receiving OSCore response: &quot; + e.getMessage());</span>
+<span class="nc" id="L379">			EmptyMessage error = CoapOSExceptionHandler.manageError(e, response);</span>
+<span class="nc bnc" id="L380" title="All 2 branches missed.">			if (error != null) {</span>
+<span class="nc" id="L381">				sendEmptyMessage(exchange, error);</span>
+			}
+<span class="nc" id="L383">			return;</span>
+<span class="fc" id="L384">		}</span>
+		
+		// Remove token if this is an incoming response to an Observe
+		// cancellation request
+<span class="fc bfc" id="L388" title="All 2 branches covered.">		if (exchange.getRequest().isObserveCancel()) {</span>
+<span class="fc" id="L389">			ctxDb.removeToken(response.getToken());</span>
+		}
+		
+<span class="fc" id="L392">		super.receiveResponse(exchange, response);</span>
+<span class="fc" id="L393">	}</span>
+
+	@Override
+	public void receiveEmptyMessage(Exchange exchange, EmptyMessage message) {
+<span class="nc" id="L397">		super.receiveEmptyMessage(exchange, message);</span>
+<span class="nc" id="L398">	}</span>
+
+	private static boolean shouldProtectResponse(Exchange exchange) {
+<span class="fc bfc" id="L401" title="All 2 branches covered.">		return exchange.getCryptographicContextID() != null;</span>
+	}
+
+	//Method that checks if a response is expected to be protected with OSCORE
+	private boolean responseShouldBeProtected(Exchange exchange, Response response) throws OSException {
+<span class="fc" id="L406">		Request request = exchange.getCurrentRequest();</span>
+<span class="fc" id="L407">		OptionSet options = request.getOptions();</span>
+<span class="pc bpc" id="L408" title="1 of 2 branches missed.">		if (exchange.getCryptographicContextID() == null) {</span>
+<span class="nc bnc" id="L409" title="All 4 branches missed.">			if (response.getOptions().hasObserve() &amp;&amp; request.getOptions().hasObserve()) {</span>
+
+				// Since the exchange object has been re-created the
+				// cryptographic id doesn't exist
+<span class="nc bnc" id="L413" title="All 2 branches missed.">				if (options.hasOscore()) {</span>
+<span class="nc" id="L414">					String uri = request.getURI();</span>
+					try {
+<span class="nc" id="L416">						OSCoreCtx ctx = ctxDb.getContext(uri);</span>
+<span class="nc" id="L417">						exchange.setCryptographicContextID(ctx.getRecipientId());</span>
+<span class="nc" id="L418">					} catch (OSException e) {</span>
+<span class="nc" id="L419">						LOGGER.error(&quot;Error when re-creating exchange at OSCORE level&quot;);</span>
+<span class="nc" id="L420">						throw new OSException(&quot;Error when re-creating exchange at OSCORE level&quot;);</span>
+<span class="nc" id="L421">					}</span>
+				}
+			}
+		}
+<span class="pc bpc" id="L425" title="1 of 2 branches missed.">		return exchange.getCryptographicContextID() != null;</span>
+	}
+
+	private static boolean shouldProtectRequest(Request request) {
+<span class="fc" id="L429">		OptionSet options = request.getOptions();</span>
+<span class="fc" id="L430">		return options.hasOption(OptionNumberRegistry.OSCORE);</span>
+
+	}
+
+	private static boolean isProtected(Message message) {
+<span class="fc bfc" id="L435" title="All 2 branches covered.">		return message.getOptions().getOscore() != null;</span>
+	}
+
+	/**
+	 * Check if a message being sent exceeds the MAX_UNFRAGMENTED_SIZE and is
+	 * not using inner block-wise. If so it should not be sent.
+	 * 
+	 * @param message the CoAP message
+	 * @param outerBlockwise {@code true}, for outer, {@code false}, for inner blockwise
+	 * @param maxUnfragmentedSize the MAX_UNFRAGMENTED_SIZE value
+	 * 
+	 * @return if the message exceeds the MAX_UNFRAGMENTED_SIZE
+	 */
+	private boolean outgoingExceedsMaxUnfragSize(Message message, boolean outerBlockwise,
+			int maxUnfragmentedSize) {
+
+<span class="fc bfc" id="L451" title="All 2 branches covered.">		boolean usesInnerBlockwise = (message.getOptions().hasBlock1() == true</span>
+<span class="pc bpc" id="L452" title="2 of 4 branches missed.">				|| message.getOptions().hasBlock2() == true) &amp;&amp; outerBlockwise == false;</span>
+
+<span class="pc bpc" id="L454" title="1 of 4 branches missed.">		if (message.getPayloadSize() &gt; maxUnfragmentedSize &amp;&amp; usesInnerBlockwise == false) {</span>
+<span class="fc" id="L455">			return true;</span>
+		} else {
+<span class="fc" id="L457">			return false;</span>
+		}
+
+	}
+
+	/**
+	 * Gets the MAX_UNFRAGMENTED_SIZE size for an incoming block-wise transfer.
+	 * If outer block-wise is used this value will be set using
+	 * setMaxResourceBodySize on the incoming request or response and enforced
+	 * in the BlockwiseLayer. Reception of messages where the cumulative payload
+	 * size exceeds this value will be aborted.
+	 * 
+	 * @param message the CoAP message
+	 * @param ctx the context used
+	 * 
+	 * @return the MAX_UNFRAGMENTED_SIZE value to be used
+	 */
+	private int getIncomingMaxUnfragSize(Message message, OSCoreCtx ctx) {
+
+		// No limit if no context is found. A null context will be handled later
+<span class="pc bpc" id="L477" title="1 of 2 branches missed.">		if (ctx == null) {</span>
+<span class="nc" id="L478">			return 0;</span>
+		} else {
+<span class="fc" id="L480">			return ctx.getMaxUnfragmentedSize();</span>
+		}
+
+	}
+
+	/**
+	 * Separate version of method for handling responses.
+	 * 
+	 * @param message the CoAP message
+	 * @param ctxDb the context database used
+	 * @return the MAX_UNFRAGMENTED_SIZE value to be used
+	 */
+	private int getIncomingMaxUnfragSize(Message message, OSCoreCtxDB ctxDb) {
+<span class="fc" id="L493">		OSCoreCtx ctx = null;</span>
+<span class="pc bpc" id="L494" title="1 of 2 branches missed.">		if (message instanceof Response) {</span>
+<span class="fc" id="L495">			ctx = ctxDb.getContextByToken(message.getToken());</span>
+		}
+
+<span class="fc" id="L498">		return getIncomingMaxUnfragSize(message, ctx);</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

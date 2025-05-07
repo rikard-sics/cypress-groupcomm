@@ -1,0 +1,466 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Encryptor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore</a> &gt; <span class="el_source">Encryptor.java</span></div><h1>Encryptor.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2018 RISE SICS and others.
+ * 
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * and Eclipse Distribution License v1.0 which accompany this distribution.
+ * 
+ * The Eclipse Public License is available at
+ *    http://www.eclipse.org/legal/epl-v20.html
+ * and the Eclipse Distribution License is available at
+ *    http://www.eclipse.org/org/documents/edl-v10.html.
+ * 
+ * Contributors:
+ *    Joakim Brorsson
+ *    Ludwig Seitz (RISE SICS)
+ *    Tobias Andersson (RISE SICS)
+ *    Rikard Höglund (RISE SICS)
+ *    
+ ******************************************************************************/
+package org.eclipse.californium.oscore;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+
+import org.eclipse.californium.core.Utils;
+import org.eclipse.californium.core.coap.CoAP;
+import org.eclipse.californium.core.coap.Message;
+import org.eclipse.californium.core.coap.OptionSet;
+import org.eclipse.californium.core.coap.Request;
+import org.eclipse.californium.cose.AlgorithmID;
+import org.eclipse.californium.cose.Attribute;
+import org.eclipse.californium.cose.CoseException;
+import org.eclipse.californium.cose.CounterSign1;
+import org.eclipse.californium.cose.Encrypt0Message;
+import org.eclipse.californium.cose.HeaderKeys;
+import org.eclipse.californium.cose.OneKey;
+import org.eclipse.californium.elements.util.Bytes;
+import org.eclipse.californium.oscore.group.GroupSenderCtx;
+import org.eclipse.californium.oscore.group.OptionEncoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.upokecenter.cbor.CBORObject;
+
+/**
+ * 
+ * Gathers generalized methods for encryption and compression of OSCORE
+ * protected messages. Also encodes the OSCORE option.
+ *
+ */
+<span class="nc" id="L51">public abstract class Encryptor {</span>
+
+	/**
+	 * The logger
+	 */
+<span class="fc" id="L56">	private static final Logger LOGGER = LoggerFactory.getLogger(Encryptor.class);</span>
+
+	protected static byte[] encryptAndEncode(Encrypt0Message enc, OSCoreCtx ctx, Message message,
+			boolean newPartialIV) throws OSException {
+<span class="fc" id="L60">		return encryptAndEncode(enc, ctx, message, newPartialIV, null);</span>
+	}
+	/**
+	 * Encrypt the COSE message using the OSCore context.
+	 * 
+	 * @param enc the encrypt structure
+	 * @param ctx the OSCore context
+	 * @param message the message
+	 * @param newPartialIV if response contains partialIV
+	 * @param correspondingReqOption the OSCORE option of the corresponding request
+	 *
+	 * @return the COSE message
+	 * 
+	 * @throws OSException if encryption or encoding fails
+	 */
+	protected static byte[] encryptAndEncode(Encrypt0Message enc, OSCoreCtx ctx, Message message, boolean newPartialIV,
+			byte[] correspondingReqOption)
+			throws OSException {
+<span class="fc" id="L78">		boolean isRequest = message instanceof Request;</span>
+
+<span class="fc" id="L80">		AlgorithmID encryptionAlg = ctx.getAlg();</span>
+
+		try {
+<span class="fc" id="L83">			byte[] key = ctx.getSenderKey();</span>
+<span class="fc" id="L84">			byte[] partialIV = null;</span>
+<span class="fc" id="L85">			byte[] nonce = null;</span>
+<span class="fc" id="L86">			byte[] aad = null;</span>
+<span class="fc" id="L87">			byte[] recipientId = null;</span>
+
+<span class="fc bfc" id="L89" title="All 2 branches covered.">			if (isRequest) {</span>
+<span class="fc" id="L90">				partialIV = OSSerializer.processPartialIV(ctx.getSenderSeq());</span>
+<span class="fc" id="L91">				nonce = OSSerializer.nonceGeneration(partialIV, ctx.getSenderId(), ctx.getCommonIV(),</span>
+<span class="fc" id="L92">						ctx.getIVLength());</span>
+<span class="fc" id="L93">				aad = OSSerializer.serializeAAD(CoAP.VERSION, ctx.getAlg(), ctx.getSenderSeq(), ctx.getSenderId(), message.getOptions());</span>
+<span class="fc" id="L94">				enc.addAttribute(HeaderKeys.PARTIAL_IV, CBORObject.FromObject(partialIV), Attribute.UNPROTECTED);</span>
+<span class="fc" id="L95">				enc.addAttribute(HeaderKeys.KID, CBORObject.FromObject(ctx.getSenderId()), Attribute.UNPROTECTED);</span>
+			} else {
+
+				// TODO: Include KID for responses here too?
+
+<span class="fc" id="L100">				recipientId = null;</span>
+<span class="fc" id="L101">				int requestSeq = 0;</span>
+
+				
+				// TODO: Get recipientId and seqNr from message as below
+<span class="fc bfc" id="L105" title="All 2 branches covered.">				if (ctx.isGroupContext() == false) {</span>
+<span class="fc" id="L106">					recipientId = ctx.getRecipientId();</span>
+<span class="fc" id="L107">					requestSeq = ctx.getReceiverSeq();</span>
+
+<span class="pc bpc" id="L109" title="1 of 2 branches missed.">				} else if (ctx.isGroupContext()) {</span>
+					// For Group OSCORE use RID and seq from request
+<span class="fc" id="L111">					recipientId = OptionJuggle.getRid(correspondingReqOption);</span>
+<span class="fc" id="L112">					requestSeq = OptionJuggle.getPartialIV(correspondingReqOption);</span>
+				}
+
+<span class="fc bfc" id="L115" title="All 2 branches covered.">				if (!newPartialIV) {</span>
+					// use nonce from request
+<span class="fc" id="L117">					partialIV = OSSerializer.processPartialIV(requestSeq);</span>
+<span class="fc" id="L118">					nonce = OSSerializer.nonceGeneration(partialIV, recipientId, ctx.getCommonIV(),</span>
+<span class="fc" id="L119">							ctx.getIVLength());</span>
+				} else {
+					// response creates its own partialIV
+<span class="fc" id="L122">					partialIV = OSSerializer.processPartialIV(ctx.getSenderSeq());</span>
+<span class="fc" id="L123">					nonce = OSSerializer.nonceGeneration(partialIV, ctx.getSenderId(), ctx.getCommonIV(),</span>
+<span class="fc" id="L124">							ctx.getIVLength());</span>
+				}
+<span class="fc" id="L126">				aad = OSSerializer.serializeAAD(CoAP.VERSION, ctx.getAlg(), requestSeq, recipientId,</span>
+<span class="fc" id="L127">						message.getOptions());</span>
+
+			}
+
+<span class="fc" id="L131">			System.out.println(&quot;Encrypting outgoing &quot; + message.getClass().getSimpleName());</span>
+			// System.out.println(&quot;Key &quot; + Utils.toHexString(ctx.getSenderKey()));
+			// System.out.println(&quot;PartialIV &quot; + Utils.toHexString(partialIV));
+			// System.out.println(&quot;Nonce &quot; + Utils.toHexString(nonce));
+			// System.out.println(&quot;AAD &quot; + Utils.toHexString(aad));
+
+			// Handle Group OSCORE messages
+<span class="fc" id="L138">			boolean groupModeMessage = false;</span>
+<span class="fc bfc" id="L139" title="All 2 branches covered.">			if (ctx.isGroupContext()) {</span>
+
+<span class="pc bpc" id="L141" title="1 of 4 branches missed.">				boolean pairwiseResponse = ((GroupSenderCtx) ctx).getPairwiseModeResponses() &amp;&amp; !isRequest;</span>
+<span class="pc bpc" id="L142" title="1 of 4 branches missed.">				boolean pairwiseRequest = OptionEncoder.getPairwiseMode(message.getOptions().getOscore()) &amp;&amp; isRequest;</span>
+<span class="fc bfc" id="L143" title="All 4 branches covered.">				groupModeMessage = !pairwiseResponse &amp;&amp; !pairwiseRequest;</span>
+
+<span class="fc bfc" id="L145" title="All 2 branches covered.">				LOGGER.debug(&quot;Encrypting outgoing &quot; + message.getClass().getSimpleName()</span>
+						+ &quot; using Group OSCORE. Pairwise mode: &quot; + !groupModeMessage);
+<span class="fc bfc" id="L147" title="All 2 branches covered.">				System.out.println(&quot;Encrypting outgoing &quot; + message.getClass().getSimpleName()</span>
+						+ &quot; using Group OSCORE. Pairwise mode: &quot; + !groupModeMessage);
+
+				// Update external AAD value for Group OSCORE
+<span class="fc" id="L151">				aad = OSSerializer.updateAADForGroup(ctx, aad, message);</span>
+
+				// System.out.println(&quot;Encrypting outgoing &quot; + message.getClass().getSimpleName() + &quot; with AAD &quot;
+				// 		+ Utils.toHexString(aad));
+
+				// System.out.println(&quot;Encrypting outgoing &quot; + message.getClass().getSimpleName() + &quot; with nonce &quot;
+				// 		+ Utils.toHexString(nonce));
+
+				// If this is a pairwise response/request use the pairwise key
+<span class="fc bfc" id="L160" title="All 2 branches covered.">				if (pairwiseResponse) {</span>
+<span class="fc" id="L161">					key = ((GroupSenderCtx) ctx).getPairwiseSenderKey(OptionJuggle.getRid(correspondingReqOption));</span>
+<span class="fc bfc" id="L162" title="All 2 branches covered.">				} else if (pairwiseRequest) {</span>
+					// Get RID of intended recipient encoded in option
+<span class="fc" id="L164">					byte[] recipientRID = OptionEncoder.getRID(message.getOptions().getOscore());</span>
+<span class="fc" id="L165">					key = ((GroupSenderCtx) ctx).getPairwiseSenderKey(recipientRID);</span>
+<span class="fc" id="L166">				} else {</span>
+					// If group mode is used prepare adding the signature
+<span class="fc" id="L168">					encryptionAlg = ((GroupSenderCtx) ctx).getAlgSignEnc();</span>
+<span class="fc" id="L169">					prepareSignature(enc, ctx, aad, message);</span>
+				}
+
+			}
+
+<span class="fc" id="L174">			enc.setExternal(aad);</span>
+			
+<span class="fc" id="L176">			enc.addAttribute(HeaderKeys.IV, CBORObject.FromObject(nonce), Attribute.DO_NOT_SEND);</span>
+<span class="fc" id="L177">			enc.addAttribute(HeaderKeys.Algorithm, encryptionAlg.AsCBOR(), Attribute.DO_NOT_SEND);</span>
+
+<span class="fc" id="L179">			enc.encrypt(key);</span>
+
+<span class="fc bfc" id="L181" title="All 2 branches covered.">			if (groupModeMessage) {</span>
+				// Encrypt the signature.
+<span class="fc bfc" id="L183" title="All 4 branches covered.">				if (isRequest || newPartialIV) {</span>
+<span class="fc" id="L184">					encryptSignature(enc, (GroupSenderCtx) ctx, partialIV, ctx.getSenderId(), isRequest);</span>
+				} else {
+<span class="fc" id="L186">					encryptSignature(enc, (GroupSenderCtx) ctx, partialIV, recipientId, isRequest);</span>
+				}
+
+				// Append the signature
+<span class="fc" id="L190">				appendSignature(enc);</span>
+			}
+
+<span class="fc" id="L193">			return enc.getEncryptedContent();</span>
+<span class="nc" id="L194">		} catch (CoseException e) {</span>
+<span class="nc" id="L195">			LOGGER.error(&quot;COSE/Crypto exception: &quot; + e.getMessage());</span>
+<span class="nc" id="L196">			throw new OSException(e.getMessage());</span>
+		}
+	}
+
+	/**
+	 * Initiates the encrypt0message object and sets the confidential (plaintext
+	 * to be encrypted).
+	 * 
+	 * @param confidential the plaintext to be encrypted
+	 * @return the initiated and prepared encrypt0message object
+	 */
+	protected static Encrypt0Message prepareCOSEStructure(byte[] confidential) {
+<span class="fc" id="L208">		Encrypt0Message enc = new Encrypt0Message(false, true);</span>
+<span class="fc" id="L209">		enc.SetContent(confidential);</span>
+<span class="fc" id="L210">		return enc;</span>
+	}
+
+	/**
+	 * Compresses the message by encoding the Object-Security value and sets the
+	 * message's payload to the cipherText.
+	 * 
+	 * @param ctx the OSCoreCtx
+	 * @param cipherText the cipher text to be appended to this compression
+	 * @param message the message
+	 * @param newPartialIV if response contains partialIV
+	 * @return the entire message's byte array
+	 */
+	protected static byte[] compression(OSCoreCtx ctx, byte[] cipherText, Message message, final boolean newPartialIV) {
+<span class="fc" id="L224">		boolean request = message instanceof Request;</span>
+<span class="fc" id="L225">		ByteArrayOutputStream bRes = new ByteArrayOutputStream();</span>
+<span class="fc" id="L226">		OptionSet options = message.getOptions();</span>
+<span class="fc bfc" id="L227" title="All 2 branches covered.">		boolean groupModeRequest = !(OptionEncoder.getPairwiseMode(options.getOscore())</span>
+<span class="pc bpc" id="L228" title="1 of 4 branches missed.">				&amp;&amp; message.getSourceContext() == null) &amp;&amp; ctx.isGroupContext();</span>
+<span class="fc" id="L229">		options.removeOscore();</span>
+
+<span class="fc bfc" id="L231" title="All 2 branches covered.">		if (request) {</span>
+<span class="fc" id="L232">			message.getOptions().setOscore(encodeOSCoreRequest(ctx, groupModeRequest));</span>
+		} else {
+<span class="fc" id="L234">			message.getOptions().setOscore(encodeOSCoreResponse(ctx, newPartialIV));</span>
+		}
+
+<span class="pc bpc" id="L237" title="1 of 2 branches missed.">		if (cipherText != null) {</span>
+<span class="fc" id="L238">			message.setPayload(cipherText);</span>
+		}
+
+<span class="fc" id="L241">		return bRes.toByteArray();</span>
+	}
+
+	// TODO: Remove?
+	public static byte[] encodeOSCoreRequest(OSCoreCtx ctx) {
+<span class="fc" id="L246">		return encodeOSCoreRequest(ctx, false);</span>
+	}
+
+	/**
+	 * Encodes the Object-Security value for a Request.
+	 * 
+	 * @param ctx the context
+	 * @param groupModeRequest if this is a Group OSCORE group mode request
+	 * @return the Object-Security value as byte array
+	 */
+	public static byte[] encodeOSCoreRequest(OSCoreCtx ctx, boolean groupModeRequest) {
+<span class="fc" id="L257">		int firstByte = 0x00;</span>
+<span class="fc" id="L258">		ByteArrayOutputStream bRes = new ByteArrayOutputStream();</span>
+<span class="fc" id="L259">		byte[] partialIV = OSSerializer.processPartialIV(ctx.getSenderSeq());</span>
+<span class="fc" id="L260">		firstByte = firstByte | (partialIV.length &amp; 0x07); //PartialIV length</span>
+<span class="fc" id="L261">		firstByte = firstByte | 0x08; //Set the KID bit</span>
+
+		//If the Context ID should be included for this context, set its bit
+<span class="fc bfc" id="L264" title="All 4 branches covered.">		if (ctx.getIncludeContextId() || ctx.isGroupContext()) {</span>
+<span class="fc" id="L265">			firstByte = firstByte | 0x10;</span>
+		}
+
+		// If this is a group mode request
+<span class="fc bfc" id="L269" title="All 2 branches covered.">		if (groupModeRequest) {</span>
+<span class="fc" id="L270">			firstByte = firstByte | 0x20;</span>
+		}
+
+<span class="fc" id="L273">		bRes.write(firstByte);</span>
+
+		try {
+<span class="fc" id="L276">			bRes.write(partialIV);</span>
+
+			//Encode the Context ID length and value if to be included
+<span class="fc bfc" id="L279" title="All 4 branches covered.">			if (ctx.getIncludeContextId() || ctx.isGroupContext()) {</span>
+<span class="fc" id="L280">				bRes.write(ctx.getMessageIdContext().length);</span>
+<span class="fc" id="L281">				bRes.write(ctx.getMessageIdContext());</span>
+			}
+
+			//Encode Sender ID (KID)
+<span class="fc" id="L285">			bRes.write(ctx.getSenderId());</span>
+<span class="nc" id="L286">		} catch (IOException e) {</span>
+<span class="nc" id="L287">			e.printStackTrace();</span>
+<span class="fc" id="L288">		}</span>
+<span class="fc" id="L289">		return bRes.toByteArray();</span>
+	}
+
+	/**
+	 * Encodes the Object-Security value for a Response.
+	 * 
+	 * @param ctx the context
+	 * @param newPartialIV if true encodes the partialIV, otherwise partialIV is
+	 *            not encoded
+	 * @return the Object-Security value as byte array
+	 */
+	public static byte[] encodeOSCoreResponse(OSCoreCtx ctx, final boolean newPartialIV) {
+<span class="fc" id="L301">		int firstByte = 0x00;</span>
+<span class="fc" id="L302">		ByteArrayOutputStream bRes = new ByteArrayOutputStream();</span>
+
+		//If the Context ID should be included for this context, set its bit
+<span class="fc bfc" id="L305" title="All 2 branches covered.">		if (ctx.getIncludeContextId()) {</span>
+<span class="fc" id="L306">			firstByte = firstByte | 0x10;</span>
+		}
+
+		// If the KID should be included (Group OSCORE), set its bit
+<span class="fc bfc" id="L310" title="All 2 branches covered.">		if (ctx.isGroupContext()) {</span>
+<span class="fc" id="L311">			firstByte = firstByte | 0x08;</span>
+		}
+
+		// If this is a group mode response
+<span class="fc bfc" id="L315" title="All 4 branches covered.">		if (ctx instanceof GroupSenderCtx &amp;&amp; ((GroupSenderCtx) ctx).getPairwiseModeResponses() == false) {</span>
+<span class="fc" id="L316">			firstByte = firstByte | 0x20;</span>
+		}
+
+<span class="fc bfc" id="L319" title="All 2 branches covered.">		if (newPartialIV) {</span>
+<span class="fc" id="L320">			byte[] partialIV = OSSerializer.processPartialIV(ctx.getSenderSeq());</span>
+<span class="fc" id="L321">			firstByte = firstByte | (partialIV.length &amp; 0x07);</span>
+
+<span class="fc" id="L323">			bRes.write(firstByte);</span>
+			try {
+<span class="fc" id="L325">				bRes.write(partialIV);</span>
+<span class="nc" id="L326">			} catch (IOException e) {</span>
+<span class="nc" id="L327">				e.printStackTrace();</span>
+<span class="fc" id="L328">			}</span>
+<span class="fc" id="L329">		} else {</span>
+<span class="fc" id="L330">			bRes.write(firstByte);</span>
+		}
+
+		//Encode the Context ID length and value if to be included
+<span class="fc bfc" id="L334" title="All 2 branches covered.">		if (ctx.getIncludeContextId()) {</span>
+			try {
+<span class="fc" id="L336">				bRes.write(ctx.getMessageIdContext().length);</span>
+<span class="fc" id="L337">				bRes.write(ctx.getMessageIdContext());</span>
+<span class="nc" id="L338">			} catch (IOException e) {</span>
+<span class="nc" id="L339">				e.printStackTrace();</span>
+<span class="fc" id="L340">			}</span>
+		}
+		
+		//For Group OSCORE always include the KID (Sender ID) in responses
+<span class="fc bfc" id="L344" title="All 2 branches covered.">		if (ctx.isGroupContext()) {</span>
+			try {
+<span class="fc" id="L346">				bRes.write(ctx.getSenderId());</span>
+<span class="nc" id="L347">			} catch (IOException e) {</span>
+<span class="nc" id="L348">				e.printStackTrace();</span>
+<span class="fc" id="L349">			}</span>
+		}
+
+		//If the OSCORE option is length 1 and 0x00, it should be empty
+		//See https://tools.ietf.org/html/draft-ietf-core-object-security-16#section-2
+<span class="fc" id="L354">		byte[] optionBytes = bRes.toByteArray();</span>
+<span class="pc bpc" id="L355" title="1 of 4 branches missed.">		if (optionBytes.length == 1 &amp;&amp; optionBytes[0] == 0x00) {</span>
+<span class="fc" id="L356">			return Bytes.EMPTY;</span>
+		} else {
+<span class="fc" id="L358">			return optionBytes;</span>
+		}
+	}
+
+	private static void prepareSignature(Encrypt0Message enc, OSCoreCtx ctx, byte[] aad, Message message) {
+<span class="fc" id="L363">		GroupSenderCtx senderCtx = (GroupSenderCtx) ctx;</span>
+		
+<span class="fc" id="L365">		OneKey senderPrivateKey = senderCtx.getPrivateKey();</span>
+<span class="fc" id="L366">		CounterSign1 sign = new CounterSign1(senderPrivateKey);</span>
+
+<span class="fc" id="L368">		CBORObject signAlg = senderCtx.getAlgSign().AsCBOR();</span>
+		try {
+<span class="fc" id="L370">			sign.addAttribute(HeaderKeys.Algorithm, signAlg, Attribute.DO_NOT_SEND);</span>
+<span class="nc" id="L371">		} catch (CoseException e) {</span>
+<span class="nc" id="L372">			LOGGER.error(&quot;Failed to prepare the Countersignature.&quot;);</span>
+<span class="nc" id="L373">			e.printStackTrace();</span>
+<span class="fc" id="L374">		}</span>
+
+<span class="fc" id="L376">		enc.setCountersign1(sign);</span>
+
+<span class="fc" id="L378">		byte[] signAad = aad;</span>
+<span class="fc" id="L379">		sign.setExternal(signAad); // Set external AAD for signing</span>
+
+<span class="fc" id="L381">		System.out.println(&quot;Signing outgoing &quot; + message.getClass().getSimpleName() + &quot; with sign AAD &quot;</span>
+<span class="fc" id="L382">				+ Utils.toHexString(signAad));</span>
+
+<span class="fc" id="L384">	}</span>
+
+	private static void appendSignature(Encrypt0Message enc) {
+<span class="fc" id="L387">		CBORObject mySignature = enc.getUnprotectedAttributes().get(HeaderKeys.CounterSignature0.AsCBOR());</span>
+<span class="fc" id="L388">		byte[] countersignBytes = mySignature.GetByteString();</span>
+
+<span class="fc" id="L390">		byte[] ciphertext = null;</span>
+		try {
+<span class="fc" id="L392">			ciphertext = enc.getEncryptedContent();</span>
+<span class="nc" id="L393">		} catch (CoseException e) {</span>
+<span class="nc" id="L394">			LOGGER.error(&quot;Failed to append the Countersignature.&quot;);</span>
+<span class="nc" id="L395">			e.printStackTrace();</span>
+<span class="fc" id="L396">		}</span>
+
+<span class="fc" id="L398">		ByteArrayOutputStream os = new ByteArrayOutputStream();</span>
+		try {
+<span class="fc" id="L400">			os.write(ciphertext);</span>
+<span class="fc" id="L401">			os.write(countersignBytes);</span>
+<span class="nc" id="L402">		} catch (IOException e) {</span>
+<span class="nc" id="L403">			LOGGER.error(&quot;Failed to append the Countersignature.&quot;);</span>
+<span class="nc" id="L404">			e.printStackTrace();</span>
+<span class="fc" id="L405">		}</span>
+
+<span class="fc" id="L407">		byte[] fullPayload = os.toByteArray();</span>
+
+		// System.out.println(&quot;countersignBytes len: &quot; + countersignBytes.length);
+		// System.out.println(&quot;ciphertext len: &quot; + ciphertext.length);
+<span class="fc" id="L411">		enc.setEncryptedContent(fullPayload);</span>
+<span class="fc" id="L412">	}</span>
+
+	private static void encryptSignature(Encrypt0Message enc, GroupSenderCtx ctx, byte[] partialIV, byte[] kid,
+			boolean isRequest) {
+
+		// Derive the keystream
+<span class="fc" id="L418">		String digest = &quot;&quot;;</span>
+<span class="pc bpc" id="L419" title="1 of 2 branches missed.">		if (ctx.getKdf().toString().contains(&quot;SHA_256&quot;)) {</span>
+<span class="fc" id="L420">			digest = &quot;SHA256&quot;;</span>
+<span class="nc bnc" id="L421" title="All 2 branches missed.">		} else if (ctx.getKdf().toString().contains(&quot;SHA_512&quot;)) {</span>
+<span class="nc" id="L422">			digest = &quot;SHA512&quot;;</span>
+		}
+
+<span class="fc" id="L425">		CBORObject info = CBORObject.NewArray();</span>
+<span class="fc" id="L426">		int keyLength = ctx.getCommonCtx().getCountersignatureLen();</span>
+
+<span class="fc" id="L428">		info = CBORObject.NewArray();</span>
+<span class="fc" id="L429">		info.Add(kid);</span>
+<span class="fc" id="L430">		info.Add(ctx.getIdContext());</span>
+<span class="fc" id="L431">		info.Add(isRequest);</span>
+<span class="fc" id="L432">		info.Add(keyLength);</span>
+
+<span class="fc" id="L434">		byte[] groupEncryptionKey = ctx.getCommonCtx().getGroupEncryptionKey();</span>
+<span class="fc" id="L435">		byte[] keystream = null;</span>
+		try {
+<span class="fc" id="L437">			keystream = OSCoreCtx.deriveKey(groupEncryptionKey, partialIV, keyLength, digest, info.EncodeToBytes());</span>
+
+<span class="nc" id="L439">		} catch (CoseException e) {</span>
+<span class="nc" id="L440">			System.err.println(e.getMessage());</span>
+<span class="fc" id="L441">		}</span>
+
+		// System.out.println(&quot;===&quot;);
+		// System.out.println(&quot;E Signature keystream: &quot; + Utils.toHexString(keystream));
+		// System.out.println(&quot;E groupEncryptionKey: &quot; + Utils.toHexString(groupEncryptionKey));
+		// System.out.println(&quot;E partialIV: &quot; + Utils.toHexString(partialIV));
+		// System.out.println(&quot;E kid: &quot; + Utils.toHexString(kid));
+		// System.out.println(&quot;E IdContext: &quot; + Utils.toHexString(ctx.getIdContext()));
+		// System.out.println(&quot;E isRequest: &quot; + isRequest);
+		// System.out.println(&quot;===&quot;);
+
+		// Now actually encrypt the signature
+<span class="fc" id="L453">		byte[] countersignBytes = enc.getUnprotectedAttributes().get(HeaderKeys.CounterSignature0.AsCBOR())</span>
+<span class="fc" id="L454">				.GetByteString();</span>
+
+<span class="fc" id="L456">		byte[] encryptedCountersign = new byte[keystream.length];</span>
+<span class="fc bfc" id="L457" title="All 2 branches covered.">		for (int i = 0; i &lt; keystream.length; i++) {</span>
+<span class="fc" id="L458">			encryptedCountersign[i] = (byte) (countersignBytes[i] ^ keystream[i]);</span>
+		}
+
+		// Replace the signature in the Encrypt0 object
+<span class="fc" id="L462">		enc.getUnprotectedAttributes().set(HeaderKeys.CounterSignature0.AsCBOR(),</span>
+<span class="fc" id="L463">				CBORObject.FromObject(encryptedCountersign));</span>
+<span class="fc" id="L464">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

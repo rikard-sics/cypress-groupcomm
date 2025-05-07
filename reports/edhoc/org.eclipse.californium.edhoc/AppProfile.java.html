@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AppProfile.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-EDHOC</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.edhoc</a> &gt; <span class="el_source">AppProfile.java</span></div><h1>AppProfile.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2020 RISE and others.
+ * 
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * and Eclipse Distribution License v1.0 which accompany this distribution.
+ * 
+ * The Eclipse Public License is available at
+ *    http://www.eclipse.org/legal/epl-v20.html
+ * and the Eclipse Distribution License is available at
+ *    http://www.eclipse.org/org/documents/edl-v10.html.
+ * 
+ * Contributors:
+ *    Marco Tiloca (RISE)
+ *    Rikard Höglund (RISE)
+ *    
+ ******************************************************************************/
+
+package org.eclipse.californium.edhoc;
+
+import java.util.HashSet;
+import java.util.Set;
+
+public class AppProfile {
+
+	// Supported authentication methods
+<span class="fc" id="L27">	Set&lt;Integer&gt; authMethods = new HashSet&lt;Integer&gt;();</span>
+		
+	// Set to true if message_4 has to be sent by the Responder
+	private boolean useMessage4;
+	
+	// Set to true if used for keying OSCORE
+	private boolean usedForOSCORE;
+	
+	// Set to true if supporting the EDHOC+OSCORE request
+	// If set to true, it implies conversionMethodOscoreToEdhoc equal to CONVERSION_ID_CORE (1)
+	private boolean supportCombinedRequest;
+	
+<span class="fc" id="L39">	public AppProfile(Set&lt;Integer&gt; authMethods, boolean useMessage4, boolean usedForOSCORE, boolean supportCombinedRequest) {</span>
+		
+<span class="fc" id="L41">		this.authMethods = authMethods;</span>
+<span class="fc" id="L42">		this.useMessage4 = useMessage4;</span>
+<span class="fc" id="L43">		this.usedForOSCORE = usedForOSCORE;</span>
+<span class="fc" id="L44">		this.supportCombinedRequest = supportCombinedRequest;</span>
+		
+<span class="fc" id="L46">	}</span>
+	
+	public boolean isAuthMethodSupported(int method) {
+		
+<span class="fc" id="L50">		return authMethods.contains(method);</span>
+		
+	}
+	
+	public boolean getUseMessage4() {
+		
+<span class="fc" id="L56">		return this.useMessage4;</span>
+		
+	}
+	
+	public boolean getUsedForOSCORE() {
+		
+<span class="fc" id="L62">		return this.usedForOSCORE;</span>
+		
+	}
+	
+	public boolean getSupportCombinedRequest() {
+		
+<span class="fc" id="L68">		return this.supportCombinedRequest;</span>
+		
+	}
+	
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

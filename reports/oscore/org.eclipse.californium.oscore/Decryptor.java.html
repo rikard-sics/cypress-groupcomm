@@ -1,0 +1,492 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Decryptor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore</a> &gt; <span class="el_source">Decryptor.java</span></div><h1>Decryptor.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2018 RISE SICS and others.
+ * 
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * and Eclipse Distribution License v1.0 which accompany this distribution.
+ * 
+ * The Eclipse Public License is available at
+ *    http://www.eclipse.org/legal/epl-v20.html
+ * and the Eclipse Distribution License is available at
+ *    http://www.eclipse.org/org/documents/edl-v10.html.
+ * 
+ * Contributors:
+ *    Joakim Brorsson
+ *    Ludwig Seitz (RISE SICS)
+ *    Tobias Andersson (RISE SICS)
+ *    Rikard Höglund (RISE SICS)
+ *    
+ ******************************************************************************/
+package org.eclipse.californium.oscore;
+
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.eclipse.californium.core.Utils;
+import org.eclipse.californium.core.coap.CoAP;
+import org.eclipse.californium.core.coap.Message;
+import org.eclipse.californium.core.coap.OptionSet;
+import org.eclipse.californium.core.coap.Request;
+import org.eclipse.californium.cose.Encrypt0Message;
+
+import com.upokecenter.cbor.CBORObject;
+
+import org.eclipse.californium.cose.AlgorithmID;
+import org.eclipse.californium.cose.Attribute;
+import org.eclipse.californium.cose.CoseException;
+import org.eclipse.californium.cose.CounterSign1;
+import org.eclipse.californium.cose.HeaderKeys;
+import org.eclipse.californium.cose.OneKey;
+import org.eclipse.californium.elements.util.Bytes;
+import org.eclipse.californium.oscore.group.GroupRecipientCtx;
+
+/**
+ * 
+ * Gathers generalized methods for decryption and decompression of OSCORE
+ * protected messages. Also provides decoding of the encoded OSCORE option
+ *
+ */
+<span class="pc bpc" id="L51" title="1 of 2 branches missed.">public abstract class Decryptor {</span>
+	/**
+	 * Java 1.6 compatibility.
+	 */
+	public static final int INTEGER_BYTES = Integer.SIZE / Byte.SIZE;
+
+	/**
+	 * The logger
+	 */
+<span class="fc" id="L60">	private static final Logger LOGGER = LoggerFactory.getLogger(Decryptor.class);</span>
+
+	/**
+	 * Empty option set
+	 */
+<span class="fc" id="L65">	protected static final OptionSet EMPTY = new OptionSet();</span>
+
+	/**
+	 * Decrypts and decodes the message.
+	 * 
+	 * @param enc the COSE structure
+	 * @param message the message
+	 * @param ctx the OSCore context
+	 * @param seqByToken the sequence number
+	 * 
+	 * @return the decrypted plaintext
+	 *
+	 * @throws OSException if decryption or decoding fails
+	 */
+	protected static byte[] decryptAndDecode(Encrypt0Message enc, Message message, OSCoreCtx ctx, Integer seqByToken)
+			throws OSException {
+<span class="fc" id="L81">		int seq = -2;</span>
+<span class="fc" id="L82">		boolean isRequest = message instanceof Request;</span>
+<span class="fc" id="L83">		byte[] nonce = null;</span>
+<span class="fc" id="L84">		byte[] partialIV = null;</span>
+<span class="fc" id="L85">		byte[] aad = null;</span>
+
+<span class="fc" id="L87">		AlgorithmID decryptionAlg = ctx.getAlg();</span>
+<span class="fc" id="L88">		CBORObject piv = enc.findAttribute(HeaderKeys.PARTIAL_IV);</span>
+
+<span class="fc bfc" id="L90" title="All 2 branches covered.">		if (isRequest) {</span>
+
+<span class="pc bpc" id="L92" title="1 of 2 branches missed.">			if (piv == null) {</span>
+<span class="nc" id="L93">				LOGGER.error(&quot;Decryption failed: no partialIV in request&quot;);</span>
+<span class="nc" id="L94">				throw new OSException(ErrorDescriptions.DECRYPTION_FAILED);</span>
+			} else {
+
+<span class="fc" id="L97">				partialIV = piv.GetByteString();</span>
+<span class="fc" id="L98">				partialIV = expandToIntSize(partialIV);</span>
+<span class="fc" id="L99">				seq = ByteBuffer.wrap(partialIV).getInt();</span>
+				
+				//Note that the code below can throw an OSException when replays are detected
+<span class="fc" id="L102">				ctx.checkIncomingSeq(seq);</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">				if (ctx.isGroupContext()) {</span>
+<span class="pc bpc" id="L104" title="2 of 4 branches missed.">					assert ctx instanceof GroupRecipientCtx;</span>
+				}
+
+<span class="fc" id="L107">				nonce = OSSerializer.nonceGeneration(partialIV, ctx.getRecipientId(), ctx.getCommonIV(),</span>
+<span class="fc" id="L108">						ctx.getIVLength());</span>
+<span class="fc" id="L109">				aad = OSSerializer.serializeAAD(CoAP.VERSION, ctx.getAlg(), seq, ctx.getRecipientId(), message.getOptions());</span>
+			}
+		} else {
+<span class="pc bpc" id="L112" title="1 of 2 branches missed.">			if (seqByToken == null) {</span>
+<span class="nc" id="L113">				LOGGER.error(&quot;Decryption failed: the arrived response is not connected to a request we sent&quot;);</span>
+<span class="nc" id="L114">				throw new OSException(ErrorDescriptions.DECRYPTION_FAILED);</span>
+			}
+		
+			//Sequence number taken from original request
+<span class="fc" id="L118">			seq = seqByToken;</span>
+
+<span class="fc bfc" id="L120" title="All 2 branches covered.">			if (piv == null) {</span>
+				//Use the partialIV that arrived in the original request (response has no partial IV)
+
+<span class="fc" id="L123">				partialIV = ByteBuffer.allocate(INTEGER_BYTES).putInt(seq).array();</span>
+<span class="fc" id="L124">				nonce = OSSerializer.nonceGeneration(partialIV,	ctx.getSenderId(), ctx.getCommonIV(), </span>
+<span class="fc" id="L125">						ctx.getIVLength());</span>
+			} else {
+				//Since the response contains a partial IV use it for nonce calculation
+
+<span class="fc" id="L129">				partialIV = piv.GetByteString();</span>
+<span class="fc" id="L130">				partialIV = expandToIntSize(partialIV);</span>
+<span class="fc" id="L131">				nonce = OSSerializer.nonceGeneration(partialIV, ctx.getRecipientId(), ctx.getCommonIV(),</span>
+<span class="fc" id="L132">						ctx.getIVLength());</span>
+			}
+
+			//Nonce calculation uses partial IV in response (if present).
+			//AAD calculation always uses partial IV (seq. nr.) of original request.  
+<span class="fc" id="L137">			aad = OSSerializer.serializeAAD(CoAP.VERSION, ctx.getAlg(), seq, ctx.getSenderId(), message.getOptions());</span>
+		}
+
+<span class="fc" id="L140">		System.out.println(&quot;Decrypting incoming &quot; + message.getClass().getSimpleName());</span>
+		// System.out.println(&quot;Key &quot; + Utils.toHexString(ctx.getRecipientKey()));
+		// System.out.println(&quot;PartialIV &quot; + Utils.toHexString(partialIV));
+		// System.out.println(&quot;Nonce &quot; + Utils.toHexString(nonce));
+		// System.out.println(&quot;AAD &quot; + Utils.toHexString(aad));
+
+<span class="fc" id="L146">		byte[] plaintext = null;</span>
+<span class="fc" id="L147">		byte[] key = ctx.getRecipientKey();</span>
+
+		// Handle Group OSCORE messages
+<span class="fc" id="L150">		CounterSign1 sign = null;</span>
+<span class="fc" id="L151">		boolean groupModeMessage = OptionJuggle.getGroupModeBit(message.getOptions().getOscore());</span>
+<span class="fc bfc" id="L152" title="All 2 branches covered.">		if (ctx.isGroupContext()) {</span>
+<span class="fc bfc" id="L153" title="All 2 branches covered.">			LOGGER.debug(&quot;Decrypting incoming &quot; + message.getClass().getSimpleName()</span>
+					+ &quot; using Group OSCORE. Pairwise mode: &quot; + !groupModeMessage);
+
+			// Update external AAD value for Group OSCORE
+<span class="fc" id="L157">			aad = OSSerializer.updateAADForGroup(ctx, aad, message);</span>
+
+<span class="fc bfc" id="L159" title="All 2 branches covered.">			System.out.println(&quot;Decrypting incoming &quot; + message.getClass().getSimpleName() + &quot;, using pairwise mode: &quot;</span>
+					+ !groupModeMessage);
+			// System.out.println(&quot;Decrypting incoming &quot; + message.getClass().getSimpleName() + &quot; with AAD &quot;
+			// 		+ Utils.toHexString(aad));
+
+			// System.out.println(&quot;Decrypting incoming &quot; + message.getClass().getSimpleName() + &quot; with nonce &quot;
+			// 		+ Utils.toHexString(nonce));
+
+			// If group mode is used prepare the signature checking
+<span class="fc bfc" id="L168" title="All 2 branches covered.">			if (groupModeMessage) {</span>
+<span class="fc" id="L169">				decryptionAlg = ((GroupRecipientCtx) ctx).getAlgSignEnc();</span>
+				// Decrypt the signature.
+<span class="fc bfc" id="L171" title="All 4 branches covered.">				if (isRequest || piv != null) {</span>
+<span class="fc" id="L172">					byte[] pivFromMessage = enc.findAttribute(HeaderKeys.PARTIAL_IV).GetByteString();</span>
+<span class="fc" id="L173">					decryptSignature(enc, sign, (GroupRecipientCtx) ctx, pivFromMessage, ctx.getRecipientId(),</span>
+							isRequest);
+<span class="fc" id="L175">				} else {</span>
+<span class="fc" id="L176">					byte[] pivFromOther = OSSerializer.stripZeroes(ByteBuffer.allocate(5).putInt(seq).array());</span>
+<span class="fc" id="L177">					decryptSignature(enc, sign, (GroupRecipientCtx) ctx, pivFromOther, ctx.getSenderId(), isRequest);</span>
+				}
+
+<span class="fc" id="L180">				sign = prepareCheckSignature(enc, ctx, aad, message);</span>
+			} else {
+				// If this is a pairwise response use the pairwise key
+<span class="fc" id="L183">				key = ((GroupRecipientCtx) ctx).getPairwiseRecipientKey();</span>
+			}
+		}
+
+<span class="fc" id="L187">		enc.setExternal(aad);</span>
+
+		// Check signature before decrypting
+<span class="fc bfc" id="L190" title="All 2 branches covered.">		if (groupModeMessage) {</span>
+			// Verify the signature
+<span class="fc" id="L192">			boolean signatureCorrect = checkSignature(enc, sign);</span>
+<span class="fc" id="L193">			LOGGER.debug(&quot;Signature verification succeeded: &quot; + signatureCorrect);</span>
+		}
+
+		try {
+			// TODO: Get and set Recipient ID (KID) here too?
+<span class="fc" id="L198">			enc.addAttribute(HeaderKeys.Algorithm, decryptionAlg.AsCBOR(), Attribute.DO_NOT_SEND);</span>
+<span class="fc" id="L199">			enc.addAttribute(HeaderKeys.IV, CBORObject.FromObject(nonce), Attribute.DO_NOT_SEND);</span>
+<span class="fc" id="L200">			plaintext = enc.decrypt(key);</span>
+
+<span class="fc" id="L202">		} catch (CoseException e) {</span>
+<span class="fc" id="L203">			LOGGER.error(ErrorDescriptions.DECRYPTION_FAILED + &quot; &quot; + e.getMessage());</span>
+<span class="fc" id="L204">			throw new OSException(ErrorDescriptions.DECRYPTION_FAILED + &quot; &quot; + e.getMessage());</span>
+<span class="fc" id="L205">		}</span>
+
+<span class="fc" id="L207">		return plaintext;</span>
+	}
+
+	/**
+	 * @param partialIV partial IV to expand
+	 * @return partial IV as byte array length of int
+	 * 
+	 * @throws OSException if the partial IV is longer than length of int
+	 */
+	private static byte[] expandToIntSize(byte[] partialIV) throws OSException {
+<span class="pc bpc" id="L217" title="1 of 2 branches missed.">		if (partialIV.length &gt; INTEGER_BYTES) {</span>
+<span class="nc" id="L218">			LOGGER.error(&quot;The partial IV is: &quot; + partialIV.length + &quot; long, &quot; + INTEGER_BYTES + &quot; was expected&quot;);</span>
+<span class="nc" id="L219">			throw new OSException(&quot;Partial IV too long&quot;);</span>
+<span class="fc bfc" id="L220" title="All 2 branches covered.">		} else if (partialIV.length == INTEGER_BYTES) {</span>
+<span class="fc" id="L221">			return partialIV;</span>
+		}
+<span class="fc" id="L223">		byte[] ret = new byte[INTEGER_BYTES];</span>
+<span class="fc bfc" id="L224" title="All 2 branches covered.">		for (int i = 0; i &lt; partialIV.length; i++) {</span>
+<span class="fc" id="L225">			ret[INTEGER_BYTES - partialIV.length + i] = partialIV[i];</span>
+		}
+<span class="fc" id="L227">		return ret;</span>
+
+	}
+
+	/**
+	 * @param protectedData the protected data to decrypt
+	 * @return the COSE structure
+	 */
+	protected static Encrypt0Message prepareCOSEStructure(byte[] protectedData) {
+<span class="nc" id="L236">		Encrypt0Message enc = new Encrypt0Message(false, true);</span>
+		try {
+<span class="nc" id="L238">			enc.DecodeFromCBORObject(CBORObject.DecodeFromBytes(protectedData));</span>
+<span class="nc" id="L239">		} catch (CoseException e) {</span>
+<span class="nc" id="L240">			e.printStackTrace();</span>
+<span class="nc" id="L241">		}</span>
+<span class="nc" id="L242">		return enc;</span>
+	}
+
+	/**
+	 * Decompress the message.
+	 * 
+	 * @param cipherText the encrypted data
+	 * @param message the received message
+	 * @return the Encrypt0Message
+	 * @throws OSException if OSCORE option fails to decode
+	 */
+	protected static Encrypt0Message decompression(byte[] cipherText, Message message) throws OSException {
+<span class="fc" id="L254">		Encrypt0Message enc = new Encrypt0Message(false, true);</span>
+
+		//Added try-catch for general Exception. The array manipulation can cause exceptions.
+		try {
+<span class="fc" id="L258">			decodeObjectSecurity(message, enc);</span>
+<span class="nc" id="L259">		} catch (OSException e) {</span>
+<span class="nc" id="L260">			LOGGER.error(e.getMessage());</span>
+<span class="nc" id="L261">			throw e;</span>
+<span class="nc" id="L262">		} catch (Exception e) {</span>
+<span class="nc" id="L263">			LOGGER.error(&quot;Failed to decode object security option.&quot;);</span>
+<span class="nc" id="L264">			throw new OSException(&quot;Failed to decode object security option.&quot;);</span>
+<span class="fc" id="L265">		}</span>
+
+<span class="pc bpc" id="L267" title="1 of 2 branches missed.">		if (cipherText != null)</span>
+<span class="fc" id="L268">			enc.setEncryptedContent(cipherText);</span>
+<span class="fc" id="L269">		return enc;</span>
+	}
+
+	/**
+	 * Decodes the Object-Security value.
+	 * 
+	 * @param message the received message
+	 * @param enc the Encrypt0Message object
+	 * @throws OSException if OSCORE option fails to decode
+	 */
+	private static void decodeObjectSecurity(Message message, Encrypt0Message enc) throws OSException {
+<span class="fc" id="L280">		byte[] total = message.getOptions().getOscore();</span>
+
+		/**
+		 * If the OSCORE option value is a zero length byte array
+		 * it represents a byte array of length 1 with a byte 0x00
+		 * See https://tools.ietf.org/html/draft-ietf-core-object-security-16#section-2  
+		 */
+<span class="fc bfc" id="L287" title="All 2 branches covered.">		if (total.length == 0) {</span>
+<span class="fc" id="L288">			total = new byte[] { 0x00 };</span>
+		}
+		
+<span class="fc" id="L291">		byte flagByte = total[0];</span>
+
+<span class="fc" id="L293">		int n = flagByte &amp; 0x07;</span>
+<span class="fc" id="L294">		int k = flagByte &amp; 0x08;</span>
+<span class="fc" id="L295">		int h = flagByte &amp; 0x10;</span>
+
+<span class="fc" id="L297">		byte[] partialIV = null;</span>
+<span class="fc" id="L298">		byte[] kid = null;</span>
+<span class="fc" id="L299">		byte[] kidContext = null;</span>
+<span class="fc" id="L300">		int index = 1;</span>
+
+		//Parsing Partial IV
+<span class="fc bfc" id="L303" title="All 2 branches covered.">		if (n &gt; 0) {</span>
+			try {
+<span class="fc" id="L305">				partialIV = Arrays.copyOfRange(total, index, index + n);</span>
+<span class="fc" id="L306">				index += n;</span>
+<span class="nc" id="L307">			} catch (Exception e) {</span>
+<span class="nc" id="L308">				LOGGER.error(&quot;Partial_IV is missing from message when it is expected.&quot;);</span>
+<span class="nc" id="L309">				throw new OSException(ErrorDescriptions.FAILED_TO_DECODE_COSE);</span>
+<span class="fc" id="L310">			}</span>
+		}
+
+		//Parsing KID Context
+<span class="fc bfc" id="L314" title="All 2 branches covered.">		if (h != 0) {</span>
+<span class="fc" id="L315">			int s = total[index];</span>
+
+<span class="fc" id="L317">			kidContext = Arrays.copyOfRange(total, index + 1, index + 1 + s);</span>
+
+<span class="fc" id="L319">			index += s + 1;</span>
+
+<span class="pc bpc" id="L321" title="1 of 2 branches missed.">			if (s &gt; 0) {</span>
+<span class="fc" id="L322">				LOGGER.info(&quot;Received KID Context: &quot; + Utils.toHexString(kidContext));</span>
+			} else {
+<span class="nc" id="L324">				LOGGER.error(&quot;Kid context is missing from message when it is expected.&quot;);</span>
+<span class="nc" id="L325">				throw new OSException(ErrorDescriptions.FAILED_TO_DECODE_COSE);</span>
+			}
+		}
+
+		//Parsing KID
+<span class="fc bfc" id="L330" title="All 2 branches covered.">		if (k != 0) {</span>
+<span class="fc" id="L331">			kid = Arrays.copyOfRange(total, index, total.length);</span>
+		} else {
+<span class="pc bpc" id="L333" title="1 of 2 branches missed.">			if (message instanceof Request) {</span>
+<span class="nc" id="L334">				LOGGER.error(&quot;Kid is missing from message when it is expected.&quot;);</span>
+<span class="nc" id="L335">				throw new OSException(ErrorDescriptions.FAILED_TO_DECODE_COSE);</span>
+			}
+		}
+
+		//Adding parsed data to Encrypt0Message object
+		try {
+<span class="fc bfc" id="L341" title="All 2 branches covered.">			if (partialIV != null) {</span>
+<span class="fc" id="L342">				enc.addAttribute(HeaderKeys.PARTIAL_IV, CBORObject.FromObject(partialIV), Attribute.UNPROTECTED);</span>
+			}
+<span class="fc bfc" id="L344" title="All 2 branches covered.">			if (kid != null) {</span>
+<span class="fc" id="L345">				enc.addAttribute(HeaderKeys.KID, CBORObject.FromObject(kid), Attribute.UNPROTECTED);</span>
+			}
+			//COSE Header parameter for KID Context defined with label 10
+			//https://www.iana.org/assignments/cose/cose.xhtml
+<span class="fc bfc" id="L349" title="All 2 branches covered.">			if (kidContext != null) {</span>
+<span class="fc" id="L350">				enc.addAttribute(CBORObject.FromObject(10), CBORObject.FromObject(kidContext), Attribute.UNPROTECTED);</span>
+			}
+<span class="nc" id="L352">		} catch (CoseException e) {</span>
+<span class="nc" id="L353">			LOGGER.error(&quot;COSE processing of message failed.&quot;);</span>
+<span class="nc" id="L354">			e.printStackTrace();</span>
+<span class="fc" id="L355">		}</span>
+<span class="fc" id="L356">	}</span>
+
+	/**
+	 * Replaces the message's options with a new OptionSet which doesn't contain
+	 * any of the non-special E options as outer options
+	 * 
+	 * @param message the received message
+	 */
+	protected static void discardEOptions(Message message) {
+<span class="fc" id="L365">		OptionSet newOptions = OptionJuggle.discardEOptions(message.getOptions());</span>
+<span class="fc" id="L366">		message.setOptions(newOptions);</span>
+<span class="fc" id="L367">	}</span>
+
+	// TODO: Remove unneeded lines
+	private static boolean checkSignature(Encrypt0Message enc, CounterSign1 sign) throws OSException {
+
+<span class="fc" id="L372">		boolean countersignatureValid = false;</span>
+
+		try {
+<span class="fc" id="L375">			countersignatureValid = enc.validate(sign);</span>
+<span class="nc" id="L376">		} catch (CoseException e) {</span>
+<span class="nc" id="L377">			LOGGER.error(&quot;Countersignature checking procedure failed.&quot;);</span>
+<span class="nc" id="L378">			e.printStackTrace();</span>
+<span class="fc" id="L379">		}</span>
+
+<span class="fc bfc" id="L381" title="All 2 branches covered.">		if (countersignatureValid == false) {</span>
+<span class="fc" id="L382">			LOGGER.error(ErrorDescriptions.COUNTERSIGNATURE_CHECK_FAILED);</span>
+<span class="fc" id="L383">			throw new OSException(ErrorDescriptions.COUNTERSIGNATURE_CHECK_FAILED);</span>
+		}
+
+<span class="fc" id="L386">		System.out.println(&quot;Countersignature verified as valid&quot;);</span>
+
+<span class="fc" id="L388">		return countersignatureValid;</span>
+	}
+
+	// TODO: Remove unneeded lines
+	private static CounterSign1 prepareCheckSignature(Encrypt0Message enc, OSCoreCtx ctx, byte[] aad, Message message) {
+
+<span class="fc" id="L394">		CounterSign1 sign = null;</span>
+<span class="fc" id="L395">		GroupRecipientCtx recipientCtx = (GroupRecipientCtx) ctx;</span>
+
+		// First remove the countersignature from the payload
+<span class="fc" id="L398">		byte[] full_payload = null;</span>
+		try {
+<span class="fc" id="L400">			full_payload = enc.getEncryptedContent();</span>
+
+			// Set new truncated ciphertext
+<span class="fc" id="L403">			int countersignatureLength = recipientCtx.getCountersignatureLen();</span>
+<span class="fc" id="L404">			byte[] countersignatureBytes = Arrays.copyOfRange(full_payload,</span>
+					full_payload.length - countersignatureLength, full_payload.length);
+<span class="fc" id="L406">			byte[] ciphertext = Arrays.copyOfRange(full_payload, 0, full_payload.length - countersignatureLength);</span>
+<span class="fc" id="L407">			enc.setEncryptedContent(ciphertext);</span>
+
+			// Now actually prepare to check the countersignature
+<span class="fc" id="L410">			OneKey recipientPublicKey = recipientCtx.getPublicKey();</span>
+			// countersignatureBytes[3] = (byte) 0xff; // Corrupt
+			// countersignature
+<span class="fc" id="L413">			sign = new CounterSign1(countersignatureBytes);</span>
+<span class="fc" id="L414">			sign.setKey(recipientPublicKey);</span>
+
+<span class="fc" id="L416">			CBORObject signAlg = recipientCtx.getAlgSign().AsCBOR();</span>
+<span class="fc" id="L417">			sign.addAttribute(HeaderKeys.Algorithm, signAlg, Attribute.DO_NOT_SEND);</span>
+<span class="fc" id="L418">			byte[] signAad = aad;</span>
+
+<span class="fc" id="L420">			sign.setExternal(signAad);</span>
+
+<span class="fc" id="L422">			System.out.println(&quot;Checking signature for incoming &quot; + message.getClass().getSimpleName()</span>
+<span class="fc" id="L423">					+ &quot; with sign AAD &quot; + Utils.toHexString(signAad));</span>
+<span class="nc" id="L424">		} catch (Exception e) {</span>
+<span class="nc" id="L425">			LOGGER.error(&quot;Countersignature verification procedure failed.&quot;);</span>
+<span class="nc" id="L426">			e.printStackTrace();</span>
+<span class="fc" id="L427">		}</span>
+
+<span class="fc" id="L429">		return sign;</span>
+	}
+
+	private static void decryptSignature(Encrypt0Message enc, CounterSign1 sign, GroupRecipientCtx ctx,
+			byte[] partialIV,
+			byte[] kid, boolean isRequest) {
+
+		// Derive the keystream
+<span class="fc" id="L437">		String digest = &quot;&quot;;</span>
+<span class="pc bpc" id="L438" title="1 of 2 branches missed.">		if (ctx.getKdf().toString().contains(&quot;SHA_256&quot;)) {</span>
+<span class="fc" id="L439">			digest = &quot;SHA256&quot;;</span>
+<span class="nc bnc" id="L440" title="All 2 branches missed.">		} else if (ctx.getKdf().toString().contains(&quot;SHA_512&quot;)) {</span>
+<span class="nc" id="L441">			digest = &quot;SHA512&quot;;</span>
+		}
+
+<span class="fc" id="L444">		CBORObject info = CBORObject.NewArray();</span>
+<span class="fc" id="L445">		int keyLength = ctx.getCommonCtx().getCountersignatureLen();</span>
+
+<span class="fc" id="L447">		info = CBORObject.NewArray();</span>
+<span class="fc" id="L448">		info.Add(kid);</span>
+<span class="fc" id="L449">		info.Add(ctx.getIdContext());</span>
+<span class="fc" id="L450">		info.Add(isRequest);</span>
+<span class="fc" id="L451">		info.Add(keyLength);</span>
+
+<span class="fc" id="L453">		byte[] groupEncryptionKey = ctx.getCommonCtx().getGroupEncryptionKey();</span>
+<span class="fc" id="L454">		byte[] keystream = null;</span>
+		try {
+<span class="fc" id="L456">			keystream = OSCoreCtx.deriveKey(groupEncryptionKey, partialIV, keyLength, digest, info.EncodeToBytes());</span>
+
+<span class="nc" id="L458">		} catch (CoseException e) {</span>
+<span class="nc" id="L459">			System.err.println(e.getMessage());</span>
+<span class="fc" id="L460">		}</span>
+
+		// System.out.println(&quot;===&quot;);
+		// System.out.println(&quot;D Signature keystream: &quot; + Utils.toHexString(keystream));
+		// System.out.println(&quot;D groupEncryptionKey: &quot; + Utils.toHexString(groupEncryptionKey));
+		// System.out.println(&quot;D partialIV: &quot; + Utils.toHexString(partialIV));
+		// System.out.println(&quot;D kid: &quot; + Utils.toHexString(kid));
+		// System.out.println(&quot;D IdContext: &quot; + Utils.toHexString(ctx.getIdContext()));
+		// System.out.println(&quot;D isRequest: &quot; + isRequest);
+		// System.out.println(&quot;===&quot;);
+
+		// Now actually decrypt the signature
+<span class="fc" id="L472">		byte[] full_payload = null;</span>
+		try {
+<span class="fc" id="L474">			full_payload = enc.getEncryptedContent();</span>
+<span class="nc" id="L475">		} catch (CoseException e) {</span>
+<span class="nc" id="L476">			LOGGER.error(&quot;Countersignature verification procedure failed.&quot;);</span>
+<span class="nc" id="L477">			e.printStackTrace();</span>
+<span class="fc" id="L478">		}</span>
+<span class="fc" id="L479">		byte[] countersignBytes = Arrays.copyOfRange(full_payload, full_payload.length - keyLength,</span>
+				full_payload.length);
+<span class="fc" id="L481">		byte[] ciphertext = Arrays.copyOfRange(full_payload, 0, full_payload.length - keyLength);</span>
+
+<span class="fc" id="L483">		byte[] decryptedCountersign = new byte[keystream.length];</span>
+<span class="fc bfc" id="L484" title="All 2 branches covered.">		for (int i = 0; i &lt; keystream.length; i++) {</span>
+<span class="fc" id="L485">			decryptedCountersign[i] = (byte) (countersignBytes[i] ^ keystream[i]);</span>
+		}
+
+		// Replace the signature in the Encrypt0 object
+<span class="fc" id="L489">		enc.setEncryptedContent(Bytes.concatenate(ciphertext, decryptedCountersign));</span>
+<span class="fc" id="L490">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

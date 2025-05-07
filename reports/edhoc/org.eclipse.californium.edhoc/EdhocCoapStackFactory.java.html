@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EdhocCoapStackFactory.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-EDHOC</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.edhoc</a> &gt; <span class="el_source">EdhocCoapStackFactory.java</span></div><h1>EdhocCoapStackFactory.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2020 RISE and others.
+ * 
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * and Eclipse Distribution License v1.0 which accompany this distribution.
+ * 
+ * The Eclipse Public License is available at
+ *    http://www.eclipse.org/legal/epl-v20.html
+ * and the Eclipse Distribution License is available at
+ *    http://www.eclipse.org/org/documents/edl-v10.html.
+ * 
+ * Contributors:
+ *    Marco Tiloca (RISE)
+ *    Rikard Höglund (RISE)
+ *    
+ ******************************************************************************/
+package org.eclipse.californium.edhoc;
+
+import java.util.HashMap;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.eclipse.californium.core.coap.CoAP;
+import org.eclipse.californium.core.network.CoapEndpoint;
+import org.eclipse.californium.core.network.CoapStackFactory;
+import org.eclipse.californium.core.network.Outbox;
+import org.eclipse.californium.core.network.stack.CoapStack;
+import org.eclipse.californium.cose.OneKey;
+import org.eclipse.californium.elements.EndpointContextMatcher;
+import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.oscore.OSCoreCtxDB;
+import org.eclipse.californium.oscore.ObjectSecurityLayer;
+
+import com.upokecenter.cbor.CBORObject;
+
+/**
+ * Coap stack factory creating a {@link EdhocStack} including a
+ * {@link ObjectSecurityLayer} and {@link EdhocLayer}.
+ */
+<span class="fc" id="L41">public class EdhocCoapStackFactory implements CoapStackFactory {</span>
+
+<span class="fc" id="L43">	private static AtomicBoolean init = new AtomicBoolean();</span>
+	private static volatile OSCoreCtxDB defaultCtxDb;
+	private static volatile HashMap&lt;CBORObject, EdhocSession&gt; edhocSessions;
+	private static volatile HashMap&lt;CBORObject, OneKey&gt; peerPublicKeys;
+	private static volatile HashMap&lt;CBORObject, CBORObject&gt; peerCredentials;
+	private static volatile Set&lt;CBORObject&gt; usedConnectionIds;
+	private static volatile int OSCORE_REPLAY_WINDOW;
+	private static volatile int MAX_UNFRAGMENTED_SIZE;
+
+	@Override
+	// TODO: This method may need updating for the custom argument
+	// This is only for when useAsDefault is not used
+	public CoapStack createCoapStack(String protocol, String tag, Configuration config, Outbox outbox,
+			Object customStackArgument) {
+<span class="pc bpc" id="L57" title="1 of 2 branches missed.">		if (CoAP.isTcpProtocol(protocol)) {</span>
+<span class="nc" id="L58">			throw new IllegalArgumentException(&quot;protocol \&quot;&quot; + protocol + &quot;\&quot; is not supported!&quot;);</span>
+		}
+<span class="fc" id="L60">		OSCoreCtxDB ctxDb = defaultCtxDb;</span>
+<span class="pc bpc" id="L61" title="1 of 2 branches missed.">		if (customStackArgument != null) {</span>
+<span class="nc" id="L62">			ctxDb = (OSCoreCtxDB) customStackArgument;</span>
+		}
+<span class="fc" id="L64">		return new EdhocStack(tag, config, outbox, ctxDb, edhocSessions, peerPublicKeys, peerCredentials,</span>
+				              usedConnectionIds, OSCORE_REPLAY_WINDOW, MAX_UNFRAGMENTED_SIZE);
+	}
+
+	/**
+	 * Use {@link EdhocStack} as default for {@link CoapEndpoint}.
+	 * 
+	 * Note: the factory is only applied once with the first call, the
+	 * {@link #defaultCtxDb} is update on every call.
+	 * 
+	 * @param defaultCtxDb default OSCORE context DB. Passed in as default
+	 *            argument for {@link EdhocStack}
+	 * @param edhocSessions map containing EDHOC sessions. Passed in as default
+	 *            argument for {@link EdhocStack}
+	 *            
+	 * @param peerPublicKeys map containing the EDHOC peer public keys. Passed in as default
+	 *            argument for {@link EdhocStack}
+	 * @param edhocSessions map containing the EDHOC peer credentials. Passed in as default
+	 *            argument for {@link EdhocStack}
+	 * @param edhocSessions set containing the used EDHOC connection IDs. Passed in as default
+	 *            argument for {@link EdhocStack}
+	 * @param OSCORE_REPLAY_WINDOW size of the Replay Window to use in an OSCORE Recipient Context. Passed in as default
+	 *            argument for {@link EdhocStack}
+	 * @param MAX_UNFRAGMENTED_SIZE size of the MAX_UNFRAGMENTED_SIZE to use in an OSCORE Security Context. Passed in as default
+	 *            argument for {@link EdhocStack}
+	 * 
+	 * @see CoapEndpoint#setDefaultCoapStackFactory(CoapStackFactory)
+	 */
+	public static void useAsDefault(OSCoreCtxDB defaultCtxDb,
+									HashMap&lt;CBORObject, EdhocSession&gt; edhocSessions,
+									HashMap&lt;CBORObject, OneKey&gt; peerPublicKeys,
+									HashMap&lt;CBORObject, CBORObject&gt; peerCredentials,
+									Set&lt;CBORObject&gt; usedConnectionIds,
+									int OSCORE_REPLAY_WINDOW,
+									int MAX_UNFRAGMENTED_SIZE) {
+<span class="fc bfc" id="L99" title="All 2 branches covered.">		if (init.compareAndSet(false, true)) {</span>
+<span class="fc" id="L100">			CoapEndpoint.setDefaultCoapStackFactory(new EdhocCoapStackFactory());</span>
+		}
+<span class="fc" id="L102">		EdhocCoapStackFactory.defaultCtxDb = defaultCtxDb;</span>
+<span class="fc" id="L103">		EdhocCoapStackFactory.edhocSessions = edhocSessions;</span>
+<span class="fc" id="L104">		EdhocCoapStackFactory.peerPublicKeys = peerPublicKeys;</span>
+<span class="fc" id="L105">		EdhocCoapStackFactory.peerCredentials = peerCredentials;</span>
+<span class="fc" id="L106">		EdhocCoapStackFactory.usedConnectionIds = usedConnectionIds;</span>
+<span class="fc" id="L107">		EdhocCoapStackFactory.OSCORE_REPLAY_WINDOW = OSCORE_REPLAY_WINDOW;</span>
+<span class="fc" id="L108">		EdhocCoapStackFactory.MAX_UNFRAGMENTED_SIZE = MAX_UNFRAGMENTED_SIZE;</span>
+<span class="fc" id="L109">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

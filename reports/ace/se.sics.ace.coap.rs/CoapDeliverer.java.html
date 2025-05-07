@@ -1,0 +1,362 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CoapDeliverer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.coap.rs</a> &gt; <span class="el_source">CoapDeliverer.java</span></div><h1>CoapDeliverer.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.coap.rs;
+
+import java.net.InetSocketAddress;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
+import java.util.logging.Logger;
+
+import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+import org.eclipse.californium.core.coap.Request;
+import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.network.CoapEndpoint;
+import org.eclipse.californium.core.network.Exchange;
+import org.eclipse.californium.core.server.MessageDeliverer;
+import org.eclipse.californium.core.server.ServerMessageDeliverer;
+import org.eclipse.californium.core.server.resources.Resource;
+import org.eclipse.californium.elements.Connector;
+import org.eclipse.californium.elements.DtlsEndpointContext;
+import org.eclipse.californium.elements.EndpointContext;
+import org.eclipse.californium.scandium.DTLSConnector;
+
+import com.upokecenter.cbor.CBORException;
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+
+import org.eclipse.californium.cose.KeyKeys;
+
+import se.sics.ace.AceException;
+import se.sics.ace.Constants;
+import se.sics.ace.coap.CoapReq;
+import se.sics.ace.rs.AsRequestCreationHints;
+import se.sics.ace.rs.IntrospectionException;
+import se.sics.ace.rs.IntrospectionHandler;
+import se.sics.ace.rs.TokenRepository;
+
+/**
+ * This deliverer processes incoming and outgoing messages at the RS 
+ * according to the specifications of the ACE framework (RFC 9200)
+ * 
+ *  It can handle tokens passed through the DTLS handshake as specified in Section 3.3.2 of RFC 9202.
+ * 
+ * It's specific task is to match requests against existing access tokens
+ * to see if the request is authorized.
+ * 
+ * @author Ludwig Seitz and Marco Tiloca
+ *
+ */
+public class CoapDeliverer implements MessageDeliverer {
+    
+    /**
+     * The logger
+     */
+<span class="fc" id="L86">    private static final Logger LOGGER </span>
+<span class="fc" id="L87">        = Logger.getLogger(CoapDeliverer.class.getName());</span>
+    
+    /**
+     * The introspection handler
+     */
+    private IntrospectionHandler i;
+    
+    /**
+     * The class managing the AS Request Creation Hints
+     */
+    private AsRequestCreationHints asRCH;
+    
+	/**
+	 * CoAP Endpoint used by the Resource Server for secure communication with the Clients.
+	 * This is required in order to be able to terminate secure associations with a Client
+	 * upon deleting the last access token bound to that association. This is the case, e.g.,
+	 * for access tokens bound to a DTLS connection.
+	 */
+	private CoapEndpoint coapEndpoint;
+    
+    /** 
+     * The ServerMessageDeliverer that processes the request
+     * after access control has been done
+     */
+    private ServerMessageDeliverer d;
+    
+
+    /**
+     * Constructor. 
+     * 
+     * Note: This expects that a TokenRepository has been created.
+     * 
+     * @param root  the root of the resources that this deliverer controls
+     * @param i  the introspection handler or null if there isn't any.
+     * @param asRCHM  the AS Request Creation Hints Manager.
+     * @param cep  the CoAP endpoint used by the Resource Server for secure communication with the Clients
+     * @throws AceException   if the token repository is not initialized
+     */
+<span class="fc" id="L125">    public CoapDeliverer(Resource root, IntrospectionHandler i, AsRequestCreationHints asRCHM, CoapEndpoint cep) throws AceException {</span>
+<span class="pc bpc" id="L126" title="1 of 2 branches missed.">        if (TokenRepository.getInstance() == null) {</span>
+<span class="nc" id="L127">            throw new AceException(&quot;Must initialize TokenRepository&quot;);</span>
+        }
+<span class="fc" id="L129">        this.d = new ServerMessageDeliverer(root);</span>
+<span class="fc" id="L130">        this.asRCH = asRCHM;</span>
+        
+<span class="pc bpc" id="L132" title="1 of 2 branches missed.">        if (cep == null) {</span>
+<span class="nc" id="L133">            throw new AceException(&quot;Null CoAP Endpoint when setting up the CoAPDeliverer&quot;);</span>
+        }
+<span class="fc" id="L135">        this.coapEndpoint = cep;</span>
+<span class="fc" id="L136">    }</span>
+  
+    //Really the TokenRepository _should not_ be closed here
+    @SuppressWarnings(&quot;resource&quot;) 
+    @Override
+    public void deliverRequest(final Exchange ex) {
+<span class="fc" id="L142">        Request request = ex.getCurrentRequest();</span>
+<span class="fc" id="L143">        Response r = null;</span>
+        
+        //authz-info is not under access control
+        try {
+<span class="fc" id="L147">            URI uri = new URI(request.getURI());</span>
+            //Need to check with and without trailing / in case there are query options
+<span class="pc bpc" id="L149" title="1 of 4 branches missed.">            if (uri.getPath().endsWith(&quot;/authz-info&quot;) || uri.getPath().endsWith(&quot;/authz-info/&quot;) ) { </span>
+<span class="fc" id="L150">                this.d.deliverRequest(ex);</span>
+<span class="fc" id="L151">                return;</span>
+            }
+<span class="nc" id="L153">        } catch (URISyntaxException e) {</span>
+<span class="nc" id="L154">            LOGGER.warning(&quot;Request-uri &quot; + request.getURI()</span>
+<span class="nc" id="L155">                    + &quot; is invalid: &quot; + e.getMessage());</span>
+<span class="nc" id="L156">            r = new Response(ResponseCode.BAD_REQUEST);</span>
+<span class="nc" id="L157">            ex.sendResponse(r);</span>
+<span class="nc" id="L158">            return;</span>
+<span class="fc" id="L159">        }      </span>
+       
+       
+<span class="fc" id="L162">        String subject = null;</span>
+        
+<span class="pc bpc" id="L164" title="1 of 2 branches missed.">        if (request.getSourceContext() == null </span>
+<span class="fc bfc" id="L165" title="All 2 branches covered.">                || request.getSourceContext().getPeerIdentity() == null) {</span>
+            
+<span class="fc" id="L167">        	Request req = ex.getRequest();</span>
+            try {
+<span class="fc" id="L169">				subject = CoapReq.getInstance(req, false).getSenderId();</span>
+<span class="fc bfc" id="L170" title="All 2 branches covered.">				if (subject == null) {</span>
+<span class="fc" id="L171">				    LOGGER.warning(&quot;Unauthenticated client tried to get access&quot;);</span>
+<span class="fc" id="L172">				    failUnauthz(ex);</span>
+<span class="fc" id="L173">				    return;</span>
+				}
+<span class="nc" id="L175">			} catch (AceException e) {</span>
+<span class="nc" id="L176">	            LOGGER.severe(&quot;Error while retrieving the client identity: &quot; + e.getMessage());</span>
+<span class="fc" id="L177">			}</span>
+<span class="fc" id="L178">        } else  {</span>
+<span class="fc" id="L179">            subject = request.getSourceContext().getPeerIdentity().getName();</span>
+        }
+        	    
+<span class="fc" id="L182">        TokenRepository tr = TokenRepository.getInstance();</span>
+<span class="pc bpc" id="L183" title="1 of 2 branches missed.">        if (tr == null) {</span>
+<span class="nc" id="L184">            LOGGER.finest(&quot;TokenRepository not initialized&quot;);</span>
+<span class="nc" id="L185">            ex.sendResponse(new Response(</span>
+                    ResponseCode.INTERNAL_SERVER_ERROR));
+        }
+<span class="fc" id="L188">        String kid = TokenRepository.getInstance().getKid(subject);</span>
+       
+<span class="fc bfc" id="L190" title="All 2 branches covered.">        if (kid == null) {//Check if this was the Base64 encoded kid map</span>
+            try {
+<span class="nc" id="L192">                CBORObject cbor = CBORObject.DecodeFromBytes(</span>
+<span class="nc" id="L193">                        Base64.getDecoder().decode(subject));</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">                if (cbor.getType().equals(CBORType.Map)) {</span>
+<span class="nc" id="L195">                   CBORObject ckid = cbor.get(KeyKeys.KeyId.AsCBOR());</span>
+<span class="nc bnc" id="L196" title="All 4 branches missed.">                   if (ckid != null &amp;&amp; ckid.getType().equals(</span>
+                           CBORType.ByteString)) {
+<span class="nc" id="L198">                      kid = new String(ckid.GetByteString(), </span>
+                              Constants.charset);
+                   } else { //No kid in that CBOR map or it isn't a bstr
+<span class="nc" id="L201">                       failUnauthz(ex);</span>
+<span class="nc" id="L202">                       return;</span>
+                   }
+<span class="nc" id="L204">                } else {//Some weird CBOR that is not a map here</span>
+<span class="nc" id="L205">                   failUnauthz(ex);</span>
+<span class="nc" id="L206">                   return;</span>
+                }                
+<span class="nc" id="L208">            } catch (CBORException e) {//Really no kid found for that subject</span>
+<span class="nc" id="L209">                LOGGER.finest(&quot;Error while trying to parse some &quot;</span>
+<span class="nc" id="L210">                        + &quot;subject identity to CBOR: &quot; + e.getMessage());</span>
+<span class="nc" id="L211">               failUnauthz(ex);</span>
+<span class="nc" id="L212">               return;</span>
+<span class="fc" id="L213">            } catch (IllegalArgumentException e) {//Text was not Base64 encoded</span>
+<span class="fc" id="L214">                LOGGER.finest(&quot;Error: &quot; + e.getMessage() </span>
+                + &quot; while trying to Base64 decode this: &quot; + subject);
+<span class="fc" id="L216">                failUnauthz(ex);</span>
+<span class="fc" id="L217">                return;</span>
+<span class="nc" id="L218">            }</span>
+           
+        }
+               
+<span class="fc" id="L222">        String resource = request.getOptions().getUriPathString();</span>
+<span class="fc" id="L223">        short action = (short) request.getCode().value;</span>
+      
+        try {
+<span class="fc" id="L226">            int res = TokenRepository.getInstance().canAccess(</span>
+                    kid, subject, resource, action, this.i);
+            
+            // In case an error response is returned, it will be a Request Creation Hints message.
+            // 
+            // The message will include 'kid' as the &quot;key identifier of a key used in the
+            // existing security association between the client and the RS&quot;. Note that:
+            //
+            // - For the DTLS profile, this is already what the RS stores as 'kid'
+            //
+            // - For the OSCORE profile, this has to actually be the identifier of
+            //   the OSCORE Input Material, which has to be separately retrieved
+            
+            // Check if the security association was an OSCORE Security Context
+<span class="fc bfc" id="L240" title="All 2 branches covered.">            if (tr.getOscoreId(subject) != null) {</span>
+            	
+            	// The 'kid' included in the Creation Hints message will
+            	// will be the identifier of the OSCORE Input Material
+<span class="fc" id="L244">            	kid = tr.getOscoreId(subject);</span>
+            }
+            
+<span class="pc bpc" id="L247" title="2 of 5 branches missed.">            switch (res) {</span>
+            case TokenRepository.OK :
+<span class="fc" id="L249">                this.d.deliverRequest(ex);</span>
+<span class="fc" id="L250">                return;</span>
+            case TokenRepository.UNAUTHZ :
+<span class="nc" id="L252">               failUnauthz(ex);</span>
+               
+<span class="nc" id="L254">               EndpointContext ctx = request.getSourceContext();</span>
+<span class="nc bnc" id="L255" title="All 4 branches missed.">               if (ctx != null &amp;&amp; ctx instanceof DtlsEndpointContext) {</span>
+            	   // The canAccess() method of the TokenRepository has returned Unauthorized, even though
+            	   // the request from the Client was protected. That can happen only if the Resource Server
+            	   // has deleted the previously stored access token associated with the Client.
+            	   //
+            	   // Consequently, the secure association with the Client must be terminated.
+            	   // The handling below terminates a DTLS connection. In case of an OSCORE association,
+            	   // the corresponding OSCORE Security Context has been already deleted in the removeToken()
+            	   // method of the TokenRepository, following the deletion of the access token. 
+            	   
+<span class="nc" id="L265">            	   InetSocketAddress peerAddress = (InetSocketAddress) ex.getPeersIdentity();</span>
+<span class="nc" id="L266">            	   Connector connector = coapEndpoint.getConnector();</span>
+<span class="nc bnc" id="L267" title="All 2 branches missed.">            	   if (connector instanceof DTLSConnector) {</span>
+<span class="nc" id="L268">            		   ((DTLSConnector) connector).close(peerAddress);</span>
+            	   }
+               }
+               
+<span class="nc" id="L272">               return;</span>
+            case TokenRepository.FORBID :
+<span class="fc" id="L274">                r = new Response(ResponseCode.FORBIDDEN);</span>
+                try {
+<span class="fc" id="L276">                    r.setPayload(this.asRCH.getHints(ex.getCurrentRequest(), </span>
+<span class="fc" id="L277">                            kid).EncodeToBytes());</span>
+<span class="fc" id="L278">                    r.getOptions().setContentFormat(Constants.APPLICATION_ACE_CBOR);</span>
+<span class="nc" id="L279">                } catch (InvalidKeyException | NoSuchAlgorithmException e) {</span>
+<span class="nc" id="L280">                    LOGGER.severe(&quot;cnonce creation failed: &quot; + e.getMessage());</span>
+<span class="nc" id="L281">                    ex.sendResponse(r); //Send response without payload</span>
+<span class="fc" id="L282">                }</span>
+<span class="fc" id="L283">                ex.sendResponse(r);</span>
+<span class="fc" id="L284">                return;</span>
+            case TokenRepository.METHODNA :
+<span class="fc" id="L286">                r = new Response(ResponseCode.METHOD_NOT_ALLOWED);</span>
+                try {
+<span class="fc" id="L288">                    r.setPayload(this.asRCH.getHints(ex.getCurrentRequest(),</span>
+<span class="fc" id="L289">                            kid).EncodeToBytes());</span>
+<span class="fc" id="L290">                    r.getOptions().setContentFormat(Constants.APPLICATION_ACE_CBOR);</span>
+<span class="nc" id="L291">                } catch (InvalidKeyException | NoSuchAlgorithmException e) {</span>
+<span class="nc" id="L292">                    LOGGER.severe(&quot;cnonce creation failed: &quot; + e.getMessage());</span>
+<span class="nc" id="L293">                    ex.sendResponse(r);</span>
+<span class="fc" id="L294">                }</span>
+<span class="fc" id="L295">                ex.sendResponse(r);</span>
+<span class="fc" id="L296">                return;</span>
+            default :
+<span class="nc" id="L298">                LOGGER.severe(&quot;Error during scope evaluation,&quot;</span>
+                        + &quot; unknown result: &quot; + res);
+<span class="nc" id="L300">               ex.sendResponse(new Response(</span>
+                       ResponseCode.INTERNAL_SERVER_ERROR));
+<span class="nc" id="L302">               return;</span>
+            }
+<span class="nc" id="L304">        } catch (AceException e) {</span>
+<span class="nc" id="L305">            LOGGER.severe(&quot;Error in CoapDeliverer.deliverRequest(): &quot;</span>
+<span class="nc" id="L306">                    + e.getMessage());    </span>
+<span class="nc" id="L307">        } catch (IntrospectionException e) {</span>
+<span class="nc" id="L308">            LOGGER.info(&quot;Introspection error, &quot;</span>
+<span class="nc" id="L309">                    + &quot;message processing aborted: &quot; + e.getMessage());</span>
+<span class="nc bnc" id="L310" title="All 2 branches missed.">           if (e.getMessage().isEmpty()) {</span>
+<span class="nc" id="L311">               ex.sendResponse(new Response(</span>
+                       ResponseCode.INTERNAL_SERVER_ERROR));
+           }
+<span class="nc" id="L314">           CBORObject map = CBORObject.NewMap();</span>
+<span class="nc" id="L315">           map.Add(Constants.ERROR, Constants.INVALID_REQUEST);</span>
+<span class="nc" id="L316">           map.Add(Constants.ERROR_DESCRIPTION, e.getMessage());</span>
+<span class="nc" id="L317">           r = new Response(ResponseCode.BAD_REQUEST);</span>
+<span class="nc" id="L318">           r.setPayload(map.EncodeToBytes());</span>
+<span class="nc" id="L319">           ex.sendResponse(r);</span>
+<span class="nc" id="L320">        }</span>
+<span class="nc" id="L321">    }</span>
+    
+    /**
+     * Fail a request with 4.01 Unauthorized.
+     * 
+     */
+    private void failUnauthz(Exchange ex) {
+<span class="fc" id="L328">        Response r = new Response(ResponseCode.UNAUTHORIZED);</span>
+        try {
+<span class="fc" id="L330">            r.setPayload(this.asRCH.getHints(</span>
+<span class="fc" id="L331">                    ex.getCurrentRequest(), null).EncodeToBytes());</span>
+<span class="fc" id="L332">            r.getOptions().setContentFormat(Constants.APPLICATION_ACE_CBOR);</span>
+<span class="fc" id="L333">            ex.sendResponse(r);</span>
+<span class="nc" id="L334">        } catch (InvalidKeyException | NoSuchAlgorithmException </span>
+                | AceException e) {
+<span class="nc" id="L336">            LOGGER.severe(&quot;cnonce creation failed: &quot; + e.getMessage());</span>
+<span class="nc" id="L337">            ex.sendResponse(r); //Just send UNAUTHORIZED without a payload</span>
+<span class="fc" id="L338">        }</span>
+       
+<span class="fc" id="L340">    }</span>
+
+    @Override
+    public void deliverResponse(Exchange exchange, Response response) {
+<span class="nc" id="L344">        this.d.deliverResponse(exchange, response);        </span>
+<span class="nc" id="L345">    }</span>
+    
+
+    public byte[] GetBytes(String str)
+    {
+<span class="nc" id="L350">        char[] chars = str.toCharArray();</span>
+<span class="nc" id="L351">        byte[] bytes = new byte[chars.length * 2];</span>
+<span class="nc bnc" id="L352" title="All 2 branches missed.">        for (int i = 0; i &lt; chars.length; i++)</span>
+        {
+<span class="nc" id="L354">            bytes[i * 2] = (byte) (chars[i] &gt;&gt; 8);</span>
+<span class="nc" id="L355">            bytes[i * 2 + 1] = (byte) chars[i];</span>
+        }
+
+<span class="nc" id="L358">        return bytes;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

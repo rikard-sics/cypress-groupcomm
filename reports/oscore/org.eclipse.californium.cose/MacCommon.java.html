@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MacCommon.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.cose</a> &gt; <span class="el_source">MacCommon.java</span></div><h1>MacCommon.java</h1><pre class="source lang-java linenums">/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package org.eclipse.californium.cose;
+
+import com.upokecenter.cbor.CBORObject;
+import java.nio.ByteBuffer;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.util.Arrays;
+import java.util.Formatter;
+import javax.crypto.Cipher;
+import javax.crypto.Mac;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+
+
+/**
+ *
+ * @author jimsch
+ */
+
+public abstract class MacCommon extends Message {
+    protected byte[] rgbTag;
+    protected String strContext;
+<span class="nc" id="L29">    protected SecureRandom random = new SecureRandom();</span>
+    
+    protected MacCommon() {
+<span class="nc" id="L32">        super();</span>
+<span class="nc" id="L33">    }</span>
+
+    protected void CreateWithKey(byte[] rgbKey) throws CoseException {
+<span class="nc" id="L36">        CBORObject algX = findAttribute(CBORObject.FromObject(1)); //HeaderKeys.Algorithm);</span>
+<span class="nc" id="L37">        AlgorithmID alg = AlgorithmID.FromCBOR(algX);</span>
+
+<span class="nc bnc" id="L39" title="All 2 branches missed.">        if (rgbContent == null) throw new CoseException(&quot;No Content Specified&quot;);</span>
+        
+<span class="nc bnc" id="L41" title="All 3 branches missed.">        switch (alg) {</span>
+            case HMAC_SHA_256_64:
+            case HMAC_SHA_256:
+            case HMAC_SHA_384:
+            case HMAC_SHA_512:
+<span class="nc" id="L46">                rgbTag = HMAC(alg, rgbKey);</span>
+<span class="nc" id="L47">                break;</span>
+                
+            case AES_CBC_MAC_128_64:
+            case AES_CBC_MAC_256_64:
+            case AES_CBC_MAC_128_128:
+            case AES_CBC_MAC_256_128:
+<span class="nc" id="L53">                rgbTag = AES_CBC_MAC(alg, rgbKey);</span>
+<span class="nc" id="L54">                break;</span>
+
+            default:
+<span class="nc" id="L57">                throw new CoseException(&quot;Unsupported MAC Algorithm&quot;);</span>
+        }
+        
+<span class="nc" id="L60">        ProcessCounterSignatures();</span>
+<span class="nc" id="L61">    }</span>
+    
+    protected boolean Validate(byte[] rgbKey) throws CoseException {
+        boolean f;
+        int i;
+        byte[] rgbTest;
+        
+<span class="nc" id="L68">        CBORObject algX = findAttribute(CBORObject.FromObject(1)); //HeaderKeys.Algorithm);</span>
+<span class="nc" id="L69">        AlgorithmID alg = AlgorithmID.FromCBOR(algX);</span>
+        
+<span class="nc bnc" id="L71" title="All 3 branches missed.">        switch (alg) {</span>
+            case HMAC_SHA_256_64:
+            case HMAC_SHA_256:
+            case HMAC_SHA_384:
+            case HMAC_SHA_512:
+<span class="nc" id="L76">                rgbTest = HMAC(alg, rgbKey);</span>
+<span class="nc" id="L77">                break;</span>
+                
+            case AES_CBC_MAC_128_64:
+            case AES_CBC_MAC_256_64:
+            case AES_CBC_MAC_128_128:
+            case AES_CBC_MAC_256_128:
+<span class="nc" id="L83">                rgbTest = AES_CBC_MAC(alg, rgbKey);</span>
+<span class="nc" id="L84">                break;</span>
+                
+            default:
+<span class="nc" id="L87">                throw new CoseException(&quot;Unsupported MAC Algorithm&quot;);</span>
+        }
+        
+<span class="nc bnc" id="L90" title="All 2 branches missed.">        if (rgbTest.length != rgbTag.length) return false;</span>
+<span class="nc" id="L91">        f = true;</span>
+<span class="nc bnc" id="L92" title="All 2 branches missed.">        for (i=0; i&lt;rgbTest.length; i++) {</span>
+<span class="nc bnc" id="L93" title="All 2 branches missed.">            f &amp;= (rgbTest[i] == rgbTag[i]);</span>
+        }
+<span class="nc" id="L95">        return f;</span>
+    }
+    
+    private byte[] BuildContentBytes() {
+<span class="nc" id="L99">        CBORObject obj = CBORObject.NewArray();</span>
+        
+<span class="nc bnc" id="L101" title="All 2 branches missed.">        if (rgbProtected == null) {</span>
+<span class="nc bnc" id="L102" title="All 2 branches missed.">            if (objProtected.size() == 0) rgbProtected = new byte[0]; </span>
+<span class="nc" id="L103">            else rgbProtected = objProtected.EncodeToBytes();</span>
+        }
+        
+<span class="nc" id="L106">        obj.Add(strContext);</span>
+<span class="nc" id="L107">        obj.Add(rgbProtected);</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">        if (externalData != null) obj.Add(CBORObject.FromObject(externalData));</span>
+<span class="nc" id="L109">        else obj.Add(CBORObject.FromObject(new byte[0]));</span>
+<span class="nc" id="L110">        obj.Add(rgbContent);</span>
+        
+<span class="nc" id="L112">        return obj.EncodeToBytes();</span>
+    }
+    
+    protected byte[] AES_CBC_MAC(AlgorithmID alg, byte[] rgbKey) throws CoseException
+    {
+<span class="nc bnc" id="L117" title="All 2 branches missed.">        if (rgbKey.length != alg.getKeySize() / 8) throw new CoseException(&quot;Key is incorrectly sized&quot;);</span>
+
+        //  The requirements from spec
+        //  IV is 128 bits of zeros
+        //  key sizes are 128, 192 and 256 bits
+        //  Authentication tag sizes are 64 and 128 bits
+<span class="nc" id="L123">        byte[] IV = new byte[128 / 8];</span>
+
+        try {
+<span class="nc" id="L126">            Cipher cbcmac = Cipher.getInstance(&quot;AES/CBC/NoPadding&quot;);</span>
+<span class="nc" id="L127">            cbcmac.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(rgbKey, &quot;AES&quot;),</span>
+                        new IvParameterSpec(IV));
+<span class="nc" id="L129">            byte[] val = BuildContentBytes();</span>
+<span class="nc" id="L130">            int blockLen = cbcmac.getBlockSize();</span>
+<span class="nc" id="L131">            int tagLen = alg.getTagSize() / 8;</span>
+
+<span class="nc" id="L133">            int dataLen = val.length,</span>
+<span class="nc" id="L134">                dataPad = 16 - (val.length % 16);</span>
+<span class="nc bnc" id="L135" title="All 2 branches missed.">            if (dataPad != 16) {</span>
+<span class="nc" id="L136">                dataLen += dataPad;</span>
+            }
+<span class="nc" id="L138">            ByteBuffer input = ByteBuffer.allocate(dataLen);</span>
+<span class="nc" id="L139">            input.put(val);</span>
+<span class="nc" id="L140">            input.put(IV, 0, input.remaining());</span>
+<span class="nc" id="L141">            input.flip();</span>
+
+<span class="nc" id="L143">            ByteBuffer output = ByteBuffer.allocate(dataLen);</span>
+<span class="nc" id="L144">            cbcmac.doFinal(input, output);</span>
+<span class="nc" id="L145">            val = new byte[alg.getTagSize() / 8];</span>
+<span class="nc" id="L146">            output.position(output.limit() - blockLen);</span>
+<span class="nc" id="L147">            output.get(val);</span>
+<span class="nc" id="L148">            return val;</span>
+<span class="nc" id="L149">        } catch (NoSuchAlgorithmException ex) {</span>
+<span class="nc" id="L150">            throw new CoseException(&quot;Algorithm not supported&quot;, ex);</span>
+        }
+<span class="nc" id="L152">        catch (InvalidKeyException ex) {</span>
+<span class="nc bnc" id="L153" title="All 2 branches missed.">            if (ex.getMessage() == &quot;Illegal key size&quot;) {</span>
+<span class="nc" id="L154">                throw new CoseException(&quot;Unsupported key size&quot;, ex);</span>
+            }
+<span class="nc" id="L156">            throw new CoseException(&quot;Mac failure&quot;, ex);        </span>
+<span class="nc" id="L157">        } catch (Exception ex) {</span>
+<span class="nc" id="L158">            throw new CoseException(&quot;Mac failure&quot;, ex);</span>
+        }
+    }
+    
+    private byte[] HMAC(AlgorithmID alg, byte[] rgbKey) throws CoseException {
+        String          algStr;
+        
+<span class="nc bnc" id="L165" title="All 4 branches missed.">        switch (alg) {</span>
+            case HMAC_SHA_256_64:
+            case HMAC_SHA_256:
+<span class="nc" id="L168">                algStr = &quot;HmacSHA256&quot;;</span>
+<span class="nc" id="L169">                break;</span>
+                
+            case HMAC_SHA_384:
+<span class="nc" id="L172">                algStr = &quot;HmacSHA384&quot;;</span>
+<span class="nc" id="L173">                break;</span>
+                
+            case HMAC_SHA_512:
+<span class="nc" id="L176">                algStr = &quot;HmacSHA512&quot;;</span>
+<span class="nc" id="L177">                break;</span>
+                
+            default:
+<span class="nc" id="L180">                throw new CoseException(&quot;Internal Error&quot;);</span>
+        }
+        
+<span class="nc bnc" id="L183" title="All 2 branches missed.">        if (rgbKey.length != alg.getKeySize()/8) throw new CoseException(&quot;Key is incorrect size&quot;);</span>
+        
+        try {
+<span class="nc" id="L186">            Mac hmac = Mac.getInstance(algStr);</span>
+<span class="nc" id="L187">            hmac.init(new SecretKeySpec(rgbKey, algStr));</span>
+<span class="nc" id="L188">            byte[] val = BuildContentBytes();</span>
+<span class="nc" id="L189">            val = hmac.doFinal(val);</span>
+<span class="nc" id="L190">            val = Arrays.copyOfRange(val, 0, alg.getTagSize() / 8);</span>
+<span class="nc" id="L191">            return val;</span>
+<span class="nc" id="L192">        } catch (NoSuchAlgorithmException ex) {</span>
+<span class="nc" id="L193">            throw new CoseException(&quot;Algorithm not supported&quot;, ex);</span>
+<span class="nc" id="L194">        } catch (Exception ex) {</span>
+<span class="nc" id="L195">            throw new CoseException(&quot;Mac failure&quot;, ex);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

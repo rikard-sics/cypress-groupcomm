@@ -1,0 +1,358 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Introspect.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.as</a> &gt; <span class="el_source">Introspect.java</span></div><h1>Introspect.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.as;
+
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+
+import org.eclipse.californium.cose.HeaderKeys;
+import org.eclipse.californium.cose.OneKey;
+
+import se.sics.ace.AccessToken;
+import se.sics.ace.AceException;
+import se.sics.ace.Constants;
+import se.sics.ace.Endpoint;
+import se.sics.ace.Message;
+import se.sics.ace.ReferenceToken;
+import se.sics.ace.TimeProvider;
+import se.sics.ace.cwt.CWT;
+import se.sics.ace.cwt.CwtCryptoCtx;
+
+/**
+ * The OAuth 2.0 Introspection endpoint.
+ * @author Ludwig Seitz and Marco Tiloca
+ *
+ */
+public class Introspect implements Endpoint, AutoCloseable {
+    
+    /**
+     * The logger
+     */
+<span class="fc" id="L66">    private static final Logger LOGGER </span>
+<span class="fc" id="L67">        = Logger.getLogger(Introspect.class.getName() );</span>
+
+    /**
+     * Boolean for verify
+     */
+<span class="fc" id="L72">    private static boolean verify = true;</span>
+    
+    /**
+     * The PDP this endpoint uses to make access control decisions.
+     */
+    private PDP pdp;
+    
+    /**
+     * The database connector for storing and retrieving stuff.
+     */
+    private DBConnector db;
+    
+    /**
+     * The time provider for this AS.
+     */
+    private TimeProvider time;
+    
+    /**
+     * The asymmetric key pair of the AS
+     */
+    private OneKey keyPair;
+    
+	 /**
+	  * Mapping between security identities of the peers and their names; it can be null
+	  * 
+	  * This is relevant especially for the OSCORE profile, since all peers are registered in the
+	  * AS database by nicknames. Instead, their OSCORE identities as retrieved from incoming OSCORE
+	  * messages are structured base64 strings encoding the Context ID and Sender ID for that peer 
+	 */ 
+<span class="fc" id="L101">	private Map&lt;String, String&gt; peerIdentitiesToNames = null;</span>
+	
+    
+    /**
+     * Constructor.
+     * 
+     * @param pdp   the PDP for deciding access
+     * @param db  the database connector
+     * @param time  the time provider
+     * @param keyPair the asymmetric key pair of the AS or null
+     * @param peerIdentitiesToNames  mapping between security identities of the peers and their names; it can be null
+     *
+     * @throws AceException  if fetching the cti from the database fails
+     */
+    public Introspect(PDP pdp, DBConnector db, 
+            TimeProvider time, OneKey keyPair,
+<span class="fc" id="L117">            Map&lt;String, String&gt; peerIdentitiesToNames) throws AceException {</span>
+<span class="pc bpc" id="L118" title="1 of 2 branches missed.">        if (pdp == null) {</span>
+<span class="nc" id="L119">            LOGGER.severe(&quot;Introspect endpoint's PDP was null&quot;);</span>
+<span class="nc" id="L120">            throw new AceException(</span>
+                    &quot;Introspect endpoint's PDP must be non-null&quot;);
+        }
+<span class="pc bpc" id="L123" title="1 of 2 branches missed.">        if (db == null) {</span>
+<span class="nc" id="L124">            LOGGER.severe(&quot;Introspect endpoint's DBConnector was null&quot;);</span>
+<span class="nc" id="L125">            throw new AceException(</span>
+                    &quot;Introspect endpoint's DBConnector must be non-null&quot;);
+        }
+<span class="pc bpc" id="L128" title="1 of 2 branches missed.">        if (time == null) {</span>
+<span class="nc" id="L129">            LOGGER.severe(&quot;Introspect endpoint received a null TimeProvider&quot;);</span>
+<span class="nc" id="L130">            throw new AceException(</span>
+                    &quot;Introspect endpoint requires a non-null TimeProvider&quot;);
+        }
+<span class="fc" id="L133">        this.pdp = pdp;</span>
+<span class="fc" id="L134">        this.db = db;</span>
+<span class="fc" id="L135">        this.time = time;  </span>
+<span class="fc" id="L136">        this.keyPair = keyPair;</span>
+<span class="fc" id="L137">        this.peerIdentitiesToNames = peerIdentitiesToNames;</span>
+<span class="fc" id="L138">    }</span>
+    
+    
+	@Override
+    public Message processMessage(Message msg) {
+		
+<span class="pc bpc" id="L144" title="1 of 2 branches missed.">	    if (msg == null) {</span>
+	    	//This should not happen
+<span class="nc" id="L146">            LOGGER.severe(&quot;Introspect.processMessage() received null message&quot;);</span>
+<span class="nc" id="L147">            return null;</span>
+        }
+<span class="fc" id="L149">	    LOGGER.log(Level.INFO, &quot;Introspect received message: &quot; + msg.getParameters());</span>
+        
+	    
+	    // Check that this RS is authorized and allowed to introspect
+<span class="fc" id="L153">	    String id = msg.getSenderId();</span>
+	    
+<span class="fc bfc" id="L155" title="All 2 branches covered.">		if (peerIdentitiesToNames != null) {</span>
+<span class="fc" id="L156">		    id = peerIdentitiesToNames.get(id);</span>
+<span class="pc bpc" id="L157" title="1 of 2 branches missed.">		    if (id == null) {</span>
+<span class="nc" id="L158">	            CBORObject map = CBORObject.NewMap();</span>
+<span class="nc" id="L159">	            map.Add(Constants.ERROR, Constants.UNAUTHORIZED_CLIENT);</span>
+<span class="nc" id="L160">	            LOGGER.log(Level.INFO, &quot;Message processing aborted: &quot;</span>
+	                    + &quot;unauthorized client: &quot; + id);
+<span class="nc" id="L162">	            return msg.failReply(Message.FAIL_UNAUTHORIZED, map);</span>
+		    }
+		}
+	    
+        PDP.IntrospectAccessLevel accessLevel;
+        try {
+<span class="fc" id="L168">            accessLevel = this.pdp.getIntrospectAccessLevel(id);</span>
+<span class="fc bfc" id="L169" title="All 2 branches covered.">            if (accessLevel.equals(PDP.IntrospectAccessLevel.NONE)) {</span>
+<span class="fc" id="L170">                LOGGER.log(Level.INFO, &quot;Message processing aborted: &quot;</span>
+                        + &quot;client: &quot; + id + &quot; does not have the right to introspect&quot;);
+<span class="fc" id="L172">                return msg.failReply(Message.FAIL_FORBIDDEN, null);</span>
+            }
+<span class="nc" id="L174">        } catch (AceException e) {</span>
+<span class="nc" id="L175">            LOGGER.severe(&quot;Database error: &quot; + e.getMessage());</span>
+<span class="nc" id="L176">            return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);</span>
+<span class="fc" id="L177">        }</span>
+	    
+        
+	    // Purge expired tokens from the database
+        try {
+<span class="fc" id="L182">            this.db.purgeExpiredTokens(this.time.getCurrentTime());</span>
+<span class="nc" id="L183">        } catch (AceException e) {</span>
+<span class="nc" id="L184">            LOGGER.severe(&quot;Database error: &quot; + e.getMessage());</span>
+<span class="nc" id="L185">            return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);</span>
+<span class="fc" id="L186">        }</span>
+        
+        
+	    // Get the token from the introspection request payload
+<span class="fc" id="L190">        CBORObject tokenAsCborByteArray = msg.getParameter(Constants.TOKEN);</span>
+<span class="fc bfc" id="L191" title="All 2 branches covered.">        if (tokenAsCborByteArray == null) {</span>
+<span class="fc" id="L192">            LOGGER.log(Level.INFO, &quot;Request didn't provide 'token' parameter&quot;);</span>
+<span class="fc" id="L193">            CBORObject map = CBORObject.NewMap();</span>
+<span class="fc" id="L194">            map.Add(Constants.ERROR, Constants.INVALID_REQUEST);</span>
+<span class="fc" id="L195">            map.Add(Constants.ERROR_DESCRIPTION, &quot;Must provide 'token' parameter&quot;);</span>
+<span class="fc" id="L196">            return msg.failReply(Message.FAIL_BAD_REQUEST, map);</span>
+        }
+<span class="fc" id="L198">        CBORObject tokenAsCbor = CBORObject.DecodeFromBytes(</span>
+<span class="fc" id="L199">                tokenAsCborByteArray.GetByteString());</span>
+
+        // Parse the token
+        AccessToken token;
+        try {
+<span class="fc" id="L204">            token = parseToken(tokenAsCbor, id);</span>
+<span class="nc" id="L205">        } catch (AceException e) {</span>
+<span class="nc" id="L206">            LOGGER.log(Level.INFO, e.getMessage());</span>
+<span class="nc" id="L207">            CBORObject map = CBORObject.NewMap();</span>
+<span class="nc" id="L208">            map.Add(Constants.ERROR, Constants.INVALID_REQUEST);</span>
+<span class="nc" id="L209">            map.Add(Constants.ERROR_DESCRIPTION, &quot;Must provide non-null token&quot;);</span>
+<span class="nc" id="L210">            return msg.failReply(Message.FAIL_BAD_REQUEST, map);</span>
+<span class="fc" id="L211">        }</span>
+
+
+        // Check if token is still active. If it is not, return active=false
+<span class="fc" id="L215">        String cti = null;</span>
+        try {
+<span class="fc" id="L217">			cti = token.getCti();</span>
+<span class="nc" id="L218">		} catch (AceException e) {</span>
+<span class="nc" id="L219">            LOGGER.severe(&quot;Message processing aborted: &quot; + e.getMessage());</span>
+<span class="nc" id="L220">            return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);</span>
+<span class="fc" id="L221">		}</span>
+<span class="pc bpc" id="L222" title="1 of 2 branches missed.">        if (cti == null) {</span>
+<span class="nc" id="L223">            LOGGER.log(Level.INFO, &quot;Message processing aborted: the token does not include a valid cti or reference&quot;);</span>
+<span class="nc" id="L224">            CBORObject map = CBORObject.NewMap();</span>
+<span class="nc" id="L225">            map.Add(Constants.ERROR, Constants.INVALID_REQUEST);</span>
+<span class="nc" id="L226">            map.Add(Constants.ERROR_DESCRIPTION, &quot;Must provide a token including a valid cti or reference&quot;);</span>
+<span class="nc" id="L227">            return msg.failReply(Message.FAIL_BAD_REQUEST, map);</span>
+        }
+
+        Map&lt;Short, CBORObject&gt; claims;
+<span class="fc" id="L231">        CBORObject payload = CBORObject.NewMap();</span>
+        try {
+<span class="fc" id="L233">            claims = this.db.getClaims(cti);</span>
+<span class="nc" id="L234">        } catch (AceException e) {</span>
+<span class="nc" id="L235">            LOGGER.severe(&quot;Database error: &quot; + e.getMessage());</span>
+<span class="nc" id="L236">            return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);</span>
+<span class="fc" id="L237">        }</span>
+<span class="pc bpc" id="L238" title="1 of 4 branches missed.">        if (claims == null || claims.isEmpty()) {</span>
+<span class="fc" id="L239">        	LOGGER.log(Level.INFO, &quot;Returning introspection result: inactive &quot; + &quot;for token: &quot; + cti);</span>
+<span class="fc" id="L240">            payload.Add(Constants.ACTIVE, CBORObject.False);</span>
+            //No need to check for client token, the token is invalid anyways
+<span class="fc" id="L242">            return msg.successReply(Message.CREATED, payload); </span>
+        }
+        
+                
+        // Check if this RS is allowed to introspect this particular Access Token.
+        //
+        // That is, check if the audience specified in the 'aud' claim of the Access Token
+        // includes also this RS. This implies that the Access Token includes the 'aud' claim.
+<span class="fc" id="L250">        CBORObject audCbor = claims.get(Constants.AUD);</span>
+<span class="pc bpc" id="L251" title="2 of 4 branches missed.">        if (audCbor == null || audCbor.getType() != CBORType.TextString) {</span>
+<span class="nc" id="L252">            LOGGER.severe(&quot;Message processing aborted: retrieved token to introspect without a valid audience&quot;);</span>
+<span class="nc" id="L253">            return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);</span>
+        }
+        
+<span class="fc" id="L256">        String aud = audCbor.AsString();</span>
+<span class="fc" id="L257">		Set&lt;String&gt; rsSet = new HashSet&lt;&gt;();</span>
+		try {
+<span class="fc" id="L259">			rsSet = db.getRSS(aud);</span>
+<span class="nc" id="L260">		} catch (AceException e) {</span>
+<span class="nc" id="L261">            LOGGER.severe(&quot;Database error: &quot; + e.getMessage());</span>
+<span class="nc" id="L262">		    return msg.failReply(Message.FAIL_INTERNAL_SERVER_ERROR, null);</span>
+<span class="fc" id="L263">		}</span>
+<span class="pc bpc" id="L264" title="1 of 2 branches missed.">		if (!rsSet.contains(id)) {</span>
+<span class="nc" id="L265">            LOGGER.log(Level.INFO, &quot;RS &quot; + id + &quot; is not allowed to introspect token: &quot; + cti);</span>
+<span class="nc" id="L266">            CBORObject map = CBORObject.NewMap();</span>
+<span class="nc" id="L267">            map.Add(Constants.ERROR, Constants.INVALID_REQUEST);</span>
+<span class="nc" id="L268">            map.Add(Constants.ERROR_DESCRIPTION, &quot;Can introspect only pertaining tokens&quot;);</span>
+<span class="nc" id="L269">            return msg.failReply(Message.FAIL_BAD_REQUEST, map);</span>
+		}
+
+        
+        // The NONE option was already checked. Now check if the RS is allowed to 
+        // retrieve the full set of claims, or only to the activeness of the token.
+<span class="pc bpc" id="L275" title="1 of 2 branches missed.">        if (accessLevel.equals(PDP.IntrospectAccessLevel.ACTIVE_AND_CLAIMS)) {</span>
+            // We have access to all claims; add them to reply.
+        	
+<span class="pc bpc" id="L278" title="1 of 2 branches missed.">        	if (claims.containsKey(Constants.LATE_ADDED_EXP)) {</span>
+        		// This Access Token was originally created with the EXI claim and without the
+        		// EXP claim, which was later artificially added to enable purging upon expiration.
+        		//
+        		// In order to provide the Resource Server with the Access Token like it was
+        		// originally created, such an EXP claim as well as the &quot;sentinel claim&quot; are removed.
+<span class="nc" id="L284">        		claims.remove(Constants.LATE_ADDED_EXP);</span>
+<span class="nc" id="L285">        		claims.remove(Constants.EXP);</span>
+        	}
+        	
+<span class="fc" id="L288">            payload = Constants.getCBOR(claims);</span>
+        }
+        else {
+            // Only access to activeness.
+<span class="nc" id="L292">            payload = CBORObject.NewMap();</span>
+        }
+
+<span class="fc" id="L295">        LOGGER.log(Level.INFO, &quot;Returning introspection result: &quot; + payload.toString() + &quot; for &quot; + cti);</span>
+        
+<span class="fc" id="L297">        payload.Add(Constants.ACTIVE, CBORObject.True);</span>
+<span class="fc" id="L298">        return msg.successReply(Message.CREATED, payload);</span>
+        
+	}
+
+    /**
+     * Parses a CBOR object presumably containing an access token.
+     * 
+     * @param token  the object
+     * @param senderId  the sender's id from the secure connection
+     * 
+     * @return  the parsed access token
+     * 
+     * @throws AceException 
+     */
+    public AccessToken parseToken(CBORObject token, String senderId)
+            throws AceException {
+<span class="pc bpc" id="L314" title="1 of 2 branches missed.">        if (token == null) {</span>
+<span class="nc" id="L315">            throw new AceException(&quot;Access token parser indata was null&quot;);</span>
+        }
+<span class="fc bfc" id="L317" title="All 2 branches covered.">        if (token.getType().equals(CBORType.Array)) {</span>
+            try {
+                // Get the RS id (audience) from the COSE KID header.
+<span class="fc" id="L320">				org.eclipse.californium.cose.Message coseRaw = org.eclipse.californium.cose.Message</span>
+<span class="fc" id="L321">						.DecodeFromBytes(</span>
+<span class="fc" id="L322">                        token.EncodeToBytes());</span>
+<span class="fc" id="L323">                CBORObject kid = coseRaw.findAttribute(HeaderKeys.KID);</span>
+<span class="fc" id="L324">                Set&lt;String&gt; aud = new HashSet&lt;&gt;();</span>
+<span class="pc bpc" id="L325" title="1 of 2 branches missed.">                if(kid == null) {</span>
+<span class="nc bnc" id="L326" title="All 2 branches missed.">                    if (senderId == null) {</span>
+<span class="nc" id="L327">                        throw new AceException(&quot;Cannot determine Audience&quot;</span>
+                                + &quot;of the token for introspection&quot;);
+                    }
+<span class="nc" id="L330">                    aud.add(senderId);</span>
+                } else {
+<span class="fc" id="L332">                    CBORObject audArray = CBORObject.DecodeFromBytes(</span>
+<span class="fc" id="L333">                            kid.GetByteString());</span>
+<span class="fc bfc" id="L334" title="All 2 branches covered.">                    for (int i=0; i&lt;audArray.size();i++) {</span>
+<span class="fc" id="L335">                        aud.add(audArray.get(i).AsString());</span>
+                    }
+                }            
+<span class="fc" id="L338">                CwtCryptoCtx ctx = EndpointUtils.makeCommonCtx(aud, this.db,</span>
+                        this.keyPair, verify);
+<span class="fc" id="L340">                return CWT.processCOSE(token.EncodeToBytes(), ctx);</span>
+<span class="nc" id="L341">            } catch (Exception e) {</span>
+<span class="nc" id="L342">                LOGGER.severe(&quot;Error while processing CWT: &quot; + e.getMessage());</span>
+<span class="nc" id="L343">                throw new AceException(e.getMessage());</span>
+            }
+<span class="pc bpc" id="L345" title="1 of 2 branches missed.">        } else if (token.getType().equals(CBORType.ByteString)) {</span>
+<span class="fc" id="L346">            return ReferenceToken.parse(token);</span>
+        }
+<span class="nc" id="L348">        throw new AceException(&quot;Unknown access token format&quot;);        </span>
+    }
+
+
+    @Override
+    public void close() throws AceException {
+<span class="fc" id="L354">        this.db.close();        </span>
+<span class="fc" id="L355">    }</span>
+    
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

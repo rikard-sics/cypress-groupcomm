@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GroupDynamicContextDerivation.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore.group</a> &gt; <span class="el_source">GroupDynamicContextDerivation.java</span></div><h1>GroupDynamicContextDerivation.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2023 RISE SICS and others.
+ * 
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * and Eclipse Distribution License v1.0 which accompany this distribution.
+ * 
+ * The Eclipse Public License is available at
+ *    http://www.eclipse.org/legal/epl-v20.html
+ * and the Eclipse Distribution License is available at
+ *    http://www.eclipse.org/org/documents/edl-v10.html.
+ * 
+ * Contributors:
+ *    Rikard Höglund (RISE SICS)
+ *    
+ ******************************************************************************/
+package org.eclipse.californium.oscore.group;
+
+import org.eclipse.californium.core.Utils;
+import org.eclipse.californium.cose.OneKey;
+import org.eclipse.californium.oscore.ByteId;
+import org.eclipse.californium.oscore.OSCoreCtx;
+import org.eclipse.californium.oscore.OSCoreCtxDB;
+import org.eclipse.californium.oscore.OSException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Class implementing functionality for Group OSCORE dynamic context derivation.
+ * If a request is received where there is no matching recipient context one may
+ * be derived dynamically.
+ *
+ */
+<span class="nc" id="L34">public class GroupDynamicContextDerivation {</span>
+
+	/**
+	 * The logger
+	 */
+<span class="fc" id="L39">	private static final Logger LOGGER = LoggerFactory.getLogger(GroupDynamicContextDerivation.class);</span>
+
+	/**
+	 * Perform dynamic context derivation for Group OSCORE.
+	 * 
+	 * @param db the context database used
+	 * @param rid the RID of the sender of the request
+	 * @param contextID the context ID in the request
+	 * @return a newly derived recipient context
+	 */
+	public static OSCoreCtx derive(OSCoreCtxDB db, byte[] rid, byte[] contextID) {
+		// Check if we have a public key for this RID
+
+		// First get the Sender Context for this request
+<span class="fc" id="L53">		OSCoreCtx ctx = db.getContextByIDContext(contextID);</span>
+
+		// Abort the procedure for non Group OSCORE sender contexts
+<span class="pc bpc" id="L56" title="1 of 4 branches missed.">		if (ctx == null || ctx instanceof GroupSenderCtx == false) {</span>
+<span class="fc" id="L57">			LOGGER.error(&quot;Dynamic context derivation failed: No context found for ID Context&quot;</span>
+<span class="fc" id="L58">					+ Utils.toHexString(contextID));</span>
+<span class="fc" id="L59">			return null;</span>
+		}
+
+<span class="fc" id="L62">		LOGGER.debug(&quot;Attempting dynamic context derivation for: &quot; + Utils.toHexString(contextID) + &quot;:&quot;</span>
+<span class="fc" id="L63">				+ Utils.toHexString(rid));</span>
+
+		// Abort if we do not have a public key for this rid
+<span class="fc" id="L66">		GroupSenderCtx senderCtx = (GroupSenderCtx) ctx;</span>
+<span class="fc" id="L67">		OneKey publicKey = senderCtx.commonCtx.getPublicKeyForRID(rid);</span>
+<span class="fc bfc" id="L68" title="All 2 branches covered.">		if (publicKey == null) {</span>
+<span class="fc" id="L69">			LOGGER.error(&quot;Dynamic context derivation failed: No public key found for RID &quot; + Utils.toHexString(rid));</span>
+<span class="fc" id="L70">			return null;</span>
+		}
+
+		// Now add the new recipient context
+		try {
+<span class="fc" id="L75">			senderCtx.commonCtx.addRecipientCtx(rid, 32, publicKey);</span>
+<span class="nc" id="L76">		} catch (OSException e) {</span>
+<span class="nc" id="L77">			LOGGER.error(&quot;Dynamic context derivation failed: Failed to add generated context&quot;);</span>
+<span class="fc" id="L78">		}</span>
+<span class="fc" id="L79">		GroupRecipientCtx recipientCtx = senderCtx.commonCtx.recipientCtxMap.get(new ByteId(rid));</span>
+<span class="fc" id="L80">		db.addContext(recipientCtx);</span>
+
+		// Derive pairwise keys
+<span class="fc" id="L83">		senderCtx.derivePairwiseKeys();</span>
+<span class="fc" id="L84">		recipientCtx.derivePairwiseKey();</span>
+
+<span class="fc" id="L86">		LOGGER.debug(&quot;Dynamic context derivation finished successfully&quot;);</span>
+
+<span class="fc" id="L88">		return recipientCtx;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

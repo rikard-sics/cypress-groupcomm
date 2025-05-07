@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GroupRecipientCtx.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore.group</a> &gt; <span class="el_source">GroupRecipientCtx.java</span></div><h1>GroupRecipientCtx.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2023 RISE SICS and others.
+ * 
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * and Eclipse Distribution License v1.0 which accompany this distribution.
+ * 
+ * The Eclipse Public License is available at
+ *    http://www.eclipse.org/legal/epl-v20.html
+ * and the Eclipse Distribution License is available at
+ *    http://www.eclipse.org/org/documents/edl-v10.html.
+ * 
+ * Contributors:
+ *    Rikard Höglund (RISE SICS)
+ *    
+ ******************************************************************************/
+package org.eclipse.californium.oscore.group;
+
+import org.eclipse.californium.cose.AlgorithmID;
+import org.eclipse.californium.cose.OneKey;
+import org.eclipse.californium.elements.util.Bytes;
+import org.eclipse.californium.oscore.OSCoreCtx;
+import org.eclipse.californium.oscore.OSException;
+
+/**
+ * Class implementing a Group OSCORE Recipient context.
+ *
+ */
+public class GroupRecipientCtx extends OSCoreCtx {
+
+	private final static int DEFAULT_MAX_UNFRAGMENTED_SIZE = 4096;
+
+	GroupCtx commonCtx;
+	OneKey otherEndpointPubKey;
+<span class="fc" id="L35">	byte[] otherEndpointPubKeyRaw = Bytes.EMPTY;</span>
+
+	byte[] pairwiseRecipientKey;
+
+	GroupRecipientCtx(byte[] master_secret, boolean client, AlgorithmID alg, byte[] sender_id,
+			byte[] recipient_id, AlgorithmID kdf, Integer replay_size, byte[] master_salt, byte[] contextId,
+			OneKey otherEndpointPubKey, byte[] otherEndpointPubKeyRaw, GroupCtx commonCtx) throws OSException {
+		// Build OSCORE Context using OSCoreCtx constructor
+<span class="fc" id="L43">		super(master_secret, client, alg, sender_id, recipient_id, kdf, replay_size, master_salt, contextId,</span>
+				DEFAULT_MAX_UNFRAGMENTED_SIZE);
+
+<span class="fc" id="L46">		this.commonCtx = commonCtx;</span>
+<span class="fc" id="L47">		this.otherEndpointPubKey = otherEndpointPubKey;</span>
+<span class="fc bfc" id="L48" title="All 2 branches covered.">		if (otherEndpointPubKeyRaw != null) {</span>
+<span class="fc" id="L49">			this.otherEndpointPubKeyRaw = otherEndpointPubKeyRaw;</span>
+		}
+<span class="fc" id="L51">	}</span>
+
+	/**
+	 * Get the public key associated to this recipient context, meaning the
+	 * public key of the other endpoint.
+	 * 
+	 * @return the public key of the other endpoint
+	 */
+	public OneKey getPublicKey() {
+<span class="fc" id="L60">		return otherEndpointPubKey;</span>
+	}
+
+	/**
+	 * Get the raw bytes of the public key associated to this recipient context,
+	 * meaning the public key of the other endpoint.
+	 * 
+	 * @return the bytes of the public key of the other endpoint
+	 */
+	public byte[] getPublicKeyRaw() {
+<span class="fc" id="L70">		return otherEndpointPubKeyRaw;</span>
+	}
+
+	/**
+	 * Get the pairwise recipient key for this context.
+	 * 
+	 * @return the pairwise recipient key
+	 */
+	public byte[] getPairwiseRecipientKey() {
+<span class="fc" id="L79">		return pairwiseRecipientKey;</span>
+	}
+
+	/**
+	 * Get the alg sign value.
+	 * 
+	 * @return the alg sign value
+	 */
+	public AlgorithmID getAlgSign() {
+<span class="fc" id="L88">		return commonCtx.algSign;</span>
+	}
+
+	/**
+	 * Get the alg sign enc value.
+	 * 
+	 * @return the alg sign enc value
+	 */
+	public AlgorithmID getAlgSignEnc() {
+<span class="fc" id="L97">		return commonCtx.algSignEnc;</span>
+	}
+
+	/**
+	 * Get the alg pairwise key agreement value.
+	 * 
+	 * @return the alg pairwise key agreement value.
+	 */
+	public AlgorithmID getAlgKeyAgreement() {
+<span class="fc" id="L106">		return commonCtx.algKeyAgreement;</span>
+	}
+
+	/**
+	 * Get the length of the countersignature depending on the countersignature
+	 * algorithm currently used.
+	 * 
+	 * @return the length of the countersiganture
+	 */
+	public int getCountersignatureLen() {
+<span class="fc" id="L116">		return commonCtx.getCountersignatureLen();</span>
+	}
+
+	/**
+	 * Get the par countersign value for the external aad.
+	 * 
+	 * @return the par countersign value
+	 */
+	public int[][] getParCountersign() {
+<span class="nc" id="L125">		return commonCtx.parCountersign;</span>
+	}
+
+	/**
+	 * Get the par countersign key value for the external aad.
+	 * 
+	 * @return the par countersign key value
+	 */
+	public int[] getParCountersignKey() {
+<span class="nc" id="L134">		return commonCtx.parCountersign[1];</span>
+	}
+
+	@Override
+	protected GroupSenderCtx getSenderCtx() {
+<span class="fc" id="L139">		return commonCtx.senderCtx;</span>
+	}
+
+	/**
+	 * Derive pairwise recipient key for this recipient context and the
+	 * associated sender context
+	 */
+	void derivePairwiseKey() {
+
+		// If the key has already been generated skip it
+<span class="pc bpc" id="L149" title="1 of 2 branches missed.">		if (this.pairwiseRecipientKey != null) {</span>
+<span class="nc" id="L150">			return;</span>
+		}
+
+<span class="fc" id="L153">		this.pairwiseRecipientKey = commonCtx.derivePairwiseRecipientKey(this.getRecipientId(), this.getRecipientKey(),</span>
+<span class="fc" id="L154">				this.getPublicKey(), this.getPublicKeyRaw());</span>
+
+<span class="fc" id="L156">	}</span>
+
+	// TODO: Change
+	@Override
+	public byte[] getSenderId() {
+		// StackTraceElement[] stackTraceElements =
+		// Thread.currentThread().getStackTrace();
+		// System.err.println(
+		// &quot;Bad call to getSenderId on GroupRecipientCtx (Fixed)&quot; +
+		// stackTraceElements[2].toString());
+<span class="fc" id="L166">		return getSenderCtx().getSenderId();</span>
+		// return sender_id;
+	}
+
+	/**
+	 * Get the common context associated to this GroupSenderCtx.
+	 * 
+	 * @return the common context associated to this GroupSenderCtx
+	 */
+	public GroupCtx getCommonCtx() {
+<span class="fc" id="L176">		return commonCtx;</span>
+	}
+
+	// ------- TODO: Remove methods below -------
+
+	/**
+	 * 
+	 * @return the private key
+	 */
+	public OneKey getPrivateKey() {
+<span class="nc" id="L186">		StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();</span>
+<span class="nc" id="L187">		System.err.println(&quot;Bad call to getPrivateKey on GroupRecipientCtx&quot; + stackTraceElements[2].toString());</span>
+<span class="nc" id="L188">		System.exit(0);</span>
+<span class="nc" id="L189">		return null;</span>
+	}
+
+	/**
+	 * @return the receiver sequence number
+	 */
+	@Override
+	public synchronized int getSenderSeq() {
+<span class="nc" id="L197">		StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();</span>
+<span class="nc" id="L198">		System.err.println(&quot;Bad call to getSenderSeq on GroupRecipientCtx&quot; + stackTraceElements[2].toString());</span>
+<span class="nc" id="L199">		System.exit(0);</span>
+<span class="nc" id="L200">		return sender_seq;</span>
+	}
+
+	/**
+	 * @return the recipient key
+	 */
+	@Override
+	public byte[] getSenderKey() {
+<span class="nc" id="L208">		StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();</span>
+<span class="nc" id="L209">		System.err.println(&quot;Bad call to getSenderKey on GroupRecipientCtx&quot; + stackTraceElements[2].toString());</span>
+<span class="nc" id="L210">		System.exit(0);</span>
+<span class="nc" id="L211">		return sender_key;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>InstallCryptoProviders.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore</a> &gt; <span class="el_source">InstallCryptoProviders.java</span></div><h1>InstallCryptoProviders.java</h1><pre class="source lang-java linenums">package org.eclipse.californium.oscore;
+
+import java.security.Provider;
+import java.security.Security;
+
+
+import net.i2p.crypto.eddsa.EdDSASecurityProvider;
+import org.eclipse.californium.cose.AlgorithmID;
+import org.eclipse.californium.cose.CoseException;
+import org.eclipse.californium.cose.OneKey;
+import org.eclipse.californium.elements.util.Base64;
+
+/**
+ * //TODO: Move/restructure
+ * @author linuxwolf
+ */
+<span class="nc" id="L17">public abstract class InstallCryptoProviders {</span>
+
+	// private static final Provider PROVIDER = new BouncyCastleProvider();
+<span class="nc" id="L20">    private static final Provider EdDSA = new EdDSASecurityProvider();</span>
+
+    public static void installProvider() {
+		// Security.insertProviderAt(PROVIDER, 2);
+<span class="nc" id="L24">        Security.insertProviderAt(EdDSA, 1);</span>
+<span class="nc" id="L25">    }</span>
+    
+    public static void uninstallProvider() {
+		// Security.removeProvider(PROVIDER.getName());
+<span class="nc" id="L29">        Security.removeProvider(EdDSA.getName());</span>
+<span class="nc" id="L30">    }</span>
+    
+    //Rikard: Generate a key to be used for Countersignatures
+    public static void generateCounterSignKey() throws CoseException {
+<span class="nc" id="L34">    	OneKey myKey = OneKey.generateKey(AlgorithmID.EDDSA);</span>
+    	
+    	//Print base64 encoded version with both public &amp; private keys
+<span class="nc" id="L37">    	byte[] keyObjectBytes = myKey.AsCBOR().EncodeToBytes();</span>
+<span class="nc" id="L38">    	String base64_encoded = Base64.encodeBytes(keyObjectBytes);</span>
+<span class="nc" id="L39">    	System.out.println(&quot;Public &amp; Private: &quot; + base64_encoded);</span>
+    	
+    	//Print base64 encoded version with only public keys
+<span class="nc" id="L42">    	keyObjectBytes = myKey.PublicKey().AsCBOR().EncodeToBytes();</span>
+<span class="nc" id="L43">    	base64_encoded = Base64.encodeBytes(keyObjectBytes);</span>
+<span class="nc" id="L44">    	System.out.println(&quot;Public only: &quot; + base64_encoded);</span>
+
+<span class="nc" id="L46">    }</span>
+    
+    //Rikard: Return a key to be used for Countersignatures
+    public static String getCounterSignKey() throws CoseException {
+<span class="nc" id="L50">    	OneKey myKey = OneKey.generateKey(AlgorithmID.EDDSA);</span>
+<span class="nc" id="L51">    	byte[] keyObjectBytes = myKey.AsCBOR().EncodeToBytes();</span>
+<span class="nc" id="L52">    	String base64_encoded = Base64.encodeBytes(keyObjectBytes);</span>
+    	
+<span class="nc" id="L54">    	return base64_encoded;</span>
+
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

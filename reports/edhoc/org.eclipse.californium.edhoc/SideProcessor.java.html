@@ -1,0 +1,560 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SideProcessor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-EDHOC</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.edhoc</a> &gt; <span class="el_source">SideProcessor.java</span></div><h1>SideProcessor.java</h1><pre class="source lang-java linenums">package org.eclipse.californium.edhoc;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+
+/*
+ * During the EDHOC execution, the side processor object temporarily
+ * takes over the processing of incoming messages in order to:
+ *     i) validate authentication credential of other peers; and
+ *    ii) process EAD items, which can play a role in the previous point.
+ * 
+ * Due to early pre-parsing of the EAD field, the side processor object
+ * can receive only EAD items that this peers supports
+ */
+
+public class SideProcessor {
+	
+	// The trust model used to validate authentication credentials of other peers
+    private int trustModel;
+    
+	// Authentication credentials of other peers
+	// 
+	// The map label is a CBOR Map used as ID_CRED_X
+	// The map value is a CBOR Byte String, with value the serialization of CRED_X
+<span class="fc" id="L33">	private HashMap&lt;CBORObject, CBORObject&gt; peerCredentials = new HashMap&lt;CBORObject, CBORObject&gt;();</span>
+	
+	// The EDHOC session this side process object is tied to
+	private EdhocSession session;
+	
+	// The following data structures are used to collect the results from the side processing of each incoming EDHOC message.
+	// For message_2 and message_3, each of those refer to two different data structures, in order to separately collect the
+	// results of the processing occurred before and after message verification.
+	//
+	// The value of the outer map is a list of maps. Each element of the list includes the results from one processing process. 
+	// The key of the outer map uniquely determines the namespace of keys and corresponding values for the inner maps organized into a list.
+	//
+	// The key of the outer map is equal to the ead_label of the EAD item the results refer to, with the following exceptions:
+	//
+	// - The outer map includes an entry with label  0, with information about the authentication credential of the other peer to use.
+	// - The outer map includes an entry with label -1, in case the overall side processing fails.
+	//
+<span class="fc" id="L50">	private HashMap&lt;Integer, List&lt;HashMap&lt;Integer, CBORObject&gt;&gt;&gt; resMessage1     = new HashMap&lt;Integer, List&lt;HashMap&lt;Integer, CBORObject&gt;&gt;&gt;();</span>
+<span class="fc" id="L51">	private HashMap&lt;Integer, List&lt;HashMap&lt;Integer, CBORObject&gt;&gt;&gt; resMessage2Pre  = new HashMap&lt;Integer, List&lt;HashMap&lt;Integer, CBORObject&gt;&gt;&gt;();</span>
+<span class="fc" id="L52">	private HashMap&lt;Integer, List&lt;HashMap&lt;Integer, CBORObject&gt;&gt;&gt; resMessage2Post = new HashMap&lt;Integer, List&lt;HashMap&lt;Integer, CBORObject&gt;&gt;&gt;();</span>
+<span class="fc" id="L53">	private HashMap&lt;Integer, List&lt;HashMap&lt;Integer, CBORObject&gt;&gt;&gt; resMessage3Pre  = new HashMap&lt;Integer, List&lt;HashMap&lt;Integer, CBORObject&gt;&gt;&gt;();</span>
+<span class="fc" id="L54">	private HashMap&lt;Integer, List&lt;HashMap&lt;Integer, CBORObject&gt;&gt;&gt; resMessage3Post = new HashMap&lt;Integer, List&lt;HashMap&lt;Integer, CBORObject&gt;&gt;&gt;();</span>
+<span class="fc" id="L55">	private HashMap&lt;Integer, List&lt;HashMap&lt;Integer, CBORObject&gt;&gt;&gt; resMessage4     = new HashMap&lt;Integer, List&lt;HashMap&lt;Integer, CBORObject&gt;&gt;&gt;();</span>
+	
+	// This data structure collects the produced EAD items to include in an outgoing EDHOC message.
+	//
+	// The outer map key indicates the outgoing EDHOC message in question.
+	//
+	// Each inner list specifies a sequence of element pairs (CBOR integer, CBOR byte string) or of elements (CBOR integer),
+	// for EAD items that specify or do not specify an ead_value, respectively. The CBOR integer specifies the ead_label in case
+	// of non-critical EAD item, or the corresponding negative value in case of critical EAD item.
+<span class="fc" id="L64">	private HashMap&lt;Integer, List&lt;CBORObject&gt;&gt; producedEADs = new HashMap&lt;Integer, List&lt;CBORObject&gt;&gt;();</span>
+	
+	// This data structure collects instructions provided by the application for producing EAD items
+	// to include in outgoing EDHOC messages. The production of these EAD items is not related to or
+	// triggered by the consumption of other EAD items included in incoming EDHOC messages.
+	// 
+	// This data structure can be null if the application does not specify the production of any of such EAD items. 
+	//
+	// The outer map key indicates the outgoing EDHOC message in question.
+	//
+	// Each inner list specifies a sequence of element pairs (CBOR integer, CBOR map).
+	// The CBOR integer specifies the ead_label in case of non-critical EAD item,
+	// or the corresponding negative value in case of critical EAD item.
+	// The CBOR map provides input on how to produce the EAD item,
+	// with the map keys from a namespace specific of the ead_label.
+<span class="fc" id="L79">	private HashMap&lt;Integer, List&lt;CBORObject&gt;&gt; eadProductionInput = new HashMap&lt;Integer, List&lt;CBORObject&gt;&gt;();</span>
+
+
+	public SideProcessor(int trustModel, HashMap&lt;CBORObject, CBORObject&gt; peerCredentials,
+<span class="fc" id="L83">						 HashMap&lt;Integer, List&lt;CBORObject&gt;&gt; eadProductionInput) {</span>
+
+<span class="fc" id="L85">		this.trustModel = trustModel;</span>
+<span class="fc" id="L86">		this.peerCredentials = peerCredentials;</span>
+<span class="fc" id="L87">		this.session = null;</span>
+		
+<span class="fc" id="L89">		this.eadProductionInput = eadProductionInput;</span>
+
+<span class="fc" id="L91">	}</span>
+	
+	/**
+    * Return the results obtained from the side processing
+    * 
+    * @param messageNumber  The number of EDHOC message that the EAD items refer to
+    * @param postValidation  True to select the results of EAD processing after EDHOC message validation, or false otherwise
+    * @return  The results obtained from consuming/producing EAD items for the EDHOC message.
+    */
+	public HashMap&lt;Integer, List&lt;HashMap&lt;Integer, CBORObject&gt;&gt;&gt; getResults(int messageNumber, boolean postValidation) {
+<span class="fc" id="L101">		return whichResults(messageNumber, postValidation);</span>
+	}
+	
+	/**
+    * Store a result obtained from the side processing
+    * 
+    * @param messageNumber  The number of EDHOC message that the EAD items refer to
+    * @param postValidation  True to select the results of EAD processing after EDHOC message validation, or false otherwise
+    * @param resultLabel   Identifier of the specific map where to store this result
+    * @param resultContent   The result to store
+    */
+	private void addResult(int messageNumber, boolean postValidation, int resultLabel, HashMap&lt;Integer, CBORObject&gt; resultContent) {
+<span class="fc" id="L113">		HashMap&lt;Integer, List&lt;HashMap&lt;Integer, CBORObject&gt;&gt;&gt; myResults = whichResults(messageNumber, postValidation);</span>
+		
+<span class="pc bpc" id="L115" title="1 of 2 branches missed.">		if (!myResults.containsKey(Integer.valueOf(resultLabel))) {</span>
+<span class="fc" id="L116">			List&lt;HashMap&lt;Integer, CBORObject&gt;&gt; myList = new ArrayList&lt;HashMap&lt;Integer, CBORObject&gt;&gt;();</span>
+<span class="fc" id="L117">			myResults.put(Integer.valueOf(resultLabel), myList);</span>
+		}
+<span class="fc" id="L119">		myResults.get(Integer.valueOf(resultLabel)).add(resultContent);</span>
+<span class="fc" id="L120">	}</span>
+	
+	/**
+    * Delete all the results obtained from the side processing
+	*/
+	public void removeResults() {
+<span class="nc" id="L126">		resMessage1.clear();</span>
+<span class="nc" id="L127">		resMessage2Pre.clear();</span>
+<span class="nc" id="L128">		resMessage2Post.clear();</span>
+<span class="nc" id="L129">		resMessage3Pre.clear();</span>
+<span class="nc" id="L130">		resMessage3Post.clear();</span>
+<span class="nc" id="L131">		resMessage4.clear();</span>
+<span class="nc" id="L132">	}</span>
+	
+	/**
+    * Delete all the results from the side processing related to an EDHOC message
+    *  
+    * @param messageNumber  The number of EDHOC message that the EAD items refer to
+    * @param postValidation  True to select the results of EAD processing after EDHOC message validation, or false otherwise
+    */
+	public void removeResults(int messageNumber, boolean postValidation) {
+<span class="nc" id="L141">		HashMap&lt;Integer, List&lt;HashMap&lt;Integer, CBORObject&gt;&gt;&gt; myResults = whichResults(messageNumber, postValidation);</span>
+<span class="nc" id="L142">		myResults.clear();</span>
+<span class="nc" id="L143">	}</span>
+
+	/**
+    * Delete a specific result set obtained from the side processing related to an EDHOC message
+    *  
+    * @param messageNumber  The number of EDHOC message that the EAD items refer to
+    * @param keyValue   The identifier of the result set to delete
+    * @param postValidation  True to select the results of EAD processing after EDHOC message validation, or false otherwise
+    */
+	public void removeResultSet(int messageNumber, int keyValue, boolean postValidation) {
+<span class="fc" id="L153">		HashMap&lt;Integer, List&lt;HashMap&lt;Integer, CBORObject&gt;&gt;&gt; myResults = whichResults(messageNumber, postValidation);</span>
+<span class="pc bpc" id="L154" title="1 of 2 branches missed.">		if (myResults.size() == 0)</span>
+<span class="nc" id="L155">			return;</span>
+<span class="fc" id="L156">		myResults.remove(Integer.valueOf(keyValue));</span>
+<span class="fc" id="L157">	}</span>
+	
+	/**
+    * Store an error result obtained from the side processing
+    * 
+    * @param messageNumber  The number of EDHOC message that the EAD items refer to
+    * @param postValidation  True to select the results of EAD processing after EDHOC message validation, or false otherwise
+    * @param errorMessage   The error message
+    * @param responseCode   The CoAP response error code to use, if following up with an EDHOC error message as a CoAP response
+    */
+	private void addErrorResult(int messageNumber, boolean postValidation, String errorMessage, int responseCode) {
+<span class="nc" id="L168">		HashMap&lt;Integer, CBORObject&gt; errorMap = new HashMap&lt;Integer, CBORObject&gt;();</span>
+		
+<span class="nc" id="L170">		errorMap.put(Integer.valueOf(Constants.SIDE_PROCESSOR_INNER_ERROR_DESCRIPTION),</span>
+<span class="nc" id="L171">				 CBORObject.FromObject(errorMessage));</span>
+<span class="nc" id="L172">		errorMap.put(Integer.valueOf(Constants.SIDE_PROCESSOR_INNER_ERROR_RESP_CODE),</span>
+<span class="nc" id="L173">			 CBORObject.FromObject(responseCode));</span>
+
+<span class="nc" id="L175">		addResult(messageNumber, postValidation, Constants.SIDE_PROCESSOR_OUTER_ERROR, errorMap);</span>
+<span class="nc" id="L176">	}</span>
+	
+	public List&lt;CBORObject&gt; getProducedEADs(int messageNumber) {
+<span class="fc" id="L179">		return producedEADs.get(Integer.valueOf(messageNumber));</span>
+	}
+	
+	/**
+ 	 * @param messageNumber  The number of the outgoing EDHOC message that will include the EAD item
+ 	 * @param eadLabel  The ead_label of the EAD item to include, or its corresponding negative value if the EAD item is critical
+ 	 * @param eadValue  The ead_value of the EAD item to include, or null if the ead_value is not present 
+	 */
+	private void addProducedEAD(int messageNumber, CBORObject eadLabel, CBORObject eadValue) {
+
+<span class="nc bnc" id="L189" title="All 2 branches missed.">		if (!producedEADs.containsKey(Integer.valueOf(messageNumber))) {</span>
+<span class="nc" id="L190">			producedEADs.put(Integer.valueOf(messageNumber), new ArrayList&lt;CBORObject&gt;());</span>
+		}
+<span class="nc" id="L192">		List&lt;CBORObject&gt; myList = producedEADs.get(Integer.valueOf(messageNumber));</span>
+<span class="nc" id="L193">		myList.add(eadLabel);</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">		if (eadValue != null) {</span>
+<span class="nc" id="L195">			myList.add(eadValue);</span>
+		}
+		
+<span class="nc" id="L198">	}</span>
+	
+	/**
+	 * Return the correct map to look at, as including the desired results obtained from the side processing
+	 * 
+ 	 * @param messageNumber  The number of the outgoing EDHOC message that will include the EAD item
+     * @param postValidation  True to select the results of EAD processing after EDHOC message validation, or false otherwise
+     * @return  The map including the desired results obtained from the side processing
+	 */
+	
+	private HashMap&lt;Integer, List&lt;HashMap&lt;Integer, CBORObject&gt;&gt;&gt; whichResults(int messageNumber, boolean postValidation) {
+<span class="pc bpc" id="L209" title="1 of 5 branches missed.">		switch(messageNumber) {</span>
+			case Constants.EDHOC_MESSAGE_1:
+<span class="fc" id="L211">				return resMessage1;</span>
+			case Constants.EDHOC_MESSAGE_2:
+<span class="fc bfc" id="L213" title="All 2 branches covered.">				return (postValidation == false) ? resMessage2Pre : resMessage2Post;</span>
+			case Constants.EDHOC_MESSAGE_3:
+<span class="fc bfc" id="L215" title="All 2 branches covered.">				return (postValidation == false) ? resMessage3Pre : resMessage3Post;</span>
+			case Constants.EDHOC_MESSAGE_4:
+<span class="fc" id="L217">				return resMessage4;</span>
+		}
+<span class="nc" id="L219">		return null;</span>
+	}
+	
+	/**
+	 * Associates this SideProcessor object with the EDHOC session to consider
+	 * 
+ 	 * @param session  The EDHOC session
+	 */
+	public void setEdhocSession(EdhocSession session) {
+<span class="pc bpc" id="L228" title="1 of 2 branches missed.">		if (session != null) {</span>
+<span class="fc" id="L229">			this.session = session;</span>
+		}
+		
+<span class="pc bpc" id="L232" title="1 of 2 branches missed.">		if (this.session != null) {</span>
+<span class="fc" id="L233">			this.session.setSideProcessor(this);</span>
+			
+<span class="pc bpc" id="L235" title="1 of 2 branches missed.">			if (session == null) {</span>
+<span class="nc" id="L236">				this.session = null;</span>
+			}
+		}
+<span class="fc" id="L239">	}</span>
+	
+	/**
+	 * Entry point for processing EAD items from EAD_1
+	 * 
+ 	 * @param sideProcessorInfo  Information generally required for processing EAD_1
+  	 * @param ead1  The EAD items from EAD_1, including only items that the endpoint understands and excluding padding
+	 */
+	// sideProcessorInfo includes useful pieces information for processing EAD_1
+	// 0) A CBOR integer, with value MEHOD
+	// 1) A CBOR array of integers, including all the integers specified in SUITES_I, in the same order
+	// 2) A CBOR byte string, with value G_X
+	// 3) A CBOR byte string, with value C_I (in its original, binary format)
+	public void sideProcessingMessage1(CBORObject[] sideProcessorInfo, CBORObject[] ead1) {
+		
+		// Go through the EAD_1 items, if any
+		//
+		// For each EAD item, invoke the corresponding consume() method, and then addResult(). 
+		// Stop in case the consumption of an EAD item returns a fatal error.
+		//
+		// This may further trigger the production of new EAD items to include in the next, outgoing EDHOC message.
+		// In such a case, invoke eadProductionDispatcher() for each of those EAD items to produce.
+		//
+		// ...
+		//
+		
+<span class="nc" id="L265">	}</span>
+
+	/**
+	 * Entry point for processing EAD items from EAD_2 before message verification
+	 * 
+ 	 * @param sideProcessorInfo  Information generally required for processing EAD_2
+  	 * @param ead2  The EAD items from EAD_2, including only items that the endpoint understands and excluding padding
+	 */
+	// sideProcessorInfo includes useful pieces information for processing EAD_2, in this order:
+	// 0) A CBOR byte string, with value G_Y
+	// 1) A CBOR byte string, with value C_R (in its original, binary format)
+	// 2) A CBOR map, as ID_CRED_R
+	public void sideProcessingMessage2PreVerification(CBORObject[] sideProcessorInfo, CBORObject[] ead2) {
+				
+<span class="fc" id="L279">		CBORObject gY = sideProcessorInfo[0];</span>
+<span class="fc" id="L280">		CBORObject connectionIdentifierResponder = sideProcessorInfo[1];</span>
+<span class="fc" id="L281">		CBORObject idCredR = sideProcessorInfo[2];</span>
+		
+<span class="fc" id="L283">		CBORObject peerCredentialCBOR = findValidPeerCredential(idCredR, ead2);</span>
+		
+<span class="pc bpc" id="L285" title="1 of 2 branches missed.">		if (peerCredentialCBOR == null) {</span>
+<span class="nc" id="L286">			addErrorResult(Constants.EDHOC_MESSAGE_2, false,</span>
+						  &quot;Unable to retrieve a valid peer credential from ID_CRED_R&quot;,
+						  ResponseCode.BAD_REQUEST.value);
+<span class="nc" id="L289">			return;</span>
+    	}
+		else {
+<span class="fc" id="L292">			HashMap&lt;Integer, CBORObject&gt; resultContent = new HashMap&lt;Integer, CBORObject&gt;();</span>
+<span class="fc" id="L293">			resultContent.put(Integer.valueOf(Constants.SIDE_PROCESSOR_INNER_CRED_VALUE), peerCredentialCBOR);</span>
+<span class="fc" id="L294">			addResult(Constants.EDHOC_MESSAGE_2, false, Constants.SIDE_PROCESSOR_OUTER_CRED, resultContent);</span>
+		}
+		
+		// Go through the EAD_2 items, if any
+		//
+		// For each EAD item, invoke the corresponding consume() method, and then addResult(). 
+		// Stop in case the consumption of an EAD item returns a fatal error.
+		//
+		// This may further trigger the production of new EAD items to include in the next, outgoing EDHOC message.
+		// In such a case, invoke eadProductionDispatcher() for each of those EAD items to produce.
+		//
+		// ...
+		//
+		
+<span class="fc" id="L308">	}</span>
+
+	/**
+	 * Entry point for processing EAD items from EAD_2 after message verification
+	 * 
+ 	 * @param sideProcessorInfo  Information generally required for processing EAD_2
+  	 * @param ead2  The EAD items from EAD_2, including only items that the endpoint understands and excluding padding
+	 */
+	// sideProcessorInfo includes useful pieces information for processing EAD_2, in this order:
+	// 0) A CBOR byte string, with value G_Y
+	// 1) A CBOR byte string, with value C_R (in its original, binary format)
+	// 2) A CBOR map, as ID_CRED_R
+	public void sideProcessingMessage2PostVerification(CBORObject[] sideProcessorInfo, CBORObject[] ead2) {
+<span class="nc" id="L321">		CBORObject gY = sideProcessorInfo[0];</span>
+<span class="nc" id="L322">		CBORObject connectionIdentifierResponder = sideProcessorInfo[1];</span>
+<span class="nc" id="L323">		CBORObject idCredR = sideProcessorInfo[2];</span>
+		
+		// Go through the EAD_2 items, if any
+		//
+		// For each EAD item, invoke the corresponding consume() method, and then addResult(). 
+		// Stop in case the consumption of an EAD item returns a fatal error.
+		//
+		// This may further trigger the production of new EAD items to include in the next, outgoing EDHOC message.
+		// In such a case, invoke eadProductionDispatcher() for each of those EAD items to produce.
+		//
+		// ...
+		//
+		
+<span class="nc" id="L336">	}</span>
+
+	/**
+	 * Entry point for processing EAD items from EAD_3 before message verification
+	 * 
+ 	 * @param sideProcessorInfo  Information generally required for processing EAD_3
+  	 * @param ead3  The EAD items from EAD_3, including only items that the endpoint understands and excluding padding
+	 */
+	// sideProcessorInfo includes useful pieces information for processing EAD_3, in this order:
+	// 0) A CBOR map, as ID_CRED_I
+	//
+	public void sideProcessingMessage3PreVerification(CBORObject[] sideProcessorInfo, CBORObject[] ead3) {
+		
+<span class="fc" id="L349">		CBORObject idCredI = sideProcessorInfo[0];</span>
+		
+<span class="fc" id="L351">		CBORObject peerCredentialCBOR = findValidPeerCredential(idCredI, ead3);</span>
+		
+<span class="pc bpc" id="L353" title="1 of 2 branches missed.">		if (peerCredentialCBOR == null) {</span>
+<span class="nc" id="L354">			addErrorResult(Constants.EDHOC_MESSAGE_3, false,</span>
+						  &quot;Unable to retrieve a valid peer credential from ID_CRED_I&quot;,
+						  ResponseCode.BAD_REQUEST.value);
+<span class="nc" id="L357">			return;</span>
+    	}
+		else {
+<span class="fc" id="L360">			HashMap&lt;Integer, CBORObject&gt; resultContent = new HashMap&lt;Integer, CBORObject&gt;();</span>
+<span class="fc" id="L361">			resultContent.put(Integer.valueOf(Constants.SIDE_PROCESSOR_INNER_CRED_VALUE), peerCredentialCBOR);</span>
+<span class="fc" id="L362">			addResult(Constants.EDHOC_MESSAGE_3, false, Constants.SIDE_PROCESSOR_OUTER_CRED, resultContent);</span>
+		}
+		
+		// Go through the EAD_3 items, if any
+		//
+		// For each EAD item, invoke the corresponding consume() method, and then addResult(). 
+		// Stop in case the consumption of an EAD item returns a fatal error.
+		//
+		// This may further trigger the production of new EAD items to include in the next, outgoing EDHOC message.
+		// In such a case, invoke eadProductionDispatcher() for each of those EAD items to produce.
+		//
+		// ...
+		//
+		
+<span class="fc" id="L376">	}</span>
+
+	/**
+	 * Entry point for processing EAD items from EAD_3 before message verification
+	 * 
+ 	 * @param sideProcessorInfo  Information generally required for processing EAD_3
+  	 * @param ead3  The EAD items from EAD_3, including only items that the endpoint understands and excluding padding
+	 */
+	// sideProcessorInfo includes useful pieces information for processing EAD_3, in this order:
+	// 0) A CBOR map, as ID_CRED_I
+	//
+	public void sideProcessingMessage3PostVerification(CBORObject[] sideProcessorInfo, CBORObject[] ead3) {
+		
+		// Go through the EAD_3 items, if any
+		//
+		// For each EAD item, invoke the corresponding consume() method, and then addResult(). 
+		// Stop in case the consumption of an EAD item returns a fatal error.
+		//
+		// This may further trigger the production of new EAD items to include in the next, outgoing EDHOC message.
+		// In such a case, invoke eadProductionDispatcher() for each of those EAD items to produce.
+		//
+		// ...
+		//
+		
+<span class="nc" id="L400">	}</span>
+	
+	/**
+	 * Entry point for processing EAD items from EAD_4
+	 * 
+  	 * @param ead4  The EAD items from EAD_4, including only items that the endpoint understands and excluding padding
+	 */
+	public void sideProcessingMessage4(CBORObject[] ead4) {
+
+		// Go through the EAD_4 items, if any
+		//
+		// For each EAD item, invoke the corresponding consume() method, and then addResult(). 
+		// Stop in case the consumption of an EAD item returns a fatal error.
+		//
+		// This may further trigger the production of new EAD items to include in the next, outgoing EDHOC message.
+		// In such a case, invoke eadProductionDispatcher() for each of those EAD items to produce.
+		//
+		// ...
+		//
+
+<span class="nc" id="L420">	}</span>
+	
+	/**
+ 	 * @param messageNumber  The number of the outgoing EDHOC message that will include the EAD item
+ 	 * @return  False in case of malformed input, or true otherwise.
+ 	 *          This is not related to the correct/failed production of EAD items. 
+	 */
+	public boolean produceIndependentEADs(int messageNumber) {
+		
+<span class="pc bpc" id="L429" title="3 of 4 branches missed.">		if (eadProductionInput == null || !eadProductionInput.containsKey(Integer.valueOf(messageNumber)))</span>
+<span class="fc" id="L430">			return true;</span>
+		
+<span class="nc" id="L432">		List&lt;CBORObject&gt; myList = eadProductionInput.get(Integer.valueOf(messageNumber));</span>
+		
+<span class="nc bnc" id="L434" title="All 2 branches missed.">		if ((myList.size() % 2) == 1)</span>
+<span class="nc" id="L435">			return false;</span>
+		
+<span class="nc" id="L437">		int index = 0;</span>
+<span class="nc" id="L438">		int size = myList.size();</span>
+		
+<span class="nc bnc" id="L440" title="All 2 branches missed.">		while (index &lt; size) {</span>
+			
+<span class="nc bnc" id="L442" title="All 2 branches missed.">			if (myList.get(Integer.valueOf(index)).getType() != CBORType.Integer)</span>
+<span class="nc" id="L443">				return false;</span>
+<span class="nc bnc" id="L444" title="All 2 branches missed.">			if (myList.get(Integer.valueOf(index + 1)).getType() != CBORType.Map)</span>
+<span class="nc" id="L445">				return false;</span>
+			
+<span class="nc" id="L447">			boolean critical = false;</span>
+<span class="nc" id="L448">			int eadLabel = myList.get(Integer.valueOf(index)).AsInt32();</span>
+<span class="nc bnc" id="L449" title="All 2 branches missed.">			if (eadLabel &lt; 0) {</span>
+<span class="nc" id="L450">				critical = true;</span>
+<span class="nc" id="L451">				eadLabel = -eadLabel;</span>
+			}
+<span class="nc" id="L453">			index++;</span>
+<span class="nc" id="L454">			CBORObject productionInput = myList.get(Integer.valueOf(index));</span>
+<span class="nc" id="L455">			CBORObject[] eadItem = eadProductionDispatcher(eadLabel, critical, messageNumber, productionInput);</span>
+			
+<span class="nc bnc" id="L457" title="All 4 branches missed.">			if (eadItem[0].getType() != CBORType.Integer &amp;&amp; eadItem[0].getType() != CBORType.TextString)</span>
+<span class="nc" id="L458">				return false;</span>
+			
+			// A fatal error occurred while producing this EAD item
+<span class="nc bnc" id="L461" title="All 2 branches missed.">			if (eadItem[0].getType() == CBORType.TextString) {</span>
+<span class="nc bnc" id="L462" title="All 2 branches missed.">				if (eadItem[1].getType() != CBORType.ByteString)</span>
+<span class="nc" id="L463">					return false;</span>
+				
+<span class="nc" id="L465">				addErrorResult(messageNumber, true, eadItem[0].AsString(), eadItem[1].AsInt32());</span>
+<span class="nc" id="L466">				break;</span>
+			}
+			
+<span class="nc" id="L469">			addProducedEAD(messageNumber, eadItem[0], eadItem[1]);</span>
+			
+<span class="nc" id="L471">			index++;</span>
+			
+<span class="nc" id="L473">		}</span>
+		
+<span class="nc" id="L475">		return true;</span>
+		
+	}
+	
+	/**
+	 * Invoke the produce() method of the right EAD item to produce
+	 * 
+ 	 * @param eadLabel  The ead_label of the EAD item to produce
+	 * @param critical  True if the EAD item has to be produced as critical, or false otherwise
+ 	 * @param messageNumber  The number of the next, outgoing EDHOC message that will include the produced EAD item
+ 	 * @param input  A CBOR map providing input on how to produce the EAD item. The map keys belong to a namespace specific of the ead_label. 
+ 	 * @return  The same result returned by the produce() method of the specific EAD item to produce.
+	 */
+	public CBORObject[] eadProductionDispatcher(int eadLabel, boolean critical, int messageNumber, CBORObject input) {
+		
+		// This has to be populated with the invocation of the produce() method for the EAD item to produce
+<span class="nc" id="L491">		switch(eadLabel) {</span>
+			// CASE NNN:
+			// return EAD_NNN.produce(critical, messageNumber, productionInput);
+		}
+		
+<span class="nc" id="L496">		return null; // placeholder, until the invocation to an actual produce() method is included above</span>
+		
+	}
+	
+	public void showResultsFromSideProcessing(int messageNumber, boolean postValidation) {
+<span class="fc" id="L501">		HashMap&lt;Integer, List&lt;HashMap&lt;Integer, CBORObject&gt;&gt;&gt; myResults = whichResults(messageNumber, postValidation);</span>
+<span class="pc bpc" id="L502" title="1 of 2 branches missed.">		if (myResults.size() == 0)</span>
+<span class="fc" id="L503">			return;</span>
+
+<span class="nc" id="L505">		String myStr = new String(&quot;Results of side processing of message_&quot; + messageNumber);</span>
+<span class="nc bnc" id="L506" title="All 4 branches missed.">		if (messageNumber == Constants.EDHOC_MESSAGE_2 || messageNumber == Constants.EDHOC_MESSAGE_3) {</span>
+<span class="nc bnc" id="L507" title="All 2 branches missed.">			myStr = (postValidation == false) ? (myStr + &quot; before&quot;) : (myStr + &quot; after&quot;);</span>
+<span class="nc" id="L508">			myStr = myStr + &quot; message verification&quot;;</span>
+		}
+<span class="nc" id="L510">		System.out.println(myStr);</span>
+		
+<span class="nc bnc" id="L512" title="All 2 branches missed.">		for (Integer i : myResults.keySet()) {</span>
+<span class="nc" id="L513">			System.out.println(&quot;Processing result for the EAD item with ead_label: &quot; + i.intValue());</span>
+			
+<span class="nc" id="L515">			List&lt;HashMap&lt;Integer, CBORObject&gt;&gt; myList = myResults.get(i);</span>
+			
+			// Print the processing results for each instance of this EAD item 
+<span class="nc bnc" id="L518" title="All 2 branches missed.">			for(HashMap&lt;Integer, CBORObject&gt; myMap : myList) {</span>
+<span class="nc bnc" id="L519" title="All 2 branches missed.">				for (Integer j : myMap.keySet()) {</span>
+<span class="nc" id="L520">					CBORObject obj = myMap.get(j);</span>
+<span class="nc" id="L521">					System.out.print(&quot;Result element #&quot; + j.intValue() + &quot;: &quot; + obj.toString());				</span>
+<span class="nc" id="L522">				}	</span>
+<span class="nc" id="L523">			}			</span>
+<span class="nc" id="L524">			System.out.println(&quot;\n&quot;);</span>
+<span class="nc" id="L525">		}		</span>
+		
+<span class="nc" id="L527">	}</span>
+	
+	/**
+	 * Look for an authentication credential of the other peer to use, by relying on
+	 * the associated ID_CRED_X specified in the incoming EDHOC message_2 or message_3.
+	 * This considers the trust model used by the endpoint for trusting new authentication credentials.
+	 * 
+ 	 * @param idCredX  The identifier of the peer's authentication credential specified in the incoming EDHOC message
+	 * @param ead  The EAD items specified in the incoming EDHOC message,
+	 *             including only items that the endpoint understands and excluding padding
+ 	 * @return  The peer's authentication credential wrapped into a CBOR byte string,
+ 	 *          or null in case a peer's authentication credential to use is not found. 
+	 */
+	private CBORObject findValidPeerCredential(CBORObject idCredX, CBORObject[] ead) {
+<span class="fc" id="L541">		CBORObject peerCredentialCBOR = null;</span>
+		
+<span class="pc bpc" id="L543" title="1 of 2 branches missed.">		if (peerCredentials.containsKey(idCredX)) {</span>
+<span class="fc" id="L544">	    	peerCredentialCBOR = peerCredentials.get(idCredX);</span>
+	    	
+	    	// TODO: Check whether the authentication credential is still valid (for applicable credential types)
+	    	
+	    	// TODO: Check whether the authentication credential is good to use in the context of this EDHOC session
+		}		
+<span class="nc bnc" id="L550" title="All 2 branches missed.">		else if (trustModel == Constants.TRUST_MODEL_STRICT) {</span>
+<span class="nc" id="L551">				return peerCredentialCBOR;</span>
+		}
+
+		// TODO: Add support for the alternative trust models
+    			
+<span class="fc" id="L556">		return peerCredentialCBOR;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

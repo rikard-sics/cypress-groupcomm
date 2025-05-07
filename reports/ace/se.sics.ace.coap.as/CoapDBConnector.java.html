@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CoapDBConnector.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.coap.as</a> &gt; <span class="el_source">CoapDBConnector.java</span></div><h1>CoapDBConnector.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.coap.as;
+
+import java.net.InetSocketAddress;
+import java.sql.SQLException;
+import java.util.logging.Logger;
+
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+
+import org.eclipse.californium.scandium.dtls.ConnectionId;
+import org.eclipse.californium.scandium.dtls.HandshakeResultHandler;
+import org.eclipse.californium.scandium.dtls.PskPublicInformation;
+import org.eclipse.californium.scandium.dtls.PskSecretResult;
+import org.eclipse.californium.scandium.dtls.pskstore.AdvancedPskStore;
+import org.eclipse.californium.scandium.util.ServerNames;
+
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+
+import org.eclipse.californium.cose.KeyKeys;
+import org.eclipse.californium.cose.OneKey;
+import se.sics.ace.AceException;
+import se.sics.ace.examples.SQLConnector;
+import se.sics.ace.examples.SQLDBAdapter;
+
+/**
+ * A SQLConnector for CoAP, implementing the PskStore interface.
+ * 
+ * @author Ludwig Seitz
+ *
+ */
+public class CoapDBConnector extends SQLConnector implements AdvancedPskStore {
+    
+    /**
+     * The logger
+     */
+<span class="fc" id="L68">    private static final Logger LOGGER </span>
+<span class="fc" id="L69">        = Logger.getLogger(CoapDBConnector.class.getName() );</span>
+    
+    /**
+     * The singleton instance
+     */
+    private static CoapDBConnector connector;
+
+    /**
+     * Constructor.
+     *
+     * @param dbAdapter handler for engine-db specific commands.
+     *
+     * @throws SQLException
+     */
+    protected CoapDBConnector(SQLDBAdapter dbAdapter)
+            throws SQLException {
+<span class="fc" id="L85">        super(dbAdapter);</span>
+<span class="fc" id="L86">    }</span>
+
+    @Override
+    public PskSecretResult requestPskSecretResult(ConnectionId cid, ServerNames serverName,
+            PskPublicInformation identity, String hmacAlgorithm, SecretKey otherSecret, byte[] seed,
+            boolean useExtendedMasterSecret) {
+<span class="fc" id="L92">        return new PskSecretResult(cid, identity, getKey(identity.getPublicInfoAsString()));</span>
+    }
+
+    public SecretKey getKey(PskPublicInformation info) {
+<span class="fc" id="L96">        return getKey(info.getPublicInfoAsString());</span>
+    }
+
+    /**
+     * Avoid having to refactor all my code because the CF people decided they needed to change APIs.
+     * 
+     * @param identity  the identity of the key
+     * @return  the key
+     */
+    private SecretKey getKey(String identity) {
+<span class="fc" id="L106">        OneKey key = null;</span>
+        try {
+<span class="fc" id="L108">            key = super.getCPSK(identity);</span>
+<span class="nc" id="L109">        } catch (AceException e) {</span>
+<span class="nc" id="L110">            LOGGER.severe(e.getMessage());</span>
+<span class="nc" id="L111">            return null;</span>
+<span class="fc" id="L112">        }</span>
+<span class="fc bfc" id="L113" title="All 2 branches covered.">        if (key == null) {</span>
+            try {
+<span class="fc" id="L115">                key = super.getRsAuthPSK(identity);</span>
+<span class="nc" id="L116">            } catch (AceException e) {</span>
+<span class="nc" id="L117">                LOGGER.severe(e.getMessage());</span>
+<span class="nc" id="L118">                return null;</span>
+<span class="fc" id="L119">            }</span>
+        }
+<span class="pc bpc" id="L121" title="1 of 2 branches missed.">        if (key == null) { //Key not found</span>
+<span class="nc" id="L122">           return null;</span>
+        }
+<span class="fc" id="L124">        CBORObject val = key.get(KeyKeys.KeyType);</span>
+<span class="pc bpc" id="L125" title="1 of 2 branches missed.">        if (val.equals(KeyKeys.KeyType_Octet)) {</span>
+<span class="fc" id="L126">            val = key.get(KeyKeys.Octet_K);</span>
+<span class="pc bpc" id="L127" title="2 of 4 branches missed.">            if ((val== null) || (val.getType() != CBORType.ByteString)) {</span>
+<span class="nc" id="L128">                return null; //Malformed key</span>
+            }
+<span class="fc" id="L130">            return new SecretKeySpec(val.GetByteString(), &quot;PSK&quot;);</span>
+        }
+<span class="nc" id="L132">        return null; //Wrong KeyType</span>
+          
+        
+    }
+
+   /**
+    * Gets the singleton instance of this connector.
+    * 
+    * @param dbCreator a creator instance for the specific DB type being used.
+    *
+    * @return  the singleton instance
+    * 
+    * @throws SQLException
+    */
+   public static CoapDBConnector getInstance(SQLDBAdapter dbCreator) throws SQLException {
+<span class="pc bpc" id="L147" title="1 of 2 branches missed.">       if (CoapDBConnector.connector == null) {</span>
+<span class="fc" id="L148">           CoapDBConnector.connector </span>
+               = new CoapDBConnector(dbCreator);
+       }
+<span class="fc" id="L151">       return CoapDBConnector.connector;</span>
+   }
+
+    @Override
+    public PskPublicInformation getIdentity(InetSocketAddress inetAddress, ServerNames virtualHost) {
+<span class="nc" id="L156">        return null;</span>
+    }
+    
+    /**
+     * Close the connections. After this any other method calls to this
+     * object will lead to an exception.
+     * 
+     * @throws AceException
+     */
+    @Override
+    public synchronized void close() throws AceException {
+<span class="fc" id="L167">       super.close();</span>
+<span class="fc" id="L168">       CoapDBConnector.connector = null;</span>
+<span class="fc" id="L169">    }</span>
+
+    @Override
+    public boolean hasEcdhePskSupported() {
+        // TODO Auto-generated method stub
+<span class="fc" id="L174">        return false;</span>
+    }
+
+    @Override
+    public void setResultHandler(HandshakeResultHandler resultHandler) {
+        // TODO Auto-generated method stub
+
+<span class="fc" id="L181">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

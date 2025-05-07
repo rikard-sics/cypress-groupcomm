@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MACMessage.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.cose</a> &gt; <span class="el_source">MACMessage.java</span></div><h1>MACMessage.java</h1><pre class="source lang-java linenums">/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package org.eclipse.californium.cose;
+
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ *
+ * @author jimsch
+ */
+public class MACMessage extends MacCommon {
+<span class="nc" id="L18">     protected List&lt;Recipient&gt; recipientList = new ArrayList&lt;&gt;();</span>
+   
+    public MACMessage() {
+<span class="nc" id="L21">        super();</span>
+<span class="nc" id="L22">        strContext = &quot;MAC&quot;;</span>
+<span class="nc" id="L23">        messageTag = MessageTag.MAC;</span>
+<span class="nc" id="L24">    }</span>
+ 
+    public void addRecipient(Recipient recipient) throws CoseException {
+<span class="nc bnc" id="L27" title="All 2 branches missed.">        if (recipient == null) throw new CoseException(&quot;Recipient is null&quot;);</span>
+<span class="nc" id="L28">        recipientList.add(recipient);</span>
+<span class="nc" id="L29">    }</span>
+
+    public Recipient getRecipient(int iRecipient) {
+<span class="nc" id="L32">        return recipientList.get(iRecipient);</span>
+    }
+    
+    public int getRecipientCount() {
+<span class="nc" id="L36">        return recipientList.size();</span>
+    }
+    
+    public List&lt;Recipient&gt; getRecipientList() {
+<span class="nc" id="L40">        return recipientList;</span>
+    }
+    
+    public void DecodeFromCBORObject(CBORObject obj) throws CoseException {
+<span class="nc bnc" id="L44" title="All 2 branches missed.">        if (obj.size() != 5) throw new CoseException(&quot;Invalid MAC structure&quot;);</span>
+        
+<span class="nc bnc" id="L46" title="All 2 branches missed.">        if (obj.get(0).getType() == CBORType.ByteString) {</span>
+<span class="nc bnc" id="L47" title="All 2 branches missed.">            if (obj.get(0).GetByteString().length == 0) objProtected = CBORObject.NewMap();</span>
+<span class="nc" id="L48">            else objProtected = CBORObject.DecodeFromBytes(obj.get(0).GetByteString());</span>
+        }
+<span class="nc" id="L50">        else throw new CoseException(&quot;Invalid MAC structure&quot;);</span>
+        
+<span class="nc bnc" id="L52" title="All 2 branches missed.">        if (obj.get(1).getType() == CBORType.Map) {</span>
+<span class="nc" id="L53">            objUnprotected = obj.get(1);</span>
+        }
+<span class="nc" id="L55">        else throw new CoseException(&quot;Invalid MAC structure&quot;);</span>
+        
+<span class="nc bnc" id="L57" title="All 2 branches missed.">        if (obj.get(2).getType() == CBORType.ByteString) rgbContent = obj.get(2).GetByteString();</span>
+<span class="nc bnc" id="L58" title="All 2 branches missed.">        else if (!obj.get(2).isNull()) throw new CoseException(&quot;Invalid MAC structure&quot;);</span>
+        
+<span class="nc bnc" id="L60" title="All 2 branches missed.">        if (obj.get(3).getType() == CBORType.ByteString) rgbTag = obj.get(3).GetByteString();</span>
+<span class="nc" id="L61">        else throw new CoseException(&quot;Invalid MAC structure&quot;);</span>
+        
+<span class="nc bnc" id="L63" title="All 2 branches missed.">        if (obj.get(4).getType() == CBORType.Array) {</span>
+<span class="nc bnc" id="L64" title="All 2 branches missed.">            for (int i=0; i&lt;obj.get(4).size(); i++) {</span>
+<span class="nc" id="L65">                Recipient recipient = new Recipient();</span>
+<span class="nc" id="L66">                recipient.DecodeFromCBORObject(obj.get(4).get(i));</span>
+<span class="nc" id="L67">                recipientList.add(recipient);</span>
+            }
+        }
+<span class="nc" id="L70">        else throw new CoseException(&quot;Invalid MAC structure&quot;);</span>
+<span class="nc" id="L71">    }</span>
+
+    protected CBORObject EncodeCBORObject() throws CoseException {
+<span class="nc bnc" id="L74" title="All 2 branches missed.">        if (rgbTag == null) throw new CoseException(&quot;Compute function not called&quot;);</span>
+        
+<span class="nc" id="L76">        CBORObject obj = CBORObject.NewArray();</span>
+<span class="nc bnc" id="L77" title="All 2 branches missed.">        if (objProtected.size() &gt; 0) obj.Add(objProtected.EncodeToBytes());</span>
+<span class="nc" id="L78">        else obj.Add(CBORObject.FromObject(new byte[0]));</span>
+        
+<span class="nc" id="L80">        obj.Add(objUnprotected);</span>
+<span class="nc" id="L81">        obj.Add(rgbContent);</span>
+<span class="nc" id="L82">        obj.Add(rgbTag);</span>
+        
+<span class="nc" id="L84">        CBORObject cnRecipients = CBORObject.NewArray();</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">        for (Recipient r : recipientList){</span>
+<span class="nc" id="L86">            cnRecipients.Add(r.EncodeCBORObject());</span>
+<span class="nc" id="L87">        }</span>
+<span class="nc" id="L88">        obj.Add(cnRecipients);</span>
+                
+<span class="nc" id="L90">        return obj;</span>
+    }
+        
+    public boolean Validate(Recipient recipientToUse) throws CoseException, Exception {
+<span class="nc" id="L94">        byte[] rgbKey = null;</span>
+<span class="nc" id="L95">        int cbitKey = 0;</span>
+<span class="nc" id="L96">        AlgorithmID alg = AlgorithmID.FromCBOR(findAttribute(HeaderKeys.Algorithm));</span>
+        
+        
+<span class="nc bnc" id="L99" title="All 2 branches missed.">        for (Recipient recipient : recipientList ) {</span>
+            
+<span class="nc bnc" id="L101" title="All 2 branches missed.">            if (recipientToUse == null) {</span>
+                try {
+<span class="nc" id="L103">                    rgbKey = recipient.decrypt(alg, recipientToUse);</span>
+                }
+<span class="nc" id="L105">                catch(CoseException e) {</span>
+<span class="nc" id="L106">                }</span>
+            }
+<span class="nc bnc" id="L108" title="All 2 branches missed.">            else if (recipientToUse == recipient) {</span>
+                try {
+<span class="nc" id="L110">                    rgbKey = recipient.decrypt(alg, recipientToUse);</span>
+                }
+<span class="nc" id="L112">                catch(CoseException e) {</span>
+<span class="nc" id="L113">                }</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">                if (rgbKey == null) break;</span>
+            }
+            
+<span class="nc bnc" id="L117" title="All 2 branches missed.">            if (rgbKey != null) {</span>
+<span class="nc" id="L118">                return super.Validate(rgbKey);</span>
+            }
+<span class="nc" id="L120">        }</span>
+<span class="nc" id="L121">        throw new CoseException(&quot;Usable recipient not found&quot;);</span>
+    }
+    
+    public void Create() throws CoseException, IllegalStateException, Exception {
+<span class="nc" id="L125">        AlgorithmID alg = AlgorithmID.FromCBOR(findAttribute(HeaderKeys.Algorithm));</span>
+<span class="nc" id="L126">        byte[] rgbKey = null;</span>
+
+<span class="nc" id="L128">        int recipientTypes = 0;</span>
+        
+<span class="nc bnc" id="L130" title="All 2 branches missed.">        if (recipientList.isEmpty()) throw new CoseException(&quot;No recipients supplied&quot;);</span>
+<span class="nc bnc" id="L131" title="All 2 branches missed.">        for (Recipient r : recipientList) {</span>
+<span class="nc bnc" id="L132" title="All 2 branches missed.">            switch (r.getRecipientType()) {</span>
+                case 1:
+<span class="nc bnc" id="L134" title="All 2 branches missed.">                    if ((recipientTypes &amp; 1) != 0) throw new CoseException(&quot;Cannot have two direct recipients&quot;);</span>
+<span class="nc" id="L135">                    recipientTypes |= 1;</span>
+<span class="nc" id="L136">                    rgbKey = r.getKey(alg);</span>
+<span class="nc" id="L137">                    break;</span>
+                    
+                default:
+<span class="nc" id="L140">                    recipientTypes |= 2;</span>
+            }
+<span class="nc" id="L142">        }</span>
+        
+<span class="nc bnc" id="L144" title="All 2 branches missed.">        if (recipientTypes == 3) throw new CoseException(&quot;Do not mix direct and indirect recipients&quot;);</span>
+        
+<span class="nc bnc" id="L146" title="All 2 branches missed.">        if (recipientTypes == 2) {</span>
+<span class="nc" id="L147">            rgbKey = new byte[alg.getKeySize()/8];</span>
+<span class="nc" id="L148">            random.nextBytes(rgbKey);</span>
+        }
+        
+<span class="nc" id="L151">        super.CreateWithKey(rgbKey);</span>
+        
+<span class="nc bnc" id="L153" title="All 2 branches missed.">        for (Recipient r : recipientList) {</span>
+<span class="nc" id="L154">            r.SetContent(rgbKey);</span>
+<span class="nc" id="L155">            r.encrypt();</span>
+<span class="nc" id="L156">        }</span>
+<span class="nc" id="L157">    }</span>
+
+}
+ 
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

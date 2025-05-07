@@ -1,0 +1,361 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OSSerializer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore</a> &gt; <span class="el_source">OSSerializer.java</span></div><h1>OSSerializer.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2018 RISE SICS and others.
+ * 
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * and Eclipse Distribution License v1.0 which accompany this distribution.
+ * 
+ * The Eclipse Public License is available at
+ *    http://www.eclipse.org/legal/epl-v20.html
+ * and the Eclipse Distribution License is available at
+ *    http://www.eclipse.org/org/documents/edl-v10.html.
+ * 
+ * Contributors:
+ *    Joakim Brorsson
+ *    Ludwig Seitz (RISE SICS)
+ *    Tobias Andersson (RISE SICS)
+ *    Rikard Höglund (RISE SICS)
+ *    
+ ******************************************************************************/
+package org.eclipse.californium.oscore;
+
+import java.nio.ByteBuffer;
+
+import org.eclipse.californium.core.coap.CoAP;
+import org.eclipse.californium.core.coap.Message;
+import org.eclipse.californium.core.coap.OptionSet;
+import org.eclipse.californium.core.coap.Request;
+import org.eclipse.californium.core.network.serialization.DataSerializer;
+import org.eclipse.californium.cose.AlgorithmID;
+import org.eclipse.californium.elements.util.Bytes;
+import org.eclipse.californium.elements.util.DatagramWriter;
+import org.eclipse.californium.oscore.group.GroupRecipientCtx;
+import org.eclipse.californium.oscore.group.GroupSenderCtx;
+import org.eclipse.californium.oscore.group.OptionEncoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.upokecenter.cbor.CBORObject;
+
+import net.i2p.crypto.eddsa.Utils;
+
+/**
+ * 
+ * Implements methods for serializing OSCORE data, creating AAD, reading data
+ * and generating nonce.
+ *
+ */
+<span class="nc" id="L48">public class OSSerializer {</span>
+
+<span class="fc" id="L50">	private static final byte[] ONE_ZERO = new byte[] { 0x00 };</span>
+
+	/**
+	 * The logger
+	 */
+<span class="fc" id="L55">	private static final Logger LOGGER = LoggerFactory.getLogger(OSSerializer.class);</span>
+
+	/**
+	 * Prepare options and payload for encrypting.
+	 * 
+	 * @param options the options
+	 * 
+	 * @param payload the payload
+ 	 * @param realCode the actual code of the message
+	 * 
+	 * @return the serialized plaintext for OSCore
+	 */
+	public static byte[] serializeConfidentialData(OptionSet options, byte[] payload, int realCode) {
+<span class="fc bfc" id="L68" title="All 2 branches covered.">		if (options != null) {</span>
+<span class="fc" id="L69">			DatagramWriter writer = new DatagramWriter();</span>
+<span class="fc bfc" id="L70" title="All 2 branches covered.">			if (realCode &gt; 0) {</span>
+<span class="fc" id="L71">				OptionSet filteredOptions = OptionJuggle.prepareEoptions(options);</span>
+<span class="fc" id="L72">				writer.write(realCode, CoAP.MessageFormat.CODE_BITS);</span>
+<span class="fc" id="L73">				DataSerializer.serializeOptionsAndPayload(writer, filteredOptions, payload);</span>
+<span class="fc" id="L74">				return writer.toByteArray();</span>
+			} else {
+<span class="fc" id="L76">				LOGGER.error(ErrorDescriptions.COAP_CODE_INVALID);</span>
+<span class="fc" id="L77">				throw new IllegalArgumentException(ErrorDescriptions.COAP_CODE_INVALID);</span>
+			}
+		} else {
+<span class="fc" id="L80">			LOGGER.error(ErrorDescriptions.OPTIONSET_NULL);</span>
+<span class="fc" id="L81">			throw new NullPointerException(ErrorDescriptions.OPTIONSET_NULL);</span>
+		}
+	}
+
+	/**
+	 * Prepare the additional authenticated data of a message.
+	 * 
+	 * Note that for the request* parameters they must contain the value of what was in
+	 * a request. Either this actual request or the request associated to this response. 
+	 * 
+	 * external_aad = [ ver : uint, alg : int, request_kid : bstr, request_piv :
+	 * bstr, options : bstr]
+	 * 
+	 * @param version the CoAP version number
+	 * @param algorithm AEAD algorithm
+	 * @param requestSeq the sequence number (request PIV)
+	 * @param requestSenderId sender ID (request KID)
+	 * @param options the option set
+	 * @return byte array with AAD
+	 */
+	public static byte[] serializeAAD(int version, AlgorithmID algorithm, int requestSeq, byte[] requestSenderId, OptionSet options) {
+<span class="fc bfc" id="L102" title="All 2 branches covered.">		if (version == CoAP.VERSION) {</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">			if (requestSeq &gt; -1) {</span>
+<span class="pc bpc" id="L104" title="1 of 2 branches missed.">				if (algorithm != null) {</span>
+<span class="fc bfc" id="L105" title="All 2 branches covered.">					if (options != null) {</span>
+<span class="fc" id="L106">						CBORObject algorithms = CBORObject.NewArray();</span>
+<span class="fc" id="L107">						algorithms.Add(algorithm.AsCBOR());</span>
+
+<span class="fc" id="L109">						CBORObject aad = CBORObject.NewArray();</span>
+<span class="fc" id="L110">						aad.Add(version);</span>
+<span class="fc" id="L111">						aad.Add(algorithms);</span>
+<span class="fc" id="L112">						aad.Add(requestSenderId);</span>
+<span class="fc" id="L113">						aad.Add(processPartialIV(requestSeq));</span>
+						
+						//I-class options (currently none)
+<span class="fc" id="L116">						aad.Add(CBORObject.FromObject(Bytes.EMPTY));</span>
+						
+<span class="fc" id="L118">						return aad.EncodeToBytes();</span>
+					} else {
+<span class="fc" id="L120">						LOGGER.error(ErrorDescriptions.OPTIONSET_NULL);</span>
+<span class="fc" id="L121">						throw new NullPointerException(ErrorDescriptions.OPTIONSET_NULL);</span>
+					}
+				} else {
+<span class="nc" id="L124">					LOGGER.error(ErrorDescriptions.ALGORITHM_NOT_DEFINED);</span>
+<span class="nc" id="L125">					throw new NullPointerException(ErrorDescriptions.ALGORITHM_NOT_DEFINED);</span>
+				}
+			} else {
+<span class="fc" id="L128">				LOGGER.error(ErrorDescriptions.SEQ_NBR_INVALID);</span>
+<span class="fc" id="L129">				throw new IllegalArgumentException(ErrorDescriptions.SEQ_NBR_INVALID);</span>
+			}
+		} else {
+<span class="fc" id="L132">			LOGGER.error(ErrorDescriptions.WRONG_VERSION_NBR);</span>
+<span class="fc" id="L133">			throw new IllegalArgumentException(ErrorDescriptions.WRONG_VERSION_NBR);</span>
+		}
+	}
+
+	/**
+	 * Generates the nonce.
+	 * 
+	 * Note that that if a response does not include a partial IV the nonce will be 
+	 * generated using parameters from the corresponding original request.
+	 * 
+	 * See https://tools.ietf.org/html/draft-ietf-core-object-security-16#section-5.2
+	 * 
+	 * @param partialIV partial IV to calculate nonce with (from original request or response)
+	 * @param senderID sender ID of message (either original request or response)
+	 * @param commonIV common IV shared between sender and recipient
+	 * @param nonceLength the algorithm dependent length of nonce
+	 * @return the generated nonce or null if either one of the input parameters
+	 *         are null
+	 * @throws OSException if any of the parameters are invalid
+	 */
+	public static byte[] nonceGeneration(byte[] partialIV, byte[] senderID, byte[] commonIV, int nonceLength)
+			throws OSException {
+<span class="fc bfc" id="L155" title="All 2 branches covered.">		if (partialIV != null) {</span>
+<span class="fc bfc" id="L156" title="All 2 branches covered.">			if (senderID != null) {</span>
+<span class="fc bfc" id="L157" title="All 2 branches covered.">				if (commonIV != null) {</span>
+<span class="fc bfc" id="L158" title="All 2 branches covered.">					if (nonceLength &gt; 0) {</span>
+<span class="fc" id="L159">						int s = senderID.length;</span>
+<span class="fc" id="L160">						int zeroes = 5 - partialIV.length;</span>
+
+<span class="pc bpc" id="L162" title="1 of 2 branches missed.">						if (zeroes &gt; 0) {</span>
+<span class="fc" id="L163">							partialIV = leftPaddingZeroes(partialIV, zeroes);</span>
+						}
+
+<span class="fc" id="L166">						zeroes = (nonceLength - 6) - senderID.length;</span>
+
+<span class="fc bfc" id="L168" title="All 2 branches covered.">						if (zeroes &gt; 0) {</span>
+<span class="fc" id="L169">							senderID = leftPaddingZeroes(senderID, zeroes);</span>
+						}
+
+<span class="fc" id="L172">						zeroes = nonceLength - commonIV.length;</span>
+
+<span class="fc bfc" id="L174" title="All 2 branches covered.">						if (zeroes &gt; 0) {</span>
+<span class="fc" id="L175">							commonIV = leftPaddingZeroes(commonIV, zeroes);</span>
+						}
+
+<span class="fc" id="L178">						byte[] tmp = new byte[1 + senderID.length + partialIV.length];</span>
+<span class="fc" id="L179">						tmp[0] = (byte) s;</span>
+<span class="fc" id="L180">						System.arraycopy(senderID, 0, tmp, 1, senderID.length);</span>
+<span class="fc" id="L181">						System.arraycopy(partialIV, 0, tmp, senderID.length + 1, partialIV.length);</span>
+
+<span class="fc" id="L183">						byte[] result = new byte[commonIV.length];</span>
+
+<span class="fc" id="L185">						int i = 0;</span>
+<span class="fc bfc" id="L186" title="All 2 branches covered.">						for (byte b : tmp) {</span>
+<span class="fc" id="L187">							result[i] = (byte) (b ^ commonIV[i++]);</span>
+						}
+
+<span class="fc" id="L190">						return result;</span>
+					} else {
+<span class="fc" id="L192">						LOGGER.error(ErrorDescriptions.NONCE_LENGTH_INVALID);</span>
+<span class="fc" id="L193">						throw new IllegalArgumentException(ErrorDescriptions.NONCE_LENGTH_INVALID);</span>
+					}
+				} else {
+<span class="fc" id="L196">					LOGGER.error(ErrorDescriptions.COMMON_IV_NULL);</span>
+<span class="fc" id="L197">					throw new NullPointerException(ErrorDescriptions.COMMON_IV_NULL);</span>
+				}
+			} else {
+<span class="fc" id="L200">				LOGGER.error(ErrorDescriptions.SENDER_ID_NULL);</span>
+<span class="fc" id="L201">				throw new NullPointerException(ErrorDescriptions.SENDER_ID_NULL);</span>
+			}
+		} else {
+<span class="fc" id="L204">			LOGGER.error(ErrorDescriptions.PARTIAL_IV_NULL);</span>
+<span class="fc" id="L205">			throw new NullPointerException(ErrorDescriptions.PARTIAL_IV_NULL);</span>
+		}
+	}
+
+	/**
+	 * Padds the left side of the byte array paddMe with zeros as the int zeros
+	 * has
+	 * 
+	 * @param paddMe byte array to pad
+	 * @param zeros number of zeroes to pad with
+	 * @return the left-padded byte array
+	 */
+	public static byte[] leftPaddingZeroes(byte[] paddMe, int zeros) {
+<span class="fc" id="L218">		byte[] tmp = new byte[zeros + paddMe.length];</span>
+<span class="fc" id="L219">		System.arraycopy(paddMe, 0, tmp, zeros, paddMe.length);</span>
+<span class="fc" id="L220">		return tmp;</span>
+	}
+
+	/**
+	 * Processes a partialIV correctly
+	 * 
+	 * @param value the partialIV
+	 * @return the processed partialIV
+	 */
+	public static byte[] processPartialIV(int value) {
+<span class="fc" id="L230">		byte[] partialIV = ByteBuffer.allocate(Decryptor.INTEGER_BYTES).putInt(value).array();</span>
+<span class="fc" id="L231">		return stripZeroes(partialIV);</span>
+	}
+
+	/**
+	 * Remove trailing zeroes in a byte array
+	 * 
+	 * @param in the incoming array
+	 * @return the array with trailing zeroes removed
+	 */
+	public static byte[] stripZeroes(byte[] in) {
+<span class="pc bpc" id="L241" title="1 of 2 branches missed.">		if (in != null) {</span>
+<span class="pc bpc" id="L242" title="1 of 2 branches missed.">			if (in.length == 0) {</span>
+<span class="nc" id="L243">				return Bytes.EMPTY;</span>
+			}
+<span class="pc bpc" id="L245" title="1 of 2 branches missed.">			if (in.length == 1)</span>
+<span class="nc" id="L246">				return in;</span>
+
+<span class="fc" id="L248">			int firstValue = 0;</span>
+
+<span class="fc bfc" id="L250" title="All 4 branches covered.">			while (firstValue &lt; in.length &amp;&amp; in[firstValue] == 0) {</span>
+<span class="fc" id="L251">				firstValue++;</span>
+			}
+
+<span class="fc" id="L254">			int newLength = in.length - firstValue;</span>
+
+<span class="fc bfc" id="L256" title="All 2 branches covered.">			if (newLength == 0) {</span>
+<span class="fc" id="L257">				return ONE_ZERO;</span>
+			}
+
+<span class="fc" id="L260">			byte[] out = new byte[newLength];</span>
+<span class="fc" id="L261">			System.arraycopy(in, firstValue, out, 0, out.length);</span>
+
+<span class="fc" id="L263">			return out;</span>
+		} else {
+<span class="nc" id="L265">			LOGGER.error(ErrorDescriptions.BYTE_ARRAY_NULL);</span>
+<span class="nc" id="L266">			throw new NullPointerException(ErrorDescriptions.BYTE_ARRAY_NULL);</span>
+		}
+	}
+
+	/**
+	 * Update the external AAD for Group OSCORE by adding further parameters.
+	 * TODO: Add also newPartialIV as input parameter.
+	 * 
+	 * @param ctx the context used
+	 * @param aadBytes the current external AAD value
+	 * @param message the CoAP message being processed
+	 * @return the updated external AAD
+	 */
+	public static byte[] updateAADForGroup(OSCoreCtx ctx, byte[] aadBytes, Message message) {
+
+		CBORObject algSign;
+		CBORObject algSignEnc;
+		CBORObject algKeyAgreement;
+
+		byte[] senderPublicKey;
+		byte[] gmPublicKey;
+
+<span class="fc bfc" id="L288" title="All 2 branches covered.">		if (ctx instanceof GroupRecipientCtx) {</span>
+<span class="fc" id="L289">			GroupRecipientCtx recipientCtx = (GroupRecipientCtx) ctx;</span>
+<span class="fc" id="L290">			algSign = recipientCtx.getAlgSign().AsCBOR();</span>
+<span class="fc" id="L291">			algSignEnc = recipientCtx.getAlgSignEnc().AsCBOR();</span>
+<span class="fc" id="L292">			algKeyAgreement = recipientCtx.getAlgKeyAgreement().AsCBOR();</span>
+<span class="fc" id="L293">			senderPublicKey = recipientCtx.getPublicKeyRaw();</span>
+<span class="fc" id="L294">			gmPublicKey = recipientCtx.getCommonCtx().getGmPublicKey();</span>
+<span class="fc" id="L295">		} else {</span>
+<span class="fc" id="L296">			GroupSenderCtx senderCtx = (GroupSenderCtx) ctx;</span>
+<span class="fc" id="L297">			algSign = senderCtx.getAlgSign().AsCBOR();</span>
+<span class="fc" id="L298">			algSignEnc = senderCtx.getAlgSignEnc().AsCBOR();</span>
+<span class="fc" id="L299">			algKeyAgreement = senderCtx.getAlgKeyAgreement().AsCBOR();</span>
+<span class="fc" id="L300">			senderPublicKey = senderCtx.getPublicKeyRaw();</span>
+<span class="fc" id="L301">			gmPublicKey = senderCtx.getCommonCtx().getGmPublicKey();</span>
+		}
+
+<span class="fc" id="L304">		CBORObject groupAadEnc = CBORObject.DecodeFromBytes(aadBytes);</span>
+
+		// Build index 1 which holds the algorithms array
+<span class="fc" id="L307">		CBORObject algorithms = groupAadEnc.get(1);</span>
+<span class="fc" id="L308">		algorithms.Add(algSignEnc);</span>
+<span class="fc" id="L309">		algorithms.Add(algSign);</span>
+<span class="fc" id="L310">		algorithms.Add(algKeyAgreement);</span>
+
+		// Add update algorithms array to external AAD (used for encryption)
+<span class="fc" id="L313">		groupAadEnc.set(1, algorithms);</span>
+
+		// Add request_kid_context //FIXME
+<span class="pc bpc" id="L316" title="2 of 4 branches missed.">		if (ctx.getIdContext() == null || ctx.getIdContext().length == 0) {</span>
+<span class="nc" id="L317">			groupAadEnc.Add(CBORObject.FromObject(Bytes.EMPTY));</span>
+		} else {
+<span class="fc" id="L319">			CBORObject requestKidContext = CBORObject.FromObject(ctx.getIdContext());</span>
+<span class="fc" id="L320">			groupAadEnc.Add(requestKidContext);</span>
+		}
+
+		// Adding OSCORE option
+
+<span class="fc" id="L325">		byte[] oscoreOption = message.getOptions().getOscore();</span>
+
+		// Check if this is an outgoing message //TODO: Check with option null?
+<span class="fc bfc" id="L328" title="All 2 branches covered.">		boolean outgoing = message.getSourceContext() == null;</span>
+
+<span class="fc bfc" id="L330" title="All 2 branches covered.">		if (outgoing) {</span>
+
+<span class="fc bfc" id="L332" title="All 2 branches covered.">			if (message instanceof Request) {</span>
+<span class="fc bfc" id="L333" title="All 2 branches covered.">				boolean groupModeRequest = OptionEncoder.getPairwiseMode(oscoreOption) == false;</span>
+<span class="fc" id="L334">				oscoreOption = Encryptor.encodeOSCoreRequest(ctx, groupModeRequest);</span>
+<span class="fc" id="L335">			} else {</span>
+<span class="pc bpc" id="L336" title="1 of 4 branches missed.">				boolean newPartialIV = ctx.getResponsesIncludePartialIV() || message.getOptions().hasObserve();</span>
+<span class="fc" id="L337">				oscoreOption = Encryptor.encodeOSCoreResponse(ctx, newPartialIV);</span>
+			}
+		}
+
+		// Actually add OSCORE option to external AAD
+<span class="fc" id="L342">		groupAadEnc.Add(oscoreOption);</span>
+
+		// Add the sender public key
+		// System.out.println(&quot;Sender public key: &quot; +
+		// Utils.bytesToHex(senderPublicKey));
+<span class="fc" id="L347">		groupAadEnc.Add(CBORObject.FromObject(senderPublicKey));</span>
+
+		// Add the Group Manager's public key
+		// System.out.println(&quot;gmPublicKey: &quot; + Utils.bytesToHex(gmPublicKey));
+<span class="pc bpc" id="L351" title="1 of 4 branches missed.">		if (gmPublicKey == null || gmPublicKey.length == 0) {</span>
+<span class="fc" id="L352">			groupAadEnc.Add(CBORObject.Null);</span>
+		} else {
+<span class="fc" id="L354">			groupAadEnc.Add(gmPublicKey);</span>
+		}
+
+<span class="fc" id="L357">		return groupAadEnc.EncodeToBytes();</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

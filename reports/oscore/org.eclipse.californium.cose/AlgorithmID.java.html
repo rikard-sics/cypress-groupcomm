@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AlgorithmID.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.cose</a> &gt; <span class="el_source">AlgorithmID.java</span></div><h1>AlgorithmID.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+
+ * Original from https://github.com/cose-wg/COSE-JAVA Commit 1a20373
+ *
+ * Copyright (c) 2016, Jim Schaad
+ * All rights reserved.
+
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+
+ * Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer.
+
+ * Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
+
+ * Neither the name of COSE-JAVA nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot;
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+ * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+     
+ ******************************************************************************/
+package org.eclipse.californium.cose;
+
+import com.upokecenter.cbor.CBORObject;
+
+/**
+ *
+ * @author jimsch
+ */
+<span class="fc" id="L43">public enum AlgorithmID {</span>
+<span class="fc" id="L44">    AES_GCM_128(1, 128, 128),</span>
+<span class="fc" id="L45">    AES_GCM_192(2, 192, 128),</span>
+<span class="fc" id="L46">    AES_GCM_256(3, 256, 128),</span>
+<span class="fc" id="L47">    HMAC_SHA_256_64(4, 256, 64),</span>
+<span class="fc" id="L48">    HMAC_SHA_256(5, 256, 256),</span>
+<span class="fc" id="L49">    HMAC_SHA_384(6, 384, 384),</span>
+<span class="fc" id="L50">    HMAC_SHA_512(7, 512, 512),</span>
+<span class="fc" id="L51">    AES_CCM_16_64_128(10, 128, 64),</span>
+<span class="fc" id="L52">    AES_CCM_16_64_256(11, 256, 64),</span>
+<span class="fc" id="L53">    AES_CCM_64_64_128(12, 128, 64),</span>
+<span class="fc" id="L54">    AES_CCM_64_64_256(13, 256, 64),</span>
+<span class="fc" id="L55">    AES_CBC_MAC_128_64(14, 128, 64),</span>
+<span class="fc" id="L56">    AES_CBC_MAC_256_64(15, 256, 64),</span>
+<span class="fc" id="L57">    AES_CBC_MAC_128_128(25, 128, 128),</span>
+<span class="fc" id="L58">    AES_CBC_MAC_256_128(26, 256, 128),</span>
+<span class="fc" id="L59">    AES_CCM_16_128_128(30, 128, 128),</span>
+<span class="fc" id="L60">    AES_CCM_16_128_256(31, 256, 128),</span>
+<span class="fc" id="L61">    AES_CCM_64_128_128(32, 128, 128),</span>
+<span class="fc" id="L62">    AES_CCM_64_128_256(33, 256, 128),</span>
+    
+<span class="fc" id="L64">    AES_KW_128(-3, 128, 64),</span>
+<span class="fc" id="L65">    AES_KW_192(-4, 192, 64),</span>
+<span class="fc" id="L66">    AES_KW_256(-5, 256, 64),</span>
+<span class="fc" id="L67">    Direct(-6, 0, 0),</span>
+<span class="fc" id="L68">    ECDSA_256(-7, 0, 0),</span>
+<span class="fc" id="L69">    HKDF_HMAC_SHA_256(-10, 256, 0),</span>
+<span class="fc" id="L70">    HKDF_HMAC_SHA_512(-11, 512, 0),</span>
+<span class="fc" id="L71">    HKDF_HMAC_AES_128(-12, 128, 0),</span>
+<span class="fc" id="L72">    HKDF_HMAC_AES_256(-13, 256, 0),</span>
+<span class="fc" id="L73">    ECDSA_384(-35, 0, 0),</span>
+<span class="fc" id="L74">    ECDSA_512(-36, 0, 0),</span>
+<span class="fc" id="L75">    EDDSA(-8, 0, 0),</span>
+    
+<span class="fc" id="L77">    ECDH_ES_HKDF_256(-25, 0, 0),</span>
+<span class="fc" id="L78">    ECDH_ES_HKDF_512(-26, 0, 0),</span>
+<span class="fc" id="L79">    ECDH_SS_HKDF_256(-27, 0, 0),</span>
+<span class="fc" id="L80">    ECDH_SS_HKDF_512(-28, 0, 0),</span>
+<span class="fc" id="L81">    ECDH_ES_HKDF_256_AES_KW_128(-29, 0, 0),</span>
+<span class="fc" id="L82">    ECDH_ES_HKDF_256_AES_KW_192(-30, 0, 0),</span>
+<span class="fc" id="L83">    ECDH_ES_HKDF_256_AES_KW_256(-31, 0, 0),</span>
+<span class="fc" id="L84">    ECDH_SS_HKDF_256_AES_KW_128(-32, 0, 0),</span>
+<span class="fc" id="L85">    ECDH_SS_HKDF_256_AES_KW_192(-33, 0, 0),</span>
+<span class="fc" id="L86">    ECDH_SS_HKDF_256_AES_KW_256(-34, 0, 0),</span>
+    ;
+ 
+    private final CBORObject value;
+    private final int cbitKey;
+    private final int cbitTag;
+    
+<span class="fc" id="L93">    AlgorithmID(int value, int cbitKey, int cbitTag) {</span>
+<span class="fc" id="L94">        this.value = CBORObject.FromObject(value);</span>
+<span class="fc" id="L95">        this.cbitKey = cbitKey;</span>
+<span class="fc" id="L96">        this.cbitTag = cbitTag;</span>
+<span class="fc" id="L97">    }    </span>
+    
+    public static AlgorithmID FromCBOR(CBORObject obj) throws CoseException {
+<span class="pc bpc" id="L100" title="1 of 2 branches missed.">        if (obj == null) throw new CoseException(&quot;No Algorithm Specified&quot;);</span>
+<span class="pc bpc" id="L101" title="1 of 2 branches missed.">        for (AlgorithmID alg : AlgorithmID.values()) {</span>
+<span class="fc bfc" id="L102" title="All 2 branches covered.">            if (obj.equals(alg.value)) return alg;</span>
+        }
+<span class="nc" id="L104">        throw new CoseException(&quot;Unknown Algorithm Specified&quot;);</span>
+    }
+    
+    public CBORObject AsCBOR() {
+<span class="fc" id="L108">        return value;</span>
+    }
+    
+    public int getKeySize() {
+<span class="fc" id="L112">        return cbitKey;</span>
+    }
+    
+    public int getTagSize() {
+<span class="fc" id="L116">        return cbitTag;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

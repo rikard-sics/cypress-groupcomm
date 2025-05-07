@@ -1,0 +1,857 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OneKey.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.cose</a> &gt; <span class="el_source">OneKey.java</span></div><h1>OneKey.java</h1><pre class="source lang-java linenums">/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package org.eclipse.californium.cose;
+
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+import java.math.BigInteger;
+
+import java.security.InvalidAlgorithmParameterException;
+import java.security.KeyFactory;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.interfaces.ECPrivateKey;
+import java.security.interfaces.ECPublicKey;
+import java.security.spec.ECGenParameterSpec;
+import java.security.spec.ECPoint;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.KeySpec;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
+import net.i2p.crypto.eddsa.EdDSAPrivateKey;
+import net.i2p.crypto.eddsa.EdDSAPublicKey;
+import net.i2p.crypto.eddsa.spec.EdDSAGenParameterSpec;
+import java.util.ArrayList;
+import java.util.Arrays;
+
+/**
+ *
+ * @author jimsch
+ */
+public class OneKey {
+
+    protected CBORObject keyMap;
+    private PrivateKey privateKey;
+    private PublicKey publicKey;
+    
+<span class="fc" id="L44">    public OneKey() {</span>
+<span class="fc" id="L45">        keyMap = CBORObject.NewMap();</span>
+<span class="fc" id="L46">    }</span>
+    
+<span class="fc" id="L48">    public OneKey(CBORObject keyData) throws CoseException {</span>
+<span class="pc bpc" id="L49" title="1 of 2 branches missed.">        if (keyData.getType() != CBORType.Map) throw new CoseException(&quot;Key data is malformed&quot;);</span>
+        
+<span class="fc" id="L51">        keyMap = keyData;</span>
+<span class="fc" id="L52">        CheckKeyState();</span>
+<span class="fc" id="L53">    }</span>
+    
+    /**
+     * Create a OneKey object from Java Public/Private keys
+     * @param pubKey - public key to use - may be null
+     * @param privKey - private key to use - may be null
+     * @throws CoseException
+     */
+<span class="fc" id="L61">    public OneKey(PublicKey pubKey, PrivateKey privKey) throws CoseException {</span>
+<span class="fc" id="L62">        keyMap = CBORObject.NewMap();</span>
+        
+<span class="pc bpc" id="L64" title="1 of 2 branches missed.">        if (pubKey != null) {</span>
+<span class="fc" id="L65">            ArrayList&lt;ASN1.TagValue&gt; spki = ASN1.DecodeSubjectPublicKeyInfo(pubKey.getEncoded());</span>
+<span class="fc" id="L66">            ArrayList&lt;ASN1.TagValue&gt; alg = spki.get(0).list;</span>
+<span class="pc bpc" id="L67" title="1 of 2 branches missed.">            if (Arrays.equals(alg.get(0).value, ASN1.oid_ecPublicKey)) {</span>
+<span class="fc" id="L68">                byte[] oid = (byte[]) alg.get(1).value;</span>
+<span class="pc bpc" id="L69" title="1 of 2 branches missed.">                if (oid == null) throw new CoseException(&quot;Invalid SPKI structure&quot;);</span>
+                // EC2 Key
+<span class="fc" id="L71">                keyMap.Add(KeyKeys.KeyType.AsCBOR(), KeyKeys.KeyType_EC2);</span>
+<span class="pc bpc" id="L72" title="1 of 2 branches missed.">                if (Arrays.equals(oid, ASN1.Oid_secp256r1)) keyMap.Add(KeyKeys.EC2_Curve.AsCBOR(), KeyKeys.EC2_P256);</span>
+<span class="nc bnc" id="L73" title="All 2 branches missed.">                else if (Arrays.equals(oid, ASN1.Oid_secp384r1)) keyMap.Add(KeyKeys.EC2_Curve.AsCBOR(), KeyKeys.EC2_P384);</span>
+<span class="nc bnc" id="L74" title="All 2 branches missed.">                else if (Arrays.equals(oid, ASN1.Oid_secp521r1)) keyMap.Add(KeyKeys.EC2_Curve.AsCBOR(), KeyKeys.EC2_P521);</span>
+<span class="nc" id="L75">                else throw new CoseException(&quot;Unsupported curve&quot;);</span>
+
+<span class="fc" id="L77">                byte[] keyData = (byte[]) spki.get(1).value;</span>
+<span class="pc bpc" id="L78" title="2 of 4 branches missed.">                if (keyData[1] == 2 || keyData[1] == 3) {</span>
+<span class="nc" id="L79">                    keyMap.Add(KeyKeys.EC2_X.AsCBOR(), Arrays.copyOfRange(keyData, 2, keyData.length));</span>
+<span class="nc bnc" id="L80" title="All 2 branches missed.">                    keyMap.Add(KeyKeys.EC2_Y.AsCBOR(), keyData[1] == 2 ? false : true);                </span>
+                }
+<span class="pc bpc" id="L82" title="1 of 2 branches missed.">                else if (keyData[1] == 4) {</span>
+<span class="fc" id="L83">                    int keyLength = (keyData.length - 2)/2;</span>
+<span class="fc" id="L84">                    keyMap.Add(KeyKeys.EC2_X.AsCBOR(), Arrays.copyOfRange(keyData, 2, 2+keyLength));</span>
+<span class="fc" id="L85">                    keyMap.Add(KeyKeys.EC2_Y.AsCBOR(), Arrays.copyOfRange(keyData, 2+keyLength, keyData.length));                    </span>
+<span class="fc" id="L86">                }</span>
+<span class="nc" id="L87">                else throw new CoseException(&quot;Invalid key data&quot;);</span>
+<span class="fc" id="L88">            }</span>
+            else {
+<span class="nc" id="L90">                throw new CoseException(&quot;Unsupported Algorithm&quot;);</span>
+            }
+            
+<span class="fc" id="L93">            this.publicKey = pubKey;</span>
+        }
+        
+<span class="pc bpc" id="L96" title="1 of 2 branches missed.">        if (privKey != null) {</span>
+<span class="fc" id="L97">            ArrayList&lt;ASN1.TagValue&gt; pkl = ASN1.DecodePKCS8(privKey.getEncoded());</span>
+<span class="pc bpc" id="L98" title="1 of 2 branches missed.">            if (pkl.get(0).tag != 2) throw new CoseException(&quot;Invalid PKCS8 structure&quot;);</span>
+<span class="fc" id="L99">            ArrayList&lt;ASN1.TagValue&gt; alg = pkl.get(1).list;</span>
+<span class="pc bpc" id="L100" title="1 of 2 branches missed.">            if (Arrays.equals(alg.get(0).value, ASN1.oid_ecPublicKey)) {</span>
+<span class="fc" id="L101">                byte[] oid = (byte[]) alg.get(1).value;</span>
+<span class="pc bpc" id="L102" title="1 of 2 branches missed.">                if (oid == null) throw new CoseException(&quot;Invalid PKCS8 structure&quot;);</span>
+                // EC2 Key
+<span class="pc bpc" id="L104" title="1 of 2 branches missed.">                if (!keyMap.ContainsKey(KeyKeys.KeyType.AsCBOR())) {</span>
+<span class="nc" id="L105">                    keyMap.Add(KeyKeys.KeyType.AsCBOR(), KeyKeys.KeyType_EC2);</span>
+<span class="nc bnc" id="L106" title="All 2 branches missed.">                    if (Arrays.equals(oid, ASN1.Oid_secp256r1)) keyMap.Add(KeyKeys.EC2_Curve.AsCBOR(), KeyKeys.EC2_P256);</span>
+<span class="nc bnc" id="L107" title="All 2 branches missed.">                    else if (Arrays.equals(oid, ASN1.Oid_secp384r1)) keyMap.Add(KeyKeys.EC2_Curve.AsCBOR(), KeyKeys.EC2_P384);</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">                    else if (Arrays.equals(oid, ASN1.Oid_secp521r1)) keyMap.Add(KeyKeys.EC2_Curve.AsCBOR(), KeyKeys.EC2_P521);</span>
+<span class="nc" id="L109">                    else throw new CoseException(&quot;Unsupported curve&quot;);</span>
+                }
+                else {
+<span class="pc bpc" id="L112" title="1 of 2 branches missed.">                    if (!this.get(KeyKeys.KeyType).equals(KeyKeys.KeyType_EC2)) {</span>
+<span class="nc" id="L113">                        throw new CoseException(&quot;Public/Private key don't match&quot;);</span>
+                    }
+                }
+
+<span class="pc bpc" id="L117" title="1 of 2 branches missed.">                if (pkl.get(2).list.get(1).tag != 4) throw new CoseException(&quot;Invalid PKCS8 structure&quot;);</span>
+<span class="fc" id="L118">                byte[] keyData = (byte[]) (pkl.get(2).list).get(1).value;</span>
+<span class="fc" id="L119">                keyMap.Add(KeyKeys.EC2_D.AsCBOR(), keyData);</span>
+<span class="fc" id="L120">            }</span>
+            else {
+<span class="nc" id="L122">                throw new CoseException(&quot;Unsupported Algorithm&quot;);</span>
+            }
+            
+<span class="fc" id="L125">            this.privateKey = privKey;            </span>
+        }
+<span class="fc" id="L127">    }</span>
+    
+    public void add(KeyKeys keyValue, CBORObject value) {
+<span class="fc" id="L130">        keyMap.Add(keyValue.AsCBOR(), value);</span>
+<span class="fc" id="L131">    }</span>
+    
+    public void add(CBORObject keyValue, CBORObject value) {
+<span class="fc" id="L134">        keyMap.Add(keyValue, value);</span>
+<span class="fc" id="L135">    }</span>
+    
+    public CBORObject get(KeyKeys keyValue) {
+<span class="fc" id="L138">        return keyMap.get(keyValue.AsCBOR());</span>
+    }
+    
+    public CBORObject get(CBORObject keyValue) throws CoseException {
+<span class="pc bpc" id="L142" title="3 of 4 branches missed.">		if ((keyValue.getType() != CBORType.Integer) &amp;&amp; (keyValue.getType() != CBORType.TextString))</span>
+<span class="nc" id="L143">			throw new CoseException(&quot;keyValue type is incorrect&quot;);</span>
+<span class="fc" id="L144">        return keyMap.get(keyValue);</span>
+    }
+ 
+    /**
+     * Compares the key's assigned algorithm with the provided value, indicating if the values are the
+     * same.
+     * 
+     * @param algorithmId
+     *          the algorithm to compare or {@code null} to check for no assignment.
+     * @return {@code true} if the current key has the provided algorithm assigned, or {@code false}
+     *         otherwise
+     */
+    public boolean HasAlgorithmID(AlgorithmID algorithmId) {
+<span class="nc" id="L157">        CBORObject thisObj = get(KeyKeys.Algorithm);</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">        CBORObject thatObj = (algorithmId == null ? null : algorithmId.AsCBOR());</span>
+        boolean result;
+
+<span class="nc bnc" id="L161" title="All 2 branches missed.">        if (thatObj == null) {</span>
+<span class="nc bnc" id="L162" title="All 2 branches missed.">            result = (thisObj == null);</span>
+        } else {
+<span class="nc" id="L164">            result = thatObj.equals(thisObj);</span>
+        }
+<span class="nc" id="L166">        return result;</span>
+    }
+
+    /**
+     * Compares the key's assigned identifier with the provided value, indicating if the values are
+     * the same.
+     * 
+     * @param id
+     *          the identifier to compare or {@code null} to check for no assignment.
+     * @return {@code true} if the current key has the provided identifier assigned, or {@code false}
+     *         otherwise
+     */
+    public boolean HasKeyID(String id) {
+<span class="nc bnc" id="L179" title="All 2 branches missed.">        CBORObject thatObj = (id == null) ? null : CBORObject.FromObject(id);</span>
+<span class="nc" id="L180">        CBORObject thisObj = get(KeyKeys.KeyId);</span>
+        boolean result;
+<span class="nc bnc" id="L182" title="All 2 branches missed.">        if (thatObj == null) {</span>
+<span class="nc bnc" id="L183" title="All 2 branches missed.">            result = (thisObj == null);</span>
+        } else {
+<span class="nc" id="L185">            result = thatObj.equals(thisObj);</span>
+        }    
+<span class="nc" id="L187">        return result;</span>
+    }
+
+    /**
+    * Compares the key's assigned key type with the provided value, indicating if the values are the
+    * same.
+    * 
+    * @param keyTypeObj
+    *          the key type to compare or {@code null} to check for no assignment.
+    * @return {@code true} if the current key has the provided identifier assigned, or {@code false}
+    *         otherwise
+    */
+    public boolean HasKeyType(CBORObject keyTypeObj) {
+<span class="nc" id="L200">        CBORObject thatObj = keyTypeObj;</span>
+<span class="nc" id="L201">        CBORObject thisObj = get(KeyKeys.KeyType);</span>
+        boolean result;
+<span class="nc bnc" id="L203" title="All 2 branches missed.">        if (thatObj == null) {</span>
+<span class="nc bnc" id="L204" title="All 2 branches missed.">            result = (thisObj == null);</span>
+        } else {
+<span class="nc" id="L206">            result = thatObj.equals(thisObj);</span>
+        }
+<span class="nc" id="L208">        return result;</span>
+    }
+  
+    /**
+     * Compares the key's assigned key operations with the provided value, indicating if the provided
+     * value was found in the key operation values assigned to the key.
+     * 
+     * @param that
+     *          the integer operation value to attempt to find in the values provided by the key or
+     *          {@code null} to check for no assignment.
+     * @return {@code true} if the current key has the provided value assigned, or {@code false}
+     *         otherwise
+     */
+    public boolean HasKeyOp(Integer that) {
+<span class="nc" id="L222">        CBORObject thisObj = get(KeyKeys.Key_Ops);</span>
+        boolean result;
+<span class="nc bnc" id="L224" title="All 2 branches missed.">        if (that == null) {</span>
+<span class="nc bnc" id="L225" title="All 2 branches missed.">            result = (thisObj == null);</span>
+        } else {
+<span class="nc" id="L227">            result = false;</span>
+<span class="nc bnc" id="L228" title="All 2 branches missed.">			if (thisObj.getType() == CBORType.Integer) {</span>
+<span class="nc bnc" id="L229" title="All 2 branches missed.">                if (thisObj.AsInt32() == that) {</span>
+<span class="nc" id="L230">                    result = true;</span>
+                }
+<span class="nc bnc" id="L232" title="All 2 branches missed.">            } else if (thisObj.getType() == CBORType.Array) {</span>
+<span class="nc bnc" id="L233" title="All 2 branches missed.">                for (int i = 0; i &lt; thisObj.size(); i++) {</span>
+<span class="nc bnc" id="L234" title="All 4 branches missed.">					if ((thisObj.get(i).getType() == CBORType.Integer) &amp;&amp; (thisObj.get(i).AsInt32() == that)) {</span>
+<span class="nc" id="L235">                        result = true;</span>
+<span class="nc" id="L236">                        break;</span>
+                    }
+               }
+            }
+        }
+<span class="nc" id="L241">        return result;</span>
+    }
+
+    private void CheckKeyState() throws CoseException {
+        CBORObject val;
+        
+        //  Must have a key type
+<span class="fc" id="L248">        val = OneKey.this.get(KeyKeys.KeyType);</span>
+<span class="pc bpc" id="L249" title="2 of 4 branches missed.">		if ((val == null) || (val.getType() != CBORType.Integer))</span>
+<span class="nc" id="L250">			throw new CoseException(&quot;Missing or incorrect key type field&quot;);</span>
+        
+<span class="fc bfc" id="L252" title="All 2 branches covered.">        if (val.equals(KeyKeys.KeyType_Octet)) {</span>
+<span class="fc" id="L253">            val = OneKey.this.get(KeyKeys.Octet_K);</span>
+<span class="pc bpc" id="L254" title="2 of 4 branches missed.">            if ((val== null) || (val.getType() != CBORType.ByteString)) throw new CoseException(&quot;Malformed key structure&quot;);</span>
+        }
+<span class="fc bfc" id="L256" title="All 2 branches covered.">        else if (val.equals(KeyKeys.KeyType_EC2)) {</span>
+<span class="fc" id="L257">            CheckECKey();</span>
+        }
+<span class="pc bpc" id="L259" title="1 of 2 branches missed.">        else if (val.equals(KeyKeys.KeyType_OKP)) {</span>
+<span class="fc" id="L260">            CheckOkpKey();</span>
+        }
+<span class="nc" id="L262">        else throw new CoseException(&quot;Unsupported key type&quot;);</span>
+<span class="fc" id="L263">    }</span>
+    
+    private void CheckECKey() throws CoseException {
+        // ECParameterSpec         params = null; //   new ECDomainParameters(curve.getCurve(), curve.getG(), curve.getN(), curve.getH());
+<span class="fc" id="L267">        boolean                 needPublic = false;</span>
+        // ECPrivateKeySpec        privKeySpec = null;
+        CBORObject              val;
+
+        byte[] oid;
+<span class="fc" id="L272">        CBORObject cn = this.get(KeyKeys.EC2_Curve);</span>
+<span class="fc bfc" id="L273" title="All 2 branches covered.">        if (cn == KeyKeys.EC2_P256) {</span>
+<span class="fc" id="L274">            oid = ASN1.Oid_secp256r1;</span>
+        }
+<span class="fc bfc" id="L276" title="All 2 branches covered.">        else if (cn == KeyKeys.EC2_P384) {</span>
+<span class="fc" id="L277">            oid = ASN1.Oid_secp384r1;</span>
+        }
+<span class="pc bpc" id="L279" title="1 of 2 branches missed.">        else if (cn == KeyKeys.EC2_P521) {</span>
+<span class="fc" id="L280">            oid = ASN1.Oid_secp521r1;</span>
+        }
+        else {
+<span class="nc" id="L283">            throw new CoseException(&quot;Key has an unknown curve&quot;);</span>
+        }
+
+        try {
+
+<span class="fc" id="L288">            val = this.get(KeyKeys.EC2_D);</span>
+<span class="fc bfc" id="L289" title="All 2 branches covered.">            if (val != null) {</span>
+<span class="pc bpc" id="L290" title="1 of 2 branches missed.">                if (val.getType() != CBORType.ByteString) throw new CoseException(&quot;Malformed key structure&quot;);</span>
+                try {
+<span class="fc" id="L292">                    byte[] privateBytes = ASN1.EncodeEcPrivateKey(oid, val.GetByteString(), null);</span>
+<span class="fc" id="L293">                    byte[] pkcs8 = ASN1.EncodePKCS8(ASN1.AlgorithmIdentifier(ASN1.oid_ecPublicKey, oid), privateBytes, null);</span>
+                    
+<span class="fc" id="L295">                    KeyFactory fact = KeyFactory.getInstance(&quot;EC&quot;);</span>
+<span class="fc" id="L296">                    KeySpec keyspec = new PKCS8EncodedKeySpec(pkcs8);</span>
+
+<span class="fc" id="L298">                    privateKey = fact.generatePrivate(keyspec);</span>
+                }
+<span class="nc" id="L300">                catch (NoSuchAlgorithmException e) {</span>
+<span class="nc" id="L301">                    throw new CoseException(&quot;Unsupported Algorithm&quot;, e);</span>
+                }
+<span class="nc" id="L303">                catch (InvalidKeySpecException e) {</span>
+<span class="nc" id="L304">                    throw new CoseException(&quot;Invalid Private Key&quot;, e);</span>
+<span class="fc" id="L305">                }</span>
+            }
+
+<span class="fc" id="L308">            val = this.get(KeyKeys.EC2_X);</span>
+<span class="pc bpc" id="L309" title="1 of 2 branches missed.">            if (val == null) {</span>
+<span class="nc bnc" id="L310" title="All 2 branches missed.">                if (privateKey == null) throw new CoseException(&quot;Malformed key structure&quot;);</span>
+<span class="nc" id="L311">                else needPublic = true;</span>
+            }
+<span class="pc bpc" id="L313" title="1 of 2 branches missed.">            else if (val.getType() != CBORType.ByteString) throw new CoseException(&quot;Malformed key structure&quot;);</span>
+
+<span class="fc" id="L315">            val = this.get(KeyKeys.EC2_Y);</span>
+<span class="pc bpc" id="L316" title="1 of 2 branches missed.">            if (val == null) {</span>
+<span class="nc bnc" id="L317" title="All 2 branches missed.">                if (privateKey == null) throw new CoseException(&quot;Malformed key structure&quot;);</span>
+<span class="nc" id="L318">                else needPublic = true;</span>
+            }
+<span class="pc bpc" id="L320" title="3 of 4 branches missed.">            else if ((val.getType() != CBORType.ByteString) &amp;&amp; (val.getType() != CBORType.Boolean)) throw new CoseException(&quot;Malformed key structure&quot;);</span>
+
+<span class="pc bpc" id="L322" title="1 of 4 branches missed.">            if (privateKey != null &amp;&amp; needPublic) {</span>
+<span class="nc" id="L323">                byte[] pkcs8 = privateKey.getEncoded();</span>
+<span class="nc" id="L324">                return;</span>
+
+                // todo: calculate (and populate) public from private
+            }
+
+<span class="fc" id="L329">            byte[] spki = null;</span>
+
+<span class="pc bpc" id="L331" title="1 of 2 branches missed.">           if (spki == null) {</span>
+<span class="fc" id="L332">                byte[] rgbKey = null;</span>
+<span class="fc" id="L333">                 byte[] X = this.get(KeyKeys.EC2_X).GetByteString();</span>
+
+<span class="pc bpc" id="L335" title="1 of 2 branches missed.">                 if (this.get(KeyKeys.EC2_Y).getType()== CBORType.Boolean) {</span>
+<span class="nc" id="L336">                     rgbKey = new byte[X.length + 1];</span>
+<span class="nc" id="L337">                     System.arraycopy(X, 0, rgbKey, 1, X.length);</span>
+<span class="nc bnc" id="L338" title="All 2 branches missed.">                     rgbKey[0] = (byte) (2 + (this.get(KeyKeys.EC2_Y).AsBoolean() ? 1 : 0));</span>
+                 }
+                 else {
+<span class="fc" id="L341">                     rgbKey = new byte[X.length*2+1];</span>
+<span class="fc" id="L342">                     System.arraycopy(X, 0,rgbKey, 1, X.length);</span>
+<span class="fc" id="L343">                     byte[] Y = this.get(KeyKeys.EC2_Y).GetByteString();</span>
+<span class="fc" id="L344">                     System.arraycopy(Y, 0, rgbKey, 1+X.length, X.length);</span>
+<span class="fc" id="L345">                     rgbKey[0] = 4;</span>
+                 }
+
+<span class="fc" id="L348">                spki = ASN1.EncodeSubjectPublicKeyInfo(ASN1.AlgorithmIdentifier(ASN1.oid_ecPublicKey, oid), rgbKey);        </span>
+            }
+       
+<span class="fc" id="L351">            KeyFactory fact = KeyFactory.getInstance(&quot;EC&quot;/*, &quot;BC&quot;*/);</span>
+<span class="fc" id="L352">            KeySpec keyspec = new X509EncodedKeySpec(spki);</span>
+<span class="fc" id="L353">            publicKey = fact.generatePublic(keyspec);</span>
+        }
+<span class="nc" id="L355">        catch (NoSuchAlgorithmException e) {</span>
+<span class="nc" id="L356">            throw new CoseException(&quot;Alorithm unsupported&quot;, e);</span>
+        }
+<span class="nc" id="L358">        catch (InvalidKeySpecException e) {</span>
+<span class="nc" id="L359">            throw new CoseException(&quot;Internal error on SPKI&quot;, e);</span>
+<span class="fc" id="L360">       }</span>
+        /*
+        catch (NoSuchProviderException e) {
+            throw new CoseException(&quot;BC not found&quot;);
+        }
+        */
+/*        
+        X9ECParameters          curve = GetCurve();
+        ECDomainParameters      params = new ECDomainParameters(curve.getCurve(), curve.getG(), curve.getN(), curve.getH());
+        boolean                 needPublic = false;
+        ECPrivateKeyParameters  privKey = null;
+        ECPublicKeyParameters   pubKey = null;
+        CBORObject              val;
+
+        val = OneKey.this.get(KeyKeys.EC2_D);
+        if (val != null) {
+            if (val.getType() != CBORType.ByteString) throw new CoseException(&quot;Malformed key structure&quot;);
+            privKey = new ECPrivateKeyParameters(new BigInteger(1, val.GetByteString()),
+                                                    params);
+        }
+
+        val = OneKey.this.get(KeyKeys.EC2_X);
+        if (val == null) {
+            if (privKey == null) throw new CoseException(&quot;Malformed key structure&quot;);
+            else needPublic = true;
+        }
+        else if (val.getType() != CBORType.ByteString) throw new CoseException(&quot;Malformed key structure&quot;);
+
+        val = OneKey.this.get(KeyKeys.EC2_Y);
+        if (val == null) {
+            if (privKey == null) throw new CoseException(&quot;Malformed key structure&quot;);
+            else needPublic = true;
+        }
+        else if ((val.getType() != CBORType.ByteString) &amp;&amp; (val.getType() != CBORType.Boolean)) throw new CoseException(&quot;Malformed key structure&quot;);
+
+        if (privKey != null &amp;&amp; needPublic) {
+            // todo: calculate (and populate) public from private
+            pubKey = new ECPublicKeyParameters(params.getG().multiply(privKey.getD()), params);
+            byte[] rgbX = pubKey.getQ().normalize().getXCoord().getEncoded();
+            byte[] rgbY = pubKey.getQ().normalize().getYCoord().getEncoded();
+            add(KeyKeys.EC2_X, CBORObject.FromObject(rgbX));
+            add(KeyKeys.EC2_Y, CBORObject.FromObject(rgbY));
+        } else {
+            // todo: validate public on curve
+        }
+        */
+<span class="fc" id="L406">    }</span>
+
+    public ECGenParameterSpec GetCurve2() throws CoseException {
+<span class="nc bnc" id="L409" title="All 2 branches missed.">        if (OneKey.this.get(KeyKeys.KeyType) != KeyKeys.KeyType_EC2) throw new CoseException(&quot;Not an EC2 key&quot;);</span>
+<span class="nc" id="L410">        CBORObject cnCurve = OneKey.this.get(KeyKeys.EC2_Curve);</span>
+        
+<span class="nc bnc" id="L412" title="All 2 branches missed.">        if (cnCurve == KeyKeys.EC2_P256) return new ECGenParameterSpec(&quot;secp256r1&quot;);</span>
+<span class="nc bnc" id="L413" title="All 2 branches missed.">        if (cnCurve == KeyKeys.EC2_P384) return new ECGenParameterSpec(&quot;secp384r1&quot;);</span>
+<span class="nc bnc" id="L414" title="All 2 branches missed.">        if (cnCurve == KeyKeys.EC2_P521) return new ECGenParameterSpec(&quot;secp521r1&quot;);</span>
+<span class="nc" id="L415">        throw new CoseException(&quot;Unsupported curve &quot; + cnCurve);        </span>
+    }
+    
+    
+    static public OneKey generateKey(AlgorithmID algorithm) throws CoseException {
+<span class="fc" id="L420">        OneKey returnThis = null;</span>
+<span class="pc bpc" id="L421" title="3 of 5 branches missed.">        switch(algorithm) {</span>
+            case ECDSA_256:
+<span class="fc" id="L423">                returnThis = generateECDSAKey(&quot;P-256&quot;, KeyKeys.EC2_P256); </span>
+<span class="fc" id="L424">                break;</span>
+                
+            case ECDSA_384:
+<span class="nc" id="L427">                returnThis = generateECDSAKey(&quot;P-384&quot;, KeyKeys.EC2_P384);</span>
+<span class="nc" id="L428">                break;</span>
+                
+            case ECDSA_512:
+<span class="nc" id="L431">                returnThis = generateECDSAKey(&quot;P-521&quot;, KeyKeys.EC2_P521);</span>
+<span class="nc" id="L432">                break;</span>
+                
+            case EDDSA:
+<span class="fc" id="L435">                returnThis = generateOkpKey(&quot;Ed25519&quot;, KeyKeys.OKP_Ed25519); //Rikard: Changed string parameter from EdDSA</span>
+<span class="fc" id="L436">                break;</span>
+                
+            default:
+<span class="nc" id="L439">                throw new CoseException(&quot;Unknown algorithm&quot;);</span>
+        }
+        
+<span class="fc" id="L442">        returnThis.add(KeyKeys.Algorithm, algorithm.AsCBOR());</span>
+<span class="fc" id="L443">        return returnThis;</span>
+    }
+    
+    static public OneKey generateKey(CBORObject curve) throws CoseException {
+        String curveName;
+        OneKey returnThis;
+        
+<span class="pc bpc" id="L450" title="7 of 8 branches missed.">        switch (curve.AsInt32()) {</span>
+            case 1:
+<span class="fc" id="L452">                curveName = &quot;P-256&quot;;</span>
+<span class="fc" id="L453">                returnThis = generateECDHKey(curveName, curve);</span>
+<span class="fc" id="L454">                return returnThis;</span>
+
+            case 2:
+<span class="nc" id="L457">                curveName = &quot;P-384&quot;;</span>
+<span class="nc" id="L458">                returnThis = generateECDHKey(curveName, curve);</span>
+<span class="nc" id="L459">                return returnThis;</span>
+            
+            case 3:
+<span class="nc" id="L462">                curveName = &quot;P-521&quot;;</span>
+<span class="nc" id="L463">                returnThis = generateECDHKey(curveName, curve);</span>
+<span class="nc" id="L464">                return returnThis;</span>
+                
+            case 6:
+<span class="nc" id="L467">                curveName = &quot;Ed25519&quot;;</span>
+<span class="nc" id="L468">                return generateOkpKey(curveName, curve);</span>
+                
+            case 7:
+<span class="nc" id="L471">                curveName = &quot;Ed448&quot;;</span>
+<span class="nc" id="L472">                return generateOkpKey(curveName, curve);</span>
+                
+            case 4:
+<span class="nc" id="L475">                curveName = &quot;X25519&quot;;</span>
+<span class="nc" id="L476">                return generateOkpKey(curveName, curve);</span>
+                
+            case 5:
+<span class="nc" id="L479">                curveName = &quot;X448&quot;;</span>
+<span class="nc" id="L480">                return generateOkpKey(curveName, curve);</span>
+
+            default:
+<span class="nc" id="L483">                throw new CoseException(&quot;Unknown curve&quot;);</span>
+        }
+    }
+    
+    static private OneKey generateECDHKey(String curveName, CBORObject curve) throws CoseException {
+        try {
+            
+            int curveSize;
+            
+<span class="pc bpc" id="L492" title="3 of 4 branches missed.">            switch (curveName) {</span>
+                case &quot;P-256&quot;:
+<span class="fc" id="L494">                    curveName = &quot;secp256r1&quot;;</span>
+<span class="fc" id="L495">                    curveSize = 256;</span>
+<span class="fc" id="L496">                    break;</span>
+
+                case &quot;P-384&quot;:
+<span class="nc" id="L499">                    curveName=&quot;secp384r1&quot;;</span>
+<span class="nc" id="L500">                    curveSize = 384;</span>
+<span class="nc" id="L501">                    break;</span>
+
+                case &quot;P-521&quot;:
+<span class="nc" id="L504">                    curveName = &quot;secp521r1&quot;;</span>
+<span class="nc" id="L505">                    curveSize = 521;</span>
+<span class="nc" id="L506">                    break;</span>
+                    
+                default:
+<span class="nc" id="L509">                    throw new CoseException(&quot;Internal Error&quot;);</span>
+            }
+
+<span class="fc" id="L512">            ECGenParameterSpec paramSpec = new ECGenParameterSpec(curveName);</span>
+<span class="fc" id="L513">            KeyPairGenerator gen = KeyPairGenerator.getInstance(&quot;EC&quot;);</span>
+<span class="fc" id="L514">            gen.initialize(paramSpec);</span>
+            
+<span class="fc" id="L516">            KeyPair keyPair = gen.genKeyPair();</span>
+            
+<span class="fc" id="L518">            ECPoint pubPoint = ((ECPublicKey) keyPair.getPublic()).getW();</span>
+                        
+<span class="fc" id="L520">            byte[] rgbX = ArrayFromBigNum(pubPoint.getAffineX(), curveSize);</span>
+<span class="fc" id="L521">            byte[] rgbY = ArrayFromBigNum(pubPoint.getAffineY(), curveSize);</span>
+<span class="fc" id="L522">            byte[] rgbD = ArrayFromBigNum(((ECPrivateKey) keyPair.getPrivate()).getS(), curveSize);</span>
+
+<span class="fc" id="L524">            OneKey key = new OneKey();</span>
+
+<span class="fc" id="L526">            key.add(KeyKeys.KeyType, KeyKeys.KeyType_EC2);</span>
+<span class="fc" id="L527">            key.add(KeyKeys.EC2_Curve, curve);</span>
+<span class="fc" id="L528">            key.add(KeyKeys.EC2_X, CBORObject.FromObject(rgbX));</span>
+<span class="fc" id="L529">            key.add(KeyKeys.EC2_Y, CBORObject.FromObject(rgbY));</span>
+<span class="fc" id="L530">            key.add(KeyKeys.EC2_D, CBORObject.FromObject(rgbD));</span>
+<span class="fc" id="L531">            key.publicKey = keyPair.getPublic();</span>
+<span class="fc" id="L532">            key.privateKey = keyPair.getPrivate();</span>
+            
+<span class="fc" id="L534">            return key;</span>
+
+        }
+<span class="nc" id="L537">        catch (NoSuchAlgorithmException e) {</span>
+<span class="nc" id="L538">            throw new CoseException(&quot;No provider for algorithm&quot;, e);</span>
+        }
+<span class="nc" id="L540">        catch (InvalidAlgorithmParameterException e) {</span>
+<span class="nc" id="L541">            throw new CoseException(&quot;THe curve is not supported&quot;, e);</span>
+        }
+    }
+    
+    static private byte[] ArrayFromBigNum(BigInteger n, int curveSize) {
+<span class="fc" id="L546">        byte[] rgb = new byte[(curveSize+7)/8];</span>
+<span class="fc" id="L547">        byte[] rgb2 = n.toByteArray();</span>
+<span class="fc bfc" id="L548" title="All 2 branches covered.">        if (rgb.length == rgb2.length) return rgb2;</span>
+<span class="pc bpc" id="L549" title="1 of 2 branches missed.">        if (rgb2.length &gt; rgb.length) {</span>
+<span class="fc" id="L550">            System.arraycopy(rgb2, rgb2.length-rgb.length, rgb, 0, rgb.length);</span>
+        }
+        else {
+<span class="nc" id="L553">            System.arraycopy(rgb2, 0, rgb, rgb.length-rgb2.length, rgb2.length);</span>
+        }
+<span class="fc" id="L555">        return rgb;</span>
+    }
+    
+    static private OneKey generateECDSAKey(String curveName, CBORObject curve) throws CoseException { 
+        try {
+            
+            int curveSize;
+            
+<span class="pc bpc" id="L563" title="3 of 4 branches missed.">            switch (curveName) {</span>
+                case &quot;P-256&quot;:
+<span class="fc" id="L565">                    curveName = &quot;secp256r1&quot;;</span>
+<span class="fc" id="L566">                    curveSize = 256;</span>
+<span class="fc" id="L567">                    break;</span>
+
+                case &quot;P-384&quot;:
+<span class="nc" id="L570">                    curveName=&quot;secp384r1&quot;;</span>
+<span class="nc" id="L571">                    curveSize = 384;</span>
+<span class="nc" id="L572">                    break;</span>
+
+                case &quot;P-521&quot;:
+<span class="nc" id="L575">                    curveName = &quot;secp521r1&quot;;</span>
+<span class="nc" id="L576">                    curveSize = 521;</span>
+<span class="nc" id="L577">                    break;</span>
+                    
+                default:
+<span class="nc" id="L580">                    throw new CoseException(&quot;Internal Error&quot;);</span>
+            }
+
+<span class="fc" id="L583">            ECGenParameterSpec paramSpec = new ECGenParameterSpec(curveName);</span>
+<span class="fc" id="L584">            KeyPairGenerator gen = KeyPairGenerator.getInstance(&quot;EC&quot;);</span>
+<span class="fc" id="L585">            gen.initialize(paramSpec);</span>
+            
+<span class="fc" id="L587">            KeyPair keyPair = gen.genKeyPair();</span>
+            
+<span class="fc" id="L589">            ECPoint pubPoint = ((ECPublicKey) keyPair.getPublic()).getW();</span>
+                        
+<span class="fc" id="L591">            byte[] rgbX = ArrayFromBigNum(pubPoint.getAffineX(), curveSize);</span>
+<span class="fc" id="L592">            byte[] rgbY = ArrayFromBigNum(pubPoint.getAffineY(), curveSize);</span>
+<span class="fc" id="L593">            byte[] rgbD = ArrayFromBigNum(((ECPrivateKey) keyPair.getPrivate()).getS(), curveSize);</span>
+
+<span class="fc" id="L595">            OneKey key = new OneKey();</span>
+
+<span class="fc" id="L597">            key.add(KeyKeys.KeyType, KeyKeys.KeyType_EC2);</span>
+<span class="fc" id="L598">            key.add(KeyKeys.EC2_Curve, curve);</span>
+<span class="fc" id="L599">            key.add(KeyKeys.EC2_X, CBORObject.FromObject(rgbX));</span>
+<span class="fc" id="L600">            key.add(KeyKeys.EC2_Y, CBORObject.FromObject(rgbY));</span>
+<span class="fc" id="L601">            key.add(KeyKeys.EC2_D, CBORObject.FromObject(rgbD));</span>
+<span class="fc" id="L602">            key.publicKey = keyPair.getPublic();</span>
+<span class="fc" id="L603">            key.privateKey = keyPair.getPrivate();</span>
+            
+<span class="fc" id="L605">            return key;</span>
+
+        }
+<span class="nc" id="L608">        catch (NoSuchAlgorithmException e) {</span>
+<span class="nc" id="L609">            throw new CoseException(&quot;No provider for algorithm&quot;, e);</span>
+        }
+<span class="nc" id="L611">        catch (InvalidAlgorithmParameterException e) {</span>
+<span class="nc" id="L612">            throw new CoseException(&quot;The curve is not supported&quot;, e);</span>
+        }
+    }
+    
+    /**
+     * Create a OneKey object with only the public fields.  Filters out the 
+     * private key fields but leaves all positive number labels and text labels
+     * along with negative number labels that are public fields.
+     * 
+     * @return public version of the key
+     */
+    public OneKey PublicKey()
+    {
+<span class="fc" id="L625">        OneKey newKey = new OneKey();</span>
+<span class="fc" id="L626">        CBORObject val = this.get(KeyKeys.KeyType);</span>
+<span class="pc bpc" id="L627" title="1 of 2 branches missed.">        if (val.equals(KeyKeys.KeyType_Octet)) {</span>
+<span class="nc" id="L628">            return null;</span>
+        }
+<span class="fc bfc" id="L630" title="All 2 branches covered.">        else if (val.equals(KeyKeys.KeyType_EC2)) {</span>
+<span class="fc" id="L631">            newKey.add(KeyKeys.EC2_Curve, get(KeyKeys.EC2_Curve));</span>
+<span class="fc" id="L632">            newKey.add(KeyKeys.EC2_X, get(KeyKeys.EC2_X));</span>
+<span class="fc" id="L633">            newKey.add(KeyKeys.EC2_Y, get(KeyKeys.EC2_Y));</span>
+        }
+        //Rikard: Re-enabled the following 4 lines that were commented out
+<span class="pc bpc" id="L636" title="1 of 2 branches missed.">        else if (val.equals(KeyKeys.KeyType_OKP)) {</span>
+<span class="fc" id="L637">            newKey.add(KeyKeys.OKP_Curve, get(KeyKeys.OKP_Curve));</span>
+<span class="fc" id="L638">            newKey.add(KeyKeys.OKP_X, get(KeyKeys.OKP_X));</span>
+        }
+        else {
+<span class="nc" id="L641">            return null;</span>
+        }
+        
+        //  Allow them to use the same underlying public key object
+        
+<span class="fc" id="L646">        newKey.publicKey = publicKey;</span>
+
+<span class="fc bfc" id="L648" title="All 2 branches covered.">        for (CBORObject obj : keyMap.getKeys()) {</span>
+<span class="fc" id="L649">            val = keyMap.get(obj);</span>
+<span class="pc bpc" id="L650" title="1 of 2 branches missed.">			if (obj.getType() == CBORType.Integer) {</span>
+<span class="fc bfc" id="L651" title="All 2 branches covered.">                if (obj.AsInt32() &gt; 0) {</span>
+<span class="fc" id="L652">                    newKey.add(obj, val);</span>
+                }
+            }
+<span class="nc bnc" id="L655" title="All 2 branches missed.">            else if (obj.getType() == CBORType.TextString) {</span>
+<span class="nc" id="L656">                newKey.add(obj, val);</span>
+            }
+<span class="fc" id="L658">        }</span>
+<span class="fc" id="L659">        return newKey;</span>
+    }
+    
+    /**
+     * Encode to a byte string
+     * 
+     * @return encoded object as bytes.
+     */
+    public byte[] EncodeToBytes()
+    {
+<span class="nc" id="L669">        return keyMap.EncodeToBytes();</span>
+    }
+    
+    /**
+     * Return the key as a CBOR object
+     * 
+     * @return 
+     */
+    public CBORObject AsCBOR()
+    {
+<span class="fc" id="L679">        return keyMap;</span>
+    }
+    
+    /**
+     * Return a java.security.PublicKey that is the same as the OneKey key
+     * 
+     * @return the key
+     * @throws CoseException If there is a conversion error
+     */
+    public PublicKey AsPublicKey() throws CoseException
+    {
+<span class="fc" id="L690">        return publicKey;</span>
+    }
+    
+    /**
+     * Return a java.security.PrivateKey that is the same as the OneKey key
+     * 
+     * @return the key
+     * @throws CoseException if there is a conversion error
+     */
+    public PrivateKey AsPrivateKey() throws CoseException
+    {
+<span class="fc" id="L701">        return privateKey;</span>
+    }
+    
+    private Object UserData;
+    
+    /**
+     * Return the user data field.
+     * 
+     * The user data object allows for an application to associate a piece of arbitrary
+     * data with a key and retrieve it later.  
+     * @return
+     */
+    public Object getUserData() {
+<span class="nc" id="L714">        return UserData;</span>
+    }
+    
+    /**
+     * Set the user data field.
+     * 
+     * The user data field allows for an application to associate a piece of arbitrary
+     * data with a key and retrieve it later.
+     * @param newData Data field to be saved.
+     */
+    public void setUserData(Object newData) {
+<span class="nc" id="L725">        UserData = newData;</span>
+<span class="nc" id="L726">    }</span>
+
+    private void CheckOkpKey() throws CoseException {
+<span class="fc" id="L729">        boolean                 needPublic = false;</span>
+        CBORObject              val;
+        String  algName;
+
+        byte[] oid;
+<span class="fc" id="L734">        CBORObject cn = this.get(KeyKeys.OKP_Curve);</span>
+<span class="pc bpc" id="L735" title="1 of 2 branches missed.">        if (cn == KeyKeys.OKP_Ed25519) {</span>
+<span class="fc" id="L736">            oid = ASN1.Oid_Ed25519;</span>
+<span class="fc" id="L737">            algName = &quot;EdDSA&quot;;</span>
+        }
+<span class="nc bnc" id="L739" title="All 2 branches missed.">        else if (cn == KeyKeys.OKP_Ed448) {</span>
+<span class="nc" id="L740">            oid = ASN1.Oid_Ed448;</span>
+<span class="nc" id="L741">            algName = &quot;EdDSA&quot;;</span>
+        }
+<span class="nc bnc" id="L743" title="All 2 branches missed.">        else if (cn == KeyKeys.OKP_X25519) {</span>
+<span class="nc" id="L744">            oid = ASN1.Oid_X25519;</span>
+<span class="nc" id="L745">            algName = &quot;EdDH&quot;;</span>
+        }
+<span class="nc bnc" id="L747" title="All 2 branches missed.">        else if (cn == KeyKeys.OKP_X448) {</span>
+<span class="nc" id="L748">            oid = ASN1.Oid_X448;</span>
+<span class="nc" id="L749">            algName = &quot;ECDH&quot;;</span>
+        }
+        else {
+<span class="nc" id="L752">            throw new CoseException(&quot;Key has an unknown curve&quot;);</span>
+        }
+
+        try {
+
+<span class="fc" id="L757">            val = this.get(KeyKeys.OKP_D);</span>
+<span class="fc bfc" id="L758" title="All 2 branches covered.">            if (val != null) {</span>
+<span class="pc bpc" id="L759" title="1 of 2 branches missed.">                if (val.getType() != CBORType.ByteString) throw new CoseException(&quot;Malformed key structure&quot;);</span>
+                try {
+                    
+<span class="fc" id="L762">                    byte[] privateKeyBytes = ASN1.EncodeOctetString(val.GetByteString());</span>
+<span class="fc" id="L763">                    byte[] pkcs8 = ASN1.EncodePKCS8(ASN1.AlgorithmIdentifier(oid, null), privateKeyBytes, null);</span>
+                    
+<span class="fc" id="L765">                    KeyFactory fact = KeyFactory.getInstance(algName);</span>
+<span class="fc" id="L766">                    KeySpec keyspec = new PKCS8EncodedKeySpec(pkcs8);</span>
+
+<span class="fc" id="L768">                    privateKey = fact.generatePrivate(keyspec);</span>
+                }
+<span class="nc" id="L770">                catch (NoSuchAlgorithmException e) {</span>
+<span class="nc" id="L771">                    throw new CoseException(&quot;Unsupported Algorithm&quot;, e);</span>
+                }
+<span class="nc" id="L773">                catch (InvalidKeySpecException e) {</span>
+<span class="nc" id="L774">                    throw new CoseException(&quot;Invalid Private Key&quot;, e);</span>
+<span class="fc" id="L775">                }</span>
+            }
+
+<span class="fc" id="L778">            val = this.get(KeyKeys.OKP_X);</span>
+<span class="pc bpc" id="L779" title="1 of 2 branches missed.">            if (val == null) {</span>
+<span class="nc bnc" id="L780" title="All 2 branches missed.">                if (privateKey == null) throw new CoseException(&quot;Malformed key structure&quot;);</span>
+<span class="nc" id="L781">                else needPublic = true;</span>
+            }
+<span class="pc bpc" id="L783" title="1 of 2 branches missed.">            else if (val.getType() != CBORType.ByteString) throw new CoseException(&quot;Malformed key structure&quot;);</span>
+
+<span class="pc bpc" id="L785" title="1 of 4 branches missed.">            if (privateKey != null &amp;&amp; needPublic) {</span>
+<span class="nc" id="L786">                byte[] pkcs8 = privateKey.getEncoded();</span>
+<span class="nc" id="L787">                return;</span>
+
+                // todo: calculate (and populate) public from private
+            }
+
+<span class="fc" id="L792">            byte[] spki = null;</span>
+
+<span class="pc bpc" id="L794" title="1 of 2 branches missed.">           if (spki == null) {</span>
+<span class="fc" id="L795">                byte[] rgbKey =  this.get(KeyKeys.OKP_X).GetByteString();</span>
+
+                
+<span class="fc" id="L798">                spki = ASN1.EncodeSubjectPublicKeyInfo(ASN1.AlgorithmIdentifier(oid, null), rgbKey);        </span>
+            }
+       
+<span class="fc" id="L801">            KeyFactory fact = KeyFactory.getInstance(&quot;EdDSA&quot;);</span>
+<span class="fc" id="L802">            KeySpec keyspec = new X509EncodedKeySpec(spki);</span>
+<span class="fc" id="L803">            publicKey = fact.generatePublic(keyspec);</span>
+        }
+<span class="nc" id="L805">        catch (NoSuchAlgorithmException e) {</span>
+<span class="nc" id="L806">            throw new CoseException(&quot;Alorithm unsupported&quot;, e);</span>
+        }
+<span class="nc" id="L808">        catch (InvalidKeySpecException e) {</span>
+<span class="nc" id="L809">            throw new CoseException(&quot;Internal error on SPKI&quot;, e);</span>
+<span class="fc" id="L810">        }</span>
+<span class="fc" id="L811">    }</span>
+    
+    static private OneKey generateOkpKey(String curveName, CBORObject curve) throws CoseException { 
+        try {            
+<span class="pc bpc" id="L815" title="2 of 3 branches missed.">            switch (curveName) {</span>
+                case &quot;Ed25519&quot;:
+                    
+<span class="fc" id="L818">                    break;</span>
+                    
+                case &quot;Ed448&quot;:
+                case &quot;X22519&quot;:
+                case &quot;X448&quot;:
+<span class="nc" id="L823">                    throw new CoseException(&quot;Algorithm not supported.&quot;);</span>
+
+                default:
+<span class="nc" id="L826">                    throw new CoseException(&quot;Internal Error&quot;);</span>
+            }
+
+<span class="fc" id="L829">            EdDSAGenParameterSpec paramSpec = new EdDSAGenParameterSpec(curveName);</span>
+<span class="fc" id="L830">            KeyPairGenerator gen = KeyPairGenerator.getInstance(&quot;EdDSA&quot;);</span>
+<span class="fc" id="L831">            gen.initialize(paramSpec);</span>
+            
+<span class="fc" id="L833">            KeyPair keyPair = gen.genKeyPair();</span>
+                                    
+<span class="fc" id="L835">            byte[] rgbX = ((EdDSAPublicKey) keyPair.getPublic()).getAbyte();</span>
+<span class="fc" id="L836">            byte[] rgbD = ((EdDSAPrivateKey) keyPair.getPrivate()).getSeed();</span>
+
+<span class="fc" id="L838">            OneKey key = new OneKey();</span>
+
+<span class="fc" id="L840">            key.add(KeyKeys.KeyType, KeyKeys.KeyType_OKP);</span>
+<span class="fc" id="L841">            key.add(KeyKeys.OKP_Curve, curve);</span>
+<span class="fc" id="L842">            key.add(KeyKeys.OKP_X, CBORObject.FromObject(rgbX));</span>
+<span class="fc" id="L843">            key.add(KeyKeys.OKP_D, CBORObject.FromObject(rgbD));</span>
+<span class="fc" id="L844">            key.publicKey = keyPair.getPublic();</span>
+<span class="fc" id="L845">            key.privateKey = keyPair.getPrivate();</span>
+            
+<span class="fc" id="L847">            return key;</span>
+        }
+<span class="nc" id="L849">        catch (NoSuchAlgorithmException e) {</span>
+<span class="nc" id="L850">            throw new CoseException(&quot;No provider for algorithm&quot;, e);</span>
+        }
+<span class="nc" id="L852">        catch (InvalidAlgorithmParameterException e) {</span>
+<span class="nc" id="L853">            throw new CoseException(&quot;The curve is not supported&quot;, e);</span>
+        }
+    }    
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

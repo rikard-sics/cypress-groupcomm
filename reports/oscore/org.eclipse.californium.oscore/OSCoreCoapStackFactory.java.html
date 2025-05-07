@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OSCoreCoapStackFactory.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore</a> &gt; <span class="el_source">OSCoreCoapStackFactory.java</span></div><h1>OSCoreCoapStackFactory.java</h1><pre class="source lang-java linenums">/*******************************************************************************
++ * Copyright (c) 2018 Bosch Software Innovations GmbH and others.
++ * 
++ * All rights reserved. This program and the accompanying materials
++ * are made available under the terms of the Eclipse Public License v2.0
++ * and Eclipse Distribution License v1.0 which accompany this distribution.
++ * 
++ * The Eclipse Public License is available at
++ *    http://www.eclipse.org/legal/epl-v20.html
++ * and the Eclipse Distribution License is available at
++ *    http://www.eclipse.org/org/documents/edl-v10.html.
++ * 
++ * Contributors:
++ *    Bosch Software Innovations GmbH - initial implementation. 
++ ******************************************************************************/
+package org.eclipse.californium.oscore;
+
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.eclipse.californium.core.coap.CoAP;
+import org.eclipse.californium.core.network.CoapEndpoint;
+import org.eclipse.californium.core.network.CoapStackFactory;
+import org.eclipse.californium.core.network.Outbox;
+import org.eclipse.californium.core.network.stack.CoapStack;
+import org.eclipse.californium.elements.config.Configuration;
+
+/**
+ * Coap stack factory creating a {@link OSCoreStack} including a
+ * {@link ObjectSecurityLayer}.
+ */
+<span class="fc" id="L31">public class OSCoreCoapStackFactory implements CoapStackFactory {</span>
+
+<span class="fc" id="L33">	private static AtomicBoolean init = new AtomicBoolean();</span>
+	private static volatile OSCoreCtxDB defaultCtxDb;
+
+	@Override
+	public CoapStack createCoapStack(String protocol, String tag, Configuration config, Outbox outbox, Object customStackArgument) {
+<span class="pc bpc" id="L38" title="1 of 2 branches missed.">		if (CoAP.isTcpProtocol(protocol)) {</span>
+<span class="nc" id="L39">			throw new IllegalArgumentException(&quot;protocol \&quot;&quot; + protocol + &quot;\&quot; is not supported!&quot;);</span>
+		}
+<span class="fc" id="L41">		OSCoreCtxDB ctxDb = defaultCtxDb;</span>
+<span class="fc bfc" id="L42" title="All 2 branches covered.">		if (customStackArgument != null) {</span>
+<span class="fc" id="L43">			ctxDb = (OSCoreCtxDB) customStackArgument;</span>
+		}
+<span class="fc" id="L45">		return new OSCoreStack(tag, config, outbox, ctxDb);</span>
+	}
+
+	/**
+	 * Use {@link OSCoreStack} as default for {@link CoapEndpoint}.
+	 * 
+	 * Note: the factory is only applied once with the first call, the
+	 * {@link #defaultCtxDb} is update on every call.
+	 * 
+	 * @param defaultCtxDb default context DB. Passed in as default argument for {@link OSCoreStack}
+	 * 
+	 * @see CoapEndpoint#setDefaultCoapStackFactory(CoapStackFactory)
+	 */
+	public static void useAsDefault(OSCoreCtxDB defaultCtxDb) {
+<span class="fc bfc" id="L59" title="All 2 branches covered.">		if (init.compareAndSet(false, true)) {</span>
+<span class="fc" id="L60">			CoapEndpoint.setDefaultCoapStackFactory(new OSCoreCoapStackFactory());</span>
+		}
+<span class="fc" id="L62">		OSCoreCoapStackFactory.defaultCtxDb = defaultCtxDb;</span>
+<span class="fc" id="L63">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CounterSign.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.cose</a> &gt; <span class="el_source">CounterSign.java</span></div><h1>CounterSign.java</h1><pre class="source lang-java linenums">/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package org.eclipse.californium.cose;
+
+import com.upokecenter.cbor.CBORObject;
+
+/**
+ *
+ * @author jimsch
+ */
+public class CounterSign extends Signer {
+    
+<span class="nc" id="L16">    public CounterSign() {</span>
+<span class="nc" id="L17">        contextString = &quot;CounterSignature&quot;;</span>
+<span class="nc" id="L18">    }</span>
+    
+<span class="nc" id="L20">    public CounterSign(byte[] rgb) throws CoseException {</span>
+<span class="nc" id="L21">        contextString = &quot;CounterSignature&quot;;</span>
+<span class="nc" id="L22">        DecodeFromBytes(rgb);</span>
+<span class="nc" id="L23">    }</span>
+    
+<span class="nc" id="L25">    public CounterSign(CBORObject cbor) throws CoseException {</span>
+<span class="nc" id="L26">        DecodeFromCBORObject(cbor);</span>
+<span class="nc" id="L27">        contextString = &quot;CounterSignature&quot;;</span>
+<span class="nc" id="L28">    }</span>
+    
+    public void DecodeFromBytes(byte[] rgb) throws CoseException
+    {
+<span class="nc" id="L32">        CBORObject obj = CBORObject.DecodeFromBytes(rgb);</span>
+        
+<span class="nc" id="L34">        DecodeFromCBORObject(obj);</span>
+<span class="nc" id="L35">    }</span>
+    
+    public byte[] EncodeToBytes() throws CoseException {
+<span class="nc" id="L38">        return EncodeToCBORObject().EncodeToBytes();</span>
+    }
+    
+    public void Sign(Message message) throws CoseException {
+        byte[] rgbBodyProtect;
+<span class="nc bnc" id="L43" title="All 2 branches missed.">        if (message.objProtected.size() &gt; 0) rgbBodyProtect = message.objProtected.EncodeToBytes();</span>
+<span class="nc" id="L44">        else rgbBodyProtect = new byte[0];</span>
+        
+<span class="nc" id="L46">        sign(rgbBodyProtect, message.rgbContent);        </span>
+<span class="nc" id="L47">    }</span>
+    
+    public boolean Validate(Message message) throws CoseException {
+        byte[] rgbBodyProtect;
+<span class="nc bnc" id="L51" title="All 2 branches missed.">        if (message.objProtected.size() &gt; 0) rgbBodyProtect = message.objProtected.EncodeToBytes();</span>
+<span class="nc" id="L52">        else rgbBodyProtect = new byte[0];</span>
+        
+<span class="nc" id="L54">        return validate(rgbBodyProtect, message.rgbContent);</span>
+    }
+
+	@SuppressWarnings(&quot;unused&quot;)
+	private Message m_msgToSign;
+	@SuppressWarnings(&quot;unused&quot;)
+	private Signer m_signerToSign;
+
+	public void setObject(Message msg) {
+<span class="nc" id="L63">		m_msgToSign = msg;</span>
+<span class="nc" id="L64">	}</span>
+
+	public void setObject(Signer signer) {
+<span class="nc" id="L67">		m_signerToSign = signer;</span>
+<span class="nc" id="L68">	}</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CoapReq.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.coap</a> &gt; <span class="el_source">CoapReq.java</span></div><h1>CoapReq.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.coap;
+
+import java.security.Principal;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+
+import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+import org.eclipse.californium.core.coap.OptionSet;
+import org.eclipse.californium.core.coap.Request;
+import org.eclipse.californium.core.coap.Token;
+import org.eclipse.californium.elements.DtlsEndpointContext;
+import org.eclipse.californium.elements.EndpointContext;
+import org.eclipse.californium.elements.MapBasedEndpointContext;
+import org.eclipse.californium.elements.util.Bytes;
+import org.eclipse.californium.elements.util.StringUtil;
+import org.eclipse.californium.oscore.OSCoreEndpointContextInfo;
+
+import com.upokecenter.cbor.CBORException;
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+
+import se.sics.ace.AceException;
+import se.sics.ace.Constants;
+import se.sics.ace.Message;
+
+/**
+ * A CoAP request implementing the Message interface for the ACE library.
+ * 
+ * @author Ludwig Seitz and Marco Tiloca
+ *
+ */
+public class CoapReq implements Message {
+
+    /**
+     * The parameters in the payload of this message as a Map for convenience,
+     * if the payload is a CBOR Map.
+     */
+    private Map&lt;Short, CBORObject&gt; parameters;
+    
+    /**
+     * The underlying Request from Californium
+     */
+    private Request request;
+    
+    
+    /**
+     * Create a request from an underlying Californium request.
+     * 
+     * @param req  the underlying Californium request
+     * @param payloadMustBeCbor  if true, the payload (if any) MUST be in CBOR
+     * @throws AceException 
+     */
+<span class="fc" id="L86">    protected CoapReq(Request req, boolean payloadMustBeCbor) throws AceException {</span>
+<span class="fc" id="L87">        this.request = req;</span>
+<span class="fc" id="L88">        CBORObject cborPayload = null;</span>
+<span class="pc bpc" id="L89" title="1 of 6 branches missed.">        if (req.getPayload() != null &amp;&amp; req.getPayload() != Bytes.EMPTY &amp;&amp; payloadMustBeCbor) {</span>
+            try {
+<span class="fc" id="L91">                cborPayload = CBORObject.DecodeFromBytes(req.getPayload());</span>
+<span class="nc" id="L92">            } catch (CBORException ex) {</span>
+<span class="nc" id="L93">                throw new AceException(ex.getMessage());</span>
+<span class="fc" id="L94">            }</span>
+<span class="pc bpc" id="L95" title="1 of 2 branches missed.">            if (cborPayload != null </span>
+<span class="fc bfc" id="L96" title="All 2 branches covered.">                    &amp;&amp; cborPayload.getType().equals(CBORType.Map)) {</span>
+<span class="fc" id="L97">                this.parameters = Constants.getParams(cborPayload);</span>
+            }
+        }
+<span class="fc" id="L100">    }</span>
+    
+
+    @Override
+    public byte[] getRawPayload() {
+<span class="fc" id="L105">        return this.request.getPayload();</span>
+    }
+
+    @Override
+    public String getSenderId() {
+<span class="fc" id="L110">        EndpointContext ctx = this.request.getSourceContext();</span>
+<span class="fc bfc" id="L111" title="All 2 branches covered.">        if (ctx==null) {</span>
+<span class="fc" id="L112">            return null;</span>
+        }
+<span class="fc bfc" id="L114" title="All 2 branches covered.">        if (ctx instanceof DtlsEndpointContext) {</span>
+<span class="fc" id="L115">            Principal p = ctx.getPeerIdentity();</span>
+<span class="pc bpc" id="L116" title="1 of 2 branches missed.">            if (p==null) {</span>
+<span class="nc" id="L117">                return null;</span>
+            }
+<span class="fc" id="L119">            return p.getName();</span>
+        } 
+        // If OSCORE is used, retrieve the OSCORE SenderID and ContextID that the client
+        // used in the request, by using the information in the endpoint context.
+        // The OSCORE Sender ID that the client used in the request is the local OSCORE Recipient ID.
+        // The returned string has format [&quot;ContextID:&quot; +] &quot;SenderID&quot;, depending on the presence of the OSCORE Context ID.
+<span class="fc bfc" id="L125" title="All 2 branches covered.">        else if (ctx instanceof MapBasedEndpointContext) {</span>
+<span class="fc" id="L126">            MapBasedEndpointContext mapCtx = (MapBasedEndpointContext) ctx;</span>
+
+<span class="fc" id="L128">            byte[] clientSenderId = StringUtil</span>
+<span class="fc" id="L129">                    .hex2ByteArray((String) mapCtx.get(OSCoreEndpointContextInfo.OSCORE_RECIPIENT_ID));</span>
+<span class="fc" id="L130">            byte[] idContext = StringUtil</span>
+<span class="fc" id="L131">                    .hex2ByteArray((String) mapCtx.get(OSCoreEndpointContextInfo.OSCORE_CONTEXT_ID));</span>
+
+<span class="fc bfc" id="L133" title="All 2 branches covered.">            if (clientSenderId == null) {</span>
+<span class="fc" id="L134">                return null;</span>
+            }
+
+            // The identity is a string with format [&quot;A&quot; + &quot;:&quot; +] &quot;B&quot;, where A and B are
+            // the base64 encoding of the ContextID (if present) and of the SenderID.
+<span class="fc" id="L139">            String senderId = &quot;&quot;;</span>
+<span class="pc bpc" id="L140" title="1 of 4 branches missed.">            if (idContext != null &amp;&amp; idContext.length != 0) {            	</span>
+<span class="fc" id="L141">            	senderId += Base64.getEncoder().encodeToString(idContext);</span>
+<span class="fc" id="L142">                senderId += &quot;:&quot;;</span>
+            }
+<span class="fc" id="L144">            senderId += Base64.getEncoder().encodeToString(clientSenderId);</span>
+
+<span class="fc" id="L146">            return senderId;</span>
+        }
+
+<span class="fc" id="L149">        return null;</span>
+    }
+
+    @Override
+    public Set&lt;Short&gt; getParameterNames() {
+<span class="nc bnc" id="L154" title="All 2 branches missed.">        if (this.parameters != null) {</span>
+<span class="nc" id="L155">            return this.parameters.keySet();</span>
+        }
+<span class="nc" id="L157">        return null;</span>
+    }
+
+    @Override
+    public CBORObject getParameter(Short name) {
+<span class="pc bpc" id="L162" title="1 of 2 branches missed.">        if (this.parameters != null) {</span>
+<span class="fc" id="L163">            return this.parameters.get(name);</span>
+        }
+<span class="nc" id="L165">        return null;</span>
+    }
+
+    @Override
+    public Map&lt;Short, CBORObject&gt; getParameters() {
+<span class="pc bpc" id="L170" title="1 of 2 branches missed.">        if (this.parameters != null) {</span>
+<span class="fc" id="L171">            Map&lt;Short, CBORObject&gt; map = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L172">            map.putAll(this.parameters);</span>
+<span class="fc" id="L173">            return map;</span>
+        }
+<span class="nc" id="L175">        return null;</span>
+    }
+
+    @Override
+    public Message successReply(int code, CBORObject payload) {
+<span class="fc" id="L180">        ResponseCode coapCode = ResponseCode.valueOf(code);</span>
+<span class="fc" id="L181">        CoapRes res = new CoapRes(coapCode, payload);</span>
+<span class="fc" id="L182">        return res;</span>
+    }
+
+    @Override
+    public Message failReply(int failureReason, CBORObject payload) {
+<span class="fc" id="L187">        ResponseCode coapCode = ResponseCode.valueOf(failureReason);</span>
+<span class="fc" id="L188">        CoapRes res = new CoapRes(coapCode, payload);</span>
+<span class="fc" id="L189">        return res;</span>
+    }
+    
+    /**
+     * Create a CoAPRequest from a Californium &lt;code&gt;Request&lt;/code&gt;.
+     * 
+     * @param req  the Californium Request
+     * @return  the ACE CoAP request
+     * @throws AceException 
+     */
+    public static CoapReq getInstance(Request req) throws AceException {
+<span class="fc" id="L200">        return new CoapReq(req, true);</span>
+    }
+    
+    /**
+     * Create a CoAPRequest from a Californium &lt;code&gt;Request&lt;/code&gt;.
+     * 
+     * @param req  the Californium Request
+     * @param payloadMustBeCbor  if true, the payload (if any) MUST be in CBOR
+     * @return  the ACE CoAP request
+     * @throws AceException 
+     */
+    public static CoapReq getInstance(Request req, boolean payloadMustBeCbor) throws AceException {
+<span class="fc" id="L212">        return new CoapReq(req, payloadMustBeCbor);</span>
+    }
+
+    @Override
+    public int getMessageCode() {
+<span class="nc" id="L217">        return this.request.getCode().value;</span>
+    }
+    
+    /**
+     * @return  the CoAP token associated with this message
+     */
+    public Token getToken() {
+<span class="nc" id="L224">        return this.request.getToken();</span>
+    }
+    
+    /**
+     * @return  the OptionSet associated with this message
+     */
+    public OptionSet getOptions() {
+<span class="fc" id="L231">    	return this.request.getOptions();</span>
+    }
+    
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

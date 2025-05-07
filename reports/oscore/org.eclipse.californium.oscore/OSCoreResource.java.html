@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OSCoreResource.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore</a> &gt; <span class="el_source">OSCoreResource.java</span></div><h1>OSCoreResource.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2018 RISE SICS and others.
+ * 
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * and Eclipse Distribution License v1.0 which accompany this distribution.
+ * 
+ * The Eclipse Public License is available at
+ *    http://www.eclipse.org/legal/epl-v20.html
+ * and the Eclipse Distribution License is available at
+ *    http://www.eclipse.org/org/documents/edl-v10.html.
+ * 
+ * Contributors:
+ *    Tobias Andersson (RISE SICS)
+ *    
+ ******************************************************************************/
+package org.eclipse.californium.oscore;
+
+import org.eclipse.californium.core.CoapResource;
+import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+import org.eclipse.californium.core.coap.CoAP.Type;
+import org.eclipse.californium.core.network.Exchange;
+import org.eclipse.californium.core.coap.OptionSet;
+import org.eclipse.californium.core.coap.Response;
+
+/**
+ * 
+ * Extending the CoapResource to add OSCORE mechanics at resource level.
+ *
+ */
+public class OSCoreResource extends CoapResource {
+
+	private final boolean isProtected;
+
+	public OSCoreResource(String name, final boolean isProtected) {
+<span class="fc" id="L36">		super(name);</span>
+<span class="fc" id="L37">		this.isProtected = isProtected;</span>
+<span class="fc" id="L38">	}</span>
+
+	@Override
+	public void handleRequest(final Exchange exchange) {
+<span class="pc bpc" id="L42" title="1 of 2 branches missed.">		if (isProtected) {</span>
+<span class="fc" id="L43">			OptionSet options = exchange.getRequest().getOptions();</span>
+<span class="pc bpc" id="L44" title="1 of 2 branches missed.">			if (!options.hasOscore()) {</span>
+<span class="nc" id="L45">				Response r = new Response(ResponseCode.UNAUTHORIZED);</span>
+<span class="nc" id="L46">				r.setType(Type.RST);</span>
+<span class="nc" id="L47">				exchange.sendResponse(r);</span>
+<span class="nc" id="L48">				return;</span>
+			}
+		}
+<span class="fc" id="L51">		exchange.getRequest().getOptions().removeOscore();</span>
+<span class="fc" id="L52">		super.handleRequest(exchange);</span>
+<span class="fc" id="L53">	}</span>
+
+	public boolean isProtected() {
+<span class="nc" id="L56">		return this.isProtected;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>KeyKeys.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.cose</a> &gt; <span class="el_source">KeyKeys.java</span></div><h1>KeyKeys.java</h1><pre class="source lang-java linenums">/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package org.eclipse.californium.cose;
+
+import com.upokecenter.cbor.CBORObject;
+
+/**
+ *
+ * @author jimsch
+ */
+<span class="fc" id="L14">public enum KeyKeys {</span>
+<span class="fc" id="L15">    KeyType(1),</span>
+<span class="fc" id="L16">    Algorithm(3),</span>
+<span class="fc" id="L17">    KeyId(2),</span>
+<span class="fc" id="L18">    Key_Ops(4),</span>
+<span class="fc" id="L19">    Base_IV(5),</span>
+<span class="fc" id="L20">    Octet_K(-1),</span>
+<span class="fc" id="L21">    EC2_Curve(-1),</span>
+<span class="fc" id="L22">    EC2_X(-2),</span>
+<span class="fc" id="L23">    EC2_Y(-3),</span>
+<span class="fc" id="L24">    EC2_D(-4),</span>
+<span class="fc" id="L25">    OKP_Curve(-1),</span>
+<span class="fc" id="L26">    OKP_X(-2),</span>
+<span class="fc" id="L27">    OKP_D(-4),</span>
+            ;
+    
+    private final CBORObject value;
+    
+<span class="fc" id="L32">    public final static CBORObject KeyType_OKP = CBORObject.FromObject(1);</span>
+<span class="fc" id="L33">    public final static CBORObject KeyType_EC2 = CBORObject.FromObject(2);</span>
+<span class="fc" id="L34">    public final static CBORObject KeyType_Octet =  CBORObject.FromObject(4);</span>
+    
+<span class="fc" id="L36">    public final static CBORObject EC2_P256 = CBORObject.FromObject(1);</span>
+<span class="fc" id="L37">    public final static CBORObject EC2_P384 = CBORObject.FromObject(2);</span>
+<span class="fc" id="L38">    public final static CBORObject EC2_P521 = CBORObject.FromObject(3);</span>
+    
+<span class="fc" id="L40">    public final static CBORObject OKP_X25519 = CBORObject.FromObject(4);</span>
+<span class="fc" id="L41">    public final static CBORObject OKP_X448 = CBORObject.FromObject(5);</span>
+<span class="fc" id="L42">    public final static CBORObject OKP_Ed25519 = CBORObject.FromObject(6);</span>
+<span class="fc" id="L43">    public final static CBORObject OKP_Ed448 = CBORObject.FromObject(7);</span>
+    
+<span class="fc" id="L45">    KeyKeys(int val) {</span>
+<span class="fc" id="L46">        this.value = CBORObject.FromObject(val);</span>
+<span class="fc" id="L47">    }</span>
+    
+    public CBORObject AsCBOR() {
+<span class="fc" id="L50">        return value;</span>
+    }
+    
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

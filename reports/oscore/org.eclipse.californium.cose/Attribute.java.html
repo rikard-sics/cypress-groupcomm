@@ -1,0 +1,405 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Attribute.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.cose</a> &gt; <span class="el_source">Attribute.java</span></div><h1>Attribute.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+
+ * Original from https://github.com/cose-wg/COSE-JAVA Commit 1a20373
+ *
+ * Copyright (c) 2016, Jim Schaad
+ * All rights reserved.
+
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+
+ * Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer.
+
+ * Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
+
+ * Neither the name of COSE-JAVA nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot;
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+ * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Contributors:
+ *    Achim Kraus (Bosch Software Innovations GmbH) - update to cbor 4.0.0
+ *                                                    align with cose 1.0
+ *                                                    commit 629912b94ea80c4c6
+ ******************************************************************************/
+package org.eclipse.californium.cose;
+
+import com.upokecenter.cbor.*;
+
+/**
+ * Internal class which supports the protected and unprotected attribute maps that
+ * are common to the core COSE objects. 
+ * &lt;p&gt;
+ * In addition an attribute map is provided 
+ * for attributes which will not be sent as part of the message, but which are needed
+ * for the code to function correctly.  As an example of how this works, there are
+ * some situations where the algorithm identifier is not sent as part of an encrypted message,
+ * however it is needed in order to encrypt or decrypt the content so the application would set it
+ * in the unsent package at send time - for encryption - or at receive time - for decryption.
+ * 
+ * @author jimsch
+ */
+
+<span class="fc" id="L57">public class Attribute {</span>
+    /**
+     * Internal map of protected attributes
+     */
+<span class="fc" id="L61">    protected CBORObject objProtected = CBORObject.NewMap();</span>
+    
+    /**
+     * Internal map of unprotected attributes
+    */
+<span class="fc" id="L66">    protected CBORObject objUnprotected = CBORObject.NewMap();</span>
+    
+    /**
+     * Internal map of attributes which are not a part of the encoded message.
+     */
+<span class="fc" id="L71">    protected CBORObject objDontSend = CBORObject.NewMap();</span>
+    
+    /**
+     * The encoded byte string for the protected attributes.  If this variable is 
+     * set then the message was either decoded or as been cryptographically signed/encrypted/maced.
+     * If it is set, then do not allow objProtected to be modified.
+     */
+    protected byte[] rgbProtected;
+    
+    /**
+     * Holder for the external data object that is authenticated as part of the 
+     * message
+     */
+<span class="fc" id="L84">    protected byte[] externalData = new byte[0];</span>
+    
+    /**
+     * Used to place an attribute in the protected attribute map
+     * Attributes placed in this map are part of the integrity check if the cryptographic algorithm supports authenticated data.
+     * @deprecated As of COSE 0.9.1, use Attribute.PROTECT
+     */
+    @Deprecated
+    public static final int ProtectedAttributes = 1;
+
+    /**
+     * Used to place an attribute in the unprotected attribute map
+     * Attributes placed in this map are not integrity protected.
+     * 
+     * @deprecated As of COSE 0.9.1, use Attribute.UNPROTECT
+     */
+    @Deprecated
+    public static final int UnprotectedAttributes = 2;
+
+    /**
+     * Used to place an attribute in the do not send attribute map
+     * Attributes in this map are available for lookup and use but will not
+     * be transmitted as part of the message.
+     * 
+     * @deprecated As of COSE 0.9.1, use Attribute.DO_NOT_SEND
+     */
+    @Deprecated 
+    public static final int DontSendAttributes = 4;
+
+    /**
+     * Used to place an attribute in the protected attribute map
+     * Attributes placed in this map are part of the integrity check if the cryptographic algorithm supports authenticated data.
+     */
+    public static final int PROTECTED = 1;
+
+    /**
+     * Used to place an attribute in the unprotected attribute map
+     * Attributes placed in this map are not integrity protected.
+     */
+    public static final int UNPROTECTED = 2;
+
+    /**
+     * Used to place an attribute in the do not send attribute map
+     * Attributes in this map are available for lookup and use but will not
+     * be transmitted as part of the message.
+     */
+    public static final int DO_NOT_SEND = 4;
+    
+    /**
+     * Set an attribute in the COSE object.  
+     * Setting an attribute in one map will remove it from all other maps as a side effect.
+     * 
+     * @param label CBOR object which identifies the attribute in the map
+     * @param value CBOR object which contains the value of the attribute
+     * @param where Identifies which of the buckets to place the attribute in.
+     *      ProtectedAttributes - attributes cryptographically protected
+     *      UnprotectedAttributes - attributes not cryptographically protected
+     *      DontSendAttributes - attributes used locally and not transmitted
+     * @exception CoseException COSE Package exception
+     */
+
+    public void addAttribute(CBORObject label, CBORObject value, int where) throws CoseException {
+<span class="fc" id="L146">        removeAttribute(label);</span>
+<span class="pc bpc" id="L147" title="3 of 4 branches missed.">        if ((label.getType() != CBORType.Integer) &amp;&amp;  (label.getType() != CBORType.TextString)) {</span>
+<span class="nc" id="L148">            throw new CoseException(&quot;Labels must be integers or strings&quot;);</span>
+        }
+<span class="pc bpc" id="L150" title="2 of 4 branches missed.">        switch (where) {</span>
+            case PROTECTED:
+<span class="nc bnc" id="L152" title="All 2 branches missed.">                if (rgbProtected != null) throw new CoseException(&quot;Cannot modify protected attribute if signature has been computed&quot;);</span>
+<span class="nc" id="L153">                objProtected.Add(label, value);</span>
+<span class="nc" id="L154">                break;</span>
+                
+            case UNPROTECTED:
+<span class="fc" id="L157">                objUnprotected.Add(label, value);</span>
+<span class="fc" id="L158">                break;</span>
+                
+            case DO_NOT_SEND:
+<span class="fc" id="L161">                objDontSend.Add(label, value);</span>
+<span class="fc" id="L162">                break;</span>
+                
+            default:
+<span class="nc" id="L165">                throw new CoseException(&quot;Invalid attribute location given&quot;);</span>
+        }
+<span class="fc" id="L167">    }</span>
+    
+    /**
+     * Set an attribute in the COSE object.
+     * Setting an attribute in one map will remove it from all other maps as a side effect.
+     * 
+     * @param label HeaderKeys label which identifies the attribute in the map
+     * @param value CBOR object which contains the value of the attribute
+     * @param where Identifies which of the buckets to place the attribute in.
+     *      ProtectedAttributes - attributes cryptographically protected
+     *      UnprotectedAttributes - attributes not cryptographically protected
+     *      DontSendAttributes - attributes used locally and not transmitted
+     * @exception CoseException COSE Package exception
+     */
+    public void addAttribute(HeaderKeys label, CBORObject value, int where) throws CoseException {
+<span class="fc" id="L182">        addAttribute(label.AsCBOR(), value, where);</span>
+<span class="fc" id="L183">    }</span>
+    
+    /**
+     * Set an attribute in the COSE object.
+     * Setting an attribute in one map will remove it from all other maps as a side effect.
+     * 
+     * @param label HeaderKeys label which identifies the attribute in the map
+     * @param value CBOR object which contains the value of the attribute
+     * @param where Identifies which of the buckets to place the attribute in.
+     *      ProtectedAttributes - attributes cryptographically protected
+     *      UnprotectedAttributes - attributes not cryptographically protected
+     *      DontSendAttributes - attributes used locally and not transmitted
+     * @exception CoseException COSE Package exception
+     */
+    public void addAttribute(HeaderKeys label, byte[] value, int where) throws CoseException {
+<span class="nc" id="L198">        addAttribute(label.AsCBOR(), CBORObject.FromObject(value), where);</span>
+<span class="nc" id="L199">    }</span>
+
+    /**
+     * Set an attribute in the protect bucket of the COSE object
+     * 
+     * @param label CBOR object which identifies the attribute in the map
+     * @param value CBOR object which contains the value of the attribute
+     * 
+     * @deprecated As of COSE 0.9.0, use addAttribute(CBORObject, CBORObject, Attribute.PROTECTED);
+     * @exception CoseException COSE Package exception
+     */
+    @Deprecated
+    public void AddProtected(CBORObject label, CBORObject value) throws CoseException {
+<span class="nc" id="L212">        addAttribute(label, value, PROTECTED);</span>
+<span class="nc" id="L213">    }</span>
+    
+    /**
+     * Set an attribute in the protect bucket of the COSE object
+     * 
+     * @param label HeaderKeys label which identifies the attribute in the map
+     * @param value CBOR object which contains the value of the attribute
+     * 
+     * @deprecated As of COSE 0.9.0, use addAttribute(HeaderKeys, CBORObject, Attribute.PROTECTED);
+     * @exception CoseException COSE Package exception
+     */
+    @Deprecated
+    public void AddProtected(HeaderKeys label, CBORObject value) throws CoseException {
+<span class="nc" id="L226">        addAttribute(label, value, PROTECTED);</span>
+<span class="nc" id="L227">    }</span>
+    
+    /**
+     * Set an attribute in the protect bucket of the COSE object
+     * 
+     * @param label CBOR object which identifies the attribute in the map
+     * @param value byte array of value
+     * 
+     * @deprecated As of COSE 0.9.0, use addAttribute(HeaderKeys, byte[], Attribute.PROTECTED);
+     * @exception CoseException COSE Package exception
+     */
+    @Deprecated
+    public void AddProtected(HeaderKeys label, byte[] value) throws CoseException {
+<span class="nc" id="L240">        addAttribute(label, value, PROTECTED);</span>
+<span class="nc" id="L241">    }</span>
+
+    /**
+     * Set an attribute in the unprotected bucket of the COSE object
+     * 
+     * @param label value identifies the attribute in the map
+     * @param value value to be associated with the label
+     * 
+     * @deprecated As of COSE 0.9.1, use addAttribute(HeaderKeys, byte[], Attribute.UNPROTECTED);
+     * @exception CoseException COSE Package exception
+     */
+    @Deprecated
+    public void AddUnprotected(CBORObject label, CBORObject value) throws CoseException {
+<span class="nc" id="L254">        addAttribute(label, value, UNPROTECTED);</span>
+<span class="nc" id="L255">    }</span>
+    
+    /**
+     * Set an attribute in the unprotected bucket of the COSE object
+     * 
+     * @param label identifies the attribute in the map
+     * @param value value to be associated with the label
+     * 
+     * @deprecated As of COSE 0.9.1, use addAttribute(HeaderKeys, byte[], Attribute.UNPROTECTED);
+     * @exception CoseException COSE Package exception
+     */
+    @Deprecated
+    public void AddUnprotected(HeaderKeys label, CBORObject value) throws CoseException {
+<span class="nc" id="L268">        addAttribute(label, value, UNPROTECTED);</span>
+<span class="nc" id="L269">    }</span>
+    
+    /**
+     * Set an attribute in the unprotected bucket of the COSE object
+     * 
+     * @param label identifies the attribute in the map
+     * @param value value to be associated with the label
+     * 
+     * @deprecated As of COSE 0.9.1, use addAttribute(HeaderKeys, byte[], Attribute.UNPROTECTED);
+     * @exception CoseException COSE Package exception
+     */
+    @Deprecated
+    public void AddUnprotected(HeaderKeys label, byte[] value) throws CoseException {
+<span class="nc" id="L282">        addAttribute(label, value, UNPROTECTED);</span>
+<span class="nc" id="L283">    }</span>
+
+    /**
+     *  Locate an attribute in one of the attribute buckets  The buckets are
+     *  searched in the order protected, unprotected, unsent.
+     * 
+     * @param label - Label of the value to be searched for
+     * @return - CBORObject with the value if found; otherwise null
+     */
+    public CBORObject findAttribute(CBORObject label) {
+<span class="fc" id="L293">        return findAttribute(label, PROTECTED | UNPROTECTED | DO_NOT_SEND);</span>
+    }
+    
+    /**
+     *  Locate an attribute in one of the attribute buckets  The buckets are
+     *  searched in the order protected, unprotected, unsent.
+     * 
+     * @param label - HeaderKey enumeration value to search for
+     * @param where which maps to search for the label
+     * @return - CBORObject with the value if found; otherwise null
+     */
+    public CBORObject findAttribute(CBORObject label, int where) {
+<span class="pc bpc" id="L305" title="2 of 4 branches missed.">        if (((where &amp; PROTECTED) == PROTECTED) &amp;&amp; objProtected.ContainsKey(label)) return objProtected.get(label);</span>
+<span class="pc bpc" id="L306" title="1 of 4 branches missed.">        if (((where &amp; UNPROTECTED) == UNPROTECTED) &amp;&amp; objUnprotected.ContainsKey(label)) return objUnprotected.get(label);</span>
+<span class="pc bpc" id="L307" title="1 of 4 branches missed.">        if (((where &amp; DO_NOT_SEND) == DO_NOT_SEND) &amp;&amp; objDontSend.ContainsKey(label)) return objDontSend.get(label);</span>
+<span class="fc" id="L308">        return null;</span>
+    }
+    
+    /**
+     *  Locate an attribute in one of the attribute buckets  The buckets are
+     *  searched in the order protected, unprotected, unsent.
+     * 
+     * @param label - HeaderKey enumeration value to search for
+     * @return - CBORObject with the value if found; otherwise null
+     */
+    public CBORObject findAttribute(HeaderKeys label) {
+<span class="fc" id="L319">        return findAttribute(label.AsCBOR(), PROTECTED | UNPROTECTED | DO_NOT_SEND);</span>
+    }
+    
+    /**
+     *  Locate an attribute in one of the attribute buckets  The buckets are
+     *  searched in the order protected, unprotected, unsent.
+     * 
+     * @param label - HeaderKey enumeration value to search for
+     * @param where which maps to search for the label
+     * @return - CBORObject with the value if found; otherwise null
+     */
+    public CBORObject findAttribute(HeaderKeys label, int where) {
+<span class="nc" id="L331">        return findAttribute(label.AsCBOR(), where);</span>
+    }
+    
+    /**
+     * Return the entire map of protected attributes
+     * 
+     * @return the protected attribute map
+     */
+    public CBORObject getProtectedAttributes() {
+<span class="nc" id="L340">        return objProtected;</span>
+    }
+    
+    /**
+     * Return the entire map of unprotected attributes
+     * 
+     * @return the unprotected attribute map
+     */
+    public CBORObject getUnprotectedAttributes() {
+<span class="fc" id="L349">        return objUnprotected;</span>
+    }
+
+    /**
+     * Return the entire map of do not send attributes
+     * 
+     * @return the do not send attribute map
+     */
+    public CBORObject getDoNotSendAttributes() {
+<span class="nc" id="L358">        return objDontSend;</span>
+    }
+
+    /**
+     * Remove an attribute from the set of all attribute maps.
+     * 
+     * @param label attribute to be removed
+     * @exception CoseException if integrity protection would be modified.
+     */
+    public void removeAttribute(CBORObject label) throws CoseException {
+<span class="pc bpc" id="L368" title="1 of 2 branches missed.">        if (objProtected.ContainsKey(label)) {</span>
+<span class="nc bnc" id="L369" title="All 2 branches missed.">            if (rgbProtected != null) throw new CoseException(&quot;Operation would modify integrity protected attributes&quot;);</span>
+<span class="nc" id="L370">            objProtected.Remove(label);</span>
+        }
+<span class="fc bfc" id="L372" title="All 2 branches covered.">        if (objUnprotected.ContainsKey(label)) objUnprotected.Remove(label);</span>
+<span class="fc bfc" id="L373" title="All 2 branches covered.">        if (objDontSend.ContainsKey(label)) objDontSend.Remove(label);</span>
+<span class="fc" id="L374">    }</span>
+    
+    /**
+     * Remove an attribute from the set of all attribute maps.
+     * 
+     * @param label attribute to be removed
+     * @throws CoseException - Label not present
+     */
+    public void removeAttribute(HeaderKeys label) throws CoseException {
+<span class="nc" id="L383">        removeAttribute(label.AsCBOR());</span>
+<span class="nc" id="L384">    }</span>
+    
+    /**
+     * Get the optional external data field to be authenticated
+     * 
+     * @return external authenticated data
+     */
+    public byte[] getExternal() {
+<span class="fc" id="L392">        return externalData;</span>
+    }
+    
+    /**
+     * Set the optional external data field to be authenticated
+     * 
+     * @param rgbData - data to be authenticated
+     */
+    public void setExternal(byte[] rgbData) {
+<span class="pc bpc" id="L401" title="1 of 2 branches missed.">        if (rgbData == null) rgbData = new byte[0];</span>
+<span class="fc" id="L402">        externalData = rgbData;</span>
+<span class="fc" id="L403">    }                </span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

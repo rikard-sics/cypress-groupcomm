@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ObjectSecurityContextLayer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore</a> &gt; <span class="el_source">ObjectSecurityContextLayer.java</span></div><h1>ObjectSecurityContextLayer.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019 RISE SICS and others.
+ * 
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * and Eclipse Distribution License v1.0 which accompany this distribution.
+ * 
+ * The Eclipse Public License is available at
+ *    http://www.eclipse.org/legal/epl-v20.html
+ * and the Eclipse Distribution License is available at
+ *    http://www.eclipse.org/org/documents/edl-v10.html.
+ * 
+ * Contributors:
+ *    Joakim Brorsson
+ *    Tobias Andersson (RISE SICS)
+ *    Rikard Höglund (RISE SICS)
+ *    
+ ******************************************************************************/
+package org.eclipse.californium.oscore;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.eclipse.californium.core.coap.EmptyMessage;
+import org.eclipse.californium.core.coap.Message;
+import org.eclipse.californium.core.coap.MessageObserverAdapter;
+import org.eclipse.californium.core.coap.OptionNumberRegistry;
+import org.eclipse.californium.core.coap.OptionSet;
+import org.eclipse.californium.core.coap.Request;
+import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.network.Exchange;
+import org.eclipse.californium.core.network.Exchange.Origin;
+import org.eclipse.californium.core.network.stack.AbstractLayer;
+import org.eclipse.californium.elements.util.Bytes;
+import org.eclipse.californium.oscore.ContextRederivation.PHASE;
+
+/**
+ * 
+ * Applies OSCORE mechanics at stack layer.
+ * 
+ * Handles functionality for context re-derivation and outer block-wise.
+ * https://tools.ietf.org/html/rfc8613#appendix-B.2
+ * https://tools.ietf.org/html/rfc8613#section-4.1.3.4.2
+ *
+ */
+public class ObjectSecurityContextLayer extends AbstractLayer {
+
+	/**
+	 * The logger
+	 */
+<span class="fc" id="L50">	private static final Logger LOGGER = LoggerFactory.getLogger(ObjectSecurityContextLayer.class);</span>
+
+	private final OSCoreCtxDB ctxDb;
+
+<span class="fc" id="L54">	public ObjectSecurityContextLayer(OSCoreCtxDB ctxDb) {</span>
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">		if (ctxDb == null) {</span>
+<span class="nc" id="L56">			throw new NullPointerException(&quot;OSCoreCtxDB must be provided!&quot;);</span>
+		}
+<span class="fc" id="L58">		this.ctxDb = ctxDb;</span>
+<span class="fc" id="L59">	}</span>
+
+	@Override
+	public void receiveRequest(Exchange exchange, Request request) {
+
+		// Handle incoming OSCORE requests that have been re-assembled by the
+		// block-wise layer (for outer block-wise). If an incoming request has
+		// already been processed by OSCORE the option will be empty. If not it
+		// is a re-assembled request to be processed here.
+<span class="pc bpc" id="L68" title="1 of 4 branches missed.">		boolean outerBlockwise = request.getOptions().hasOscore() &amp;&amp; request.getOptions().getOscore().length != 0</span>
+<span class="pc bpc" id="L69" title="2 of 4 branches missed.">				&amp;&amp; exchange.getCurrentRequest() != null &amp;&amp; exchange.getCurrentRequest().getOptions().hasBlock1();</span>
+<span class="pc bpc" id="L70" title="1 of 4 branches missed.">		if (isProtected(request) &amp;&amp; outerBlockwise) {</span>
+
+<span class="fc" id="L72">			LOGGER.debug(&quot;Incoming OSCORE request uses outer block-wise&quot;);</span>
+
+			// Retrieve the OSCORE context for this RID and ID Context
+<span class="fc" id="L75">			byte[] rid = OptionJuggle.getRid(request.getOptions().getOscore());</span>
+<span class="fc" id="L76">			byte[] IDContext = OptionJuggle.getIDContext(request.getOptions().getOscore());</span>
+
+<span class="fc" id="L78">			OSCoreCtx ctx = null;</span>
+			try {
+<span class="fc" id="L80">				ctx = ctxDb.getContext(rid, IDContext);</span>
+<span class="nc" id="L81">			} catch (CoapOSException e) {</span>
+<span class="nc" id="L82">				LOGGER.error(&quot;Error while receiving OSCore request: &quot; + e.getMessage());</span>
+				Response error;
+<span class="nc" id="L84">				error = CoapOSExceptionHandler.manageError(e, request);</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">				if (error != null) {</span>
+<span class="nc" id="L86">					super.sendResponse(exchange, error);</span>
+				}
+<span class="nc" id="L88">				return;</span>
+<span class="fc" id="L89">			}</span>
+
+			try {
+<span class="fc" id="L92">				request = RequestDecryptor.decrypt(ctxDb, request, ctx);</span>
+<span class="fc" id="L93">				rid = request.getOptions().getOscore();</span>
+<span class="fc" id="L94">				request.getOptions().setOscore(Bytes.EMPTY);</span>
+<span class="fc" id="L95">				exchange.setRequest(request);</span>
+<span class="nc" id="L96">			} catch (CoapOSException e) {</span>
+<span class="nc" id="L97">				LOGGER.error(&quot;Error while receiving OSCore request: &quot; + e.getMessage());</span>
+				Response error;
+<span class="nc" id="L99">				error = CoapOSExceptionHandler.manageError(e, request);</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">				if (error != null) {</span>
+<span class="nc" id="L101">					super.sendResponse(exchange, error);</span>
+				}
+<span class="nc" id="L103">				return;</span>
+<span class="fc" id="L104">			}</span>
+<span class="fc" id="L105">			exchange.setCryptographicContextID(rid);</span>
+		}
+<span class="fc" id="L107">		super.receiveRequest(exchange, request);</span>
+<span class="fc" id="L108">	}</span>
+
+	@Override
+	public void sendRequest(final Exchange exchange, final Request request) {
+<span class="pc bpc" id="L112" title="1 of 2 branches missed.">		if (shouldProtectRequest(request)) {</span>
+			try {
+<span class="fc" id="L114">				final String uri = request.getURI();</span>
+
+<span class="pc bpc" id="L116" title="1 of 2 branches missed.">				if (uri == null) {</span>
+<span class="nc" id="L117">					LOGGER.error(ErrorDescriptions.URI_NULL);</span>
+<span class="nc" id="L118">					throw new OSException(ErrorDescriptions.URI_NULL);</span>
+				}
+
+<span class="fc" id="L121">				OSCoreCtx ctx = ctxDb.getContext(uri);</span>
+				// if (ctx == null) {
+				// LOGGER.error(ErrorDescriptions.CTX_NULL);
+				// throw new OSException(ErrorDescriptions.CTX_NULL);
+				// }
+
+				// Initiate context re-derivation procedure if flag is set
+<span class="fc bfc" id="L128" title="All 4 branches covered.">				if (ctx != null &amp;&amp; ctx.getContextRederivationPhase() == PHASE.CLIENT_INITIATE) {</span>
+<span class="fc" id="L129">					ContextRederivation.setLostContext(ctxDb, uri);</span>
+					// send dummy request before to rederive the new context
+					// and then send the original request using this new context
+<span class="fc" id="L132">					final Request startRederivation = Request.newGet();</span>
+<span class="fc" id="L133">					startRederivation.setScheme(request.getScheme());</span>
+<span class="fc" id="L134">					startRederivation.setDestinationContext(request.getDestinationContext());</span>
+<span class="fc" id="L135">					startRederivation.getOptions().setOscore(Bytes.EMPTY);</span>
+<span class="fc" id="L136">					startRederivation.getOptions().setUriPath(&quot;/rederivation/blackhole&quot;);</span>
+<span class="fc" id="L137">					startRederivation.addMessageObserver(new MessageObserverAdapter() {</span>
+						@Override
+						public void onResponse(final Response response) {
+							try {
+<span class="fc" id="L141">								OSCoreCtx ctx = ctxDb.getContext(uri);</span>
+<span class="pc bpc" id="L142" title="1 of 2 branches missed.">								if (ctx == null) {</span>
+<span class="nc" id="L143">									LOGGER.error(ErrorDescriptions.CTX_NULL);</span>
+<span class="pc bpc" id="L144" title="1 of 2 branches missed.">								} else if (ctx.getContextRederivationPhase() != PHASE.CLIENT_PHASE_2) {</span>
+<span class="nc" id="L145">									LOGGER.error(&quot;Expected phase 2, but is {}&quot;, ctx.getContextRederivationPhase());</span>
+								}
+<span class="nc" id="L147">							} catch (OSException e) {</span>
+<span class="fc" id="L148">							}</span>
+
+							// send original request, if the start rederivation receives a response
+<span class="fc" id="L151">							exchange.execute(new Runnable() {</span>
+
+								@Override
+								public void run() {
+<span class="fc" id="L155">									LOGGER.info(&quot;Original Request: &quot; + exchange.getRequest().toString());</span>
+<span class="fc" id="L156">									ObjectSecurityContextLayer.super.sendRequest(exchange, request);</span>
+<span class="fc" id="L157">								}</span>
+							});
+<span class="fc" id="L159">						}</span>
+
+						@Override
+						public void onReject() {
+							// forward rejection to original request
+<span class="nc" id="L164">							request.setRejected(true);</span>
+<span class="nc" id="L165">						}</span>
+
+						@Override
+						public void onCancel() {
+							// forward cancel to original request
+<span class="nc" id="L170">							request.setCanceled(true);</span>
+<span class="nc" id="L171">						}</span>
+
+						@Override
+						public void onTimeout() {
+							// forward timeout to original request
+<span class="nc" id="L176">							request.setTimedOut(true);</span>
+<span class="nc" id="L177">						}</span>
+
+						@Override
+						public void onConnecting() {
+							// forward on connect to original request
+<span class="nc" id="L182">							request.onConnecting();</span>
+<span class="nc" id="L183">						}</span>
+
+						@Override
+						public void onDtlsRetransmission(int flight) {
+							// forward dtls handshake retransmission to original request
+<span class="nc" id="L188">							request.onDtlsRetransmission(flight);</span>
+<span class="nc" id="L189">						}</span>
+
+						@Override
+						// forward send error to original request
+						public void onSendError(Throwable error) {
+<span class="nc" id="L194">							request.setSendError(error);</span>
+<span class="nc" id="L195">						}</span>
+
+					});
+					// send start rederivation request
+<span class="fc" id="L199">					LOGGER.info(&quot;Auxiliary Request: &quot; + exchange.getRequest().toString());</span>
+<span class="fc" id="L200">					final Exchange newExchange = new Exchange(startRederivation, exchange.getPeersIdentity(), Origin.LOCAL, executor);</span>
+<span class="fc" id="L201">					newExchange.execute(new Runnable() {</span>
+
+						@Override
+						public void run() {
+<span class="fc" id="L205">							ObjectSecurityContextLayer.super.sendRequest(newExchange, startRederivation);</span>
+<span class="fc" id="L206">						}</span>
+					});
+<span class="fc" id="L208">					return;</span>
+				}
+
+<span class="nc" id="L211">			} catch (OSException e) {</span>
+<span class="nc" id="L212">				LOGGER.error(&quot;Error sending request: &quot; + e.getMessage());</span>
+<span class="nc" id="L213">				return;</span>
+<span class="nc" id="L214">			} catch (IllegalArgumentException e) {</span>
+<span class="nc" id="L215">				LOGGER.error(&quot;Unable to send request because of illegal argument: &quot; + e.getMessage());</span>
+<span class="nc" id="L216">				return;</span>
+<span class="fc" id="L217">			}</span>
+		}
+<span class="fc" id="L219">		LOGGER.info(&quot;Request: &quot; + exchange.getRequest().toString());</span>
+<span class="fc" id="L220">		super.sendRequest(exchange, request);</span>
+<span class="fc" id="L221">	}</span>
+
+	@Override
+	public void receiveResponse(Exchange exchange, Response response) {
+
+		// Handle incoming OSCORE responses that have been re-assembled by the
+		// block-wise layer (for outer block-wise). If a response was not
+		// processed by OSCORE in the ObjectSecurityLayer it will happen here.
+<span class="pc bpc" id="L229" title="1 of 2 branches missed.">		boolean outerBlockwise = exchange.getCurrentResponse() != null</span>
+<span class="fc bfc" id="L230" title="All 2 branches covered.">				&amp;&amp; exchange.getCurrentResponse().getOptions().hasBlock2()</span>
+<span class="fc bfc" id="L231" title="All 2 branches covered.">				&amp;&amp; ctxDb.getContextByToken(exchange.getCurrentResponse().getToken()) != null;</span>
+<span class="fc bfc" id="L232" title="All 2 branches covered.">		if (outerBlockwise) {</span>
+
+<span class="fc" id="L234">			LOGGER.debug(&quot;Incoming OSCORE response uses outer block-wise&quot;);</span>
+
+<span class="fc" id="L236">			Request request = exchange.getCurrentRequest();</span>
+<span class="pc bpc" id="L237" title="1 of 2 branches missed.">			if (request == null) {</span>
+<span class="nc" id="L238">				LOGGER.error(&quot;No request tied to this response&quot;);</span>
+<span class="nc" id="L239">				return;</span>
+			}
+			try {
+				// If response is protected with OSCORE parse it first with
+				// prepareReceive
+<span class="pc bpc" id="L244" title="1 of 2 branches missed.">				if (isProtected(response)) {</span>
+<span class="fc" id="L245">					response = ObjectSecurityLayer.prepareReceive(ctxDb, response);</span>
+				}
+<span class="nc" id="L247">			} catch (OSException e) {</span>
+<span class="nc" id="L248">				LOGGER.error(&quot;Error while receiving OSCore response: &quot; + e.getMessage());</span>
+<span class="nc" id="L249">				EmptyMessage error = CoapOSExceptionHandler.manageError(e, response);</span>
+<span class="nc bnc" id="L250" title="All 2 branches missed.">				if (error != null) {</span>
+<span class="nc" id="L251">					sendEmptyMessage(exchange, error);</span>
+				}
+<span class="nc" id="L253">				return;</span>
+<span class="fc" id="L254">			}</span>
+
+			// Remove token if this is a response to a Observe cancellation
+			// request
+<span class="pc bpc" id="L258" title="1 of 2 branches missed.">			if (exchange.getRequest().isObserveCancel()) {</span>
+<span class="nc" id="L259">				ctxDb.removeToken(response.getToken());</span>
+			}
+
+<span class="fc" id="L262">			super.receiveResponse(exchange, response);</span>
+		}
+
+<span class="fc" id="L265">		super.receiveResponse(exchange, response);</span>
+<span class="fc" id="L266">	}</span>
+
+	private static boolean shouldProtectRequest(Request request) {
+<span class="fc" id="L269">		OptionSet options = request.getOptions();</span>
+<span class="fc" id="L270">		return options.hasOption(OptionNumberRegistry.OSCORE);</span>
+	}
+
+	private static boolean isProtected(Message message) {
+<span class="fc" id="L274">		OptionSet options = message.getOptions();</span>
+<span class="fc" id="L275">		return options.hasOption(OptionNumberRegistry.OSCORE);</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LocalMessage.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.examples</a> &gt; <span class="el_source">LocalMessage.java</span></div><h1>LocalMessage.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.examples;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.logging.Logger;
+
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+
+import se.sics.ace.AceException;
+import se.sics.ace.Constants;
+import se.sics.ace.Message;
+
+/**
+ * A testing class implementing a dummy message. 
+ * 
+ * @author Ludwig Seitz
+ *
+ */
+public class LocalMessage implements Message {
+    
+    /**
+     * The logger
+     */
+<span class="fc" id="L57">    private static final Logger LOGGER </span>
+<span class="fc" id="L58">        = Logger.getLogger(LocalMessage.class.getName() );</span>
+    
+    /**
+     * The authenticated id of the sender
+     */
+    private String senderId;
+    
+    /**
+     * The id of the recipient of this message (for reply messages)
+     */
+    private String recipientId;
+    
+    /**
+     * The parameters contained in the payload of this message
+     */
+    private Map&lt;Short, CBORObject&gt; params;
+    
+    /**
+     * The payload of the message when it is not a Map
+     */
+    private CBORObject payload;
+    
+    /**
+     * The request or response code
+     */
+    private int code;
+    
+    /**
+     * Constructor.
+     * @param code 
+     * @param senderId
+     * @param recipientId 
+     * @param parameters
+     */
+    public LocalMessage(int code, String senderId, 
+<span class="fc" id="L93">            String recipientId, Map&lt;Short, CBORObject&gt; parameters) {</span>
+<span class="fc" id="L94">        this.code = code;</span>
+<span class="fc" id="L95">        this.senderId = senderId;</span>
+<span class="fc" id="L96">        this.recipientId = recipientId;</span>
+<span class="fc" id="L97">        this.params = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L98">        this.params.putAll(parameters);</span>
+<span class="fc" id="L99">        this.payload = null;</span>
+<span class="fc" id="L100">    }</span>
+
+    /**
+     * Constructor.
+     * @param code 
+     * @param senderId
+     * @param recipientId 
+     * @param payload
+     * @throws AceException 
+     */
+    public LocalMessage(int code, String senderId, 
+<span class="fc" id="L111">            String recipientId, CBORObject payload) {</span>
+<span class="fc" id="L112">        this.code = code;</span>
+<span class="fc" id="L113">        this.senderId = senderId;</span>
+<span class="fc" id="L114">        this.recipientId = recipientId;</span>
+<span class="fc" id="L115">        this.params = null;</span>
+<span class="fc" id="L116">        this.payload = payload;</span>
+
+<span class="fc bfc" id="L118" title="All 4 branches covered.">        if (payload != null &amp;&amp; payload.getType().equals(CBORType.Map)) {</span>
+            try {
+<span class="fc" id="L120">                this.params = Constants.getParams(payload);</span>
+<span class="nc" id="L121">            } catch (AceException e) {</span>
+<span class="nc" id="L122">                LOGGER.severe(e.getMessage());</span>
+<span class="nc" id="L123">                this.params = null;</span>
+<span class="fc" id="L124">            }</span>
+        }
+<span class="fc" id="L126">    }</span>
+    
+    
+    @Override
+    public Message successReply(int code, CBORObject payload) {
+<span class="fc" id="L131">        return new LocalMessage(</span>
+                code, this.recipientId, this.senderId, payload);
+    }
+
+    @Override
+    public Message failReply(int failureReason, CBORObject payload) {
+<span class="fc" id="L137">        return new LocalMessage(</span>
+                failureReason, this.recipientId, this.senderId, payload);
+    }
+
+
+    @Override
+    public byte[] getRawPayload() {
+<span class="fc bfc" id="L144" title="All 2 branches covered.">       return (this.payload == null) </span>
+<span class="fc" id="L145">               ? null : this.payload.EncodeToBytes();</span>
+    }
+
+
+    @Override
+    public String getSenderId() {
+<span class="fc" id="L151">        return this.senderId;</span>
+    }
+
+
+    @Override
+    public Set&lt;Short&gt; getParameterNames() {
+<span class="nc bnc" id="L157" title="All 2 branches missed.">        return (this.params == null) </span>
+<span class="nc" id="L158">                ? null : this.params.keySet();</span>
+    }
+
+
+    @Override
+    public CBORObject getParameter(Short name) {
+<span class="fc bfc" id="L164" title="All 2 branches covered.">        return (this.params == null) </span>
+<span class="fc" id="L165">                ? null : this.params.get(name);</span>
+    }
+
+
+    @Override
+    public Map&lt;Short, CBORObject&gt; getParameters() {
+<span class="fc bfc" id="L171" title="All 2 branches covered.">        if (this.params == null) {</span>
+<span class="fc" id="L172">            return null;</span>
+        }
+<span class="fc" id="L174">        HashMap&lt;Short, CBORObject&gt; ret = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L175">       ret.putAll(this.params);</span>
+<span class="fc" id="L176">       return ret;</span>
+    }
+
+    @Override
+    public int getMessageCode() {
+<span class="fc" id="L181">        return this.code;</span>
+    }
+    
+    @Override
+    public String toString() {
+<span class="pc bpc" id="L186" title="3 of 4 branches missed.">        if (this.payload == null &amp;&amp; this.params == null) {</span>
+<span class="nc" id="L187">            return &quot;SenderId: &quot; + this.senderId;</span>
+        }
+<span class="fc bfc" id="L189" title="All 2 branches covered.">        return &quot;SenderId: &quot; + this.senderId + &quot; Parameters: &quot;</span>
+                + ((this.params == null)? 
+<span class="fc" id="L191">                        this.payload.toString() : this.params.toString());</span>
+    }
+ }
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -1,0 +1,602 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Recipient.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.cose</a> &gt; <span class="el_source">Recipient.java</span></div><h1>Recipient.java</h1><pre class="source lang-java linenums">/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package org.eclipse.californium.cose;
+
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.List;
+import javax.crypto.Cipher;
+import javax.crypto.KeyAgreement;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+
+/**
+ * 
+ * @author jimsch
+ */
+<span class="fc" id="L26">public class Recipient extends Message {</span>
+    OneKey privateKey;
+    private OneKey senderKey;
+    byte[] rgbEncrypted;
+    List&lt;Recipient&gt; recipientList;
+    
+    @Override
+    public void DecodeFromCBORObject(CBORObject objRecipient) throws CoseException {
+<span class="pc bpc" id="L34" title="3 of 4 branches missed.">        if ((objRecipient.size() != 3) &amp;&amp; (objRecipient.size() !=4)) throw new CoseException(&quot;Invalid Recipient structure&quot;);</span>
+        
+<span class="pc bpc" id="L36" title="1 of 2 branches missed.">        if (objRecipient.get(0).getType() == CBORType.ByteString) {</span>
+<span class="pc bpc" id="L37" title="1 of 2 branches missed.">            if (objRecipient.get(0).GetByteString().length == 0) objProtected = CBORObject.NewMap();</span>
+<span class="fc" id="L38">            else objProtected = CBORObject.DecodeFromBytes(objRecipient.get(0).GetByteString());</span>
+        }
+<span class="nc" id="L40">        else throw new CoseException(&quot;Invalid Recipient structure&quot;);</span>
+        
+<span class="pc bpc" id="L42" title="1 of 2 branches missed.">        if (objRecipient.get(1).getType() == CBORType.Map) objUnprotected = objRecipient.get(1);</span>
+<span class="nc" id="L43">        else throw new CoseException(&quot;Invalid Recipient structure&quot;);</span>
+        
+<span class="pc bpc" id="L45" title="1 of 2 branches missed.">        if (objRecipient.get(2).getType() == CBORType.ByteString) rgbEncrypted = objRecipient.get(2).GetByteString();</span>
+<span class="nc" id="L46">        else throw new CoseException(&quot;Invalid Recipient structure&quot;);</span>
+        
+<span class="pc bpc" id="L48" title="1 of 2 branches missed.">        if (objRecipient.size() == 4) {</span>
+<span class="nc bnc" id="L49" title="All 2 branches missed.">            if (objRecipient.get(3).getType() == CBORType.Array) {</span>
+<span class="nc" id="L50">                recipientList = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L51" title="All 2 branches missed.">                for (int i=0; i&lt;objRecipient.get(3).size(); i++) {</span>
+<span class="nc" id="L52">                    Recipient recipX = new Recipient();</span>
+<span class="nc" id="L53">                    recipX.DecodeFromCBORObject(objRecipient.get(3).get(i));</span>
+<span class="nc" id="L54">                    recipientList.add(recipX);</span>
+                }
+            }
+<span class="nc" id="L57">            else throw new CoseException(&quot;Invalid Recipient structure&quot;);</span>
+        }
+<span class="fc" id="L59">    }</span>
+
+    @Override
+    protected CBORObject EncodeCBORObject() throws CoseException {        
+<span class="fc" id="L63">        CBORObject obj = CBORObject.NewArray();</span>
+<span class="pc bpc" id="L64" title="1 of 2 branches missed.">        if (objProtected.size() &gt; 0) obj.Add(objProtected.EncodeToBytes());</span>
+<span class="nc" id="L65">        else obj.Add(CBORObject.FromObject(new byte[0]));</span>
+        
+<span class="fc" id="L67">        obj.Add(objUnprotected);</span>
+<span class="fc" id="L68">        obj.Add(rgbEncrypted);</span>
+<span class="pc bpc" id="L69" title="1 of 2 branches missed.">        if (recipientList != null) {</span>
+<span class="nc" id="L70">            CBORObject objR = CBORObject.NewArray();</span>
+<span class="nc bnc" id="L71" title="All 2 branches missed.">            for (Recipient r : recipientList) {</span>
+<span class="nc" id="L72">                objR.Add(r.EncodeCBORObject());</span>
+<span class="nc" id="L73">            }</span>
+<span class="nc" id="L74">            obj.Add(objR);</span>
+        }
+        
+<span class="fc" id="L77">        return obj;</span>
+    }
+    
+    public byte[] decrypt(AlgorithmID algCEK, Recipient recip) throws CoseException {
+<span class="fc" id="L81">        AlgorithmID alg = AlgorithmID.FromCBOR(findAttribute(HeaderKeys.Algorithm));</span>
+<span class="fc" id="L82">        byte[] rgbKey = null;</span>
+        
+<span class="pc bpc" id="L84" title="1 of 2 branches missed.">        if (recip != this) {</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">            for (Recipient r : recipientList) {</span>
+<span class="nc bnc" id="L86" title="All 2 branches missed.">                if (recip == r) {</span>
+<span class="nc" id="L87">                    rgbKey = r.decrypt(alg, recip);</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">                    if (rgbKey == null) throw new CoseException(&quot;Internal error&quot;);</span>
+                    break;
+                }
+<span class="nc bnc" id="L91" title="All 2 branches missed.">                else if (!r.recipientList.isEmpty()) {</span>
+<span class="nc" id="L92">                    rgbKey = r.decrypt(alg, recip);</span>
+<span class="nc bnc" id="L93" title="All 2 branches missed.">                    if (rgbKey != null) break;</span>
+                }
+<span class="nc" id="L95">            }</span>
+        }
+        
+<span class="pc bpc" id="L98" title="5 of 10 branches missed.">        switch (alg) {</span>
+            case Direct: // Direct
+<span class="pc bpc" id="L100" title="1 of 2 branches missed.">                if (privateKey.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_Octet) throw new CoseException(&quot;Mismatch of algorithm and key&quot;);</span>
+<span class="fc" id="L101">                return privateKey.get(KeyKeys.Octet_K.AsCBOR()).GetByteString();</span>
+            
+            case HKDF_HMAC_SHA_256:
+<span class="pc bpc" id="L104" title="1 of 2 branches missed.">                 if (privateKey.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_Octet) throw new CoseException(&quot;Needs to be an octet key&quot;);</span>
+<span class="fc" id="L105">                 return HKDF(privateKey.get(KeyKeys.Octet_K.AsCBOR()).GetByteString(), algCEK.getKeySize(), algCEK, &quot;SHA256&quot;);</span>
+
+            case HKDF_HMAC_SHA_512:
+<span class="pc bpc" id="L108" title="1 of 2 branches missed.">                 if (privateKey.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_Octet) throw new CoseException(&quot;Needs to be an octet key&quot;);</span>
+<span class="fc" id="L109">                 return HKDF(privateKey.get(KeyKeys.Octet_K.AsCBOR()).GetByteString(), algCEK.getKeySize(), algCEK, &quot;SHA512&quot;);</span>
+
+            case AES_KW_128:
+            case AES_KW_192:
+            case AES_KW_256:
+<span class="nc bnc" id="L114" title="All 2 branches missed.">                if (rgbKey == null) {</span>
+<span class="nc bnc" id="L115" title="All 2 branches missed.">                    if (privateKey.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_Octet) throw new CoseException(&quot;Key and algorithm do not agree&quot;);</span>
+<span class="nc" id="L116">                    rgbKey = privateKey.get(KeyKeys.Octet_K.AsCBOR()).GetByteString();</span>
+                }
+<span class="nc bnc" id="L118" title="All 2 branches missed.">                else if (privateKey != null) throw new CoseException(&quot;Key and algorithm do not agree&quot;);</span>
+<span class="nc" id="L119">                return AES_KeyWrap_Decrypt(alg, rgbKey);</span>
+                
+            case ECDH_ES_HKDF_256:
+            case ECDH_SS_HKDF_256:
+<span class="pc bpc" id="L123" title="1 of 2 branches missed.">                if (privateKey.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_EC2) throw new CoseException(&quot;Key and algorithm do not agree&quot;);</span>
+<span class="fc" id="L124">                rgbKey = ECDH_GenSecret(privateKey);</span>
+<span class="fc" id="L125">                return HKDF(rgbKey, algCEK.getKeySize(), algCEK, &quot;SHA256&quot;);</span>
+                
+            case ECDH_ES_HKDF_512:
+            case ECDH_SS_HKDF_512:
+<span class="pc bpc" id="L129" title="1 of 2 branches missed.">                if (privateKey.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_EC2) throw new CoseException(&quot;Key and algorithm do not agree&quot;);</span>
+<span class="fc" id="L130">                rgbKey = ECDH_GenSecret(privateKey);</span>
+<span class="fc" id="L131">                return HKDF(rgbKey, algCEK.getKeySize(), algCEK, &quot;SHA512&quot;);</span>
+                
+            case ECDH_ES_HKDF_256_AES_KW_128:
+            case ECDH_SS_HKDF_256_AES_KW_128:
+<span class="nc bnc" id="L135" title="All 2 branches missed.">                if (privateKey.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_EC2) throw new CoseException(&quot;Key and algorithm do not agree&quot;);</span>
+<span class="nc" id="L136">                rgbKey = ECDH_GenSecret(privateKey);</span>
+<span class="nc" id="L137">                rgbKey = HKDF(rgbKey, 128, AlgorithmID.AES_KW_128, &quot;SHA256&quot;);</span>
+<span class="nc" id="L138">                return AES_KeyWrap_Decrypt(AlgorithmID.AES_KW_128, rgbKey);</span>
+                
+            case ECDH_ES_HKDF_256_AES_KW_192:
+            case ECDH_SS_HKDF_256_AES_KW_192:
+<span class="nc bnc" id="L142" title="All 2 branches missed.">                if (privateKey.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_EC2) throw new CoseException(&quot;Key and algorithm do not agree&quot;);</span>
+<span class="nc" id="L143">                rgbKey = ECDH_GenSecret(privateKey);</span>
+<span class="nc" id="L144">                rgbKey = HKDF(rgbKey, 192, AlgorithmID.AES_KW_192, &quot;SHA256&quot;);</span>
+<span class="nc" id="L145">                return AES_KeyWrap_Decrypt(AlgorithmID.AES_KW_192, rgbKey);</span>
+                
+            case ECDH_ES_HKDF_256_AES_KW_256:
+            case ECDH_SS_HKDF_256_AES_KW_256:
+<span class="nc bnc" id="L149" title="All 2 branches missed.">                if (privateKey.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_EC2) throw new CoseException(&quot;Key and algorithm do not agree&quot;);</span>
+<span class="nc" id="L150">                rgbKey = ECDH_GenSecret(privateKey);</span>
+<span class="nc" id="L151">                rgbKey = HKDF(rgbKey, 256, AlgorithmID.AES_KW_256, &quot;SHA256&quot;);</span>
+<span class="nc" id="L152">                return AES_KeyWrap_Decrypt(AlgorithmID.AES_KW_256, rgbKey);</span>
+                
+            default:
+<span class="nc" id="L155">                throw new CoseException(&quot;Unsupported Recipent Algorithm&quot;);</span>
+        }
+    }
+    
+    public void encrypt() throws CoseException {
+<span class="fc" id="L160">        AlgorithmID alg = AlgorithmID.FromCBOR(findAttribute(HeaderKeys.Algorithm));</span>
+<span class="fc" id="L161">        byte[] rgbKey = null;</span>
+        SecureRandom random;
+        
+<span class="fc" id="L164">        int recipientTypes = 0;</span>
+        
+<span class="pc bpc" id="L166" title="3 of 4 branches missed.">        if (recipientList != null &amp;&amp; !recipientList.isEmpty()) {</span>
+<span class="nc bnc" id="L167" title="All 2 branches missed.">            if (privateKey != null) throw new CoseException(&quot;Cannot have dependent recipients if key is specified&quot;);</span>
+            
+<span class="nc bnc" id="L169" title="All 2 branches missed.">            for (Recipient r : recipientList) {</span>
+<span class="nc bnc" id="L170" title="All 2 branches missed.">                switch (r.getRecipientType()) {</span>
+                    case 1:
+<span class="nc bnc" id="L172" title="All 2 branches missed.">                        if ((recipientTypes &amp; 1) != 0) throw new CoseException(&quot;Cannot have two direct recipients&quot;);</span>
+<span class="nc" id="L173">                        recipientTypes |= 1;</span>
+<span class="nc" id="L174">                        rgbKey = r.getKey(alg);</span>
+<span class="nc" id="L175">                        break;</span>
+                        
+                    default:
+<span class="nc" id="L178">                        recipientTypes |= 2;</span>
+                        break;
+                }
+<span class="nc" id="L181">            }</span>
+        }
+        
+<span class="pc bpc" id="L184" title="1 of 2 branches missed.">        if (recipientTypes == 3) throw new CoseException(&quot;Do not mix direct and indirect recipients&quot;);</span>
+        
+<span class="pc bpc" id="L186" title="1 of 2 branches missed.">        if (recipientTypes == 2) {</span>
+<span class="nc" id="L187">            rgbKey = new byte[alg.getKeySize()/8];</span>
+<span class="nc" id="L188">            random = new SecureRandom();</span>
+<span class="nc" id="L189">            random.nextBytes(rgbKey);</span>
+        }
+
+<span class="pc bpc" id="L192" title="8 of 10 branches missed.">        switch (alg) {</span>
+            case Direct:
+            case HKDF_HMAC_SHA_256:
+            case HKDF_HMAC_SHA_512:
+<span class="fc" id="L196">                rgbEncrypted = new byte[0];</span>
+<span class="fc" id="L197">                break;</span>
+                
+            case AES_KW_128:
+            case AES_KW_192:
+            case AES_KW_256:
+<span class="nc bnc" id="L202" title="All 2 branches missed.">                if (rgbKey == null) {</span>
+<span class="nc bnc" id="L203" title="All 2 branches missed.">                    if (privateKey.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_Octet) throw new CoseException(&quot;Key and algorithm do not agree&quot;);</span>
+<span class="nc" id="L204">                    rgbKey = privateKey.get(KeyKeys.Octet_K.AsCBOR()).GetByteString();</span>
+                }
+<span class="nc" id="L206">                rgbEncrypted = AES_KeyWrap_Encrypt(alg, rgbKey);</span>
+<span class="nc" id="L207">                break;</span>
+                
+            case ECDH_ES_HKDF_256:
+            case ECDH_ES_HKDF_512:
+            case ECDH_SS_HKDF_256:
+            case ECDH_SS_HKDF_512:
+<span class="fc" id="L213">                rgbEncrypted = new byte[0];</span>
+<span class="fc" id="L214">                break;</span>
+                
+            case ECDH_ES_HKDF_256_AES_KW_128:
+<span class="nc bnc" id="L217" title="All 2 branches missed.">                if (privateKey.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_EC2) throw new CoseException(&quot;Key and algorithm do not agree&quot;);</span>
+<span class="nc" id="L218">                ECDH_GenEphemeral();</span>
+<span class="nc" id="L219">                rgbKey = ECDH_GenSecret(privateKey);</span>
+<span class="nc" id="L220">                rgbKey = HKDF(rgbKey, 128, AlgorithmID.AES_KW_128, &quot;SHA256&quot;);</span>
+<span class="nc" id="L221">                rgbEncrypted = AES_KeyWrap_Encrypt(AlgorithmID.AES_KW_128, rgbKey);</span>
+<span class="nc" id="L222">                break;</span>
+
+            case ECDH_SS_HKDF_256_AES_KW_128:
+<span class="nc bnc" id="L225" title="All 2 branches missed.">                if (privateKey.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_EC2) throw new CoseException(&quot;Key and algorithm do not agree&quot;);</span>
+<span class="nc bnc" id="L226" title="All 2 branches missed.">                if (findAttribute(HeaderKeys.HKDF_Context_PartyU_nonce.AsCBOR()) == null) {</span>
+<span class="nc" id="L227">                    byte[] rgbAPU = new byte[256/8];</span>
+<span class="nc" id="L228">                    random = new SecureRandom();</span>
+<span class="nc" id="L229">                    random.nextBytes(rgbAPU);</span>
+<span class="nc" id="L230">                    addAttribute(HeaderKeys.HKDF_Context_PartyU_nonce.AsCBOR(), CBORObject.FromObject(rgbAPU), Attribute.UNPROTECTED);</span>
+                }
+<span class="nc" id="L232">                rgbKey = ECDH_GenSecret(privateKey);</span>
+<span class="nc" id="L233">                rgbKey = HKDF(rgbKey, 128, AlgorithmID.AES_KW_128, &quot;SHA256&quot;);</span>
+<span class="nc" id="L234">                rgbEncrypted = AES_KeyWrap_Encrypt(AlgorithmID.AES_KW_128, rgbKey);</span>
+<span class="nc" id="L235">                break;</span>
+                                
+            case ECDH_ES_HKDF_256_AES_KW_192:
+<span class="nc bnc" id="L238" title="All 2 branches missed.">                if (privateKey.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_EC2) throw new CoseException(&quot;Key and algorithm do not agree&quot;);</span>
+<span class="nc" id="L239">                ECDH_GenEphemeral();</span>
+<span class="nc" id="L240">                rgbKey = ECDH_GenSecret(privateKey);</span>
+<span class="nc" id="L241">                rgbKey = HKDF(rgbKey, 192, AlgorithmID.AES_KW_192, &quot;SHA256&quot;);</span>
+<span class="nc" id="L242">                rgbEncrypted = AES_KeyWrap_Encrypt(AlgorithmID.AES_KW_192, rgbKey);</span>
+<span class="nc" id="L243">                break;</span>
+
+            case ECDH_SS_HKDF_256_AES_KW_192:
+<span class="nc bnc" id="L246" title="All 2 branches missed.">                if (privateKey.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_EC2) throw new CoseException(&quot;Key and algorithm do not agree&quot;);</span>
+<span class="nc bnc" id="L247" title="All 2 branches missed.">                if (findAttribute(HeaderKeys.HKDF_Context_PartyU_nonce.AsCBOR()) == null) {</span>
+<span class="nc" id="L248">                    byte[] rgbAPU = new byte[256/8];</span>
+<span class="nc" id="L249">                    random = new SecureRandom();</span>
+<span class="nc" id="L250">                    random.nextBytes(rgbAPU);</span>
+<span class="nc" id="L251">                    addAttribute(HeaderKeys.HKDF_Context_PartyU_nonce.AsCBOR(), CBORObject.FromObject(rgbAPU), Attribute.UNPROTECTED);</span>
+                }
+<span class="nc" id="L253">                rgbKey = ECDH_GenSecret(privateKey);</span>
+<span class="nc" id="L254">                rgbKey = HKDF(rgbKey, 192, AlgorithmID.AES_KW_192, &quot;SHA256&quot;);</span>
+<span class="nc" id="L255">                rgbEncrypted = AES_KeyWrap_Encrypt(AlgorithmID.AES_KW_192, rgbKey);</span>
+<span class="nc" id="L256">                break;</span>
+
+            case ECDH_ES_HKDF_256_AES_KW_256:
+<span class="nc bnc" id="L259" title="All 2 branches missed.">                if (privateKey.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_EC2) throw new CoseException(&quot;Key and algorithm do not agree&quot;);</span>
+<span class="nc" id="L260">                ECDH_GenEphemeral();</span>
+<span class="nc" id="L261">                rgbKey = ECDH_GenSecret(privateKey);</span>
+<span class="nc" id="L262">                rgbKey = HKDF(rgbKey, 256, AlgorithmID.AES_KW_256, &quot;SHA256&quot;);</span>
+<span class="nc" id="L263">                rgbEncrypted = AES_KeyWrap_Encrypt(AlgorithmID.AES_KW_256, rgbKey);</span>
+<span class="nc" id="L264">                break;</span>
+
+            case ECDH_SS_HKDF_256_AES_KW_256:
+<span class="nc bnc" id="L267" title="All 2 branches missed.">                if (privateKey.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_EC2) throw new CoseException(&quot;Key and algorithm do not agree&quot;);</span>
+<span class="nc bnc" id="L268" title="All 2 branches missed.">                if (findAttribute(HeaderKeys.HKDF_Context_PartyU_nonce.AsCBOR()) == null) {</span>
+<span class="nc" id="L269">                    byte[] rgbAPU = new byte[256/8];</span>
+<span class="nc" id="L270">                    random = new SecureRandom();</span>
+<span class="nc" id="L271">                    random.nextBytes(rgbAPU);</span>
+<span class="nc" id="L272">                    addAttribute(HeaderKeys.HKDF_Context_PartyU_nonce.AsCBOR(), CBORObject.FromObject(rgbAPU), Attribute.UNPROTECTED);</span>
+                }
+<span class="nc" id="L274">                rgbKey = ECDH_GenSecret(privateKey);</span>
+<span class="nc" id="L275">                rgbKey = HKDF(rgbKey, 256, AlgorithmID.AES_KW_256, &quot;SHA256&quot;);</span>
+<span class="nc" id="L276">                rgbEncrypted = AES_KeyWrap_Encrypt(AlgorithmID.AES_KW_256, rgbKey);</span>
+<span class="nc" id="L277">                break;</span>
+
+            default:
+<span class="nc" id="L280">                throw new CoseException(&quot;Unsupported Recipient Algorithm&quot;);</span>
+        }
+        
+<span class="pc bpc" id="L283" title="1 of 2 branches missed.">        if (recipientList != null) {</span>
+<span class="nc bnc" id="L284" title="All 2 branches missed.">            for (Recipient r : recipientList) {</span>
+<span class="nc" id="L285">                r.SetContent(rgbKey);</span>
+<span class="nc" id="L286">                r.encrypt();</span>
+<span class="nc" id="L287">            }</span>
+        }
+<span class="fc" id="L289">    }</span>
+
+    public void addRecipient(Recipient recipient) {
+<span class="nc bnc" id="L292" title="All 2 branches missed.">        if (recipientList == null) recipientList = new ArrayList&lt;Recipient&gt;();</span>
+<span class="nc" id="L293">        recipientList.add(recipient);</span>
+<span class="nc" id="L294">    }</span>
+    
+    public List&lt;Recipient&gt; getRecipientList() {
+<span class="nc" id="L297">        return recipientList;</span>
+    }
+
+    public Recipient getRecipient(int iRecipient) {
+<span class="nc" id="L301">        return recipientList.get(iRecipient);</span>
+    }
+    
+    public int getRecipientCount() {
+<span class="nc" id="L305">        return recipientList.size();</span>
+    }
+    
+    public int getRecipientType() throws CoseException {
+<span class="fc" id="L309">        AlgorithmID alg = AlgorithmID.FromCBOR(findAttribute(HeaderKeys.Algorithm));</span>
+<span class="pc bpc" id="L310" title="1 of 2 branches missed.">        switch (alg) {</span>
+            case Direct:
+            case HKDF_HMAC_SHA_256:
+            case HKDF_HMAC_SHA_512:
+            case ECDH_ES_HKDF_256:
+            case ECDH_ES_HKDF_512:
+            case ECDH_SS_HKDF_256:
+            case ECDH_SS_HKDF_512:
+<span class="fc" id="L318">                return 1;</span>
+                
+            default:
+<span class="nc" id="L321">                return 9;</span>
+        }
+    }
+    
+    public byte[] getKey(AlgorithmID algCEK) throws CoseException {
+        byte[] rgbSecret;
+        SecureRandom random;
+        
+<span class="pc bpc" id="L329" title="1 of 2 branches missed.">        if (privateKey == null) throw new CoseException(&quot;Private key not set for recipient&quot;);</span>
+        
+<span class="fc" id="L331">        AlgorithmID alg = AlgorithmID.FromCBOR(findAttribute(HeaderKeys.Algorithm));</span>
+        
+<span class="pc bpc" id="L333" title="2 of 9 branches missed.">        switch (alg) {</span>
+            case Direct:
+<span class="pc bpc" id="L335" title="1 of 2 branches missed.">                if (privateKey.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_Octet) throw new CoseException(&quot;Key and algorithm do not agree&quot;);</span>
+<span class="fc" id="L336">                return privateKey.get(KeyKeys.Octet_K.AsCBOR()).GetByteString();</span>
+                
+            case AES_KW_128:
+            case AES_KW_192:
+            case AES_KW_256:
+<span class="nc bnc" id="L341" title="All 2 branches missed.">                if (!privateKey.HasKeyType(KeyKeys.KeyType_Octet)) throw new CoseException(&quot;Key and algorithm do not agree&quot;);</span>
+<span class="nc" id="L342">                return privateKey.get(KeyKeys.Octet_K).GetByteString();</span>
+                
+            case ECDH_ES_HKDF_256:
+<span class="pc bpc" id="L345" title="1 of 2 branches missed.">                if (privateKey.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_EC2) throw new CoseException(&quot;Key and algorithm do not agree&quot;);</span>
+<span class="fc" id="L346">                ECDH_GenEphemeral();</span>
+<span class="fc" id="L347">                rgbSecret = ECDH_GenSecret(privateKey);</span>
+<span class="fc" id="L348">                return HKDF(rgbSecret, algCEK.getKeySize(), algCEK, &quot;SHA256&quot;);</span>
+                
+            case ECDH_ES_HKDF_512:
+<span class="pc bpc" id="L351" title="1 of 2 branches missed.">                if (privateKey.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_EC2) throw new CoseException(&quot;Key and algorithm do not agree&quot;);</span>
+<span class="fc" id="L352">                ECDH_GenEphemeral();</span>
+<span class="fc" id="L353">                rgbSecret = ECDH_GenSecret(privateKey);</span>
+<span class="fc" id="L354">                return HKDF(rgbSecret, algCEK.getKeySize(), algCEK, &quot;SHA512&quot;);</span>
+                
+            case ECDH_SS_HKDF_256:
+<span class="pc bpc" id="L357" title="1 of 2 branches missed.">                if (privateKey.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_EC2) throw new CoseException(&quot;Key and algorithm do not agree&quot;);</span>
+<span class="pc bpc" id="L358" title="1 of 2 branches missed.">                if (findAttribute(HeaderKeys.HKDF_Context_PartyU_nonce.AsCBOR()) == null) {</span>
+<span class="fc" id="L359">                    byte[] rgbAPU = new byte[256/8];</span>
+<span class="fc" id="L360">                    random = new SecureRandom();</span>
+<span class="fc" id="L361">                    random.nextBytes(rgbAPU);</span>
+<span class="fc" id="L362">                    addAttribute(HeaderKeys.HKDF_Context_PartyU_nonce.AsCBOR(), CBORObject.FromObject(rgbAPU), Attribute.UNPROTECTED);</span>
+                }
+<span class="fc" id="L364">                rgbSecret = ECDH_GenSecret(privateKey);</span>
+<span class="fc" id="L365">                return HKDF(rgbSecret, algCEK.getKeySize(), algCEK, &quot;SHA256&quot;);</span>
+                
+            case ECDH_SS_HKDF_512:
+<span class="pc bpc" id="L368" title="1 of 2 branches missed.">                if (privateKey.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_EC2) throw new CoseException(&quot;Key and algorithm do not agree&quot;);</span>
+<span class="pc bpc" id="L369" title="1 of 2 branches missed.">                if (findAttribute(HeaderKeys.HKDF_Context_PartyU_nonce.AsCBOR()) == null) {</span>
+<span class="nc" id="L370">                    byte[] rgbAPU = new byte[512/8];</span>
+<span class="nc" id="L371">                    random = new SecureRandom();</span>
+<span class="nc" id="L372">                    random.nextBytes(rgbAPU);</span>
+<span class="nc" id="L373">                    addAttribute(HeaderKeys.HKDF_Context_PartyU_nonce.AsCBOR(), CBORObject.FromObject(rgbAPU), Attribute.UNPROTECTED);</span>
+                }
+<span class="fc" id="L375">                rgbSecret = ECDH_GenSecret(privateKey);</span>
+<span class="fc" id="L376">                return HKDF(rgbSecret, algCEK.getKeySize(), algCEK, &quot;SHA512&quot;);</span>
+                
+            case HKDF_HMAC_SHA_256:
+<span class="pc bpc" id="L379" title="1 of 2 branches missed.">                 if (privateKey.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_Octet) throw new CoseException(&quot;Needs to be an octet key&quot;);</span>
+<span class="fc" id="L380">                 return HKDF(privateKey.get(KeyKeys.Octet_K.AsCBOR()).GetByteString(), algCEK.getKeySize(), algCEK, &quot;SHA256&quot;);</span>
+                 
+            case HKDF_HMAC_SHA_512:
+<span class="pc bpc" id="L383" title="1 of 2 branches missed.">                 if (privateKey.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_Octet) throw new CoseException(&quot;Needs to be an octet key&quot;);</span>
+<span class="fc" id="L384">                 return HKDF(privateKey.get(KeyKeys.Octet_K.AsCBOR()).GetByteString(), algCEK.getKeySize(), algCEK, &quot;SHA512&quot;);</span>
+
+            default:
+<span class="nc" id="L387">                throw new CoseException(&quot;Recipient Algorithm not supported&quot;);</span>
+        }
+    }
+        
+    /**
+     * Set the key for encrypting/decrypting the recipient key.
+     * 
+     * @param key private key for encrypting or decrypting
+     * @exception CoseException Internal COSE package error.
+     * @deprecated In COSE 0.9.1, use SetKey(OneKey)
+     */
+    @Deprecated
+    public void SetKey(CBORObject key) throws CoseException {
+<span class="nc" id="L400">        privateKey = new OneKey(key);</span>
+<span class="nc" id="L401">    }</span>
+    
+    /**
+     * Set the key for encrypting/decrypting the recipient key.
+     * 
+     * @param key private key for encrypting or decrypting
+     */
+    public void SetKey(OneKey key) {
+<span class="fc" id="L409">        privateKey = key;</span>
+<span class="fc" id="L410">    }</span>
+
+    @Deprecated
+    public void SetSenderKey(CBORObject key) throws CoseException {
+<span class="nc" id="L414">        senderKey = new OneKey(key);</span>
+<span class="nc" id="L415">    }</span>
+    
+    public void SetSenderKey(OneKey key) {
+<span class="fc" id="L418">        senderKey = key;</span>
+<span class="fc" id="L419">    }</span>
+    
+    private byte[] AES_KeyWrap_Encrypt(AlgorithmID alg, byte[] rgbKey) throws CoseException
+    {
+<span class="nc bnc" id="L423" title="All 2 branches missed.">        if (rgbKey.length != alg.getKeySize() / 8) throw new CoseException(&quot;Key is not the correct size&quot;);</span>
+
+        try {
+<span class="nc" id="L426">            Cipher  cipher = Cipher.getInstance(&quot;AESWrap&quot;);</span>
+<span class="nc" id="L427">            cipher.init(Cipher.WRAP_MODE, new SecretKeySpec(rgbKey, &quot;AESWrap&quot;));</span>
+<span class="nc" id="L428">            return cipher.wrap(new SecretKeySpec(rgbContent, &quot;AES&quot;));</span>
+<span class="nc" id="L429">        } catch (NoSuchAlgorithmException ex) {</span>
+<span class="nc" id="L430">            throw new CoseException(&quot;Algorithm not supported&quot;, ex);</span>
+<span class="nc" id="L431">        } catch (Exception ex) {</span>
+<span class="nc" id="L432">            throw new CoseException(&quot;Key Wrap failure&quot;, ex);</span>
+        }
+    }
+    
+    private byte[] AES_KeyWrap_Decrypt(AlgorithmID alg, byte[] rgbKey) throws CoseException
+    {
+<span class="nc bnc" id="L438" title="All 2 branches missed.">        if (rgbKey.length != alg.getKeySize() / 8) throw new CoseException(&quot;Key is not the correct size&quot;);</span>
+
+        try {
+<span class="nc" id="L441">            Cipher cipher = Cipher.getInstance(&quot;AESWrap&quot;);</span>
+<span class="nc" id="L442">            cipher.init(Cipher.UNWRAP_MODE, new SecretKeySpec(rgbKey, &quot;AESWrap&quot;));</span>
+<span class="nc" id="L443">            return ((SecretKeySpec)cipher.unwrap(rgbEncrypted, &quot;AES&quot;, Cipher.SECRET_KEY)).getEncoded();</span>
+<span class="nc" id="L444">        } catch (NoSuchAlgorithmException ex) {</span>
+<span class="nc" id="L445">            throw new CoseException(&quot;Algorithm not supported&quot;, ex);</span>
+        }
+<span class="nc" id="L447">        catch (InvalidKeyException ex) {</span>
+<span class="nc bnc" id="L448" title="All 2 branches missed.">            if (ex.getMessage() == &quot;Illegal key size&quot;) {</span>
+<span class="nc" id="L449">                throw new CoseException(&quot;Unsupported key size&quot;, ex);</span>
+            }
+<span class="nc" id="L451">            throw new CoseException(&quot;Decryption failure&quot;, ex);</span>
+<span class="nc" id="L452">        } catch (Exception ex) {</span>
+<span class="nc" id="L453">            throw new CoseException(&quot;Key Unwrap failure&quot;, ex);</span>
+        }
+    }
+    
+    private void ECDH_GenEphemeral() throws CoseException {
+<span class="fc" id="L458">        OneKey  secretKey = OneKey.generateKey(privateKey.get(KeyKeys.EC2_Curve));</span>
+        
+        // pack into EPK header
+<span class="fc" id="L461">        CBORObject  epk = secretKey.PublicKey().AsCBOR();</span>
+<span class="fc" id="L462">        addAttribute(HeaderKeys.ECDH_EPK, epk, Attribute.UNPROTECTED);</span>
+        
+        // apply as senderKey
+<span class="fc" id="L465">        senderKey = secretKey;</span>
+<span class="fc" id="L466">    }</span>
+    
+    private byte[] ECDH_GenSecret(OneKey key) throws CoseException {
+        OneKey  epk;
+<span class="pc bpc" id="L470" title="1 of 2 branches missed.">        if (senderKey != null) {</span>
+<span class="fc" id="L471">            epk = key;</span>
+<span class="fc" id="L472">            key = senderKey;</span>
+        } else {
+<span class="nc" id="L474">            CBORObject cn = findAttribute(HeaderKeys.ECDH_SPK);</span>
+<span class="nc bnc" id="L475" title="All 2 branches missed.">            if (cn == null) {</span>
+<span class="nc" id="L476">                cn = findAttribute(HeaderKeys.ECDH_EPK);</span>
+            }
+<span class="nc bnc" id="L478" title="All 2 branches missed.">            if (cn == null) {</span>
+<span class="nc" id="L479">                throw new CoseException(&quot;No second party EC key&quot;);</span>
+            }
+<span class="nc" id="L481">            epk = new OneKey(cn);</span>
+        }
+        
+<span class="pc bpc" id="L484" title="1 of 2 branches missed.">        if (key.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_EC2) {</span>
+<span class="nc" id="L485">            throw new CoseException(&quot;Not an EC2 Key&quot;);</span>
+        }
+<span class="pc bpc" id="L487" title="1 of 2 branches missed.">        if (epk.get(KeyKeys.KeyType.AsCBOR()) != KeyKeys.KeyType_EC2) {</span>
+<span class="nc" id="L488">            throw new CoseException(&quot;Not an EC2 Key&quot;);</span>
+        }
+<span class="pc bpc" id="L490" title="1 of 2 branches missed.">        if (epk.get(KeyKeys.EC2_Curve.AsCBOR()) != key.get(KeyKeys.EC2_Curve.AsCBOR())) {</span>
+<span class="nc" id="L491">            throw new CoseException(&quot;Curves are not the same&quot;);</span>
+        }
+        
+        try {
+<span class="fc" id="L495">            PublicKey pubKey = epk.AsPublicKey();</span>
+<span class="fc" id="L496">            PrivateKey privKey = key.AsPrivateKey();</span>
+<span class="fc" id="L497">            KeyAgreement ecdh = KeyAgreement.getInstance(&quot;ECDH&quot;);</span>
+<span class="fc" id="L498">            ecdh.init(privKey);</span>
+<span class="fc" id="L499">            ecdh.doPhase(pubKey, true);</span>
+<span class="fc" id="L500">            return ecdh.generateSecret();</span>
+<span class="nc" id="L501">        } catch (NoSuchAlgorithmException ex) {</span>
+<span class="nc" id="L502">            throw new CoseException(&quot;Algorithm not supported&quot;, ex);</span>
+<span class="nc" id="L503">        } catch (Exception ex) {</span>
+<span class="nc" id="L504">            throw new CoseException(&quot;Key agreement failure&quot;, ex);</span>
+        }
+    }
+
+    private byte[] HKDF(byte[] secret, int cbitKey, AlgorithmID alg, String digest) throws CoseException {
+<span class="fc" id="L509">        final String HMAC_ALG_NAME = &quot;Hmac&quot; + digest;</span>
+
+<span class="fc" id="L511">        byte[]  rgbContext = GetKDFInput(cbitKey, alg);</span>
+ 
+        try {
+<span class="fc" id="L514">            Mac hmac = Mac.getInstance(HMAC_ALG_NAME);</span>
+<span class="fc" id="L515">            int hashLen = hmac.getMacLength();</span>
+
+<span class="fc" id="L517">            CBORObject  cnSalt = findAttribute(HeaderKeys.HKDF_Salt.AsCBOR());</span>
+            byte[] K;
+<span class="pc bpc" id="L519" title="1 of 2 branches missed.">            if (cnSalt == null) {</span>
+<span class="fc" id="L520">                K = new byte[hashLen];</span>
+            } else {
+<span class="nc" id="L522">                K = cnSalt.GetByteString();</span>
+            }
+
+            // Perform extract
+<span class="fc" id="L526">            hmac.init(new SecretKeySpec(K, HMAC_ALG_NAME));</span>
+<span class="fc" id="L527">            byte[] rgbExtract = hmac.doFinal(secret);</span>
+
+            // Perform expand
+<span class="fc" id="L530">            hmac.init(new SecretKeySpec(rgbExtract, HMAC_ALG_NAME));</span>
+<span class="fc" id="L531">            int c = ((cbitKey + 7)/8 + hashLen-1)/hashLen;</span>
+<span class="fc" id="L532">            byte[]  rgbOut = new byte[cbitKey / 8];</span>
+<span class="fc" id="L533">            byte[]  T = new byte[hashLen * c];</span>
+<span class="fc" id="L534">            byte[]  last = new byte[0];</span>
+<span class="fc bfc" id="L535" title="All 2 branches covered.">            for (int i = 0; i &lt; c; i++) {</span>
+<span class="fc" id="L536">                hmac.reset();</span>
+<span class="fc" id="L537">                hmac.update(last);</span>
+<span class="fc" id="L538">                hmac.update(rgbContext);</span>
+<span class="fc" id="L539">                hmac.update((byte)(i + 1));</span>
+<span class="fc" id="L540">                last = hmac.doFinal();</span>
+<span class="fc" id="L541">                System.arraycopy(last, 0, T, i * hashLen, hashLen);</span>
+            }
+<span class="fc" id="L543">            System.arraycopy(T, 0, rgbOut, 0, cbitKey / 8);</span>
+<span class="fc" id="L544">            return rgbOut;</span>
+<span class="nc" id="L545">        } catch (NoSuchAlgorithmException ex) {</span>
+<span class="nc" id="L546">            throw new CoseException(&quot;Algorithm not supported&quot;, ex);</span>
+<span class="nc" id="L547">        } catch (Exception ex) {</span>
+<span class="nc" id="L548">            throw new CoseException(&quot;Derivation failure&quot;, ex);</span>
+        }
+    }
+
+    private byte[] GetKDFInput(int cbitKey, AlgorithmID algorithmID) {
+        CBORObject obj;
+        
+<span class="fc" id="L555">        CBORObject contextArray = CBORObject.NewArray();</span>
+        
+        //  First element is - algorithm ID
+<span class="fc" id="L558">        contextArray.Add(algorithmID.AsCBOR());</span>
+        
+        //  Second item is - Party U info
+<span class="fc" id="L561">        CBORObject info = CBORObject.NewArray();</span>
+<span class="fc" id="L562">        contextArray.Add(info);</span>
+<span class="fc" id="L563">        obj = findAttribute(HeaderKeys.HKDF_Context_PartyU_ID.AsCBOR());</span>
+<span class="pc bpc" id="L564" title="1 of 2 branches missed.">        if (obj != null) info.Add(obj);</span>
+<span class="fc" id="L565">        else info.Add(null);</span>
+<span class="fc" id="L566">        obj = findAttribute(HeaderKeys.HKDF_Context_PartyU_nonce.AsCBOR());</span>
+<span class="fc bfc" id="L567" title="All 2 branches covered.">        if (obj != null) info.Add(obj);</span>
+<span class="fc" id="L568">        else info.Add(null);</span>
+<span class="fc" id="L569">        obj = findAttribute(HeaderKeys.HKDF_Context_PartyU_Other.AsCBOR());</span>
+<span class="pc bpc" id="L570" title="1 of 2 branches missed.">        if (obj != null) info.Add(obj);</span>
+<span class="fc" id="L571">        else info.Add(null);</span>
+
+        //  third element is - Party V info
+<span class="fc" id="L574">        info = CBORObject.NewArray();</span>
+<span class="fc" id="L575">        contextArray.Add(info);</span>
+<span class="fc" id="L576">        obj = findAttribute(HeaderKeys.HKDF_Context_PartyV_ID.AsCBOR());</span>
+<span class="pc bpc" id="L577" title="1 of 2 branches missed.">        if (obj != null) info.Add(obj);</span>
+<span class="fc" id="L578">        else info.Add(null);</span>
+<span class="fc" id="L579">        obj = findAttribute(HeaderKeys.HKDF_Context_PartyV_nonce.AsCBOR());</span>
+<span class="pc bpc" id="L580" title="1 of 2 branches missed.">        if (obj != null) info.Add(obj);</span>
+<span class="fc" id="L581">        else info.Add(null);</span>
+<span class="fc" id="L582">        obj = findAttribute(HeaderKeys.HKDF_Context_PartyV_Other.AsCBOR());</span>
+<span class="pc bpc" id="L583" title="1 of 2 branches missed.">        if (obj != null) info.Add(obj);</span>
+<span class="fc" id="L584">        else info.Add(null);</span>
+
+        //  fourth element is - Supplimental Public Info
+<span class="fc" id="L587">        info = CBORObject.NewArray();</span>
+<span class="fc" id="L588">        contextArray.Add(info);</span>
+<span class="fc" id="L589">        info.Add(CBORObject.FromObject(cbitKey));</span>
+<span class="pc bpc" id="L590" title="1 of 2 branches missed.">        if (objProtected.size()== 0) info.Add(new byte[0]);</span>
+<span class="fc" id="L591">        else info.Add(objProtected.EncodeToBytes());</span>
+<span class="fc" id="L592">        obj = findAttribute(HeaderKeys.HKDF_SuppPub_Other.AsCBOR());</span>
+<span class="pc bpc" id="L593" title="1 of 2 branches missed.">        if (obj != null) info.Add(obj);</span>
+
+        //  Fifth element is - Supplimental Private Info
+<span class="fc" id="L596">        obj = findAttribute(HeaderKeys.HKDF_SuppPriv_Other.AsCBOR());</span>
+<span class="pc bpc" id="L597" title="1 of 2 branches missed.">        if (obj != null) contextArray.Add(obj);</span>
+
+<span class="fc" id="L599">        return contextArray.EncodeToBytes();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

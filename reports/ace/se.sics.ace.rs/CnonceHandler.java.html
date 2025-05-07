@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CnonceHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.rs</a> &gt; <span class="el_source">CnonceHandler.java</span></div><h1>CnonceHandler.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2019, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.rs;
+
+import java.nio.ByteBuffer;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.logging.Logger;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+
+import se.sics.ace.AceException;
+import se.sics.ace.Constants;
+
+/**
+ * This class handles the freshness verification using client-nonces
+ * (see Section 5.3.1 of RFC 9200).
+ * 
+ * @author Ludwig Seitz
+ *
+ */
+public class CnonceHandler {
+
+    /**
+     * The singleton instance
+     */
+<span class="fc" id="L63">    private static CnonceHandler singleton = null;</span>
+    
+    /**
+     * The default window size
+     */
+<span class="fc" id="L68">    private static int defaultWindowSize = 30;</span>
+    
+    /**
+     * The counter used to generate the cnonces.
+     * -1 means we don't use cnonces.
+     */
+<span class="fc" id="L74">    private Integer cnonceCounter = -1;</span>
+    
+    /**
+     * The last seen nonce
+     */
+    private int cnonceSeen;
+    
+    /**
+     * The size of the replay window
+     */
+    private int cnonceWindowSize;
+
+    /**
+     * Cnonce replay window, 
+     */
+    private int cnonceWindow; 
+    
+    /**
+     * Cnonce HMAC key (32 bytes)
+     */
+    private byte[] cnonceKey;
+   
+    /**
+     * The logger
+     */
+<span class="fc" id="L99">    private static final Logger LOGGER </span>
+<span class="fc" id="L100">        = Logger.getLogger(CnonceHandler.class.getName());</span>
+    
+    /**
+     * Create the cnonce handler.
+     * 
+     * @param cnonceReplayWindowSize  the cnonce replay window size (or null to
+     *     use the default)
+     */
+<span class="fc" id="L108">    protected CnonceHandler() {</span>
+<span class="fc" id="L109">        this.cnonceCounter = 1;</span>
+<span class="fc" id="L110">        this.cnonceSeen = 0;</span>
+<span class="fc" id="L111">        this.cnonceKey = new byte[32];</span>
+<span class="fc" id="L112">        SecureRandom sr = new SecureRandom();</span>
+<span class="fc" id="L113">        sr.nextBytes(this.cnonceKey);  </span>
+<span class="fc" id="L114">        this.cnonceWindow = 0;</span>
+<span class="fc" id="L115">        this.cnonceWindowSize = defaultWindowSize;</span>
+<span class="fc" id="L116">    }</span>
+    
+    /**
+     * The singleton getter
+     * @return  the singleton repository
+     * @throws AceException  if the handler is not initialized
+     */
+    public static CnonceHandler getInstance() {
+<span class="fc bfc" id="L124" title="All 2 branches covered.">        if (singleton == null) {</span>
+<span class="fc" id="L125">            singleton = new CnonceHandler();</span>
+        }
+<span class="fc" id="L127">        return singleton;</span>
+    }
+    
+    /**
+     * Set the default window size for the replay window.
+     * Will only have effect before the singleton is created.
+     * 
+     * @param size  the size of the replay window
+     */
+    public static void setDefaultWindowSize(int size) {
+<span class="nc bnc" id="L137" title="All 2 branches missed.">        if (singleton != null) {</span>
+<span class="nc" id="L138">            throw new RuntimeException(</span>
+                    &quot;Cannot window size after singleton was created&quot;);
+        }
+<span class="nc bnc" id="L141" title="All 4 branches missed.">        if (size &lt; 0 || size &gt; 32) {</span>
+<span class="nc" id="L142">            throw new IllegalArgumentException(</span>
+                    &quot;cnonceWindow size must be between 0 and 32&quot;);
+        }
+<span class="nc" id="L145">        defaultWindowSize = size;</span>
+<span class="nc" id="L146">    }</span>
+    
+    /**
+     * Implements the nonce checking for a token received at authz-info.
+     * 
+     * @param claims  the claims of the token to check
+     * @throws AceException 
+     */
+    public void checkNonce(Map&lt;Short, CBORObject&gt; claims) throws AceException {
+<span class="pc bpc" id="L155" title="1 of 2 branches missed.">        if (this.cnonceCounter == -1) {//Means we are not using the client nonces</span>
+<span class="nc" id="L156">            return;</span>
+        }
+<span class="fc" id="L158">        CBORObject cnonce = claims.get(Constants.CNONCE);</span>
+<span class="fc bfc" id="L159" title="All 2 branches covered.">        if (cnonce == null) {</span>
+<span class="fc" id="L160">            LOGGER.info(&quot;Expected a cnonce but found none&quot;);</span>
+<span class="fc" id="L161">            throw new AceException(&quot;cnonce expected but not found&quot;);</span>
+        }
+
+<span class="fc bfc" id="L164" title="All 2 branches covered.">        if (!cnonce.getType().equals(CBORType.ByteString)) {</span>
+<span class="fc" id="L165">            throw new AceException(&quot;Invalid cnonce type&quot;);</span>
+        }
+<span class="fc" id="L167">        byte[] cnonceB = cnonce.GetByteString();</span>
+<span class="fc bfc" id="L168" title="All 2 branches covered.">        if (cnonceB.length != 4+32) {//4 byte for the int counter, 16 bytes HMAC</span>
+<span class="fc" id="L169">            throw new AceException(&quot;Invalid cnonce length&quot;);</span>
+        }
+<span class="fc" id="L171">        byte[] mac = new byte[32];</span>
+<span class="fc" id="L172">        byte[] counter = new byte[4];</span>
+<span class="fc" id="L173">        mac = Arrays.copyOfRange(cnonceB, 0, 32);</span>
+<span class="fc" id="L174">        counter = Arrays.copyOfRange(cnonceB, 32, 36);</span>
+        byte[] macExpected;
+        //Verify MAC
+        try {
+<span class="fc" id="L178">            Mac sha256_HMAC = Mac.getInstance(&quot;HmacSHA256&quot;);</span>
+
+<span class="fc" id="L180">            SecretKeySpec secret_key = new SecretKeySpec(</span>
+                    this.cnonceKey, &quot;HmacSHA256&quot;);
+<span class="fc" id="L182">            sha256_HMAC.init(secret_key);</span>
+
+<span class="fc" id="L184">            macExpected = sha256_HMAC.doFinal(counter);</span>
+<span class="nc" id="L185">        } catch (NoSuchAlgorithmException | InvalidKeyException e) {</span>
+<span class="nc" id="L186">            LOGGER.severe(&quot;Error while verifying cnonce: &quot; + e.getMessage());</span>
+<span class="nc" id="L187">            throw new AceException(&quot;Nonce verification failed&quot;);</span>
+<span class="fc" id="L188">        }</span>
+
+<span class="fc bfc" id="L190" title="All 2 branches covered.">        if (!Arrays.equals(mac, macExpected)) {</span>
+<span class="fc" id="L191">            throw new AceException(&quot;cnonce invalid&quot;);</span>
+        }
+
+        //Check if nonce is in the replay window
+<span class="fc" id="L195">        ByteBuffer b = ByteBuffer.wrap(counter);</span>
+<span class="fc" id="L196">        int counterI = b.getInt();</span>
+<span class="fc" id="L197">        checkIncomingCounter(counterI);</span>
+<span class="fc" id="L198">    }</span>
+
+    /**
+     * Check an incoming cnonce counter
+     * @param counter
+     * @throws AceException
+     */
+    private synchronized void checkIncomingCounter(int counter) throws AceException {
+<span class="fc bfc" id="L206" title="All 2 branches covered.">        if (counter &gt; this.cnonceSeen) {</span>
+            // Update the replay window
+<span class="fc" id="L208">            int shift = counter - this.cnonceSeen;</span>
+<span class="fc" id="L209">            this.cnonceWindow = this.cnonceWindow &lt;&lt; shift;</span>
+<span class="fc" id="L210">            this.cnonceSeen = counter;</span>
+<span class="fc bfc" id="L211" title="All 2 branches covered.">        } else if (counter == this.cnonceSeen) {</span>
+<span class="fc" id="L212">            throw new AceException(&quot;cnonce replayed&quot;);</span>
+        } else { // counter &lt; this.cnonceSeen
+<span class="pc bpc" id="L214" title="1 of 2 branches missed.">            if (counter + this.cnonceWindowSize &lt; this.cnonceSeen) {</span>
+<span class="fc" id="L215">                LOGGER.severe(&quot;cnonce too old&quot;);</span>
+<span class="fc" id="L216">                throw new AceException(&quot;cnonce expired&quot;);</span>
+            }
+            // seq+replay_window_size &gt; recipient_seq
+<span class="nc" id="L219">            int shift = this.cnonceSeen - counter;</span>
+<span class="nc" id="L220">            int pattern = 1 &lt;&lt; shift;</span>
+<span class="nc" id="L221">            int verifier = this.cnonceWindow &amp; pattern;</span>
+<span class="nc" id="L222">            verifier = verifier &gt;&gt; shift;</span>
+<span class="nc bnc" id="L223" title="All 2 branches missed.">            if (verifier == 1) {</span>
+<span class="nc" id="L224">                throw new AceException(&quot;cnonce replayed&quot;);</span>
+            }
+<span class="nc" id="L226">            this.cnonceWindow = this.cnonceWindow | pattern;</span>
+        }
+<span class="fc" id="L228">    }</span>
+    
+    /**
+     * Create a client-nonce to ensure freshness of access tokens, when the
+     * RS has no synchronzied clock with the AS. 
+     * 
+     * @return  a nonce
+     *
+     * @throws NoSuchAlgorithmException 
+     * @throws InvalidKeyException 
+     */
+    public byte[] createNonce() 
+            throws NoSuchAlgorithmException, InvalidKeyException {
+<span class="pc bpc" id="L241" title="1 of 2 branches missed.">        if (this.cnonceCounter == -1) {</span>
+<span class="nc" id="L242">            LOGGER.info(&quot;cnonce requested but not configured to handle them&quot;);</span>
+<span class="nc" id="L243">            return null;</span>
+        }
+<span class="pc bpc" id="L245" title="1 of 2 branches missed.">        if (this.cnonceCounter == Integer.MAX_VALUE) {</span>
+<span class="nc" id="L246">            LOGGER.info(&quot;cnonce counter wrapped&quot;);</span>
+<span class="nc" id="L247">            this.cnonceCounter = 1;</span>
+<span class="nc" id="L248">            this.cnonceSeen = 0;</span>
+<span class="nc" id="L249">            this.cnonceWindow = 0;</span>
+            //Generate a new key to invalidate the old cnonces
+<span class="nc" id="L251">            this.cnonceKey = new byte[32];</span>
+<span class="nc" id="L252">            new SecureRandom().nextBytes(this.cnonceKey);  </span>
+        } 
+
+<span class="fc" id="L255">        byte[] mac = null;</span>
+<span class="fc" id="L256">        byte[] counter = ByteBuffer.allocate(4).putInt(</span>
+<span class="fc" id="L257">                this.cnonceCounter).array();</span>
+<span class="fc" id="L258">        Mac sha256_HMAC = Mac.getInstance(&quot;HmacSHA256&quot;);</span>
+<span class="fc" id="L259">        SecretKeySpec secret_key = new SecretKeySpec(</span>
+                this.cnonceKey, &quot;HmacSHA256&quot;);
+<span class="fc" id="L261">        sha256_HMAC.init(secret_key);</span>
+<span class="fc" id="L262">        mac = sha256_HMAC.doFinal(counter);  </span>
+<span class="fc" id="L263">        byte[] nonce = new byte[mac.length + counter.length];</span>
+<span class="fc" id="L264">        System.arraycopy(mac,0, nonce, 0, mac.length);</span>
+<span class="fc" id="L265">        System.arraycopy(counter, 0, nonce , mac.length, counter.length);</span>
+<span class="fc" id="L266">        this.cnonceCounter++;       </span>
+        
+        
+<span class="fc" id="L269">        return nonce;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>
