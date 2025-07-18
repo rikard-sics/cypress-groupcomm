@@ -43,30 +43,45 @@ import static org.eclipse.californium.core.coap.CoAP.ResponseCode.REQUEST_ENTITY
 import static org.eclipse.californium.core.coap.CoAP.Type.ACK;
 import static org.eclipse.californium.core.coap.CoAP.Type.CON;
 import static org.eclipse.californium.core.coap.CoAP.Type.NON;
-import static org.eclipse.californium.core.coap.OptionNumberRegistry.OBSERVE;
+import static org.eclipse.californium.core.coap.option.StandardOptionRegistry.OBSERVE;
 import static org.eclipse.californium.core.test.MessageExchangeStoreTool.assertAllExchangesAreCompleted;
 import static org.eclipse.californium.core.test.lockstep.IntegrationTestTools.createLockstepEndpoint;
+import static org.eclipse.californium.core.test.lockstep.IntegrationTestTools.createChangedLockstepEndpoint;
 import static org.eclipse.californium.core.test.lockstep.IntegrationTestTools.generateNextToken;
 import static org.eclipse.californium.core.test.lockstep.IntegrationTestTools.printServerLog;
-import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.eclipse.californium.TestTools;
-import org.eclipse.californium.core.CoapResource;
 import org.eclipse.californium.core.CoapServer;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
-import org.eclipse.californium.core.config.CoapConfig;
+import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.coap.TestResource;
+import org.eclipse.californium.core.config.CoapConfig;
+import org.eclipse.californium.core.network.UdpMatcher;
+import org.eclipse.californium.core.network.interceptors.MessageInterceptorAdapter;
+import org.eclipse.californium.core.network.stack.BlockwiseLayer;
 import org.eclipse.californium.core.coap.Token;
+import org.eclipse.californium.core.coap.option.StandardOptionRegistry;
 import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.core.test.MessageExchangeStoreTool.CoapTestEndpoint;
+import org.eclipse.californium.elements.EndpointContext;
+import org.eclipse.californium.elements.MapBasedEndpointContext;
+import org.eclipse.californium.elements.MapBasedEndpointContext.Attributes;
+import org.eclipse.californium.elements.UDPConnector;
+import org.eclipse.californium.elements.UdpEndpointContextMatcher;
 import org.eclipse.californium.elements.assume.TimeAssume;
 import org.eclipse.californium.elements.category.Large;
 import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.elements.rule.LoggingRule;
 import org.eclipse.californium.elements.rule.TestNameLoggerRule;
 import org.eclipse.californium.elements.rule.TestTimeRule;
 import org.eclipse.californium.elements.util.TestCondition;
@@ -102,6 +117,9 @@ public class BlockwiseServerSideTest {
 	@Rule
 	public TestNameLoggerRule name = new TestNameLoggerRule();
 
+	@Rule 
+	public LoggingRule logging = new LoggingRule();
+
 	private static final int TEST_EXCHANGE_LIFETIME = 247; // milliseconds
 	private static final int TEST_SWEEP_DEDUPLICATOR_INTERVAL = 100; // milliseconds
 	private static final int TEST_PREFERRED_BLOCK_SIZE = 128; // bytes
@@ -116,7 +134,7 @@ public class BlockwiseServerSideTest {
 	private CoapTestEndpoint serverEndpoint;
 	private LockstepEndpoint client;
 	private int mid = 7000;
-	private TestResource testResource;
+	private MyTestResource testResource;
 	private String respPayload;
 	private String reqtPayload;
 	private byte[] etag;
@@ -138,8 +156,13 @@ public class BlockwiseServerSideTest {
 		etag = null;
 		expectedMid = null;
 		expectedToken = null;
-		testResource = new TestResource(RESOURCE_PATH);
+		testResource = new MyTestResource(RESOURCE_PATH);
 		testResource.setObservable(true);
+		cleanup.add(testResource);
+		setupServerAndClient();
+	}
+
+	public void setupServerAndClient() throws Exception {
 		// bind to loopback address using an ephemeral port
 		serverEndpoint = new CoapTestEndpoint(TestTools.LOCALHOST_EPHEMERAL, config);
 		serverEndpoint.addInterceptor(serverInterceptor);
@@ -383,7 +406,7 @@ public class BlockwiseServerSideTest {
 		client.expectResponse(ACK, CONTENT, tok, mid).block2(1, true, 128).payload(respPayload.substring(128, 256)).go();
 		time.addTestTimeShift((long) (TEST_BLOCKWISE_STATUS_LIFETIME * 0.75), TimeUnit.MILLISECONDS);
 
-		assertTrue(!serverEndpoint.getStack().getBlockwiseLayer().isEmpty());
+		assertTrue(!serverEndpoint.getStack().getLayer(BlockwiseLayer.class).isEmpty());
 
 		time.addTestTimeShift((long) (TEST_BLOCKWISE_STATUS_LIFETIME * 0.75), TimeUnit.MILLISECONDS);
 
@@ -391,13 +414,110 @@ public class BlockwiseServerSideTest {
 
 			@Override
 			public boolean isFulFilled() throws IllegalStateException {
-				return serverEndpoint.getStack().getBlockwiseLayer().isEmpty();
+				return serverEndpoint.getStack().getLayer(BlockwiseLayer.class).isEmpty();
 			}
 		});
 
-		assertTrue(serverEndpoint.getStack().getBlockwiseLayer().isEmpty());
+		assertTrue(serverEndpoint.getStack().getLayer(BlockwiseLayer.class).isEmpty());
 
 		serverInterceptor.logNewLine("//////// Missing last GET ////////");
+	}
+
+	@Test
+	public void testGETWithChangingEndpointContext() throws Exception {
+		respPayload = generateRandomPayload(76); // smaller than MAX MESSAGE SIZE
+		Token tok = generateNextToken();
+
+		client.sendRequest(CON, GET, tok, ++mid).path(RESOURCE_PATH).block2(0, false, 32).go();
+		client.expectResponse(ACK, CONTENT, tok, mid).block2(0, true, 32).size2(respPayload.length())
+			.payload(respPayload.substring(0, 32)).go();
+
+		client.sendRequest(CON, GET, tok, ++mid).path(RESOURCE_PATH).block2(1, false, 32).go();
+		client.expectResponse(ACK, CONTENT, tok, mid).block2(1, true, 32).payload(respPayload.substring(32, 64)).go();
+
+		serverEndpoint.addInterceptor(new MessageInterceptorAdapter() {
+
+			@Override
+			public void receiveRequest(Request request) {
+				EndpointContext originalSourceContext = request.getSourceContext();
+				Attributes breaking = new Attributes();
+				EndpointContext breakingSourceContext = MapBasedEndpointContext.setEntries(originalSourceContext, breaking);
+				request.setSourceContext(breakingSourceContext);
+			}
+
+		});
+
+		client.sendRequest(CON, GET, tok, ++mid).path(RESOURCE_PATH).block2(2, false, 32).go();
+		client.expectResponse(ACK, CONTENT, tok, mid).block2(2, false, 32).payload(respPayload.substring(64)).go();
+
+		assertThat(testResource.calls.get(), is(2));
+	}
+
+	@Test
+	public void testGETWithChangingAddress() throws Exception {
+		// smaller than MAX MESSAGE SIZE
+		respPayload = generateRandomPayload(76);
+		Token tok = generateNextToken();
+
+		client.sendRequest(CON, GET, tok, ++mid).path(RESOURCE_PATH).block2(0, false, 32).go();
+		client.expectResponse(ACK, CONTENT, tok, mid).block2(0, true, 32).size2(respPayload.length())
+			.payload(respPayload.substring(0, 32)).go();
+
+		client.sendRequest(CON, GET, tok, ++mid).path(RESOURCE_PATH).block2(1, false, 32).go();
+		client.expectResponse(ACK, CONTENT, tok, mid).block2(1, true, 32).payload(respPayload.substring(32, 64)).go();
+
+		// change address
+		client = createChangedLockstepEndpoint(client);
+		cleanup.add(client);
+
+		client.sendRequest(CON, GET, tok, ++mid).path(RESOURCE_PATH).block2(2, false, 32).go();
+		client.expectResponse(ACK, CONTENT, tok, mid).block2(2, false, 32).payload(respPayload.substring(64)).go();
+
+		// 2. GET for new address
+		assertThat(testResource.calls.get(), is(2));
+	}
+
+	@Test
+	public void testGETWithChangingAddressAndSameIdentity() throws Exception {
+
+		CoapTestEndpoint endpoint = new CoapTestEndpoint(new UDPConnector(TestTools.LOCALHOST_EPHEMERAL, config),
+				config, new UdpEndpointContextMatcher(false) {
+
+					private Object dummy = new Object();
+					public Object getEndpointIdentity(EndpointContext context) {
+						// simulate same identity
+						return dummy;
+					}
+
+				});
+		server.addEndpoint(endpoint);
+		endpoint.start();
+
+		InetSocketAddress serverAddress = endpoint.getAddress();
+		LOGGER.info("Server binds also to port {}", serverAddress.getPort());
+		client = createLockstepEndpoint(serverAddress, config);
+		cleanup.add(client);
+
+		// smaller than MAX MESSAGE SIZE
+		respPayload = generateRandomPayload(76); 
+		Token tok = generateNextToken();
+
+		client.sendRequest(CON, GET, tok, ++mid).path(RESOURCE_PATH).block2(0, false, 32).go();
+		client.expectResponse(ACK, CONTENT, tok, mid).block2(0, true, 32).size2(respPayload.length())
+				.payload(respPayload.substring(0, 32)).go();
+
+		client.sendRequest(CON, GET, tok, ++mid).path(RESOURCE_PATH).block2(1, false, 32).go();
+		client.expectResponse(ACK, CONTENT, tok, mid).block2(1, true, 32).payload(respPayload.substring(32, 64)).go();
+
+		// change address
+		client = createChangedLockstepEndpoint(client);
+		cleanup.add(client);
+
+		client.sendRequest(CON, GET, tok, ++mid).path(RESOURCE_PATH).block2(2, false, 32).go();
+		client.expectResponse(ACK, CONTENT, tok, mid).block2(2, false, 32).payload(respPayload.substring(64)).go();
+
+		// only 1 GET, identity is not changing
+		assertThat(testResource.calls.get(), is(1));
 	}
 
 	/**
@@ -434,7 +554,7 @@ public class BlockwiseServerSideTest {
 		client.expectResponse(ACK, ResponseCode.CONTINUE, tok, mid).block1(1, true, 128).go();
 		time.addTestTimeShift((long) (TEST_BLOCKWISE_STATUS_LIFETIME * 0.75), TimeUnit.MILLISECONDS);
 
-		assertTrue(!serverEndpoint.getStack().getBlockwiseLayer().isEmpty());
+		assertTrue(!serverEndpoint.getStack().getLayer(BlockwiseLayer.class).isEmpty());
 
 		time.addTestTimeShift((long) (TEST_BLOCKWISE_STATUS_LIFETIME * 0.75), TimeUnit.MILLISECONDS);
 
@@ -442,11 +562,11 @@ public class BlockwiseServerSideTest {
 
 			@Override
 			public boolean isFulFilled() throws IllegalStateException {
-				return serverEndpoint.getStack().getBlockwiseLayer().isEmpty();
+				return serverEndpoint.getStack().getLayer(BlockwiseLayer.class).isEmpty();
 			}
 		});
 
-		assertTrue(serverEndpoint.getStack().getBlockwiseLayer().isEmpty());
+		assertTrue(serverEndpoint.getStack().getLayer(BlockwiseLayer.class).isEmpty());
 		
 		serverInterceptor.logNewLine("//////// Missing last PUT ////////");
 	}
@@ -499,7 +619,7 @@ public class BlockwiseServerSideTest {
 		assume.sleep((long) (TEST_BLOCKWISE_STATUS_LIFETIME * 0.75));
 
 		// Transfer is complete : ensure BlockwiseLayer is empty.
-		assertTrue("BlockwiseLayer should be empty", serverEndpoint.getStack().getBlockwiseLayer().isEmpty());
+		assertTrue("BlockwiseLayer should be empty", serverEndpoint.getStack().getLayer(BlockwiseLayer.class).isEmpty());
 
 		// Try another BlockwiseLayer transfer from same peer, same URL, same
 		// option.
@@ -521,7 +641,7 @@ public class BlockwiseServerSideTest {
 		client.expectResponse(ACK, ResponseCode.CHANGED, tok, mid).block1(2, false, 128).go(assume);
 		assume.sleep((long) (TEST_BLOCKWISE_STATUS_LIFETIME * 0.75));
 
-		assertTrue("blockwise layer should be empty", serverEndpoint.getStack().getBlockwiseLayer().isEmpty());
+		assertTrue("blockwise layer should be empty", serverEndpoint.getStack().getLayer(BlockwiseLayer.class).isEmpty());
 	}
 
 	/**
@@ -566,6 +686,7 @@ public class BlockwiseServerSideTest {
 		expectedMid = ++mid;
 		client.sendRequest(CON, PUT, expectedToken, expectedMid).path(RESOURCE_PATH).block1(2, false, 128).payload(reqtPayload.substring(256)).go();
 		client.expectResponse(ACK, CHANGED, expectedToken, expectedMid).block1(2, false, 128).payload(respPayload).go();
+//		assertThat()
 	}
 
 	@Test
@@ -626,6 +747,9 @@ public class BlockwiseServerSideTest {
 
 		client.sendRequest(CON, PUT, tok, ++mid).path(RESOURCE_PATH).block1(0, true, 128).size1(reqtPayload.length()).payload(reqtPayload, 0, 128).go();
 		client.expectResponse(ACK, REQUEST_ENTITY_TOO_LARGE, tok, mid).size1(MAX_RESOURCE_BODY_SIZE).go();
+		Response response = serverInterceptor.getLastSentResponse();
+		assertThat(response, is(notNullValue()));
+		assertThat(response.isInternal(), is(true));
 	}
 
 	/**
@@ -644,6 +768,45 @@ public class BlockwiseServerSideTest {
 		// now send last block without having sent middle block altogether
 		client.sendRequest(CON, PUT, tok, ++mid).path(RESOURCE_PATH).block1(2, false, 128).payload(reqtPayload, 256, 300).go();
 		client.expectResponse(ACK, REQUEST_ENTITY_INCOMPLETE, tok, mid).go();
+		Response response = serverInterceptor.getLastSentResponse();
+		assertThat(response, is(notNullValue()));
+		assertThat(response.isInternal(), is(true));
+	}
+
+	/**
+	 * Verifies that a block1 transfer fails with a RST, if the follow-up request 
+	 * has no matching endpoint context.
+	 * 
+	 * @throws Exception if the test fails.
+	 */
+	@Test
+	public void testPUTFailsWithChangingEndpointContext() throws Exception {
+		Token tok = generateNextToken();
+		reqtPayload = generateRandomPayload(300);
+
+		client.sendRequest(CON, PUT, tok, ++mid).path(RESOURCE_PATH).block1(0, true, 128).size1(reqtPayload.length())
+				.payload(reqtPayload, 0, 128).go();
+		client.expectResponse(ACK, CONTINUE, tok, mid).block1(0, true, 128).go();
+
+		logging.setLoggingLevel("ERROR", UdpMatcher.class);
+
+		serverEndpoint.addInterceptor(new MessageInterceptorAdapter() {
+
+			@Override
+			public void receiveRequest(Request request) {
+				EndpointContext originalSourceContext = request.getSourceContext();
+				Attributes breaking = new Attributes();
+				EndpointContext breakingSourceContext = MapBasedEndpointContext.setEntries(originalSourceContext, breaking);
+				request.setSourceContext(breakingSourceContext);
+			}
+
+		});
+		client.sendRequest(CON, PUT, tok, ++mid).path(RESOURCE_PATH).block1(1, true, 128).payload(reqtPayload, 128, 256)
+				.go();
+		client.expectResponse(ACK, REQUEST_ENTITY_INCOMPLETE, tok, mid).go();
+		Response response = serverInterceptor.getLastSentResponse();
+		assertThat(response, is(notNullValue()));
+		assertThat(response.isInternal(), is(true));
 	}
 
 	/**
@@ -855,7 +1018,27 @@ public class BlockwiseServerSideTest {
 		Token tok = generateNextToken();
 
 		client.sendRequest(CON, PUT, tok, ++mid).path(RESOURCE_PATH).block1(2, true, 64).payload(reqtPayload.substring(2*64, 3*64)).go();
+		client.expectResponse(ACK, REQUEST_ENTITY_INCOMPLETE, tok, mid).noOption(StandardOptionRegistry.BLOCK1).go();
+		Response response = serverInterceptor.getLastSentResponse();
+		assertThat(response, is(notNullValue()));
+		assertThat(response.isInternal(), is(true));
+	}
+
+	@Test
+	public void testRandomAccessPUTAttempStrict() throws Exception {
+		respPayload = generateRandomPayload(50);
+		reqtPayload = generateRandomPayload(300);
+		Token tok = generateNextToken();
+		server.destroy();
+		client.destroy();
+		config.set(CoapConfig.BLOCKWISE_STRICT_BLOCK1_OPTION, true);
+		setupServerAndClient();
+
+		client.sendRequest(CON, PUT, tok, ++mid).path(RESOURCE_PATH).block1(2, true, 64).payload(reqtPayload.substring(2*64, 3*64)).go();
 		client.expectResponse(ACK, REQUEST_ENTITY_INCOMPLETE, tok, mid).block1(2, true, 64).go();
+		Response response = serverInterceptor.getLastSentResponse();
+		assertThat(response, is(notNullValue()));
+		assertThat(response.isInternal(), is(true));
 	}
 
 	@Test
@@ -868,6 +1051,8 @@ public class BlockwiseServerSideTest {
 
 		client.sendRequest(CON, GET, tok, ++mid).path(RESOURCE_PATH).block2(4, true, 64).go();
 		client.expectResponse(ACK, CONTENT, tok, mid).block2(4, false, 64).payload(respPayload.substring(4*64, 300)).go();
+
+		assertThat(testResource.calls.get(), is(2));
 	}
 
 	@Test
@@ -979,16 +1164,16 @@ public class BlockwiseServerSideTest {
 	}
 
 	// All tests are made with this resource
-	private class TestResource extends CoapResource {
+	private class MyTestResource extends TestResource {
 
-		public TestResource(String name) { 
+		public AtomicInteger calls = new AtomicInteger();
+
+		public MyTestResource(String name) {
 			super(name);
 		}
 
 		public void handleGET(final CoapExchange exchange) {
-			Response resp = Response.createResponse(exchange.advanced().getRequest(), ResponseCode.CONTENT);
-			resp.setPayload(respPayload);
-			respond(exchange, resp);
+			respond(exchange, ResponseCode.CONTENT, respPayload);
 		}
 
 		public void handlePUT(final CoapExchange exchange) {
@@ -999,23 +1184,23 @@ public class BlockwiseServerSideTest {
 			if (expectedToken != null) {
 				assertThat("request did not contain expected token", exchange.advanced().getRequest().getToken(), is(expectedToken));
 			}
-			Response resp = Response.createResponse(exchange.advanced().getRequest(), ResponseCode.CHANGED);
-			resp.setPayload(respPayload);
-			respond(exchange, resp);
+			assertThat("request did not provide the receive time", exchange.advanced().getRequest().getNanoTimestamp(), is(not(0L)));
+			respond(exchange, ResponseCode.CHANGED, respPayload);
 		}
 
 		public void handlePOST(final CoapExchange exchange) {
 			assertThat("server did not receive expected request payload", exchange.getRequestText(), is(reqtPayload));
-			Response resp = Response.createResponse(exchange.advanced().getRequest(), ResponseCode.CHANGED);
-			resp.setPayload(respPayload);
-			respond(exchange, resp);
+			assertThat("request did not provide the receive time", exchange.advanced().getRequest().getNanoTimestamp(), is(not(0L)));
+			respond(exchange, ResponseCode.CHANGED, respPayload);
 		}
 
-		private void respond (final CoapExchange exchange, final Response response) {
+		private void respond (final CoapExchange exchange, final ResponseCode code, final String payload) {
+			calls.incrementAndGet();
+			
 			if (etag != null) {
-				response.getOptions().addETag(etag);
+				exchange.setETag(etag);
 			}
-			exchange.respond(response);
+			exchange.respond(code, payload);
 		}
 	}
 }

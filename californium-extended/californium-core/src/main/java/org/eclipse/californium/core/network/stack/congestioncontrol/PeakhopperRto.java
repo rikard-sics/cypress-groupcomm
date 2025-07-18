@@ -17,21 +17,25 @@
 
 package org.eclipse.californium.core.network.stack.congestioncontrol;
 
-import java.net.InetSocketAddress;
-
 import org.eclipse.californium.core.network.stack.CongestionControlLayer;
 import org.eclipse.californium.core.network.stack.RemoteEndpoint;
 import org.eclipse.californium.elements.config.Configuration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class PeakhopperRto extends CongestionControlLayer {
+	/**
+	 * @since 3.10
+	 */
+	private static final Logger LOG = LoggerFactory.getLogger(PeakhopperRto.class);
 
 	public PeakhopperRto(String tag, Configuration config) {
 		super(tag, config);
 	}
 
 	@Override
-	protected RemoteEndpoint createRemoteEndpoint(InetSocketAddress remoteSocketAddress) {
-		return new PeakhopperRemoteEndoint(remoteSocketAddress, defaultReliabilityLayerParameters.getAckTimeout(),
+	protected RemoteEndpoint createRemoteEndpoint(Object peersIdentity) {
+		return new PeakhopperRemoteEndoint(peersIdentity, defaultReliabilityLayerParameters.getAckTimeout(),
 				defaultReliabilityLayerParameters.getNstart());
 	}
 
@@ -50,8 +54,8 @@ public class PeakhopperRto extends CongestionControlLayer {
 		private long[] RTT_sample = new long[RTT_HISTORY_SIZE];
 		private int currentRtt;
 
-		private PeakhopperRemoteEndoint(InetSocketAddress remoteAddress, int ackTimeout, int nstart) {
-			super(remoteAddress, ackTimeout, nstart, true);
+		private PeakhopperRemoteEndoint(Object peersIdentity, int ackTimeout, int nstart) {
+			super(peersIdentity, ackTimeout, nstart, true);
 		}
 
 		private void initializeRTOEstimators(long measuredRTT) {
@@ -117,7 +121,7 @@ public class PeakhopperRto extends CongestionControlLayer {
 		}
 
 		private void printPeakhopperStats() {
-			LOGGER.trace("Delta: {}, D: {}, B: {}, RTT_max: {}", delta, D_value, B_value, RTT_max);
+			LOG.trace("Delta: {}, D: {}, B: {}, RTT_max: {}", delta, D_value, B_value, RTT_max);
 		}
 	}
 }

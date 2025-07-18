@@ -51,6 +51,7 @@ import org.eclipse.californium.oscore.OSCoreCtx;
 
 import se.sics.ace.COSEparams;
 import se.sics.ace.Constants;
+import se.sics.ace.GroupcommParameters;
 import se.sics.ace.as.AccessTokenFactory;
 import se.sics.ace.coap.as.CoapDBConnector;
 import se.sics.ace.coap.as.OscoreAS;
@@ -106,6 +107,7 @@ public class OscoreAsServer {
 	private static Map<String, String> myIdentities = new HashMap<>();
 
 	static int port = CoAP.DEFAULT_COAP_PORT - 100;
+
 
 	/**
 	 * An OSCORE AS.
@@ -174,18 +176,123 @@ public class OscoreAsServer {
 		scopes.add("rw_valve");
 		scopes.add("r_pressure");
 		scopes.add("foobar");
+
 		// Group OSCORE scopes
-		scopes.add("aaaaaa570000_requester");
-		scopes.add("aaaaaa570000_responder");
-		scopes.add("aaaaaa570000_monitor");
-		scopes.add("aaaaaa570000_requester_responder");
-		scopes.add("aaaaaa570000_requester_monitor");
-		scopes.add("bbbbbb570000_requester");
-		scopes.add("bbbbbb570000_responder");
-		scopes.add("bbbbbb570000_monitor");
-		scopes.add("bbbbbb570000_requester_responder");
-		scopes.add("bbbbbb570000_requester_monitor");
+		String groupName1 = "aaaaaa570000";
+		String groupName2 = "bbbbbb570000";
+
+		scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName1.length() + ":"
+				+ groupName1 + "_requester");
+		scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName1.length() + ":"
+				+ groupName1 + "_responder");
+		scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName1.length() + ":"
+				+ groupName1 + "_monitor");
+		scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName1.length() + ":"
+				+ groupName1 + "_requester_responder");
+		scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName1.length() + ":"
+				+ groupName1 + "_requester_monitor");
+
+		scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName2.length() + ":"
+				+ groupName2 + "_requester");
+		scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName2.length() + ":"
+				+ groupName2 + "_responder");
+		scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName2.length() + ":"
+				+ groupName2 + "_monitor");
+		scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName2.length() + ":"
+				+ groupName2 + "_requester_responder");
+		scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName2.length() + ":"
+				+ groupName2 + "_requester_monitor");
+
+		// Add identifiers of scope for admin scope entries
+
+		String complexPattern = "^[A-Z][0-9][-a-z0-9]*$";
+		String[] prefixes = { GroupcommParameters.GROUP_OSCORE_AS_SCOPE_WILDCARD_PREFIX + ":",
+				GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName1.length() + ":" + groupName1
+						+ "_",
+				GroupcommParameters.GROUP_OSCORE_AS_SCOPE_COMPLEX_PREFIX + ":" + "21065" + ":" + complexPattern.length()
+						+ ":" + complexPattern + "_" };
+		String[] permissions = GroupcommParameters.GROUP_OSCORE_ADMIN_PERMISSIONS;
+
+		// One permission
+		for (int i = 0; i < prefixes.length; i++) {
+			scopes.add(prefixes[i] + permissions[0]);
+		}
+		// Two permissions
+		for (int i = 0; i < prefixes.length; i++) {
+			scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1]);
+			scopes.add(prefixes[i] + permissions[0] + "_" + permissions[2]);
+			scopes.add(prefixes[i] + permissions[0] + "_" + permissions[3]);
+			scopes.add(prefixes[i] + permissions[0] + "_" + permissions[4]);
+		}
+		// Three permissions
+		for (int i = 0; i < prefixes.length; i++) {
+			scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[2]);
+			scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[3]);
+			scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[4]);
+			scopes.add(prefixes[i] + permissions[0] + "_" + permissions[2] + "_" + permissions[3]);
+			scopes.add(prefixes[i] + permissions[0] + "_" + permissions[2] + "_" + permissions[4]);
+			scopes.add(prefixes[i] + permissions[0] + "_" + permissions[3] + "_" + permissions[4]);
+		}
+		// Four permissions
+		for (int i = 0; i < prefixes.length; i++) {
+			scopes.add(
+					prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[2] + "_" + permissions[3]);
+			scopes.add(
+					prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[2] + "_" + permissions[4]);
+			scopes.add(
+					prefixes[i] + permissions[0] + "_" + permissions[2] + "_" + permissions[3] + "_" + permissions[4]);
+		}
+		// Five permissions
+		for (int i = 0; i < prefixes.length; i++) {
+			scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[2] + "_" + permissions[3]
+					+ "_" + permissions[4]);
+		}
+
+		//
+
+		String[] prefixes2 = { GroupcommParameters.GROUP_OSCORE_AS_SCOPE_WILDCARD_PREFIX + ":",
+				GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName2.length() + ":" + groupName2
+						+ "_",
+				GroupcommParameters.GROUP_OSCORE_AS_SCOPE_COMPLEX_PREFIX + ":" + "21065" + ":" + complexPattern.length()
+						+ ":" + complexPattern + "_" };
+
+		// One permission
+		for (int i = 0; i < prefixes2.length; i++) {
+			scopes.add(prefixes2[i] + permissions[0]);
+		}
+		// Two permissions
+		for (int i = 0; i < prefixes2.length; i++) {
+			scopes.add(prefixes2[i] + permissions[0] + "_" + permissions[1]);
+			scopes.add(prefixes2[i] + permissions[0] + "_" + permissions[2]);
+			scopes.add(prefixes2[i] + permissions[0] + "_" + permissions[3]);
+			scopes.add(prefixes2[i] + permissions[0] + "_" + permissions[4]);
+		}
+		// Three permissions
+		for (int i = 0; i < prefixes2.length; i++) {
+			scopes.add(prefixes2[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[2]);
+			scopes.add(prefixes2[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[3]);
+			scopes.add(prefixes2[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[4]);
+			scopes.add(prefixes2[i] + permissions[0] + "_" + permissions[2] + "_" + permissions[3]);
+			scopes.add(prefixes2[i] + permissions[0] + "_" + permissions[2] + "_" + permissions[4]);
+			scopes.add(prefixes2[i] + permissions[0] + "_" + permissions[3] + "_" + permissions[4]);
+		}
+		// Four permissions
+		for (int i = 0; i < prefixes2.length; i++) {
+			scopes.add(
+					prefixes2[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[2] + "_" + permissions[3]);
+			scopes.add(
+					prefixes2[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[2] + "_" + permissions[4]);
+			scopes.add(
+					prefixes2[i] + permissions[0] + "_" + permissions[2] + "_" + permissions[3] + "_" + permissions[4]);
+		}
+		// Five permissions
+		for (int i = 0; i < prefixes2.length; i++) {
+			scopes.add(prefixes2[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[2] + "_"
+					+ permissions[3] + "_" + permissions[4]);
+		}
+
 		// End Group OSCORE scopes
+
 		Set<String> auds = new HashSet<>();
 		auds.add("rs2");
 		Set<String> keyTypes = new HashSet<>();
@@ -354,6 +461,22 @@ public class OscoreAsServer {
 		peerIdentitiesToNames.put(peerIdentity, "Adversary");
 		myIdentities.put("Adversary", myIdentity);
 
+		// Add an further client "admin1" as an Administrator of OSCORE groups
+		myKey = CBORObject.NewMap();
+		myKey.Add(KeyKeys.KeyType.AsCBOR(), KeyKeys.KeyType_Octet);
+		myKey.Add(KeyKeys.Octet_K.AsCBOR(), CBORObject.FromObject(KeyStorage.memberAsKeys.get("admin1")));
+		myPsk = new OneKey(myKey);
+
+		profiles.clear();
+		profiles.add("coap_oscore");
+		keyTypes.clear();
+		keyTypes.add("PSK");
+		db.addClient("admin1", profiles, null, null, keyTypes, myPsk, null);
+		peerIdentity = buildOscoreIdentity(KeyStorage.aceSenderIds.get("admin1"), idContext);
+		peerNamesToIdentities.put("admin1", peerIdentity);
+		peerIdentitiesToNames.put(peerIdentity, "admin1");
+		myIdentities.put("admin1", myIdentity);
+
 		/* --- End configure clients and servers --- */
 
 		KissTime time = new KissTime();
@@ -438,59 +561,75 @@ public class OscoreAsServer {
 		pdp.addTokenAccess("Server6");
 		pdp.addTokenAccess("Adversary");
 
+		// Add also client "admin1" as an Administrator of OSCORE groups.
+		pdp.addTokenAccess("admin1");
+
 		// Group A
 
-		pdp.addAccess("Client1", "rs2", "aaaaaa570000_requester_monitor");
-		pdp.addAccess("Client1", "rs2", "aaaaaa570000_requester_responder");
+		pdp.addAccess("Client1", "rs2", GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":"
+				+ groupName1.length() + ":" + groupName1 + "_requester_monitor_responder");
 
-		pdp.addAccess("Client2", "rs2", "aaaaaa570000_requester_monitor");
-		pdp.addAccess("Client2", "rs2", "aaaaaa570000_requester_responder");
+		pdp.addAccess("Client2", "rs2", GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":"
+				+ groupName1.length() + ":" + groupName1 + "_requester_monitor_responder");
 
-		pdp.addAccess("Server1", "rs2", "aaaaaa570000_requester_monitor");
-		pdp.addAccess("Server1", "rs2", "aaaaaa570000_requester_responder");
+		pdp.addAccess("Server1", "rs2", GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":"
+				+ groupName1.length() + ":" + groupName1 + "_requester_monitor_responder");
 
-		pdp.addAccess("Server2", "rs2", "aaaaaa570000_requester_monitor");
-		pdp.addAccess("Server2", "rs2", "aaaaaa570000_requester_responder");
+		pdp.addAccess("Server2", "rs2", GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":"
+				+ groupName1.length() + ":" + groupName1 + "_requester_monitor_responder");
 
-		pdp.addAccess("Server3", "rs2", "aaaaaa570000_requester_monitor");
-		pdp.addAccess("Server3", "rs2", "aaaaaa570000_requester_responder");
+		pdp.addAccess("Server3", "rs2", GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":"
+				+ groupName1.length() + ":" + groupName1 + "_requester_monitor_responder");
 
-		pdp.addAccess("Server4", "rs2", "aaaaaa570000_requester_monitor");
-		pdp.addAccess("Server4", "rs2", "aaaaaa570000_requester_responder");
+		pdp.addAccess("Server4", "rs2", GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":"
+				+ groupName1.length() + ":" + groupName1 + "_requester_monitor_responder");
 
-		pdp.addAccess("Server5", "rs2", "aaaaaa570000_requester_monitor");
-		pdp.addAccess("Server5", "rs2", "aaaaaa570000_requester_responder");
+		pdp.addAccess("Server5", "rs2", GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":"
+				+ groupName1.length() + ":" + groupName1 + "_requester_monitor_responder");
 
-		pdp.addAccess("Server6", "rs2", "aaaaaa570000_requester_monitor");
-		pdp.addAccess("Server6", "rs2", "aaaaaa570000_requester_responder");
+		pdp.addAccess("Server6", "rs2", GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":"
+				+ groupName1.length() + ":" + groupName1 + "_requester_monitor_responder");
 
 		// Group B
 
-		pdp.addAccess("Client1", "rs2", "bbbbbb570000_requester_monitor");
-		pdp.addAccess("Client1", "rs2", "bbbbbb570000_requester_responder");
+		pdp.addAccess("Client1", "rs2", GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":"
+				+ groupName2.length() + ":" + groupName2 + "_requester_monitor_responder");
 
-		pdp.addAccess("Client2", "rs2", "bbbbbb570000_requester_monitor");
-		pdp.addAccess("Client2", "rs2", "bbbbbb570000_requester_responder");
+		pdp.addAccess("Client2", "rs2", GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":"
+				+ groupName2.length() + ":" + groupName2 + "_requester_monitor_responder");
 
-		pdp.addAccess("Server1", "rs2", "bbbbbb570000_requester_monitor");
-		pdp.addAccess("Server1", "rs2", "bbbbbb570000_requester_responder");
+		pdp.addAccess("Server1", "rs2", GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":"
+				+ groupName2.length() + ":" + groupName2 + "_requester_monitor_responder");
 
-		pdp.addAccess("Server2", "rs2", "bbbbbb570000_requester_monitor");
-		pdp.addAccess("Server2", "rs2", "bbbbbb570000_requester_responder");
+		pdp.addAccess("Server2", "rs2", GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":"
+				+ groupName2.length() + ":" + groupName2 + "_requester_monitor_responder");
 
-		pdp.addAccess("Server3", "rs2", "bbbbbb570000_requester_monitor");
-		pdp.addAccess("Server3", "rs2", "bbbbbb570000_requester_responder");
+		pdp.addAccess("Server3", "rs2", GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":"
+				+ groupName2.length() + ":" + groupName2 + "_requester_monitor_responder");
 
-		pdp.addAccess("Server4", "rs2", "bbbbbb570000_requester_monitor");
-		pdp.addAccess("Server4", "rs2", "bbbbbb570000_requester_responder");
+		pdp.addAccess("Server4", "rs2", GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":"
+				+ groupName2.length() + ":" + groupName2 + "_requester_monitor_responder");
 
-		pdp.addAccess("Server5", "rs2", "bbbbbb570000_requester_monitor");
-		pdp.addAccess("Server5", "rs2", "bbbbbb570000_requester_responder");
+		pdp.addAccess("Server5", "rs2", GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":"
+				+ groupName2.length() + ":" + groupName2 + "_requester_monitor_responder");
 
-		pdp.addAccess("Server6", "rs2", "bbbbbb570000_requester_monitor");
-		pdp.addAccess("Server6", "rs2", "bbbbbb570000_requester_responder");
+		pdp.addAccess("Server6", "rs2", GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":"
+				+ groupName2.length() + ":" + groupName2 + "_requester_monitor_responder");
 
-		pdp.addAccess("Adversary", "rs2", "bbbbbb570000_requester");
+		pdp.addAccess("Adversary", "rs2", GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":"
+				+ groupName2.length() + ":" + groupName2 + "_requester");
+
+		// Admin
+
+		// Specify admin permissions for client "admin1" as an Administrator of
+		// the OSCORE groups. This Administrator is allowed to perform all the
+		// possible operations on these particular groups.
+		pdp.addAccess("admin1", "rs2", GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":"
+				+ groupName1.length() + ":" + groupName1 + "_list_create_read_write_delete");
+		pdp.addAccess("admin1", "rs2", GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":"
+				+ groupName2.length() + ":" + groupName2 + "_list_create_read_write_delete");
+		pdp.addAccess("admin1", "rs2", GroupcommParameters.GROUP_OSCORE_AS_SCOPE_COMPLEX_PREFIX + ":" + "21065" + ":"
+				+ complexPattern.length() + ":" + complexPattern + "_list_create_read_write_delete");
 
 		/* --- End configure clients and servers --- */
 

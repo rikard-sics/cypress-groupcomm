@@ -15,18 +15,13 @@
  ******************************************************************************/
 package org.eclipse.californium.core.coap;
 
-import static org.eclipse.californium.core.coap.CoAP.MessageFormat.CODE_BITS;
-import static org.eclipse.californium.core.coap.CoAP.MessageFormat.MESSAGE_ID_BITS;
-import static org.eclipse.californium.core.coap.CoAP.MessageFormat.TOKEN_LENGTH_BITS;
-import static org.eclipse.californium.core.coap.CoAP.MessageFormat.TYPE_BITS;
-import static org.eclipse.californium.core.coap.CoAP.MessageFormat.VERSION;
-import static org.eclipse.californium.core.coap.CoAP.MessageFormat.VERSION_BITS;
-
 import java.util.Arrays;
 
+import org.eclipse.californium.core.coap.option.OptionDefinition;
 import org.eclipse.californium.core.network.serialization.DataSerializer;
-import org.eclipse.californium.core.network.serialization.MessageHeader;
+import org.eclipse.californium.core.network.serialization.UdpDataSerializer;
 import org.eclipse.californium.elements.util.DatagramWriter;
+import org.eclipse.californium.elements.util.StringUtil;
 
 /**
  * A utility to test malicious options.
@@ -38,42 +33,40 @@ public final class TestOption {
 	/**
 	 * Create option with unchecked value.
 	 * 
-	 * @param number option number
+	 * @param definition option definition.
 	 * @param length value length
 	 * @return created option
+	 * @since 3.8
 	 */
-	public static Option newOption(int number, int length) {
-		byte[] value = new byte[length];
+	public static Option newOption(OptionDefinition definition, int length) {
+		final byte[] value = new byte[length];
 		Arrays.fill(value, (byte) 'p');
-		return new Option(number).setValueUnchecked(value);
+		return new Option(definition) {
+
+			@Override
+			public int getLength() {
+				return value.length;
+			}
+
+			@Override
+			public void writeTo(DatagramWriter writer) {
+				writer.writeBytes(value);
+			}
+
+			@Override
+			public String toValueString() {
+				return "0x" + StringUtil.byteArray2Hex(value);
+			}
+			
+		};
 	}
 
 	/**
 	 * Test {@link DataSerializer} to serialize malformed messages for tests.
 	 */
-	public static class TestDataSerializer extends DataSerializer {
-
-		protected void serializeMessage(DatagramWriter writer, Message message) {
-			int mid = message.getMID();
-			if (mid == Message.NONE) {
-				IllegalArgumentException ex = new IllegalArgumentException("MID required for UDP serialization!");
-				throw ex;
-			}
-			MessageHeader header = new MessageHeader(CoAP.VERSION, message.getType(), message.getToken(),
-					message.getRawCode(), mid, -1);
-			serializeHeader(writer, header);
-			writer.writeCurrentByte();
-			serializeOptionsAndPayload(writer, message.getOptions(), message.getPayload());
-		}
-
-		@Override 
-		protected void serializeHeader(final DatagramWriter writer, final MessageHeader header) {
-			writer.write(VERSION, VERSION_BITS);
-			writer.write(header.getType().value, TYPE_BITS);
-			writer.write(header.getToken().length(), TOKEN_LENGTH_BITS);
-			writer.write(header.getCode(), CODE_BITS);
-			writer.write(header.getMID(), MESSAGE_ID_BITS);
-			writer.writeBytes(header.getToken().getBytes());
+	public static class TestDataSerializer extends UdpDataSerializer {
+		@Override
+		protected void assertValidOptions(Message message) {
 		}
 	}
 }

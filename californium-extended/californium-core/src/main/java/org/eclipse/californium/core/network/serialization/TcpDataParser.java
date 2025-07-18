@@ -23,19 +23,45 @@
  ******************************************************************************/
 package org.eclipse.californium.core.network.serialization;
 
+import static org.eclipse.californium.core.coap.CoAP.MessageFormat.CODE_BITS;
+import static org.eclipse.californium.core.coap.CoAP.MessageFormat.LENGTH_NIBBLE_BITS;
+import static org.eclipse.californium.core.coap.CoAP.MessageFormat.TOKEN_LENGTH_BITS;
+
 import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.Message;
 import org.eclipse.californium.core.coap.MessageFormatException;
 import org.eclipse.californium.core.coap.Token;
+import org.eclipse.californium.core.coap.option.OptionRegistry;
+import org.eclipse.californium.core.coap.option.StandardOptionRegistry;
 import org.eclipse.californium.elements.util.DatagramReader;
-
-import static org.eclipse.californium.core.coap.CoAP.MessageFormat.*;
 
 /**
  * A parser for messages encoded following the encoding defined by the
- * <a href="https://tools.ietf.org/html/draft-ietf-core-coap-tcp-tls-03" target="_blank">CoAP-over-TCP draft</a>.
+ * <a href="https://tools.ietf.org/html/draft-ietf-core-coap-tcp-tls-03" target=
+ * "_blank">CoAP-over-TCP draft</a>.
  */
-public final class TcpDataParser extends DataParser {
+public class TcpDataParser extends DataParser {
+
+	/**
+	 * Create TCP data parser.
+	 * 
+	 * @since 3.8 Use {@link StandardOptionRegistry#getDefaultOptionRegistry()}
+	 *        as default option registry.
+	 */
+	public TcpDataParser() {
+		super();
+	}
+
+	/**
+	 * Create TCP data parser with provided option registry.
+	 * 
+	 * @param optionRegistry option registry. {@code null} to use
+	 *            {@link StandardOptionRegistry#getDefaultOptionRegistry()}
+	 * @since 3.8
+	 */
+	public TcpDataParser(OptionRegistry optionRegistry) {
+		super(optionRegistry);
+	}
 
 	@Override
 	protected MessageHeader parseHeader(final DatagramReader reader) {
@@ -61,8 +87,8 @@ public final class TcpDataParser extends DataParser {
 		}
 		int size = lengthSize + 1 + tokenLength;
 		if (!reader.bytesAvailable(size)) {
-			throw new MessageFormatException(
-					"TCP Message too short! " + (reader.bitsLeft() / Byte.SIZE) + " must be at least " + size + " bytes!");
+			throw new MessageFormatException("TCP Message too short! " + (reader.bitsLeft() / Byte.SIZE)
+					+ " must be at least " + size + " bytes!");
 		}
 		reader.readBytes(lengthSize);
 		int code = reader.read(CODE_BITS);

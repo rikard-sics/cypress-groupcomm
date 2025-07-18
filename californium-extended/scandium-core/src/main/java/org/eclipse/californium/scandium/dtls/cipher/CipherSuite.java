@@ -48,18 +48,25 @@ import org.slf4j.LoggerFactory;
 import org.eclipse.californium.elements.util.Asn1DerDecoder;
 import org.eclipse.californium.elements.util.DatagramReader;
 import org.eclipse.californium.elements.util.DatagramWriter;
+import org.eclipse.californium.scandium.config.DtlsConfig.DtlsSecureRenegotiation;
 import org.eclipse.californium.scandium.util.ListUtils;
 
 
 /**
  * A cipher suite defines a key exchange algorithm, a bulk cipher algorithm, a
  * MAC algorithm, a pseudo random number (PRF) algorithm and a cipher type.
- * 
+ * <p>
+ * <b>Note:</b> {@code ordinal()} must not be used!
+ * The order of the cipher-suites reflects the intended default precedence.
+ * Extensions may therefore change the related {@code ordinal()} value.
+ * </p>
+ * <p>
  * See <a href="https://tools.ietf.org/html/rfc5246#appendix-A.6" target="_blank">RFC 5246</a>
  * for details.
  * See <a href="https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml" target="_blank">
  * Transport Layer Security Parameters</a> for the official codes for the cipher
  * suites.
+ * </p>
  */
 public enum CipherSuite {
 
@@ -94,42 +101,149 @@ public enum CipherSuite {
 	/**See <a href="https://tools.ietf.org/html/rfc8442#section-3" target="_blank">RFC 8442</a> for details*/
 	/**Note: compatibility not tested! openssl 1.1.1 seems not supporting them */
 	TLS_ECDHE_PSK_WITH_AES_128_GCM_SHA256(0xD001, CertificateKeyAlgorithm.NONE, KeyExchangeAlgorithm.ECDHE_PSK, CipherSpec.AES_128_GCM, true),
-	TLS_ECDHE_PSK_WITH_AES_256_GCM_SHA378(0xD002, CertificateKeyAlgorithm.NONE, KeyExchangeAlgorithm.ECDHE_PSK, CipherSpec.AES_256_GCM, true, PRFAlgorithm.TLS_PRF_SHA384),
+	/**
+	 * Wrong cipher suite name! Must be SHA384! Will be changed with the next major version.
+	 */
+	TLS_ECDHE_PSK_WITH_AES_256_GCM_SHA384(0xD002, CertificateKeyAlgorithm.NONE, KeyExchangeAlgorithm.ECDHE_PSK, CipherSpec.AES_256_GCM, true, PRFAlgorithm.TLS_PRF_SHA384),
 	TLS_ECDHE_PSK_WITH_AES_128_CCM_8_SHA256(0xD003, CertificateKeyAlgorithm.NONE, KeyExchangeAlgorithm.ECDHE_PSK, CipherSpec.AES_128_CCM_8, true),
 	TLS_ECDHE_PSK_WITH_AES_128_CCM_SHA256(0xD005, CertificateKeyAlgorithm.NONE, KeyExchangeAlgorithm.ECDHE_PSK, CipherSpec.AES_128_CCM, true),
 
 	TLS_PSK_WITH_AES_128_GCM_SHA256(0x00A8, CertificateKeyAlgorithm.NONE, KeyExchangeAlgorithm.PSK, CipherSpec.AES_128_GCM, true),
-	TLS_PSK_WITH_AES_256_GCM_SHA378(0x00A9, CertificateKeyAlgorithm.NONE, KeyExchangeAlgorithm.PSK, CipherSpec.AES_256_GCM, true, PRFAlgorithm.TLS_PRF_SHA384),
+	/**
+	 * Wrong cipher suite name! Must be SHA384!
+	 */
+	TLS_PSK_WITH_AES_256_GCM_SHA384(0x00A9, CertificateKeyAlgorithm.NONE, KeyExchangeAlgorithm.PSK, CipherSpec.AES_256_GCM, true, PRFAlgorithm.TLS_PRF_SHA384),
 	TLS_PSK_WITH_AES_128_CCM_8(0xC0A8, CertificateKeyAlgorithm.NONE, KeyExchangeAlgorithm.PSK, CipherSpec.AES_128_CCM_8, true),
 	TLS_PSK_WITH_AES_256_CCM_8(0xC0A9, CertificateKeyAlgorithm.NONE, KeyExchangeAlgorithm.PSK, CipherSpec.AES_256_CCM_8, true),
 	TLS_PSK_WITH_AES_128_CCM(0xC0A4, CertificateKeyAlgorithm.NONE, KeyExchangeAlgorithm.PSK, CipherSpec.AES_128_CCM, true),
 	TLS_PSK_WITH_AES_256_CCM(0xC0A5, CertificateKeyAlgorithm.NONE, KeyExchangeAlgorithm.PSK, CipherSpec.AES_256_CCM, true),
 
+	/**
+	 * See <a href="https://www.rfc-editor.org/rfc/rfc6209#section-2.3" target=
+	 * "_blank">RFC 6209 - PSK</a> for details.
+	 * 
+	 * @since 3.9.0
+	 */
+	TLS_PSK_WITH_ARIA_128_GCM_SHA256(0xC06A, CertificateKeyAlgorithm.NONE, KeyExchangeAlgorithm.PSK,
+			CipherSpec.ARIA_128_GCM, true),
+	/**
+	 * See <a href="https://www.rfc-editor.org/rfc/rfc6209#section-2.3" target=
+	 * "_blank">RFC 6209 - PSK</a> for details.
+	 * 
+	 * @since 3.9.0
+	 */
+	TLS_PSK_WITH_ARIA_256_GCM_SHA384(0xC06B, CertificateKeyAlgorithm.NONE, KeyExchangeAlgorithm.PSK,
+			CipherSpec.ARIA_256_GCM, true, PRFAlgorithm.TLS_PRF_SHA384),
+
 	/**See <a href="https://tools.ietf.org/html/rfc5489#section-3.2" target="_blank">RFC 5489</a> for details*/
 	TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA256(0xC037, CertificateKeyAlgorithm.NONE, KeyExchangeAlgorithm.ECDHE_PSK, CipherSpec.AES_128_CBC, MACAlgorithm.HMAC_SHA256, false),
 	TLS_PSK_WITH_AES_128_CBC_SHA256(0x00AE, CertificateKeyAlgorithm.NONE, KeyExchangeAlgorithm.PSK, CipherSpec.AES_128_CBC, MACAlgorithm.HMAC_SHA256, false),
 
+	/**
+	 * See <a href="https://www.rfc-editor.org/rfc/rfc6209#section-2.3" target=
+	 * "_blank">RFC 6209 - PSK</a> for details.
+	 * 
+	 * @since 3.9.0
+	 */
+	TLS_ECDHE_PSK_WITH_ARIA_128_CBC_SHA256(0xC06C, CertificateKeyAlgorithm.NONE, KeyExchangeAlgorithm.ECDHE_PSK, CipherSpec.ARIA_128_CBC, MACAlgorithm.HMAC_SHA256, false),
+	/**
+	 * See <a href="https://www.rfc-editor.org/rfc/rfc6209#section-2.3" target=
+	 * "_blank">RFC 6209 - PSK</a> for details.
+	 * 
+	 * @since 3.9.0
+	 */
+	TLS_PSK_WITH_ARIA_128_CBC_SHA256(0xC064, CertificateKeyAlgorithm.NONE, KeyExchangeAlgorithm.PSK, CipherSpec.ARIA_128_CBC, MACAlgorithm.HMAC_SHA256, false),
+	/**
+	 * See <a href="https://www.rfc-editor.org/rfc/rfc6209#section-2.3" target=
+	 * "_blank">RFC 6209 - PSK</a> for details.
+	 * 
+	 * @since 3.9.0
+	 */
+	TLS_PSK_WITH_ARIA_256_CBC_SHA384(0xC065, CertificateKeyAlgorithm.NONE, KeyExchangeAlgorithm.PSK, CipherSpec.ARIA_256_CBC, MACAlgorithm.HMAC_SHA384, false, PRFAlgorithm.TLS_PRF_SHA384),
+
 	// Certificate cipher suites, ordered by default preference, see getCertificateCipherSuites or getEcdsaCipherSuites
-	TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256(0xc02b, CertificateKeyAlgorithm.EC, KeyExchangeAlgorithm.EC_DIFFIE_HELLMAN, CipherSpec.AES_128_GCM, true),
-	TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384(0xc02c, CertificateKeyAlgorithm.EC, KeyExchangeAlgorithm.EC_DIFFIE_HELLMAN, CipherSpec.AES_256_GCM, true, PRFAlgorithm.TLS_PRF_SHA384),
+	TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256(0xC02B, CertificateKeyAlgorithm.EC, KeyExchangeAlgorithm.EC_DIFFIE_HELLMAN, CipherSpec.AES_128_GCM, true),
+	TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384(0xC02C, CertificateKeyAlgorithm.EC, KeyExchangeAlgorithm.EC_DIFFIE_HELLMAN, CipherSpec.AES_256_GCM, true, PRFAlgorithm.TLS_PRF_SHA384),
 	TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8(0xC0AE, CertificateKeyAlgorithm.EC, KeyExchangeAlgorithm.EC_DIFFIE_HELLMAN, CipherSpec.AES_128_CCM_8, true),
 	TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8(0xC0AF, CertificateKeyAlgorithm.EC, KeyExchangeAlgorithm.EC_DIFFIE_HELLMAN, CipherSpec.AES_256_CCM_8, true),
 	TLS_ECDHE_ECDSA_WITH_AES_128_CCM(0xC0AC, CertificateKeyAlgorithm.EC, KeyExchangeAlgorithm.EC_DIFFIE_HELLMAN, CipherSpec.AES_128_CCM, true),
 	TLS_ECDHE_ECDSA_WITH_AES_256_CCM(0xC0AD, CertificateKeyAlgorithm.EC, KeyExchangeAlgorithm.EC_DIFFIE_HELLMAN, CipherSpec.AES_256_CCM, true),
+
+	/**
+	 * See <a href="https://www.rfc-editor.org/rfc/rfc6209#section-2.2" target=
+	 * "_blank">RFC 6209 - GCM</a> for details.
+	 * 
+	 * @since 3.9.0
+	 */
+	TLS_ECDHE_ECDSA_WITH_ARIA_128_GCM_SHA256(0xC05C, CertificateKeyAlgorithm.EC, KeyExchangeAlgorithm.EC_DIFFIE_HELLMAN, CipherSpec.ARIA_128_GCM, true),
+	/**
+	 * See <a href="https://www.rfc-editor.org/rfc/rfc6209#section-2.2" target=
+	 * "_blank">RFC 6209 - GCM</a> for details.
+	 * 
+	 * @since 3.9.0
+	 */
+	TLS_ECDHE_ECDSA_WITH_ARIA_256_GCM_SHA384(0xC05D, CertificateKeyAlgorithm.EC, KeyExchangeAlgorithm.EC_DIFFIE_HELLMAN, CipherSpec.ARIA_256_GCM, true, PRFAlgorithm.TLS_PRF_SHA384),
+
 	TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256(0xC023, CertificateKeyAlgorithm.EC, KeyExchangeAlgorithm.EC_DIFFIE_HELLMAN, CipherSpec.AES_128_CBC, MACAlgorithm.HMAC_SHA256, false),
 	TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384(0xC024, CertificateKeyAlgorithm.EC, KeyExchangeAlgorithm.EC_DIFFIE_HELLMAN, CipherSpec.AES_256_CBC, MACAlgorithm.HMAC_SHA384, false, PRFAlgorithm.TLS_PRF_SHA384),
 	TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA(0xC00A, CertificateKeyAlgorithm.EC, KeyExchangeAlgorithm.EC_DIFFIE_HELLMAN, CipherSpec.AES_256_CBC, MACAlgorithm.HMAC_SHA1, false),
 
+	/**
+	 * See <a href="https://www.rfc-editor.org/rfc/rfc6209#section-2.1" target=
+	 * "_blank">RFC 6209 - CBC</a> for details.
+	 * 
+	 * @since 3.9.0
+	 */
+	TLS_ECDHE_ECDSA_WITH_ARIA_128_CBC_SHA256(0xC048, CertificateKeyAlgorithm.EC, KeyExchangeAlgorithm.EC_DIFFIE_HELLMAN, CipherSpec.ARIA_128_CBC, MACAlgorithm.HMAC_SHA256, false),
+	/**
+	 * See <a href="https://www.rfc-editor.org/rfc/rfc6209#section-2.1" target=
+	 * "_blank">RFC 6209 - CBC</a> for details.
+	 * 
+	 * @since 3.9.0
+	 */
+	TLS_ECDHE_ECDSA_WITH_ARIA_256_CBC_SHA384(0xC049, CertificateKeyAlgorithm.EC, KeyExchangeAlgorithm.EC_DIFFIE_HELLMAN, CipherSpec.ARIA_256_CBC, MACAlgorithm.HMAC_SHA384, false, PRFAlgorithm.TLS_PRF_SHA384),
+
 	// RSA Certificates
-	TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256(0xc02f, CertificateKeyAlgorithm.RSA, KeyExchangeAlgorithm.EC_DIFFIE_HELLMAN, CipherSpec.AES_128_GCM, true),
-	TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384(0xc030, CertificateKeyAlgorithm.RSA, KeyExchangeAlgorithm.EC_DIFFIE_HELLMAN, CipherSpec.AES_256_GCM, true, PRFAlgorithm.TLS_PRF_SHA384),
+	TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256(0xC02F, CertificateKeyAlgorithm.RSA, KeyExchangeAlgorithm.EC_DIFFIE_HELLMAN, CipherSpec.AES_128_GCM, true),
+	TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384(0xC030, CertificateKeyAlgorithm.RSA, KeyExchangeAlgorithm.EC_DIFFIE_HELLMAN, CipherSpec.AES_256_GCM, true, PRFAlgorithm.TLS_PRF_SHA384),
 	TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256(0xC027, CertificateKeyAlgorithm.RSA, KeyExchangeAlgorithm.EC_DIFFIE_HELLMAN, CipherSpec.AES_128_CBC, MACAlgorithm.HMAC_SHA256, false),
 	TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384(0xC028, CertificateKeyAlgorithm.RSA, KeyExchangeAlgorithm.EC_DIFFIE_HELLMAN, CipherSpec.AES_256_CBC, MACAlgorithm.HMAC_SHA384, false, PRFAlgorithm.TLS_PRF_SHA384),
 	TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA(0xC014, CertificateKeyAlgorithm.RSA, KeyExchangeAlgorithm.EC_DIFFIE_HELLMAN, CipherSpec.AES_256_CBC, MACAlgorithm.HMAC_SHA1, false),
 
+	/**
+	 * See <a href="https://www.rfc-editor.org/rfc/rfc6209#section-2.2" target=
+	 * "_blank">RFC 6209 - GCM</a> for details.
+	 * 
+	 * @since 3.9.0
+	 */
+	TLS_ECDHE_RSA_WITH_ARIA_128_GCM_SHA256(0xC060, CertificateKeyAlgorithm.RSA, KeyExchangeAlgorithm.EC_DIFFIE_HELLMAN, CipherSpec.ARIA_128_GCM, true),
+	/**
+	 * See <a href="https://www.rfc-editor.org/rfc/rfc6209#section-2.2" target=
+	 * "_blank">RFC 6209 - GCM</a> for details.
+	 * 
+	 * @since 3.9.0
+	 */
+	TLS_ECDHE_RSA_WITH_ARIA_256_GCM_SHA384(0xC061, CertificateKeyAlgorithm.RSA, KeyExchangeAlgorithm.EC_DIFFIE_HELLMAN, CipherSpec.ARIA_256_GCM, true, PRFAlgorithm.TLS_PRF_SHA384),
+
 	// Null cipher suite
-	TLS_NULL_WITH_NULL_NULL(0x0000, CertificateKeyAlgorithm.NONE, KeyExchangeAlgorithm.NULL, CipherSpec.NULL, MACAlgorithm.NULL, false),
+	TLS_NULL_WITH_NULL_NULL(0x0000),
+	/**
+	 * Cipher suite indicating client support for secure renegotiation.
+	 * 
+	 * Californium doesn't support renegotiation at all, but RFC5746 requests to
+	 * update to a minimal version of RFC 5746.
+	 * 
+	 * See <a href="https://tools.ietf.org/html/rfc5746" target="_blank">RFC
+	 * 5746</a> for additional details.
+	 * 
+	 * @see DtlsSecureRenegotiation
+	 * @since 3.8 (before that only used for logging since 3.5)
+	 */
+	TLS_EMPTY_RENEGOTIATION_INFO_SCSV(0x00FF),
 	;
+
+	// Logging ////////////////////////////////////////////////////////
+	private static final Logger LOGGER = LoggerFactory.getLogger(CipherSuite.class);
 
 	// DTLS-specific constants ////////////////////////////////////////
 	public static final int CIPHER_SUITE_BITS = 16;
@@ -154,9 +268,6 @@ public enum CipherSuite {
 		STRONG_ENCRYPTION_PREFERENCE = Collections.unmodifiableList(secureSuites);
 	}
 
-	// Logging ////////////////////////////////////////////////////////
-	private static final Logger LOGGER = LoggerFactory.getLogger(CipherSuite.class);
-
 	// Members ////////////////////////////////////////////////////////
 	private static int overallMaxCipherTextExpansion = 0;
 
@@ -165,6 +276,12 @@ public enum CipherSuite {
 	 * href="https://tools.ietf.org/html/rfc5246#appendix-A.5" target="_blank">RFC 5246</a>.
 	 */
 	private final int code;
+	/**
+	 * Indicates, that the cipher suite is valid to be negotiated.
+	 * 
+	 * @since 3.5
+	 */
+	private final boolean validForNegotiation;
 	private final CertificateKeyAlgorithm certificateKeyAlgorithm;
 	private final KeyExchangeAlgorithm keyExchange;
 	private final CipherSpec cipher;
@@ -174,6 +291,25 @@ public enum CipherSuite {
 	private final boolean recommendedCipherSuite;
 
 	// Constructor ////////////////////////////////////////////////////
+
+	/**
+	 * Creates a not negotiable cipher suit.
+	 * 
+	 * @param code IANA code.
+	 * @since 3.5
+	 */
+	private CipherSuite(int code) {
+		// CertificateKeyAlgorithm.NONE, KeyExchangeAlgorithm.NULL, CipherSpec.NULL, MACAlgorithm.NULL
+		this.code = code;
+		this.validForNegotiation = false;
+		this.certificateKeyAlgorithm = CertificateKeyAlgorithm.NONE;
+		this.keyExchange = KeyExchangeAlgorithm.NULL;
+		this.cipher = CipherSpec.NULL;
+		this.macAlgorithm = MACAlgorithm.NULL;
+		this.recommendedCipherSuite = false;
+		this.pseudoRandomFunction = PRFAlgorithm.TLS_PRF_SHA256;
+		this.maxCipherTextExpansion = 0;
+	}
 
 	private CipherSuite(int code, CertificateKeyAlgorithm certificate, KeyExchangeAlgorithm keyExchange, CipherSpec cipher, boolean recommendedCipherSuite) {
 		this(code, certificate, keyExchange, cipher, MACAlgorithm.INTRINSIC, recommendedCipherSuite, PRFAlgorithm.TLS_PRF_SHA256);
@@ -189,6 +325,7 @@ public enum CipherSuite {
 
 	private CipherSuite(int code, CertificateKeyAlgorithm certificate, KeyExchangeAlgorithm keyExchange, CipherSpec cipher, MACAlgorithm macAlgorithm, boolean recommendedCipherSuite, PRFAlgorithm prf) {
 		this.code = code;
+		this.validForNegotiation = true;
 		this.certificateKeyAlgorithm = certificate;
 		this.keyExchange = keyExchange;
 		this.cipher = cipher;
@@ -336,6 +473,20 @@ public enum CipherSuite {
 	 */
 	public boolean isRecommended() {
 		return recommendedCipherSuite;
+	}
+
+	/**
+	 * Check whether this cipher suite is valid for negotiation.
+	 * 
+	 * {@link #TLS_NULL_WITH_NULL_NULL} and
+	 * {@link #TLS_EMPTY_RENEGOTIATION_INFO_SCSV} are not intended to be
+	 * negotiated.
+	 * 
+	 * @return {@code true} if cipher suite is valid for negotiation
+	 * @since 3.5
+	 */
+	public boolean isValidForNegotiation() {
+		return validForNegotiation;
 	}
 
 	/**
@@ -557,7 +708,7 @@ public enum CipherSuite {
 			boolean supportedCipherSuitesOnly) {
 		List<CipherSuite> list = new ArrayList<>();
 		for (CipherSuite suite : values()) {
-			if (suite != TLS_NULL_WITH_NULL_NULL) {
+			if (suite.isValidForNegotiation()) {
 				if (!supportedCipherSuitesOnly || suite.isSupported()) {
 					if (!recommendedCipherSuitesOnly || suite.isRecommended()) {
 						list.add(suite);
@@ -621,7 +772,7 @@ public enum CipherSuite {
 				for (CipherSuite suite : values()) {
 					if (!recommendedCipherSuitesOnly || suite.recommendedCipherSuite) {
 						if (suite.isSupported() && keyExchange.equals(suite.keyExchange)) {
-							list.add(suite);
+							ListUtils.addIfAbsent(list, suite);
 						}
 					}
 				}
@@ -630,7 +781,7 @@ public enum CipherSuite {
 			for (CipherSuite suite : values()) {
 				if (!recommendedCipherSuitesOnly || suite.recommendedCipherSuite) {
 					if (suite.isSupported() && keyExchangeAlgorithms.contains(suite.keyExchange)) {
-						list.add(suite);
+						ListUtils.addIfAbsent(list, suite);
 					}
 				}
 			}
@@ -886,7 +1037,7 @@ public enum CipherSuite {
 		}
 		List<CipherSuite> ordered = new ArrayList<>();
 		for (CipherSuite cipherSuite : preselect) {
-			if (cipherSuites.contains(cipherSuite)) {
+			if (cipherSuite.isValidForNegotiation() && cipherSuites.contains(cipherSuite)) {
 				ordered.add(cipherSuite);
 			}
 		}
@@ -1088,12 +1239,16 @@ public enum CipherSuite {
 		NULL("NULL", CipherType.NULL, 0, 0, 0),
 		AES_128_CBC("AES/CBC/NoPadding", CipherType.BLOCK, 16, 0, 16), // http://www.ietf.org/mail-archive/web/tls/current/msg08445.html
 		AES_256_CBC("AES/CBC/NoPadding", CipherType.BLOCK, 32, 0, 16),
-		AES_128_CCM_8(AeadBlockCipher.AES_CCM, CipherType.AEAD, 16, 4, 8, 8), // explicit nonce (record IV) length = 8
-		AES_256_CCM_8(AeadBlockCipher.AES_CCM, CipherType.AEAD, 32, 4, 8, 8), // explicit nonce (record IV) length = 8
-		AES_128_CCM(AeadBlockCipher.AES_CCM, CipherType.AEAD, 16, 4, 8, 16), // explicit nonce (record IV) length = 8
-		AES_256_CCM(AeadBlockCipher.AES_CCM, CipherType.AEAD, 32, 4, 8, 16), // explicit nonce (record IV) length = 8
-		AES_128_GCM("AES/GCM/NoPadding", CipherType.AEAD, 16, 4, 8, 16), // requires jvm implementation of AES/GCM
-		AES_256_GCM("AES/GCM/NoPadding", CipherType.AEAD, 32, 4, 8, 16); // requires jvm implementation of AES/GCM
+		AES_128_CCM_8(AeadBlockCipher.AES_CCM_NO_PADDING, CipherType.AEAD, 16, 4, 8, 8), // explicit nonce (record IV) length = 8
+		AES_256_CCM_8(AeadBlockCipher.AES_CCM_NO_PADDING, CipherType.AEAD, 32, 4, 8, 8), // explicit nonce (record IV) length = 8
+		AES_128_CCM(AeadBlockCipher.AES_CCM_NO_PADDING, CipherType.AEAD, 16, 4, 8, 16), // explicit nonce (record IV) length = 8
+		AES_256_CCM(AeadBlockCipher.AES_CCM_NO_PADDING, CipherType.AEAD, 32, 4, 8, 16), // explicit nonce (record IV) length = 8
+		AES_128_GCM("AES/GCM/NoPadding", CipherType.AEAD, 16, 4, 8, 16), // requires jce implementation of AES/GCM
+		AES_256_GCM("AES/GCM/NoPadding", CipherType.AEAD, 32, 4, 8, 16), // requires jce implementation of AES/GCM
+		ARIA_128_CBC("ARIA/CBC/NoPadding", CipherType.BLOCK, 16, 0, 16), // requires jce implementation of ARIA/CBC
+		ARIA_256_CBC("ARIA/CBC/NoPadding", CipherType.BLOCK, 32, 0, 16), // requires jce implementation of ARIA/CBC
+		ARIA_128_GCM("ARIA/GCM/NoPadding", CipherType.AEAD, 16, 4, 8, 16), // requires jce implementation of ARIA/GCM
+		ARIA_256_GCM("ARIA/GCM/NoPadding", CipherType.AEAD, 32, 4, 8, 16); // requires jce implementation of ARIA/GCM
 
 		/**
 		 * The <em>transformation</em> string of the corresponding Java Cryptography Architecture
@@ -1125,7 +1280,7 @@ public enum CipherSuite {
 			if (type == CipherType.AEAD || type == CipherType.BLOCK) {
 				supported = AeadBlockCipher.isSupported(transformation, keyLength);
 			}
-			if (AeadBlockCipher.AES_CCM.equals(transformation)) {
+			if (AeadBlockCipher.AES_CCM_NO_PADDING.equals(transformation)) {
 				this.cipher = null;
 				this.supported = supported;
 			} else {

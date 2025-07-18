@@ -51,6 +51,7 @@ import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.coap.CoAP.Code;
 import org.eclipse.californium.core.coap.CoAP.Type;
+import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.cose.KeyKeys;
 import org.eclipse.californium.cose.OneKey;
@@ -68,6 +69,7 @@ import com.upokecenter.cbor.CBORType;
 import com.upokecenter.cbor.CBORException;
 
 import se.sics.ace.Constants;
+import se.sics.ace.GroupcommParameters;
 import se.sics.ace.Util;
 import se.sics.ace.client.GetToken;
 import se.sics.ace.coap.client.OSCOREProfileRequests;
@@ -135,6 +137,10 @@ public class OscoreAsRsClient {
 	private static int signKeyCurve = KeyKeys.OKP_Ed25519.AsInt32();
 	// Uncomment to set curve X25519 for pairwise key derivation
 	private static int ecdhKeyCurve = KeyKeys.OKP_X25519.AsInt32();
+
+	static {
+		CoapConfig.register();
+	}
 
 	/**
 	 * Main method for Token request followed by Group joining
@@ -356,8 +362,8 @@ public class OscoreAsRsClient {
 		cborArrayEntry.Add(groupName);
 
 		int myRoles = 0;
-		myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-		myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+		myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+		myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
 		cborArrayEntry.Add(myRoles);
 
 		cborArrayScope.Add(cborArrayEntry);
@@ -426,8 +432,8 @@ public class OscoreAsRsClient {
 		cborArrayEntry.Add(groupName);
 
 		int myRoles = 0;
-		myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-		myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+		myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+		myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
 		cborArrayEntry.Add(myRoles);
 
 		cborArrayScope.Add(cborArrayEntry);
@@ -501,7 +507,7 @@ public class OscoreAsRsClient {
 			ecdhKeyParamsExpected.Add(KeyKeys.OKP_X25519); // Curve
 		}
 
-		CBORObject credFmtExpected = CBORObject.FromObject(Constants.COSE_HEADER_PARAM_CCS);
+		CBORObject credFmtExpected = CBORObject.FromObject(Constants.COSE_HEADER_PARAM_KCCS);
 
 		// Now proceed with the Join request
 
@@ -517,12 +523,12 @@ public class OscoreAsRsClient {
 		cborArrayScope.Add(groupName);
 
 		myRoles = 0;
-		myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-		myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+		myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+		myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
 		cborArrayScope.Add(myRoles);
 
 		byteStringScope = cborArrayScope.EncodeToBytes();
-		requestPayload.Add(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+		requestPayload.Add(GroupcommParameters.SCOPE, CBORObject.FromObject(byteStringScope));
 
 		if (askForAuthCreds) {
 
@@ -534,15 +540,15 @@ public class OscoreAsRsClient {
 			// The following is required to retrieve the authentication
 			// credentials of both the already present group members
 			myRoles = 0;
-			myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
+			myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
 			getCreds.get(1).Add(myRoles);
-			myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-			myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+			myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+			myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
 			getCreds.get(1).Add(myRoles);
 
 			getCreds.Add(CBORObject.NewArray()); // This must be empty
 
-			requestPayload.Add(Constants.GET_CREDS, getCreds);
+			requestPayload.Add(GroupcommParameters.GET_CREDS, getCreds);
 
 		}
 
@@ -571,7 +577,7 @@ public class OscoreAsRsClient {
 			 */
 
 			switch (credFmtExpected.AsInt32()) {
-			case Constants.COSE_HEADER_PARAM_CCS:
+			case Constants.COSE_HEADER_PARAM_KCCS:
 				// A CCS including the public key
 				if (signKeyCurve == KeyKeys.EC2_P256.AsInt32()) {
 					System.out.println("Needs further configuration");
@@ -582,7 +588,7 @@ public class OscoreAsRsClient {
 					authCred = clientCcsBytes;
 				}
 				break;
-			case Constants.COSE_HEADER_PARAM_CWT:
+			case Constants.COSE_HEADER_PARAM_KCWT:
 				// A CWT including the public key
 				// TODO
 				break;
@@ -595,7 +601,7 @@ public class OscoreAsRsClient {
 				break;
 			}
 
-			requestPayload.Add(Constants.CLIENT_CRED, CBORObject.FromObject(authCred));
+			requestPayload.Add(GroupcommParameters.CLIENT_CRED, CBORObject.FromObject(authCred));
 
 			// Add the nonce for PoP of the Client's private key
 			byte[] cnonce = new byte[8];
@@ -621,7 +627,7 @@ public class OscoreAsRsClient {
 			byte[] clientSignature = Util.computeSignature(signKeyCurve, privKey, dataToSign);
 
 			if (clientSignature != null)
-				requestPayload.Add(Constants.CLIENT_CRED_VERIFY, clientSignature);
+				requestPayload.Add(GroupcommParameters.CLIENT_CRED_VERIFY, clientSignature);
 			else
 				Assert.fail("Computed signature is empty");
 
@@ -656,29 +662,30 @@ public class OscoreAsRsClient {
 
 		// Check the proof-of-possession evidence over kdc_nonce, using the GM's
 		// public key
-		Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.KDC_NONCE)));
+		Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KDC_NONCE)));
 		Assert.assertEquals(CBORType.ByteString,
-				joinResponse.get(CBORObject.FromObject(Constants.KDC_NONCE)).getType());
-		Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.KDC_CRED)));
-		Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(Constants.KDC_CRED)).getType());
-		Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.KDC_CRED_VERIFY)));
+				joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_NONCE)).getType());
+		Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KDC_CRED)));
 		Assert.assertEquals(CBORType.ByteString,
-				joinResponse.get(CBORObject.FromObject(Constants.KDC_CRED_VERIFY)).getType());
+				joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED)).getType());
+		Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KDC_CRED_VERIFY)));
+		Assert.assertEquals(CBORType.ByteString,
+				joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED_VERIFY)).getType());
 
-		Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.KEY)));
-		Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(Constants.KEY)).getType());
-		Assert.assertEquals(true, joinResponse.get(CBORObject.FromObject(Constants.KEY))
+		Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KEY)));
+		Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).getType());
+		Assert.assertEquals(true, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY))
 				.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)));
-		Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(Constants.KEY)).getType());
-		Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(Constants.KEY))
+		Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).getType());
+		Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY))
 				.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)).getType());
-		credFmt = joinResponse.get(CBORObject.FromObject(Constants.KEY))
+		credFmt = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY))
 				.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)).AsInt32();
 
 		OneKey gmPublicKeyRetrieved = null;
-		byte[] kdcCredBytes = joinResponse.get(CBORObject.FromObject(Constants.KDC_CRED)).GetByteString();
+		byte[] kdcCredBytes = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED)).GetByteString();
 		switch (credFmt) {
-		case Constants.COSE_HEADER_PARAM_CCS:
+		case Constants.COSE_HEADER_PARAM_KCCS:
 			CBORObject ccs = CBORObject.DecodeFromBytes(kdcCredBytes);
 			if (ccs.getType() == CBORType.Map) {
 				// Retrieve the public key from the CCS
@@ -687,7 +694,7 @@ public class OscoreAsRsClient {
 				Assert.fail("Invalid format of Group Manager authentication credential");
 			}
 			break;
-		case Constants.COSE_HEADER_PARAM_CWT:
+		case Constants.COSE_HEADER_PARAM_KCWT:
 			CBORObject cwt = CBORObject.DecodeFromBytes(kdcCredBytes);
 			if (cwt.getType() == CBORType.Array) {
 				// Retrieve the public key from the CWT
@@ -710,9 +717,9 @@ public class OscoreAsRsClient {
 
 		PublicKey gmPublicKey = gmPublicKeyRetrieved.AsPublicKey();
 
-		byte[] gmNonce = joinResponse.get(CBORObject.FromObject(Constants.KDC_NONCE)).GetByteString();
+		byte[] gmNonce = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_NONCE)).GetByteString();
 
-		CBORObject gmPopEvidence = joinResponse.get(CBORObject.FromObject(Constants.KDC_CRED_VERIFY));
+		CBORObject gmPopEvidence = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED_VERIFY));
 		byte[] rawGmPopEvidence = gmPopEvidence.GetByteString();
 
 		// Invalid Client's PoP signature
@@ -812,9 +819,6 @@ public class OscoreAsRsClient {
 
 		System.out.print("-delay");
 		System.out.println("\t Delay in seconds before starting");
-
-		System.out.print("-dht");
-		System.out.println("\t Use DHT: Optionally specify its WebSocket URI");
 
 		System.out.print("-help");
 		System.out.println("\t Print help");

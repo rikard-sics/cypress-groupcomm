@@ -18,7 +18,6 @@
 package org.eclipse.californium.core.network;
 
 import static org.eclipse.californium.core.network.MessageIdTracker.TOTAL_NO_OF_MIDS;
-import static org.eclipse.californium.elements.util.TestConditionTools.inRange;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
@@ -35,6 +34,7 @@ import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.config.CoapConfig.TrackerMode;
 import org.eclipse.californium.elements.category.Small;
 import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.elements.matcher.InRange;
 import org.eclipse.californium.elements.rule.TestTimeRule;
 import org.eclipse.californium.elements.util.ExpectedExceptionWrapper;
 import org.eclipse.californium.rule.CoapNetworkRule;
@@ -81,7 +81,7 @@ public class InMemoryMessageIdProviderTest {
 		assertThat(mid1, is(not(mid2)));
 		for (int index = 0; index < TOTAL_NO_OF_MIDS * 2; ++index) {
 			int mid = provider.getNextMessageId(peerAddress);
-			assertThat(mid, is(inRange(0, TOTAL_NO_OF_MIDS)));
+			assertThat(mid, is(InRange.inRange(0, TOTAL_NO_OF_MIDS)));
 		}
 	}
 
@@ -156,13 +156,13 @@ public class InMemoryMessageIdProviderTest {
 	public void testGetNextMessageIdIfMaxPeersIsReachedWithStaleEntry() throws InterruptedException {
 
 		int MAX_PEERS = 2;
-		int MAX_PEER_INACTIVITY_PERIOD = 1; // seconds
+		int MAX_PEER_INACTIVITY_PERIOD = 1000; // milliseconds
 		config.set(CoapConfig.MAX_ACTIVE_PEERS, MAX_PEERS);
-		config.set(CoapConfig.MAX_PEER_INACTIVITY_PERIOD, MAX_PEER_INACTIVITY_PERIOD, TimeUnit.SECONDS);
+		config.set(CoapConfig.MAX_PEER_INACTIVITY_PERIOD, MAX_PEER_INACTIVITY_PERIOD, TimeUnit.MILLISECONDS);
 		InMemoryMessageIdProvider provider = new InMemoryMessageIdProvider(config);
 		addPeers(provider, MAX_PEERS);
 
-		time.addTestTimeShift(MAX_PEER_INACTIVITY_PERIOD * 1200, TimeUnit.MILLISECONDS);
+		time.addTestTimeShift(MAX_PEER_INACTIVITY_PERIOD + 200, TimeUnit.MILLISECONDS);
 
 		assertThat(provider.getNextMessageId(getPeerAddress(MAX_PEERS + 1)), is(not(-1)));
 	}

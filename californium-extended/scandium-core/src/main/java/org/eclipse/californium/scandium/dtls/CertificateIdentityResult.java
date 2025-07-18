@@ -20,7 +20,6 @@ import java.security.PublicKey;
 import java.security.cert.X509Certificate;
 import java.util.List;
 
-import org.eclipse.californium.scandium.auth.ApplicationLevelInfoSupplier;
 import org.eclipse.californium.scandium.dtls.x509.CertificateProvider;
 
 /**
@@ -41,17 +40,13 @@ public final class CertificateIdentityResult extends HandshakeResult {
 	 * @param cid connection id
 	 * @param privateKey private key of identity.
 	 * @param certificateChain certificate chain for identity
-	 * @param customArgument custom argument. May be {@code null}. Passed to
-	 *            {@link ApplicationLevelInfoSupplier} by the
-	 *            {@link Handshaker}, if a {@link ApplicationLevelInfoSupplier}
-	 *            is available.
 	 * @throws NullPointerException if cid, private key, or chain is
 	 *             {@code null}.
 	 * @throws IllegalArgumentException if chain is empty.
+	 * @since 3.12
 	 */
-	public CertificateIdentityResult(ConnectionId cid, PrivateKey privateKey, List<X509Certificate> certificateChain,
-			Object customArgument) {
-		super(cid, customArgument);
+	public CertificateIdentityResult(ConnectionId cid, PrivateKey privateKey, List<X509Certificate> certificateChain) {
+		super(cid, null);
 		if (privateKey == null) {
 			throw new NullPointerException("Private key must not be null!");
 		}
@@ -72,16 +67,12 @@ public final class CertificateIdentityResult extends HandshakeResult {
 	 * @param cid connection id
 	 * @param privateKey private key of identity.
 	 * @param publicKey public key for identity
-	 * @param customArgument custom argument. May be {@code null}. Passed to
-	 *            {@link ApplicationLevelInfoSupplier} by the
-	 *            {@link Handshaker}, if a {@link ApplicationLevelInfoSupplier}
-	 *            is available.
 	 * @throws NullPointerException if cid, private key, or public key is
 	 *             {@code null}.
+	 * @since 3.12
 	 */
-	public CertificateIdentityResult(ConnectionId cid, PrivateKey privateKey, PublicKey publicKey,
-			Object customArgument) {
-		super(cid, customArgument);
+	public CertificateIdentityResult(ConnectionId cid, PrivateKey privateKey, PublicKey publicKey) {
+		super(cid, null);
 		if (privateKey == null) {
 			throw new NullPointerException("Private key must not be null!");
 		}
@@ -97,14 +88,11 @@ public final class CertificateIdentityResult extends HandshakeResult {
 	 * Create result without matching identity.
 	 * 
 	 * @param cid connection id
-	 * @param customArgument custom argument. May be {@code null}. Passed to
-	 *            {@link ApplicationLevelInfoSupplier} by the
-	 *            {@link Handshaker}, if a {@link ApplicationLevelInfoSupplier}
-	 *            is available.
 	 * @throws NullPointerException if cid is {@code null}.
+	 * @since 3.12
 	 */
-	public CertificateIdentityResult(ConnectionId cid, Object customArgument) {
-		super(cid, customArgument);
+	public CertificateIdentityResult(ConnectionId cid) {
+		super(cid, null);
 		this.privateKey = null;
 		this.publicKey = null;
 		this.certificateChain = null;

@@ -95,8 +95,7 @@ public final class ClientHello extends HelloHandshakeMessage {
 	public ClientHello(ProtocolVersion version, List<CipherSuite> supportedCipherSuites,
 			List<SignatureAndHashAlgorithm> supportedSignatureAndHashAlgorithms,
 			List<CertificateType> supportedClientCertificateTypes,
-			List<CertificateType> supportedServerCertificateTypes,
-			List<SupportedGroup> supportedGroups) {
+			List<CertificateType> supportedServerCertificateTypes, List<SupportedGroup> supportedGroups) {
 
 		this(version, SessionId.emptySessionId(), supportedCipherSuites, supportedSignatureAndHashAlgorithms,
 				supportedClientCertificateTypes, supportedServerCertificateTypes, supportedGroups);
@@ -121,10 +120,9 @@ public final class ClientHello extends HelloHandshakeMessage {
 	public ClientHello(ProtocolVersion version, DTLSSession session,
 			List<SignatureAndHashAlgorithm> supportedSignatureAndHashAlgorithms,
 			List<CertificateType> supportedClientCertificateTypes,
-			List<CertificateType> supportedServerCertificateTypes,
-			List<SupportedGroup> supportedGroups) {
+			List<CertificateType> supportedServerCertificateTypes, List<SupportedGroup> supportedGroups) {
 
-		this(version, session.getSessionIdentifier(), Arrays.asList(session.getCipherSuite()),
+		this(version, session.getSessionIdentifier(), session.getCipherSuitesForResumption(),
 				supportedSignatureAndHashAlgorithms, supportedClientCertificateTypes, supportedServerCertificateTypes,
 				supportedGroups);
 		addCompressionMethod(session.getCompressionMethod());
@@ -133,8 +131,7 @@ public final class ClientHello extends HelloHandshakeMessage {
 	private ClientHello(ProtocolVersion version, SessionId sessionId, List<CipherSuite> supportedCipherSuites,
 			List<SignatureAndHashAlgorithm> supportedSignatureAndHashAlgorithms,
 			List<CertificateType> supportedClientCertificateTypes,
-			List<CertificateType> supportedServerCertificateTypes,
-			List<SupportedGroup> supportedGroups) {
+			List<CertificateType> supportedServerCertificateTypes, List<SupportedGroup> supportedGroups) {
 		super(version, sessionId);
 
 		this.cookie = Bytes.EMPTY;
@@ -153,19 +150,19 @@ public final class ClientHello extends HelloHandshakeMessage {
 			addExtension(SupportedPointFormatsExtension.DEFAULT_POINT_FORMATS_EXTENSION);
 		}
 
-		// the supported signature and hash algorithms
-		if (!supportedSignatureAndHashAlgorithms.isEmpty()) {
-			if (useCertificateTypeRawPublicKeyOnly(supportedClientCertificateTypes)
-					&& useCertificateTypeRawPublicKeyOnly(supportedServerCertificateTypes)) {
-				List<CertificateKeyAlgorithm> certificateKeyAlgorithms = CipherSuite
-						.getCertificateKeyAlgorithms(supportedCipherSuites);
-				supportedSignatureAndHashAlgorithms = SignatureAndHashAlgorithm.getCompatibleSignatureAlgorithms(
-						supportedSignatureAndHashAlgorithms, certificateKeyAlgorithms);
-			}
-			addExtension(new SignatureAlgorithmsExtension(supportedSignatureAndHashAlgorithms));
-		}
-
 		if (CipherSuite.containsCipherSuiteRequiringCertExchange(supportedCipherSuites)) {
+			// the supported signature and hash algorithms
+			if (!supportedSignatureAndHashAlgorithms.isEmpty()) {
+				if (useCertificateTypeRawPublicKeyOnly(supportedClientCertificateTypes)
+						&& useCertificateTypeRawPublicKeyOnly(supportedServerCertificateTypes)) {
+					List<CertificateKeyAlgorithm> certificateKeyAlgorithms = CipherSuite
+							.getCertificateKeyAlgorithms(supportedCipherSuites);
+					supportedSignatureAndHashAlgorithms = SignatureAndHashAlgorithm.getCompatibleSignatureAlgorithms(
+							supportedSignatureAndHashAlgorithms, certificateKeyAlgorithms);
+				}
+				addExtension(new SignatureAlgorithmsExtension(supportedSignatureAndHashAlgorithms));
+			}
+
 			// the certificate types the client is able to provide to the server
 			if (useCertificateTypeExtension(supportedClientCertificateTypes)) {
 				CertificateTypeExtension clientCertificateType = new ClientCertificateTypeExtension(
@@ -199,8 +196,7 @@ public final class ClientHello extends HelloHandshakeMessage {
 		extensions.readFrom(reader);
 		ServerNameExtension extension = getServerNameExtension();
 		if (extension != null && extension.getServerNames() == null) {
-			throw new HandshakeException(
-					"ClientHello message contains empty ServerNameExtension",
+			throw new HandshakeException("ClientHello message contains empty ServerNameExtension",
 					new AlertMessage(AlertLevel.FATAL, AlertDescription.DECODE_ERROR));
 		}
 	}
@@ -306,7 +302,8 @@ public final class ClientHello extends HelloHandshakeMessage {
 		// variable sizes: session ID, supported cipher suites, compression
 		// methods + extensions
 		return 39 + sessionId.length() + cookie.length
-				+ supportedCipherSuites.size() * CipherSuite.CIPHER_SUITE_BITS / Byte.SIZE + compressionMethods.size()
+				+ supportedCipherSuites.size() * CipherSuite.CIPHER_SUITE_BITS / Byte.SIZE 
+				+ compressionMethods.size()
 				+ extensions.getLength();
 	}
 
@@ -352,19 +349,23 @@ public final class ClientHello extends HelloHandshakeMessage {
 	/**
 	 * Update hmac for cookie generation.
 	 * 
-	 * @param hmac initialized hmac
-	 * @since 3.0
+	 * @param hmac initialized hmac*
+	 * @since 3.11 use no {@link HelloExtensions} for the cookie, use only the
+	 *        parameter values (version, random, session_id, cipher_suites,
+	 *        compression_method). Considering DTLS 1.3 clients, which may vary
+	 *        additional data, including more in the cookie will cause "endless
+	 *        retries" instead of abort the handshake with an alert.
 	 */
 	public void updateForCookie(Mac hmac) {
 		byte[] rawMessage = toByteArray();
 		int head = sessionId.length() + RANDOM_BYTES
 				+ (VERSION_BITS + VERSION_BITS + SESSION_ID_LENGTH_BITS) / Byte.SIZE;
-		int tail = head + 1 + MESSAGE_HEADER_LENGTH_BYTES;
-		if (cookie != null) {
-			tail += cookie.length;
-		}
+		int tail = head + cookie.length + COOKIE_LENGTH_BITS / Byte.SIZE + MESSAGE_HEADER_LENGTH_BYTES;
+		int tailLength = (CIPHER_SUITES_LENGTH_BITS + COMPRESSION_METHODS_LENGTH_BITS
+				+ supportedCipherSuites.size() * CipherSuite.CIPHER_SUITE_BITS
+				+ compressionMethods.size() * CompressionMethod.COMPRESSION_METHOD_BITS) / Byte.SIZE;
 		hmac.update(rawMessage, MESSAGE_HEADER_LENGTH_BYTES, head);
-		hmac.update(rawMessage, tail, rawMessage.length - tail);
+		hmac.update(rawMessage, tail, tailLength);
 	}
 
 	/**
@@ -386,14 +387,7 @@ public final class ClientHello extends HelloHandshakeMessage {
 	 * @since 3.0
 	 */
 	public List<CipherSuite> getCommonCipherSuites(List<CipherSuite> serverCipherSuite) {
-		List<CipherSuite> common = new ArrayList<>();
-		for (CipherSuite cipherSuite : supportedCipherSuites) {
-			// NEVER negotiate NULL cipher suite
-			if (cipherSuite != CipherSuite.TLS_NULL_WITH_NULL_NULL && serverCipherSuite.contains(cipherSuite)) {
-				common.add(cipherSuite);
-			}
-		}
-		return common;
+		return CipherSuite.preselectCipherSuites(serverCipherSuite, supportedCipherSuites);
 	}
 
 	/**
@@ -445,6 +439,24 @@ public final class ClientHello extends HelloHandshakeMessage {
 	 */
 	public SupportedEllipticCurvesExtension getSupportedEllipticCurvesExtension() {
 		return extensions.getExtension(ExtensionType.ELLIPTIC_CURVES);
+	}
+
+	/**
+	 * Checks, if either the {@link RenegotiationInfoExtension} or the
+	 * {@link CipherSuite#TLS_EMPTY_RENEGOTIATION_INFO_SCSV} is available.
+	 * 
+	 * Californium doesn't support renegotiation at all, but RFC5746 requests to
+	 * update to a minimal version of RFC 5746.
+	 * 
+	 * See <a href="https://tools.ietf.org/html/rfc5746" target="_blank">RFC
+	 * 5746</a> for additional details.
+	 * 
+	 * @return {@code true}, if available, {@code false}, if not.
+	 * @since 3.8
+	 */
+	public boolean hasRenegotiationInfo() {
+		return hasRenegotiationInfoExtension()
+				|| supportedCipherSuites.contains(CipherSuite.TLS_EMPTY_RENEGOTIATION_INFO_SCSV);
 	}
 
 }

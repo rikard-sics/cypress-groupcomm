@@ -17,6 +17,7 @@
 package org.eclipse.californium.elements.util;
 
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeNotNull;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -71,6 +72,12 @@ public class TestCertificatesTools {
 	public static final String CA_ALIAS = "ca";
 	public static final String CA_ALT_ALIAS = "caalt";
 	public static final String NO_SIGNING_ALIAS = "nosigning";
+	/**
+	 * Alias for client expired certificate chain.
+	 * 
+	 * @since 3.9
+	 */
+	public static final String CLIENT_EXPIRED_NAME = "clientexpired";
 
 	private static final SecureRandom random = new SecureRandom();
 
@@ -79,6 +86,7 @@ public class TestCertificatesTools {
 	private static X509KeyManager serverEdDsaKeyManager;
 	public static Credentials clientCredentials;
 	public static Credentials clientRsaCredentials;
+	public static Credentials clientExpiredCredentials;
 	public static Credentials serverCredentials;
 	public static Credentials serverCaRsaCredentials;
 	public static Credentials serverRsaCredentials;
@@ -96,6 +104,8 @@ public class TestCertificatesTools {
 					CLIENT_NAME, KEY_STORE_PASSWORD, KEY_STORE_PASSWORD);
 			clientRsaCredentials = SslContextUtil.loadCredentials(KEY_STORE_URI,
 					CLIENT_RSA_NAME, KEY_STORE_PASSWORD, KEY_STORE_PASSWORD);
+			clientExpiredCredentials = SslContextUtil.loadCredentials(KEY_STORE_URI,
+					CLIENT_EXPIRED_NAME, KEY_STORE_PASSWORD, KEY_STORE_PASSWORD);
 			serverCredentials = SslContextUtil.loadCredentials(KEY_STORE_URI,
 					SERVER_NAME, KEY_STORE_PASSWORD, KEY_STORE_PASSWORD);
 			serverCaRsaCredentials = SslContextUtil.loadCredentials(KEY_STORE_URI,
@@ -110,7 +120,7 @@ public class TestCertificatesTools {
 			keyManager = SslContextUtil.loadKeyManager(KEY_STORE_URI, "client", KEY_STORE_PASSWORD, KEY_STORE_PASSWORD);
 			clientKeyManager = SslContextUtil.getX509KeyManager(keyManager);
 
-			if (JceProviderUtil.isSupported(Asn1DerDecoder.ED25519)
+			if (JceProviderUtil.isSupported(JceNames.ED25519)
 					&& SslContextUtil.isAvailableFromUri(EDDSA_KEY_STORE_URI)) {
 				keyManager = SslContextUtil.loadKeyManager(EDDSA_KEY_STORE_URI, "server.*", KEY_STORE_PASSWORD,
 						KEY_STORE_PASSWORD);
@@ -130,7 +140,18 @@ public class TestCertificatesTools {
 			X509Certificate[] chain = SslContextUtil.loadCertificateChain(
 					KEY_STORE_URI, NO_SIGNING_ALIAS, KEY_STORE_PASSWORD);
 			nosigningCertificate = chain[0];
-		} catch (IOException | GeneralSecurityException e) {
+			
+			if (!clientExpiredCredentials.isExpired()) {
+				clientExpiredCredentials = null;
+			}
+		} catch (RuntimeException e) {
+			e.printStackTrace(System.err);
+			throw e;
+		} catch (Error e) {
+			e.printStackTrace(System.err);
+			throw e;
+		} catch (Throwable e) {
+			e.printStackTrace(System.err);
 			throw new Error(e.getMessage());
 		}
 	}
@@ -268,6 +289,30 @@ public class TestCertificatesTools {
 	}
 
 	/**
+	 * Get client expired certificate chain. 
+	 * 
+	 * @return client expired certificate chain as array
+	 * @since 3.9
+	 */
+	public static X509Certificate[] getClientExpiredCertificateChain() {
+		assumeNotNull("client certificate is not expired", clientExpiredCredentials);
+		X509Certificate[] certificateChain = clientExpiredCredentials.getCertificateChain();
+		return Arrays.copyOf(certificateChain, certificateChain.length);
+	}
+
+	/**
+	 * Get client expired certificate chain. 
+	 * 
+	 * @return client expired certificate chain as list
+	 * @since 3.9
+	 */
+	public static List<X509Certificate> getClientExpiredCertificateChainAsList() {
+		assumeNotNull("client certificate is not expired", clientExpiredCredentials);
+		X509Certificate[] certificateChain = clientExpiredCredentials.getCertificateChain();
+		return Arrays.asList(certificateChain);
+	}
+
+	/**
 	 * Get credentials for alias.
 	 * 
 	 * @param alias alias for credentials
@@ -348,6 +393,17 @@ public class TestCertificatesTools {
 	}
 
 	/**
+	 * Gets the client's expired private key from the example key store.
+	 * 
+	 * @return the key
+	 * @since 3.9
+	 */
+	public static PrivateKey getClientExpiredPrivateKey() {
+		assumeNotNull("client certificate is not expired", clientExpiredCredentials);
+		return clientExpiredCredentials.getPrivateKey();
+	}
+
+	/**
 	 * Gets the server's public key from the example key store.
 	 * 
 	 * @return The key.
@@ -381,6 +437,17 @@ public class TestCertificatesTools {
 	 */
 	public static PublicKey getClientRsaPublicKey() {
 		return clientRsaCredentials.getCertificateChain()[0].getPublicKey();
+	}
+
+	/**
+	 * Gets the client's expired public key from the example key store.
+	 * 
+	 * @return The key.
+	 * @since 3.9
+	 */
+	public static PublicKey getClientExpiredPublicKey() {
+		assumeNotNull("client certificate is not expired", clientExpiredCredentials);
+		return clientExpiredCredentials.getCertificateChain()[0].getPublicKey();
 	}
 
 	/**
@@ -459,12 +526,12 @@ public class TestCertificatesTools {
 	 * 
 	 * @param message message for failure
 	 * @param privateKey private key to sign
-	 * @param pulbicKey public key to verify
+	 * @param publicKey public key to verify
 	 * @param signature signature variant.
 	 * @since 3.0
 	 * @param signature
 	 */
-	public static void assertSigning(String message, PrivateKey privateKey, PublicKey pulbicKey, Signature signature) {
+	public static void assertSigning(String message, PrivateKey privateKey, PublicKey publicKey, Signature signature) {
 		String algorithm = signature.getAlgorithm();
 		try {
 			int len = 256;
@@ -473,11 +540,11 @@ public class TestCertificatesTools {
 			}
 			byte[] data = Bytes.createBytes(random, len);
 			signature.initSign(privateKey);
-			signature.update(data, 0, len);
+			signature.update(data);
 			byte[] sign = signature.sign();
 
-			signature.initVerify(pulbicKey);
-			signature.update(data, 0, len);
+			signature.initVerify(publicKey);
+			signature.update(data);
 			if (!signature.verify(sign)) {
 				fail(message + ":" + algorithm + " failed!");
 			}
@@ -507,7 +574,7 @@ public class TestCertificatesTools {
 	 * @since 3.0
 	 */
 	private static Signature getSignatureInstance(String algorithm) throws NoSuchAlgorithmException {
-		String standardAlgorithm = Asn1DerDecoder.getEdDsaStandardAlgorithmName(algorithm, algorithm);
+		String standardAlgorithm = JceProviderUtil.getEdDsaStandardAlgorithmName(algorithm, algorithm);
 		return Signature.getInstance(standardAlgorithm);
 	}
 

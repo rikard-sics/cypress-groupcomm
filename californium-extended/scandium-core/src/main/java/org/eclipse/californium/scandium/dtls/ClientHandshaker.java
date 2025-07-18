@@ -48,6 +48,7 @@ package org.eclipse.californium.scandium.dtls;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.PublicKey;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -57,10 +58,10 @@ import javax.security.auth.x500.X500Principal;
 import org.eclipse.californium.elements.util.NoPublicAPI;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.scandium.config.DtlsConfig;
+import org.eclipse.californium.scandium.config.DtlsConfig.DtlsSecureRenegotiation;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.AlertMessage.AlertDescription;
 import org.eclipse.californium.scandium.dtls.AlertMessage.AlertLevel;
-import org.eclipse.californium.scandium.dtls.HelloExtension.ExtensionType;
 import org.eclipse.californium.scandium.dtls.MaxFragmentLengthExtension.Length;
 import org.eclipse.californium.scandium.dtls.SupportedPointFormatsExtension.ECPointFormat;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
@@ -70,6 +71,8 @@ import org.eclipse.californium.scandium.dtls.cipher.XECDHECryptography;
 import org.eclipse.californium.scandium.dtls.cipher.XECDHECryptography.SupportedGroup;
 import org.eclipse.californium.scandium.util.SecretUtil;
 import org.eclipse.californium.scandium.util.ServerNames;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * ClientHandshaker does the protocol handshaking from the point of view of a
@@ -135,6 +138,11 @@ import org.eclipse.californium.scandium.util.ServerNames;
 @NoPublicAPI
 public class ClientHandshaker extends Handshaker {
 
+	/**
+	 * @since 3.10
+	 */
+	private final Logger LOGGER = LoggerFactory.getLogger(getClass());
+
 	protected static final HandshakeState[] INIT = {
 			new HandshakeState(HandshakeType.HELLO_VERIFY_REQUEST, true),
 			new HandshakeState(HandshakeType.SERVER_HELLO) };
@@ -154,11 +162,6 @@ public class ClientHandshaker extends Handshaker {
 			new HandshakeState(HandshakeType.FINISHED) };
 
 	private ProtocolVersion maxProtocolVersion = ProtocolVersion.VERSION_DTLS_1_2;
-
-	/**
-	 * Indicates probing for this handshake.
-	 */
-	private boolean probe;
 
 	/**
 	 * Indicates received server hello done.
@@ -196,6 +199,19 @@ public class ClientHandshaker extends Handshaker {
 	private final List<CipherSuite> supportedCipherSuites;
 
 	/**
+	 * Secure renegotiation mode.
+	 * 
+	 * Californium doesn't support renegotiation at all, but RFC5746 requests to
+	 * update to a minimal version.
+	 * 
+	 * See <a href="https://tools.ietf.org/html/rfc5746" target="_blank">RFC
+	 * 5746</a> for additional details.
+	 * 
+	 * @since 3.8
+	 */
+	private final DtlsSecureRenegotiation secureRenegotiation;
+
+	/**
 	 * the supported groups (curves) ordered by preference
 	 * 
 	 * @since 2.3
@@ -230,14 +246,6 @@ public class ClientHandshaker extends Handshaker {
 	protected final List<CertificateType> supportedServerCertificateTypes;
 
 	/**
-	 * Use the deprecated CID extension before version 9 of <a href=
-	 * "https://datatracker.ietf.org/doc/draft-ietf-tls-dtls-connection-id/"
-	 * target="_blank">Draft dtls-connection-id</a>.
-	 * 
-	 * @since 3.0
-	 */
-	private final Integer useDeprecatedCid;
-	/**
 	 * Verify the server certificate's subject.
 	 * 
 	 * @see DtlsConfig#DTLS_VERIFY_SERVER_CERTIFICATES_SUBJECT
@@ -263,24 +271,32 @@ public class ClientHandshaker extends Handshaker {
 	 * @param timer scheduled executor for flight retransmission (since 2.4).
 	 * @param connection the connection related with the session.
 	 * @param config the DTLS configuration.
-	 * @param probe {@code true} enable probing for this handshake,
-	 *            {@code false}, not probing handshake.
 	 * @throws NullPointerException if any of the provided parameter is
 	 *             {@code null}, except the hostname.
 	 */
 	public ClientHandshaker(String hostname, RecordLayer recordLayer, ScheduledExecutorService timer,
-			Connection connection, DtlsConnectorConfig config, boolean probe) {
+			Connection connection, DtlsConnectorConfig config) {
 		super(0, 0, recordLayer, timer, connection, config);
-		this.supportedCipherSuites = config.getSupportedCipherSuites();
+
+		List<CipherSuite> cipherSuites = config.getSupportedCipherSuites();
+		boolean scsv = cipherSuites.contains(CipherSuite.TLS_EMPTY_RENEGOTIATION_INFO_SCSV);
+		DtlsSecureRenegotiation secureRenegotiation = config.get(DtlsConfig.DTLS_SECURE_RENEGOTIATION);
+
+		if (scsv && secureRenegotiation == DtlsSecureRenegotiation.NONE) {
+			secureRenegotiation = DtlsSecureRenegotiation.WANTED;
+		} else if (!scsv && secureRenegotiation != DtlsSecureRenegotiation.NONE) {
+			cipherSuites = new ArrayList<>(cipherSuites);
+			cipherSuites.add(CipherSuite.TLS_EMPTY_RENEGOTIATION_INFO_SCSV);
+		}
+		this.secureRenegotiation = secureRenegotiation;
+		this.supportedCipherSuites = cipherSuites;
 		this.supportedGroups = config.getSupportedGroups();
-		this.maxFragmentLength = config.getMaxFragmentLength();
-		this.truncateCertificatePath = config.useTruncatedCertificatePathForClientsCertificateMessage();
+		this.maxFragmentLength = config.get(DtlsConfig.DTLS_MAX_FRAGMENT_LENGTH);
+		this.truncateCertificatePath = config.get(DtlsConfig.DTLS_TRUNCATE_CLIENT_CERTIFICATE_PATH);
 		this.supportedServerCertificateTypes = config.getTrustCertificateTypes();
 		this.supportedClientCertificateTypes = config.getIdentityCertificateTypes();
 		this.supportedSignatureAlgorithms = config.getSupportedSignatureAlgorithms();
-		this.useDeprecatedCid = config.useDeprecatedCid();
-		this.verifyServerCertificatesSubject = config.verifyServerCertificatesSubject();
-		this.probe = probe;
+		this.verifyServerCertificatesSubject = config.get(DtlsConfig.DTLS_VERIFY_SERVER_CERTIFICATES_SUBJECT);
 		getSession().setHostName(hostname);
 	}
 
@@ -441,7 +457,6 @@ public class ClientHandshaker extends Handshaker {
 			DTLSContext context = getDtlsContext();
 			context.setWriteConnectionId(connectionId);
 			context.setReadConnectionId(getReadConnectionId());
-			context.setDeprecatedCid(extension.useDeprecatedCid());
 		}
 	}
 
@@ -454,19 +469,21 @@ public class ClientHandshaker extends Handshaker {
 	 *             initiated by the client or not supported by the client.
 	 */
 	protected void verifyServerHelloExtensions(ServerHello message) throws HandshakeException {
+		boolean hasRenegotiationInfoExtension = false;
 		HelloExtensions serverExtensions = message.getExtensions();
-		if (serverExtensions != null && !serverExtensions.isEmpty()) {
+		if (!serverExtensions.isEmpty()) {
 			HelloExtensions clientExtensions = clientHello.getExtensions();
-			if (clientExtensions == null || clientExtensions.isEmpty()) {
-				throw new HandshakeException("Server wants extensions, but client not!",
-						new AlertMessage(AlertLevel.FATAL, AlertDescription.UNSUPPORTED_EXTENSION));
-			} else {
-				for (HelloExtension serverExtension : serverExtensions.getExtensions()) {
-					if (clientExtensions.getExtension(serverExtension.getType()) == null) {
-						throw new HandshakeException(
-								"Server wants " + serverExtension.getType() + ", but client didn't propose it!",
-								new AlertMessage(AlertLevel.FATAL, AlertDescription.UNSUPPORTED_EXTENSION));
+			for (HelloExtension serverExtension : serverExtensions.getExtensions()) {
+				if (clientExtensions.getExtension(serverExtension.getType()) == null) {
+					if (serverExtension.getType() == HelloExtension.ExtensionType.RENEGOTIATION_INFO) {
+						hasRenegotiationInfoExtension = true;
+						if (secureRenegotiation != DtlsSecureRenegotiation.NONE) {
+							continue;
+						}
 					}
+					throw new HandshakeException(
+							"Server wants " + serverExtension.getType() + ", but client didn't propose it!",
+							new AlertMessage(AlertLevel.FATAL, AlertDescription.UNSUPPORTED_EXTENSION));
 				}
 			}
 		}
@@ -518,6 +535,12 @@ public class ClientHandshaker extends Handshaker {
 						new AlertMessage(AlertLevel.FATAL, AlertDescription.ILLEGAL_PARAMETER));
 			}
 			session.setSendCertificateType(clientCertificateType);
+		}
+		if (hasRenegotiationInfoExtension) {
+			session.setSecureRengotiation(true);
+		} else if (secureRenegotiation == DtlsSecureRenegotiation.NEEDED) {
+			throw new HandshakeException("Server doesn't support secure renegotiation!",
+					new AlertMessage(AlertLevel.FATAL, AlertDescription.HANDSHAKE_FAILURE));
 		}
 	}
 
@@ -898,8 +921,8 @@ public class ClientHandshaker extends Handshaker {
 	}
 
 	/**
-	 * Add record size limit extension, if configured in
-	 * {@link DtlsConnectorConfig#getRecordSizeLimit()}.
+	 * Add record size limit extension, if configured with
+	 * {@link DtlsConfig#DTLS_RECORD_SIZE_LIMIT}.
 	 * 
 	 * @param helloMessage client hello to add {@link RecordSizeLimitExtension}.
 	 * @since 2.4
@@ -930,13 +953,7 @@ public class ClientHandshaker extends Handshaker {
 				// use empty cid
 				connectionId = ConnectionId.EMPTY;
 			}
-			ExtensionType cidType;
-			if (useDeprecatedCid  != null) {
-				cidType = ExtensionType.getExtensionTypeById(useDeprecatedCid);
-			} else {
-				cidType = ExtensionType.CONNECTION_ID;
-			}
-			ConnectionIdExtension extension = ConnectionIdExtension.fromConnectionId(connectionId, cidType);
+			ConnectionIdExtension extension = ConnectionIdExtension.fromConnectionId(connectionId);
 			helloMessage.addExtension(extension);
 		}
 	}
@@ -965,7 +982,7 @@ public class ClientHandshaker extends Handshaker {
 			LOGGER.warn(
 					"client is configured to use SNI but server does not support it, PSK authentication is likely to fail");
 		}
-		PskPublicInformation pskIdentity = advancedPskStore.getIdentity(getPeerAddress(), serverName);
+		PskPublicInformation pskIdentity = pskStore.getIdentity(getPeerAddress(), serverName);
 		// look up identity in scope of virtual host
 		if (pskIdentity == null) {
 			AlertMessage alert = new AlertMessage(AlertLevel.FATAL, AlertDescription.INTERNAL_ERROR);
@@ -978,25 +995,5 @@ public class ClientHandshaker extends Handshaker {
 			}
 		}
 		return pskIdentity;
-	}
-
-	@Override
-	public boolean isProbing() {
-		return probe;
-	}
-
-	@Override
-	public void resetProbing() {
-		probe = false;
-	}
-
-	/**
-	 * {@inheritDoc}
-	 * 
-	 * Connections of probing handshakes are not intended to be removed.
-	 */
-	@Override
-	public boolean isRemovingConnection() {
-		return !probe && super.isRemovingConnection();
 	}
 }

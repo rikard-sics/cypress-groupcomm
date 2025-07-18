@@ -19,6 +19,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.eclipse.californium.core.coap.MediaTypeRegistry;
+import org.eclipse.californium.core.coap.OptionSet;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.plugtests.TestClientAbstract;
@@ -56,7 +57,7 @@ public class CC18 extends TestClientAbstract {
 
 		if (success) {
 
-			List<String> path = response.getOptions().getLocationPath();
+			List<String> path = OptionSet.getValues(response.getOptions().getLocationPath());
 			List<String> expc = Arrays.asList("location1", "location2",
 					"location3");
 			success &= checkOption(expc, path, "Location path");

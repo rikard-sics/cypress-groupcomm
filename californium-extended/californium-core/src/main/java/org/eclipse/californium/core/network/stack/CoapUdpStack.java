@@ -24,9 +24,11 @@
  ******************************************************************************/
 package org.eclipse.californium.core.network.stack;
 
+import org.eclipse.californium.core.network.CoapStackFactory;
 import org.eclipse.californium.core.network.Outbox;
 import org.eclipse.californium.core.server.MessageDeliverer;
 import org.eclipse.californium.elements.Connector;
+import org.eclipse.californium.elements.EndpointContextMatcher;
 import org.eclipse.californium.elements.config.Configuration;
 
 /**
@@ -71,41 +73,32 @@ import org.eclipse.californium.elements.config.Configuration;
  * | {@link Connector}                |
  * +--------------------------+
  * </pre></blockquote><hr>
+ * 
  */
 public class CoapUdpStack extends BaseCoapStack {
 
 	/**
 	 * Creates a new stack for UDP as the transport.
 	 * 
+	 * Note: in order to match blockwise follow up requests, this constructor is
+	 * required. It doesn't longer call the create-layer functions. If that is
+	 * required, please use a own custom implementation of the {@link CoapStack}
+	 * and the {@link CoapStackFactory} to provide instances of that
+	 * custom implementation.
+	 * 
 	 * @param tag logging tag
 	 * @param config The configuration values to use.
-	 * @param outbox The adapter for submitting outbound messages to the transport.
-	 * @since 3.0 (logging tag added and changed parameter to Configuration)
+	 * @param matchingStrategy endpoint context matcher to relate responses with
+	 *            requests
+	 * @param outbox The adapter for submitting outbound messages to the
+	 *            transport.
+	 * @since 3.1
 	 */
-	public CoapUdpStack(String tag, Configuration config, Outbox outbox) {
+	public CoapUdpStack(String tag, Configuration config, EndpointContextMatcher matchingStrategy, Outbox outbox) {
 		super(outbox);
-		Layer layers[] = new Layer[] {
-				createExchangeCleanupLayer(config),
-				createObserveLayer(config),
-				createBlockwiseLayer(tag, config),
-				createReliabilityLayer(tag, config)};
-
+		Layer[] layers = new Layer[] { new ExchangeCleanupLayer(config), new ObserveLayer(config),
+				new BlockwiseLayer(tag, false, config, matchingStrategy),
+				CongestionControlLayer.newImplementation(tag, config) };
 		setLayers(layers);
-	}
-
-	protected Layer createExchangeCleanupLayer(Configuration config) {
-		return new ExchangeCleanupLayer(config);
-	}
-
-	protected Layer createObserveLayer(Configuration config) {
-		return new ObserveLayer(config);
-	}
-
-	protected Layer createBlockwiseLayer(String tag, Configuration config) {
-		return new BlockwiseLayer(tag, false, config);
-	}
-
-	protected Layer createReliabilityLayer(String tag, Configuration config) {
-		return CongestionControlLayer.newImplementation(tag, config);
 	}
 }

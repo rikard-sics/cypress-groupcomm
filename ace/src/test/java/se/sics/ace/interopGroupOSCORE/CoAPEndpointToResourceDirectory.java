@@ -72,7 +72,7 @@ public class CoAPEndpointToResourceDirectory {
 	
 	private static final String securityGroupRegistrationRequest = "" +
 			/* Beginning of Link-Format payload */
-			"</ace-group/feedca570000>;ct=19;rt=\"core.osc.gm\";if=\"ace.group\";" + 
+	        "</ace-group/feedca570000>;ct=19;rt=\"core.osc.gm\";if=\"ace.group\";" + 
 				"sec-gp=\"" + securityGroupName + "\";app-gp=\"" + applicationGroupName + "\";" + 
 				"cs_alg=\"-8\";cs_alg_crv=\"6\";" + 
 				"cs_kenc=\"1\";ecdh_alg=\"-27\";" + 
@@ -93,8 +93,6 @@ public class CoAPEndpointToResourceDirectory {
 	 * 
 	 */
 	public static void main(String args[]) {
-		String defaultUri = "coap://coap.me";
-
 		String path = "";
 		String query = "";
 		byte[] requestPayload = null;
@@ -107,6 +105,7 @@ public class CoAPEndpointToResourceDirectory {
 		
 		// Interact with the test server at coap://coap.me
 		/*
+		String defaultUri = "coap://coap.me";
 		// input URI from command line arguments
 		try {
 			if (args.length == 0) {

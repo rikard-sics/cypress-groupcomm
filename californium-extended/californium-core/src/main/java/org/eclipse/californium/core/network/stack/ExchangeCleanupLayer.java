@@ -85,7 +85,7 @@ public class ExchangeCleanupLayer extends AbstractLayer {
 	 */
 	@Override
 	public void sendResponse(final Exchange exchange, final Response response) {
-		if (!response.isNotification()) {
+		if (exchange.getRelation() == null) {
 			Type type = response.getType();
 			if (type == null || type == Type.CON) {
 				// if type is set later, add the cleanup preventive
@@ -97,7 +97,7 @@ public class ExchangeCleanupLayer extends AbstractLayer {
 
 	@Override
 	public void receiveResponse(final Exchange exchange, final Response response) {
-		if (!exchange.getRequest().isMulticast()) {
+		if (!exchange.getRequest().isMulticast() && !exchange.getMultiResponse()) {
 			// multicast exchanges are completed with MulticastCleanupMessageObserver
 			exchange.setComplete();
 			exchange.getRequest().onTransferComplete();

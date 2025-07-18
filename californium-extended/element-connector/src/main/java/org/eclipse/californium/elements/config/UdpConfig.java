@@ -31,15 +31,19 @@ public final class UdpConfig {
 	public static final String MODULE = "UDP.";
 
 	/**
-	 * Number of receiver threads for {@link UDPConnector}.
+	 * Number of receiver threads for {@link UDPConnector}. Values {@code < 0}
+	 * will use 1 virtual thread if supported by the JVM.
 	 */
 	public static final IntegerDefinition UDP_RECEIVER_THREAD_COUNT = new IntegerDefinition(
-			MODULE + "RECEIVER_THREAD_COUNT", "Number of UDP receiver threads.", 1, 0);
+			MODULE + "RECEIVER_THREAD_COUNT",
+			"Number of UDP receiver threads. -1 for 1 virtual thread, if supported by the JVM.", 1);
 	/**
-	 * Number of sender threads for {@link UDPConnector}.
+	 * Number of sender threads for {@link UDPConnector}. Values {@code < 0}
+	 * will use 1 virtual thread if supported by the JVM.
 	 */
 	public static final IntegerDefinition UDP_SENDER_THREAD_COUNT = new IntegerDefinition(
-			MODULE + "SENDER_THREAD_COUNT", "Number of UDP sender threads.", 1, 0);
+			MODULE + "SENDER_THREAD_COUNT",
+			"Number of UDP sender threads. -1 for 1 virtual thread, if supported by the JVM.", 1);
 	/**
 	 * Size of {@link DatagramPacket} for {@link UDPConnector}.
 	 */
@@ -48,16 +52,18 @@ public final class UdpConfig {
 
 	/**
 	 * UDP receive buffer size used for
-	 * {@link DatagramSocket#setReceiveBufferSize(int)}.
+	 * {@link DatagramSocket#setReceiveBufferSize(int)}. {@code null} or
+	 * {@code 0} to use the OS default.
 	 */
 	public static final IntegerDefinition UDP_RECEIVE_BUFFER_SIZE = new IntegerDefinition(
-			MODULE + "RECEIVE_BUFFER_SIZE", "UDP receive-buffer size.", null, 64);
+			MODULE + "RECEIVE_BUFFER_SIZE", "UDP receive-buffer size. Empty or 0 to use the OS default.", null, 64);
 	/**
 	 * UDP send buffer size used for
-	 * {@link DatagramSocket#setSendBufferSize(int)}.
+	 * {@link DatagramSocket#setSendBufferSize(int)}. {@code null} or {@code 0}
+	 * to use the OS default.
 	 */
 	public static final IntegerDefinition UDP_SEND_BUFFER_SIZE = new IntegerDefinition(MODULE + "SEND_BUFFER_SIZE",
-			"UDP send-buffer size.", null, 64);
+			"UDP send-buffer size. Empty or 0 to use the OS default.", null, 64);
 	/**
 	 * Maximum number of pending outbound messages.
 	 */
@@ -82,6 +88,7 @@ public final class UdpConfig {
 			config.set(UDP_RECEIVE_BUFFER_SIZE, null);
 			config.set(UDP_SEND_BUFFER_SIZE, null);
 			config.set(UDP_CONNECTOR_OUT_CAPACITY, Integer.MAX_VALUE);
+			DefinitionUtils.verify(UdpConfig.class, config);
 		}
 	};
 

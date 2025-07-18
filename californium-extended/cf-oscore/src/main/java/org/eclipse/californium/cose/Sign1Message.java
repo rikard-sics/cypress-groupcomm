@@ -151,3 +151,4 @@ public class Sign1Message extends SignCommon {
         return obj;
     }
 }
+

@@ -34,6 +34,7 @@ import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
 import org.eclipse.californium.core.coap.Token;
 import org.eclipse.californium.elements.util.Bytes;
@@ -57,7 +58,6 @@ public class HashMapCtxDB implements OSCoreCtxDB {
 
 	private HashMap<Token, OSCoreCtx> tokenMap;
 	private HashMap<String, OSCoreCtx> uriMap;
-	private HashMap<Token, Integer> seqMap;
 
 	private ArrayList<Token> allTokens;
 
@@ -69,7 +69,6 @@ public class HashMapCtxDB implements OSCoreCtxDB {
 		this.tokenMap = new HashMap<>();
 		this.contextMap = new HashMap<>();
 		this.uriMap = new HashMap<>();
-		this.seqMap = new HashMap<>();
 		this.allTokens = new ArrayList<Token>();
 	}
 
@@ -82,8 +81,8 @@ public class HashMapCtxDB implements OSCoreCtxDB {
 	public synchronized OSCoreCtx getContext(byte[] rid, byte[] IDContext) throws CoapOSException {
 		// Do not allow a null RID
 		if (rid == null) {
-			LOGGER.error(ErrorDescriptions.BYTE_ARRAY_NULL);
-			throw new NullPointerException(ErrorDescriptions.BYTE_ARRAY_NULL);
+			LOGGER.error(ErrorDescriptions.MISSING_KID);
+			throw new CoapOSException(ErrorDescriptions.MISSING_KID, ResponseCode.UNAUTHORIZED);
 		}
 
 		HashMap<ByteId, OSCoreCtx> matchingRidMap = contextMap.get(new ByteId(rid));
@@ -258,56 +257,12 @@ public class HashMapCtxDB implements OSCoreCtxDB {
 	}
 
 	@Override
-	public synchronized Integer getSeqByToken(Token token) {
-		if (token != null) {
-			return seqMap.get(token);
-		} else {
-			LOGGER.error(ErrorDescriptions.TOKEN_NULL);
-			throw new NullPointerException(ErrorDescriptions.TOKEN_NULL);
-		}
-	}
-
-	@Override
-	public synchronized void addSeqByToken(Token token, Integer seq) {
-		if (seq == null || seq < 0) {
-			throw new NullPointerException(ErrorDescriptions.SEQ_NBR_INVALID);
-		}
-		if (token == null) {
-			throw new NullPointerException(ErrorDescriptions.TOKEN_NULL);
-		}
-		if (tokenExist(token)) {
-			LOGGER.info("Token exists, but this could be a refresh if not there is a problem");
-		} else {
-			allTokens.add(token);
-		}
-		seqMap.put(token, seq);
-	}
-
-	@Override
 	public synchronized boolean tokenExist(Token token) {
 		if (token != null) {
 			return allTokens.contains(token);
 		} else {
 			LOGGER.error(ErrorDescriptions.TOKEN_NULL);
 			throw new NullPointerException(ErrorDescriptions.TOKEN_NULL);
-		}
-	}
-
-	@Override
-	public synchronized void removeSeqByToken(Token token) {
-		if (token != null) {
-			seqMap.remove(token);
-			removeTokenIf(token);
-		} else {
-			LOGGER.error(ErrorDescriptions.TOKEN_NULL);
-			throw new NullPointerException(ErrorDescriptions.TOKEN_NULL);
-		}
-	}
-
-	@Override
-	public synchronized void updateSeqByToken(Token token, Integer seq) {
-		if (tokenExist(token)) {
-			addSeqByToken(token, seq);
 		}
 	}
 
@@ -321,9 +276,12 @@ public class HashMapCtxDB implements OSCoreCtxDB {
 	 */
 	private static String normalizeServerUri(String uri) throws OSException {
 		String normalized = null;
+		int port = -1;
 
 		try {
-			normalized = (new URI(uri)).getHost();
+			URI serverUri = new URI(uri);
+			port = serverUri.getPort();
+			normalized = serverUri.getHost();
 		} catch (URISyntaxException e) {
 			// workaround for openjdk bug JDK-8199396.
 			// some characters are not supported for the ipv6 scope.
@@ -356,7 +314,7 @@ public class HashMapCtxDB implements OSCoreCtxDB {
 				}
 
 			} catch (URISyntaxException e2) {
-				LOGGER.error("Error in the request URI: " + uri + " message: " + e.getMessage());
+				LOGGER.error("Error in the request URI: {} message: {}", uri, e.getMessage());
 				throw new OSException(e.getMessage());
 			}
 		}
@@ -367,19 +325,18 @@ public class HashMapCtxDB implements OSCoreCtxDB {
 		try {
 			ipv6Addr = InetAddress.getByName(normalized);
 		} catch (UnknownHostException e) {
-			LOGGER.error("Error finding host of request URI: " + uri + " message: " + e.getMessage());
+			LOGGER.error("Error finding host of request URI: {} message: {}", uri, e.getMessage());
 		}
 		if (ipv6Addr instanceof Inet6Address) {
-			normalized = ipv6Addr.getHostAddress();
+			normalized = "[" + ipv6Addr.getHostAddress() + "]";
+		}
+
+		// Consider port, if not default
+		if (port != -1 && port != CoAP.DEFAULT_COAP_PORT) {
+			normalized = normalized + ":" + port;
 		}
 
 		return normalized;
-	}
-
-	private synchronized void removeTokenIf(Token token) {
-		if (!tokenMap.containsKey(token) && !seqMap.containsKey(token)) {
-			allTokens.remove(token);
-		}
 	}
 
 	/**
@@ -390,7 +347,6 @@ public class HashMapCtxDB implements OSCoreCtxDB {
 	@Override
 	public synchronized void removeToken(Token token) {
 		tokenMap.remove(token);
-		seqMap.remove(token);
 	}
 
 	/**
@@ -401,7 +357,6 @@ public class HashMapCtxDB implements OSCoreCtxDB {
 		contextMap.clear();
 		tokenMap.clear();
 		uriMap.clear();
-		seqMap.clear();
 		allTokens = new ArrayList<Token>();
 	}
 

@@ -1,0 +1,22 @@
+[
+    {
+        "AllowedHeaders": [
+            "*"
+        ],
+        "AllowedMethods": [
+            "GET",
+            "PUT",
+            "HEAD"
+        ],
+        "AllowedOrigins": [
+            "https://domain",
+            "https://localhost:8080"
+        ],
+        "ExposeHeaders": [
+            "ETag",
+            "x-amz-meta-interval",
+            "x-amz-meta-coap-ct"
+        ]
+    }
+]
+

@@ -20,17 +20,17 @@
 package org.eclipse.californium.core.network;
 
 import static org.eclipse.californium.core.network.MessageIdTracker.TOTAL_NO_OF_MIDS;
-import static org.eclipse.californium.elements.util.TestConditionTools.inRange;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.fail;
 
 import java.util.concurrent.TimeUnit;
 
-import org.eclipse.californium.TestTools;
 import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.elements.category.Small;
 import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.elements.matcher.InRange;
 import org.eclipse.californium.elements.rule.TestTimeRule;
 import org.eclipse.californium.elements.util.ExpectedExceptionWrapper;
 import org.eclipse.californium.rule.CoapNetworkRule;
@@ -87,7 +87,7 @@ public class MapBasedMessageIdTrackerTest {
 		MapBasedMessageIdTracker tracker = new MapBasedMessageIdTracker(INITIAL_MID + minMid, minMid, maxMid, config);
 		for (int i = 0; i < rangeMid; i++) {
 			int mid = tracker.getNextMessageId();
-			assertThat(mid, is(inRange(minMid, maxMid)));
+			assertThat(mid, is(InRange.inRange(minMid, maxMid)));
 		}
 
 		exception.expect(IllegalStateException.class);
@@ -99,10 +99,8 @@ public class MapBasedMessageIdTrackerTest {
 
 	@Test
 	public void testGetNextMessageIdReusesIdAfterExchangeLifetime() throws Exception {
-		// GIVEN a tracker with an EXCHANGE_LIFETIME of 100ms
-		int exchangeLifetime = 100; // ms
+		// GIVEN a tracker with an EXCHANGE_LIFETIME
 		Configuration config = network.createStandardTestConfig();
-		config.set(CoapConfig.EXCHANGE_LIFETIME, exchangeLifetime, TimeUnit.MILLISECONDS);
 		final MapBasedMessageIdTracker tracker = new MapBasedMessageIdTracker(INITIAL_MID, 0, TOTAL_NO_OF_MIDS, config);
 
 		// WHEN retrieving all message IDs from the tracker
@@ -110,12 +108,17 @@ public class MapBasedMessageIdTrackerTest {
 		for (int i = 1; i < TOTAL_NO_OF_MIDS; i++) {
 			tracker.getNextMessageId();
 		}
+		try {
+			tracker.getNextMessageId();
+			fail("mids expected to run out.");
+		} catch (IllegalStateException ex) {
+			assertThat(ex.getMessage(), containsString("No MID available, all"));
+		}
 
-		// THEN the first message ID is re-used after 
-		// EXCHANGE_LIFETIME has expired
-		exchangeLifetime += (exchangeLifetime >> 1); // a little longer
+		// THEN the first message ID is re-used after EXCHANGE_LIFETIME has expired
+		time.addTestTimeShift(config.getTimeAsInt(CoapConfig.EXCHANGE_LIFETIME, TimeUnit.MILLISECONDS) + 1, TimeUnit.MILLISECONDS);
 
-		int mid = TestTools.waitForNextMID(tracker, inRange(0, TOTAL_NO_OF_MIDS), exchangeLifetime, 10, TimeUnit.MILLISECONDS);
+		int mid = tracker.getNextMessageId();
 		assertThat(mid, is(firstMid));
 	}
 
@@ -136,7 +139,6 @@ public class MapBasedMessageIdTrackerTest {
 	public void assertMessageIdRangeRollover(int min, int max) throws Exception {
 		// GIVEN a tracker with an EXCHANGE_LIFETIME of 0 (MID always expired)
 		Configuration config = network.createStandardTestConfig();
-		config.set(CoapConfig.EXCHANGE_LIFETIME, 0, TimeUnit.MILLISECONDS);
 		final int range = max - min;
 		final MapBasedMessageIdTracker tracker = new MapBasedMessageIdTracker(INITIAL_MID + min, min, max, config);
 		final String msg = "not next mid in range[" + min + "..." + max + ") for ";
@@ -147,7 +149,7 @@ public class MapBasedMessageIdTrackerTest {
 		int maxMid = -1;
 		for (int i = 0; i < TOTAL_NO_OF_MIDS * 4; i++) {
 			int nextMid = tracker.getNextMessageId();
-			assertThat(nextMid, is(inRange(min, max)));
+			assertThat(nextMid, is(InRange.inRange(min, max)));
 			if (-1 < lastMid) {
 				int mid = ((lastMid - min + 1) % range) + min;
 				assertThat(msg + lastMid, nextMid, is(mid));
@@ -159,7 +161,7 @@ public class MapBasedMessageIdTrackerTest {
 				maxMid = nextMid;
 			}
 			lastMid = nextMid;
-			time.addTestTimeShift(1, TimeUnit.MILLISECONDS);
+			time.addTestTimeShift(config.getTimeAsInt(CoapConfig.EXCHANGE_LIFETIME, TimeUnit.MILLISECONDS) + 1, TimeUnit.MILLISECONDS);
 		}
 		assertThat("minimun not reached", minMid, is(min));
 		assertThat("maximun not reached", maxMid, is(max - 1));

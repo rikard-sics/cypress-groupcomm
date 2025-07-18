@@ -17,10 +17,13 @@
 package org.eclipse.californium.oscore.group;
 
 import org.eclipse.californium.cose.AlgorithmID;
+import org.eclipse.californium.cose.CoseException;
 import org.eclipse.californium.cose.OneKey;
 import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.oscore.OSCoreCtx;
 import org.eclipse.californium.oscore.OSException;
+
+import com.upokecenter.cbor.CBORObject;
 
 /**
  * Class implementing a Group OSCORE Recipient context.
@@ -36,9 +39,9 @@ public class GroupRecipientCtx extends OSCoreCtx {
 
 	byte[] pairwiseRecipientKey;
 
-	GroupRecipientCtx(byte[] master_secret, boolean client, AlgorithmID alg, byte[] sender_id,
-			byte[] recipient_id, AlgorithmID kdf, Integer replay_size, byte[] master_salt, byte[] contextId,
-			OneKey otherEndpointPubKey, byte[] otherEndpointPubKeyRaw, GroupCtx commonCtx) throws OSException {
+	GroupRecipientCtx(byte[] master_secret, boolean client, AlgorithmID alg, byte[] sender_id, byte[] recipient_id,
+			AlgorithmID kdf, Integer replay_size, byte[] master_salt, byte[] contextId, OneKey otherEndpointPubKey,
+			byte[] otherEndpointPubKeyRaw, GroupCtx commonCtx) throws OSException {
 		// Build OSCORE Context using OSCoreCtx constructor
 		super(master_secret, client, alg, sender_id, recipient_id, kdf, replay_size, master_salt, contextId,
 				DEFAULT_MAX_UNFRAGMENTED_SIZE);
@@ -48,6 +51,53 @@ public class GroupRecipientCtx extends OSCoreCtx {
 		if (otherEndpointPubKeyRaw != null) {
 			this.otherEndpointPubKeyRaw = otherEndpointPubKeyRaw;
 		}
+		
+		// Set sender key based on used algGroupEnc
+		byte[] derivedRecipientKey = deriveRecipientKey();
+		this.setRecipientKey(derivedRecipientKey);
+
+	}
+	
+	/**
+	 * Derive Recipient Key based on used algGroupEnc
+	 * 
+	 * @return the Recipient Key
+	 * @throws OSException on key derivation failure
+	 */
+	byte[] deriveRecipientKey() throws OSException {
+
+		// Set digest value depending on HKDF
+		String digest = null;
+		switch (this.getKdf()) {
+		case HKDF_HMAC_SHA_256:
+			digest = "SHA256";
+			break;
+		case HKDF_HMAC_SHA_512:
+			digest = "SHA512";
+			break;
+		case HKDF_HMAC_AES_128:
+		case HKDF_HMAC_AES_256:
+		default:
+			throw new OSException("HKDF algorithm not supported");
+		}
+
+		int keyLength = commonCtx.algGroupEnc.getKeySize() / 8;
+
+		// Derive recipient_key
+		CBORObject info = CBORObject.NewArray();
+		info.Add(this.getRecipientId());
+		info.Add(getIdContext());
+		info.Add(getCommonCtx().algGroupEnc.AsCBOR());
+		info.Add(CBORObject.FromObject("Key"));
+		info.Add(keyLength);
+
+		byte[] derivedRecipientKey = null;
+		try {
+			derivedRecipientKey = deriveKey(getMasterSecret(), getSalt(), keyLength, digest, info.EncodeToBytes());
+		} catch (CoseException e) {
+			throw new OSException("Failed to derive Recipient Key");
+		}
+		return derivedRecipientKey;
 	}
 
 	/**
@@ -93,8 +143,8 @@ public class GroupRecipientCtx extends OSCoreCtx {
 	 * 
 	 * @return the alg sign enc value
 	 */
-	public AlgorithmID getAlgSignEnc() {
-		return commonCtx.algSignEnc;
+	public AlgorithmID getAlgGroupEnc() {
+		return commonCtx.algGroupEnc;
 	}
 
 	/**
@@ -185,7 +235,7 @@ public class GroupRecipientCtx extends OSCoreCtx {
 	public OneKey getPrivateKey() {
 		StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
 		System.err.println("Bad call to getPrivateKey on GroupRecipientCtx" + stackTraceElements[2].toString());
-		System.exit(0);
+		assert (false);
 		return null;
 	}
 
@@ -196,7 +246,7 @@ public class GroupRecipientCtx extends OSCoreCtx {
 	public synchronized int getSenderSeq() {
 		StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
 		System.err.println("Bad call to getSenderSeq on GroupRecipientCtx" + stackTraceElements[2].toString());
-		System.exit(0);
+		assert (false);
 		return sender_seq;
 	}
 
@@ -207,7 +257,8 @@ public class GroupRecipientCtx extends OSCoreCtx {
 	public byte[] getSenderKey() {
 		StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
 		System.err.println("Bad call to getSenderKey on GroupRecipientCtx" + stackTraceElements[2].toString());
-		System.exit(0);
+		System.out.println("Bad call to getSenderKey");
+		assert (false);
 		return sender_key;
 	}
 

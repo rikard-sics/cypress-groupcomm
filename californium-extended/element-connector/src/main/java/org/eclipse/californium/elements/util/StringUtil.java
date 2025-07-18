@@ -23,7 +23,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -36,8 +35,10 @@ import java.nio.CharBuffer;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CoderResult;
 import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.security.PublicKey;
 import java.security.cert.Certificate;
+import java.util.Base64;
 import java.util.regex.Pattern;
 
 /**
@@ -70,11 +71,6 @@ public class StringUtil {
 	public static final String lineSeparator = System.getProperty("line.separator");
 
 	/**
-	 * Flag indicating, that InetSocketAddress supports "getHostString".
-	 */
-	public static final boolean SUPPORT_HOST_STRING;
-
-	/**
 	 * Californium version. {@code null}, if not available.
 	 * 
 	 * @since 2.2
@@ -102,14 +98,6 @@ public class StringUtil {
 			TABS[i] = tab;
 			tab += "\t";
 		}
-		boolean support = false;
-		try {
-			Method method = InetSocketAddress.class.getMethod("getHostString");
-			support = method != null;
-		} catch (NoSuchMethodException e) {
-			// android before API 18
-		}
-		SUPPORT_HOST_STRING = support;
 		String version = null;
 		Package pack = StringUtil.class.getPackage();
 		if (pack != null) {
@@ -121,33 +109,6 @@ public class StringUtil {
 			}
 		}
 		CALIFORNIUM_VERSION = version;
-	}
-
-	/**
-	 * Get host string of inet socket address.
-	 * 
-	 * @param socketAddress inet socket address.
-	 * @return host string
-	 * @since 3.0 (changed scope to public)
-	 */
-	public static String toHostString(InetSocketAddress socketAddress) {
-		if (SUPPORT_HOST_STRING) {
-			return socketAddress.getHostString();
-		} else {
-			InetAddress address = socketAddress.getAddress();
-			if (address != null) {
-				String textAddress = address.toString();
-				if (textAddress.startsWith("/")) {
-					// unresolved, return literal IP
-					return textAddress.substring(1);
-				} else {
-					// resolved, safe to call getHostName 
-					return address.getHostName();
-				}
-			} else {
-				return socketAddress.getHostName();
-			}
-		}
 	}
 
 	/**
@@ -340,9 +301,17 @@ public class StringUtil {
 	 * 
 	 * Add padding, if missing.
 	 * 
+	 * <b>Note:</b> Function will change with the next major release to throw an
+	 * IllegalArgumentException instead of returning an empty array, if invalid
+	 * characters are contained.
+	 * 
 	 * @param base64 base64 string
-	 * @return byte array.
-	 * @since 2.3
+	 * @return byte array. empty, if provided string could not be decoded.
+	 * @throws IllegalArgumentException if the length or content is invalid for
+	 *             base 64
+	 * @see #base64ToByteArray(char[])
+	 * @since 4.0 (throws IllegalArgumentException if content is invalid base
+	 *        64)
 	 */
 	public static byte[] base64ToByteArray(String base64) {
 		int pad = base64.length() % 4;
@@ -356,11 +325,45 @@ public class StringUtil {
 				throw new IllegalArgumentException("'" + base64 + "' invalid base64!");
 			}
 		}
-		try {
-			return Base64.decode(base64);
-		} catch (IOException e) {
-			return Bytes.EMPTY;
+		return Base64.getDecoder().decode(base64);
+	}
+
+	/**
+	 * Decode base 64 char array into byte array.
+	 * 
+	 * Alternative to {@link #base64ToByteArray(String)} for converting
+	 * credentials. A char array could be cleared after usage, while a String
+	 * may only get garbage collected. Add padding, if missing.
+	 * 
+	 * @param base64 base64 char array
+	 * @return byte array.
+	 * @throws IllegalArgumentException if the length or content is invalid for
+	 *             base 64.
+	 * @since 4.0 (throws IllegalArgumentException if content is invalid base
+	 *        64)
+	 */
+	public static byte[] base64ToByteArray(char[] base64) {
+		int pad = base64.length % 4;
+		if (pad > 0) {
+			pad = 4 - pad;
+			if (pad != 1 && pad != 2) {
+				throw new IllegalArgumentException("'" + new String(base64) + "' invalid base64!");
+			}
 		}
+		int index = 0;
+		byte[] data64 = new byte[base64.length + pad];
+		for (; index < base64.length; ++index) {
+			char b = base64[index];
+			if (b > 127) {
+				throw new IllegalArgumentException("'" + new String(base64) + "' has invalid base64 char '" + b + "'!");
+			}
+			data64[index] = (byte) b;
+		}
+		while (pad > 0) {
+			--pad;
+			data64[index++] = (byte) '=';
+		}
+		return Base64.getDecoder().decode(data64);
 	}
 
 	/**
@@ -371,7 +374,24 @@ public class StringUtil {
 	 * @since 2.3
 	 */
 	public static String byteArrayToBase64(byte[] bytes) {
-		return Base64.encodeBytes(bytes);
+		return Base64.getEncoder().encodeToString(bytes);
+	}
+
+	/**
+	 * Encode byte array into base64 char array.
+	 * 
+	 * @param bytes byte array
+	 * @return base64 char array
+	 * @since 3.3
+	 */
+	public static char[] byteArrayToBase64CharArray(byte[] bytes) {
+		byte[] base64 = Base64.getEncoder().encode(bytes);
+		char[] result = new char[base64.length];
+		for (int index = 0; index < base64.length; ++index) {
+			result[index] = (char) base64[index];
+		}
+		Bytes.clear(base64);
+		return result;
 	}
 
 	/**
@@ -385,6 +405,189 @@ public class StringUtil {
 	public static String trunc(String text, int maxLength) {
 		if (text != null && maxLength > 0 && maxLength < text.length()) {
 			return text.substring(0, maxLength);
+		}
+		return text;
+	}
+
+	/**
+	 * Remove tail from builder's.
+	 * 
+	 * If provided tail doesn't match, the provided builder is unchanged.
+	 * 
+	 * @param builder builder to remove tail
+	 * @param tail tail to remove.
+	 * @return {@code true}, if the provided tail has been removed,
+	 *         {@code false}, if the build is left unchanged.
+	 * @throws NullPointerException if one of the provided arguments is
+	 *             {@code null}.
+	 * @since 3.7
+	 */
+	public static boolean truncateTail(StringBuilder builder, String tail) {
+		if (builder == null) {
+			throw new NullPointerException("Builder must not be null!");
+		}
+		if (tail == null) {
+			throw new NullPointerException("Tail must not be null!");
+		}
+		boolean truncated = false;
+		int tailLength = tail.length();
+		if (tailLength > 0) {
+			int end = builder.length() - tailLength;
+			if (end >= 0 && builder.indexOf(tail, end) == end) {
+				builder.setLength(end);
+				truncated = true;
+			}
+		}
+		return truncated;
+	}
+
+	/**
+	 * Remove tail from text.
+	 * 
+	 * If provided tail doesn't match the tail of the text, the text is returned
+	 * unchanged.
+	 * 
+	 * @param text text to remove tail
+	 * @param tail tail to remove
+	 * @return text with tail removed, if matching. Otherwise the provided text.
+	 * @throws NullPointerException if one of the provided arguments is
+	 *             {@code null}.
+	 * @since 3.7
+	 */
+	public static String truncateTail(String text, String tail) {
+		return truncateTail(false, text, tail);
+	}
+
+	/**
+	 * Remove tail from text.
+	 * 
+	 * If provided tail doesn't match the tail of the text, the text is returned
+	 * unchanged.
+	 * 
+	 * @param ignoreCase ignore case of characters
+	 * @param text text to remove tail
+	 * @param tail tail to remove
+	 * @return text with tail removed, if matching. Otherwise the provided text.
+	 * @throws NullPointerException if one of the provided arguments is
+	 *             {@code null}.
+	 * @since 3.12
+	 */
+	public static String truncateTail(boolean ignoreCase, String text, String tail) {
+		if (text == null) {
+			throw new NullPointerException("Text must not be null!");
+		}
+		if (tail == null) {
+			throw new NullPointerException("Tail must not be null!");
+		}
+		int length = tail.length();
+		int offset = text.length() - length;
+		if (offset >= 0) {
+			if (text.regionMatches(ignoreCase, offset, tail, 0, length)) {
+				if (offset == 0) {
+					return "";
+				} else {
+					return text.substring(0, offset);
+				}
+			}
+		}
+		return text;
+	}
+
+	/**
+	 * Remove header from builder's.
+	 * 
+	 * If provided header doesn't match, the provided builder is unchanged.
+	 * 
+	 * @param builder builder to remove header
+	 * @param header header to remove.
+	 * @return {@code true}, if the provided header has been removed,
+	 *         {@code false}, if the build is left unchanged.
+	 * @throws NullPointerException if one of the provided arguments is
+	 *             {@code null}.
+	 * @since 3.9
+	 */
+	public static boolean truncateHeader(StringBuilder builder, String header) {
+		if (builder == null) {
+			throw new NullPointerException("Builder must not be null!");
+		}
+		if (header == null) {
+			throw new NullPointerException("Header must not be null!");
+		}
+		boolean truncated = false;
+		int headerLength = header.length();
+		if (headerLength > 0 && headerLength <= builder.length()) {
+			truncated = true;
+			for (int index = 0; index < headerLength; ++index) {
+				if (builder.charAt(index) != header.charAt(index)) {
+					truncated = false;
+					break;
+				}
+			}
+			if (truncated) {
+				builder.replace(0, headerLength, "");
+			}
+		}
+		return truncated;
+	}
+
+	/**
+	 * Remove header from text.
+	 * 
+	 * If provided header doesn't match the header of the text, the text is
+	 * returned unchanged.
+	 * 
+	 * @param text text to remove header
+	 * @param header header to remove
+	 * @return text with header removed, if matching. Otherwise the provided
+	 *         text.
+	 * @throws NullPointerException if one of the provided arguments is
+	 *             {@code null}.
+	 * @since 3.9
+	 */
+	public static String truncateHeader(String text, String header) {
+		if (text == null) {
+			throw new NullPointerException("Text must not be null!");
+		}
+		if (header == null) {
+			throw new NullPointerException("Header must not be null!");
+		}
+		if (header.length() > 0 && text.startsWith(header)) {
+			return text.substring(header.length());
+		}
+		return text;
+	}
+
+	/**
+	 * Remove header from text.
+	 * 
+	 * If provided header doesn't match the header of the text, the text is
+	 * returned unchanged.
+	 * 
+	 * @param ignoreCase ignore case of characters
+	 * @param text text to remove header
+	 * @param header header to remove
+	 * @return text with header removed, if matching. Otherwise the provided
+	 *         text.
+	 * @throws NullPointerException if one of the provided arguments is
+	 *             {@code null}.
+	 * @since 3.12
+	 */
+	public static String truncateHeader(boolean ignoreCase, String text, String header) {
+		if (text == null) {
+			throw new NullPointerException("Text must not be null!");
+		}
+		if (header == null) {
+			throw new NullPointerException("Header must not be null!");
+		}
+		int length = header.length();
+		if (text.length() >= length) {
+			if (text.regionMatches(ignoreCase, 0, header, 0, length)) {
+				if (text.length() == length) {
+					return "";
+				} else {
+					return text.substring(length);
+				}
+			}
 		}
 		return text;
 	}
@@ -473,17 +676,7 @@ public class StringUtil {
 		if (address == null) {
 			return null;
 		}
-		String host;
-		if (SUPPORT_HOST_STRING) {
-			host = toHostString(address);
-		} else {
-			InetAddress addr = address.getAddress();
-			if (addr != null) {
-				host = toString(addr);
-			} else {
-				host = "<unresolved>";
-			}
-		}
+		String host = address.getHostString();
 		if (address.getAddress() instanceof Inet6Address) {
 			return "[" + host + "]:" + address.getPort();
 		} else {
@@ -528,7 +721,7 @@ public class StringUtil {
 		if (addr != null && addr.isAnyLocalAddress()) {
 			return "port " + address.getPort();
 		}
-		String name = SUPPORT_HOST_STRING ? toHostString(address) : "";
+		String name = address.getHostString();
 		String host = (addr != null) ? toString(addr) : "<unresolved>";
 		if (name.equals(host)) {
 			name = "";
@@ -737,6 +930,26 @@ public class StringUtil {
 	 */
 	public static String toDisplayString(PublicKey publicKey) {
 		return publicKey.toString().replaceAll("\n\\s+", "\n");
+	}
+
+	/**
+	 * Checks, whether the set contains the value, or not.
+	 * 
+	 * The check is done using {@link String#equalsIgnoreCase(String)}.
+	 * 
+	 * @param set set of strings
+	 * @param value value to match
+	 * @return {@code true}, if value is contained in set, {@code false},
+	 *         otherwise.
+	 * @since 3.3
+	 */
+	public static boolean containsIgnoreCase(String[] set, String value) {
+		for (String item : set) {
+			if (item.equalsIgnoreCase(value)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**

@@ -57,16 +57,22 @@ public class DtlsEndpointContext extends MapBasedEndpointContext {
 	public static final Definition<Long> KEY_HANDSHAKE_TIMESTAMP = new Definition<>("DTLS_HANDSHAKE_TIMESTAMP",
 			Long.class, ATTRIBUTE_DEFINITIONS);
 	/**
-	 * The name of the attribute that contains the DTLS Connection ID of the
-	 * other peer as {@link Bytes}, if used.
+	 * The name of the attribute that contains the dtls packet sequence number
+	 * during the DTLS session as {@link Number}.
+	 */
+	public static final Definition<Long> DTLS_READ_SEQUENCE_NUMBER = new Definition<>(
+			KEY_PREFIX_NONE_CRITICAL + "DTLS_READ_SEQUENCE_NUMBER", Long.class, ATTRIBUTE_DEFINITIONS);
+	/**
+	 * The name of the attribute that contains the DTLS Connection ID for
+	 * incoming records from the other peer as {@link Bytes}, if used.
 	 * 
 	 * @since 2.5
 	 */
 	public static final Definition<Bytes> KEY_READ_CONNECTION_ID = new Definition<>("DTLS_READ_CONNECTION_ID",
 			Bytes.class, ATTRIBUTE_DEFINITIONS);
 	/**
-	 * The name of the attribute that contains the DTLS Connection ID of the
-	 * other peer as {@link Bytes}, if used.
+	 * The name of the attribute that contains the DTLS Connection ID for
+	 * outgoing records sent to the other peer as {@link Bytes}, if used.
 	 * 
 	 * @since 2.5
 	 */
@@ -82,12 +88,11 @@ public class DtlsEndpointContext extends MapBasedEndpointContext {
 			KEY_PREFIX_NONE_CRITICAL + "DTLS_VIA_ROUTER", String.class, ATTRIBUTE_DEFINITIONS);
 	/**
 	 * The name of the attribute that contains a handshake mode. Values see
-	 * {@link #HANDSHAKE_MODE_FORCE_FULL}, {@link #HANDSHAKE_MODE_FORCE},
-	 * {@link #HANDSHAKE_MODE_PROBE}, and {@link #HANDSHAKE_MODE_NONE}. Only
-	 * considered, if endpoint is not configured as "server only". If not
-	 * provided, a handshake will be started, if required and the connector is
-	 * not configured to act as server only. None critical attribute, not
-	 * considered for matching.
+	 * {@link #HANDSHAKE_MODE_FORCE_FULL}, {@link #HANDSHAKE_MODE_FORCE}, and
+	 * {@link #HANDSHAKE_MODE_NONE}. Only considered, if endpoint is not
+	 * configured as "server only". If not provided, a handshake will be
+	 * started, if required and the connector is not configured to act as server
+	 * only. None critical attribute, not considered for matching.
 	 */
 	public static final Definition<String> KEY_HANDSHAKE_MODE = new Definition<>(
 			KEY_PREFIX_NONE_CRITICAL + "DTLS_HANDSHAKE_MODE", String.class, ATTRIBUTE_DEFINITIONS);
@@ -134,6 +139,17 @@ public class DtlsEndpointContext extends MapBasedEndpointContext {
 	public static final Definition<InetSocketAddress> KEY_PREVIOUS_ADDRESS = new Definition<>(
 			KEY_PREFIX_NONE_CRITICAL + "DTLS_PREVIOUS_ADDRESS", InetSocketAddress.class, ATTRIBUTE_DEFINITIONS);
 	/**
+	 * The name of the attribute that contains a marker for the secure renegotiationt 
+	 * (see <a href="https://tools.ietf.org/html/rfc5746" target="_blank">RFC 5746</a>).
+	 * 
+	 * Californium doesn't support renegotiation at all, but RFC5746 requests to
+	 * update to a minimal version of RFC 5746.
+	 * 
+	 * @since 3.8
+	 */
+	public static final Definition<Boolean> KEY_SECURE_RENEGOTIATION = new Definition<>(
+			"DTLS_SECURE_RENEGOTIATION", Boolean.class, ATTRIBUTE_DEFINITIONS);
+	/**
 	 * Force full handshake before send this message. Doesn't start a handshake,
 	 * if the connector is configured to act as server only.
 	 */
@@ -143,11 +159,6 @@ public class DtlsEndpointContext extends MapBasedEndpointContext {
 	 * the connector is configured to act as server only.
 	 */
 	public static final String HANDSHAKE_MODE_FORCE = "force";
-	/**
-	 * Force handshake probe before send this message. Doesn't start a
-	 * handshake, if the connector is configured to act as server only.
-	 */
-	public static final String HANDSHAKE_MODE_PROBE = "probe";
 	/**
 	 * Start a handshake, if no session is available.
 	 */
@@ -170,13 +181,6 @@ public class DtlsEndpointContext extends MapBasedEndpointContext {
 	 */
 	public static final Attributes ATTRIBUTE_HANDSHAKE_MODE_AUTO = new Attributes()
 			.add(KEY_HANDSHAKE_MODE, HANDSHAKE_MODE_AUTO).lock();
-	/**
-	 * Attribute to set HANDSHAKE_MODE to {@link #HANDSHAKE_MODE_PROBE}.
-	 * 
-	 * @since 3.0
-	 */
-	public static final Attributes ATTRIBUTE_HANDSHAKE_MODE_PROBE = new Attributes()
-			.add(KEY_HANDSHAKE_MODE, HANDSHAKE_MODE_PROBE).lock();
 	/**
 	 * Attribute to set HANDSHAKE_MODE to {@link #HANDSHAKE_MODE_FORCE}.
 	 * 

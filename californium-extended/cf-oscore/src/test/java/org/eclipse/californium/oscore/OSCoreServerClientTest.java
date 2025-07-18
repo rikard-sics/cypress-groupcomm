@@ -114,7 +114,7 @@ public class OSCoreServerClientTest {
 		byte[] sid = new byte[0];
 		byte[] rid = new byte[] { 0x01 };
 		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, kdf, 32, master_salt, context_id, MAX_UNFRAGMENTED_SIZE);
-		dbClient.addContext("coap://" + serverEndpoint.getAddress().getAddress().getHostAddress(), ctx);
+		dbClient.addContext(TestTools.getUri(serverEndpoint, ""), ctx);
 
 		// send request
 		Request request = new Request(CoAP.Code.POST);
@@ -151,8 +151,8 @@ public class OSCoreServerClientTest {
 		byte[] sid = new byte[] { 0x77 }; //Modified sender ID to be incorrect
 		byte[] rid = new byte[] { 0x01 };
 		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, kdf, 32, master_salt, context_id, MAX_UNFRAGMENTED_SIZE);
-		dbClient.addContext("coap://" + serverEndpoint.getAddress().getAddress().getHostAddress(), ctx);
-
+		dbClient.addContext(TestTools.getUri(serverEndpoint, ""), ctx);
+		
 		// send request
 		Request request = new Request(CoAP.Code.POST);
 		request.getOptions().setOscore(new byte[0]); //Use OSCORE
@@ -198,7 +198,7 @@ public class OSCoreServerClientTest {
 		sid = Bytes.EMPTY;
 		rid = new byte[] { 0x01 };
 		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, kdf, 32, master_salt, context_id, MAX_UNFRAGMENTED_SIZE);
-		dbClient.addContext("coap://" + serverEndpoint.getAddress().getAddress().getHostAddress(), ctx);
+		dbClient.addContext(TestTools.getUri(serverEndpoint, ""), ctx);
 		
 		// send request
 		Request request = new Request(CoAP.Code.POST);
@@ -274,7 +274,7 @@ public class OSCoreServerClientTest {
 		byte[] rid = new byte[] { 0x01 };
 		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, kdf, 32, master_salt, context_id,
 				MAX_UNFRAGMENTED_SIZE);
-		dbClient.addContext("coap://" + serverEndpoint.getAddress().getAddress().getHostAddress(), ctx);
+		dbClient.addContext(TestTools.getUri(serverEndpoint, ""), ctx);
 
 		// send first request
 		Request request = buildOscoreRequest(CoAP.Code.POST);
@@ -324,7 +324,7 @@ public class OSCoreServerClientTest {
 		byte[] rid = new byte[] { 0x01 };
 		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, kdf, 32, master_salt, context_id,
 				MAX_UNFRAGMENTED_SIZE);
-		dbClient.addContext("coap://" + serverEndpoint.getAddress().getAddress().getHostAddress(), ctx);
+		dbClient.addContext(TestTools.getUri(serverEndpoint, ""), ctx);
 
 		// set SSN to 10
 		ctx.setSenderSeq(10);
@@ -366,7 +366,7 @@ public class OSCoreServerClientTest {
 		byte[] rid = new byte[] { 0x01 };
 		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, kdf, 32, master_salt, context_id,
 				MAX_UNFRAGMENTED_SIZE);
-		dbClient.addContext("coap://" + serverEndpoint.getAddress().getAddress().getHostAddress(), ctx);
+		dbClient.addContext(TestTools.getUri(serverEndpoint, ""), ctx);
 
 		// Tests sending a larger number of requests in sequence
 		int requestsToSend = 300;
@@ -398,7 +398,7 @@ public class OSCoreServerClientTest {
 		byte[] rid = new byte[] { 0x01 };
 		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, kdf, 32, master_salt, context_id,
 				MAX_UNFRAGMENTED_SIZE);
-		dbClient.addContext("coap://" + serverEndpoint.getAddress().getAddress().getHostAddress(), ctx);
+		dbClient.addContext(TestTools.getUri(serverEndpoint, ""), ctx);
 
 		// Sends requests with varying SSN
 		for (int i = 0; i < 30; i++) {
@@ -434,7 +434,7 @@ public class OSCoreServerClientTest {
 		byte[] rid = new byte[] { 0x01 };
 		OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, kdf, 32, master_salt, context_id,
 				MAX_UNFRAGMENTED_SIZE);
-		dbClient.addContext("coap://" + serverEndpoint.getAddress().getAddress().getHostAddress(), ctx);
+		dbClient.addContext(TestTools.getUri(serverEndpoint, ""), ctx);
 
 		// set SSN to 1000
 		int initialSeq = 1000;

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -44,6 +44,7 @@ import java.util.logging.Logger;
 import org.eclipse.californium.core.CoapClient;
 import org.eclipse.californium.core.CoapResponse;
 import org.eclipse.californium.core.coap.MediaTypeRegistry;
+import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.network.CoapEndpoint.Builder;
 import org.eclipse.californium.elements.auth.RawPublicKeyIdentity;
@@ -53,7 +54,7 @@ import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.CertificateType;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
-import org.eclipse.californium.scandium.dtls.x509.AsyncNewAdvancedCertificateVerifier;
+import org.eclipse.californium.scandium.dtls.x509.AsyncCertificateVerifier;
 import org.eclipse.californium.scandium.dtls.x509.SingleCertificateProvider;
 
 import com.upokecenter.cbor.CBORObject;
@@ -81,6 +82,11 @@ import se.sics.ace.cwt.CwtCryptoCtx;
  */
 public class TestClientDtlsProfileRPKauthPSKpop {
     
+	static {
+	    CoapConfig.register();
+	    DtlsConfig.register();
+	}
+	
 	// Uncomment to set ECDSA with curve P-256 as signature algorithm
 	private static int signKeyCurve = KeyKeys.EC2_P256.AsInt32();
 
@@ -181,11 +187,11 @@ public class TestClientDtlsProfileRPKauthPSKpop {
         ArrayList<CertificateType> certTypes = new ArrayList<CertificateType>();
         certTypes.add(CertificateType.RAW_PUBLIC_KEY);
         certTypes.add(CertificateType.X_509);
-        AsyncNewAdvancedCertificateVerifier verifier = new AsyncNewAdvancedCertificateVerifier(
+        AsyncCertificateVerifier verifier = new AsyncCertificateVerifier(
 											        		new X509Certificate[0],
 											                new RawPublicKeyIdentity[0],
 											                certTypes);
-        builder.setAdvancedCertificateVerifier(verifier);
+        builder.setCertificateVerifier(verifier);
         
         
         DTLSConnector dtlsConnector = new DTLSConnector(builder.build());

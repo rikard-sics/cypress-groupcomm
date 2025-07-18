@@ -43,15 +43,17 @@ import static org.eclipse.californium.core.coap.CoAP.ResponseCode.REQUEST_ENTITY
 import static org.eclipse.californium.core.coap.CoAP.ResponseCode.REQUEST_ENTITY_TOO_LARGE;
 import static org.eclipse.californium.core.coap.CoAP.Type.ACK;
 import static org.eclipse.californium.core.coap.CoAP.Type.CON;
-import static org.eclipse.californium.core.coap.OptionNumberRegistry.OBSERVE;
+import static org.eclipse.californium.core.coap.option.StandardOptionRegistry.OBSERVE;
 import static org.eclipse.californium.core.test.MessageExchangeStoreTool.assertAllExchangesAreCompleted;
 import static org.eclipse.californium.core.test.lockstep.IntegrationTestTools.assertNumberOfReceivedNotifications;
 import static org.eclipse.californium.core.test.lockstep.IntegrationTestTools.assertResponseContainsExpectedPayload;
 import static org.eclipse.californium.core.test.lockstep.IntegrationTestTools.createLockstepEndpoint;
 import static org.eclipse.californium.core.test.lockstep.IntegrationTestTools.createRequest;
 import static org.eclipse.californium.core.test.lockstep.IntegrationTestTools.printServerLog;
-import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.CoreMatchers.notNullValue;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -61,10 +63,12 @@ import java.util.concurrent.TimeUnit;
 
 import org.eclipse.californium.TestTools;
 import org.eclipse.californium.core.CoapClient;
-import org.eclipse.californium.core.coap.BlockOption;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.coap.option.BlockOption;
+import org.eclipse.californium.core.coap.option.StandardOptionRegistry;
 import org.eclipse.californium.core.config.CoapConfig;
+import org.eclipse.californium.core.network.stack.BlockwiseLayer;
 import org.eclipse.californium.core.test.CountingCoapHandler;
 import org.eclipse.californium.core.test.CountingMessageObserver;
 import org.eclipse.californium.core.test.ErrorInjector;
@@ -219,6 +223,7 @@ public class BlockwiseClientSideTest {
 
 		Response response = request.waitForResponse(RESPONSE_TIMEOUT_IN_MS);
 		assertResponseContainsExpectedPayload(response, respPayload);
+		assertThat(response.getNanoTimestamp(), is(not(0L)));
 	}
 
 	/**
@@ -273,7 +278,7 @@ public class BlockwiseClientSideTest {
 		// We get the response the transfer is complete : BlockwiseLayer should
 		// be empty
 		request.waitForResponse();
-		assertTrue("BlockwiseLayer should be empty", client.getStack().getBlockwiseLayer().isEmpty());
+		assertTrue("BlockwiseLayer should be empty", client.getStack().getLayer(BlockwiseLayer.class).isEmpty());
 
 		clientInterceptor.logNewLine("// next transfer");
 		request = createRequest(GET, path, server);
@@ -296,7 +301,7 @@ public class BlockwiseClientSideTest {
 		// We get the response the transfer is complete : BlockwiseLayer should
 		// be empty
 		request.waitForResponse();
-		assertTrue("BlockwiseLayer should be empty", client.getStack().getBlockwiseLayer().isEmpty());
+		assertTrue("BlockwiseLayer should be empty", client.getStack().getLayer(BlockwiseLayer.class).isEmpty());
 
 		printServerLog(clientInterceptor);
 	}
@@ -843,7 +848,7 @@ public class BlockwiseClientSideTest {
 		server.sendResponse(ACK, CONTINUE).loadBoth("B").block1(1, true, 128).go();
 
 		server.expectRequest(CON, PUT, path).storeBoth("B").block1(2, false, 128).payload(reqtPayload, 256, 300).go();
-		server.sendResponse(ACK, CHANGED).loadBoth("B").go();
+		server.sendResponse(ACK, CHANGED).loadBoth("B").block1(2, false, 128).go();
 
 		Response response = concurrentRequest.waitForResponse(ERROR_TIMEOUT_IN_MS);
 		assertThat(response, is(notNullValue()));
@@ -1074,6 +1079,7 @@ public class BlockwiseClientSideTest {
 		Response response = request.waitForResponse(RESPONSE_TIMEOUT_IN_MS);
 		printServerLog(clientInterceptor);
 		assertResponseContainsExpectedPayload(response, CHANGED, respPayload);
+		assertThat(response.getNanoTimestamp(), is(not(0L)));
 	}
 
 	@Test
@@ -1083,7 +1089,7 @@ public class BlockwiseClientSideTest {
 		String path = "test";
 
 		Request request = createRequest(GET, path, server);
-		request.getOptions().setBlock2(new BlockOption(BlockOption.size2Szx(128), false, 2));
+		request.getOptions().setBlock2(StandardOptionRegistry.BLOCK2.create(BlockOption.size2Szx(128), false, 2));
 		client.sendRequest(request);
 
 		server.expectRequest(CON, GET, path).storeBoth("A").block2(2, false, 128).go();
@@ -1092,6 +1098,7 @@ public class BlockwiseClientSideTest {
 		Response response = request.waitForResponse(RESPONSE_TIMEOUT_IN_MS);
 		printServerLog(clientInterceptor);
 		assertResponseContainsExpectedPayload(response, CONTENT, respPayload.substring(256));
+		assertThat(response.getNanoTimestamp(), is(not(0L)));
 	}
 
 	@Test
@@ -1140,6 +1147,7 @@ public class BlockwiseClientSideTest {
 		Response notification1 = notificationListener.waitForResponse(RESPONSE_TIMEOUT_IN_MS);
 		assertResponseContainsExpectedPayload(notification1, respPayload);
 		assertNumberOfReceivedNotifications(notificationListener, 1, true);
+		assertThat(notification1.getNanoTimestamp(), is(not(0L)));
 
 		clientInterceptor.logNewLine("... time passes ...");
 		respPayload = generateRandomPayload(290);
@@ -1186,6 +1194,8 @@ public class BlockwiseClientSideTest {
 		Response notification2 = notificationListener.waitForResponse(RESPONSE_TIMEOUT_IN_MS);
 		assertResponseContainsExpectedPayload(notification2, respPayload);
 		assertNumberOfReceivedNotifications(notificationListener, 1, true);
+		assertThat(notification2.getNanoTimestamp(), is(not(0L)));
+		assertThat(notification2.getNanoTimestamp(), is(greaterThan(notification1.getNanoTimestamp())));
 	}
 
 	/**
@@ -1326,7 +1336,7 @@ public class BlockwiseClientSideTest {
 		server.expectRequest(CON, GET, path).storeBoth("C").block2(2, false, 128).go();
 		Thread.sleep((long) (TEST_BLOCKWISE_STATUS_LIFETIME * 0.75));
 
-		assertTrue(!client.getStack().getBlockwiseLayer().isEmpty());
+		assertTrue(!client.getStack().getLayer(BlockwiseLayer.class).isEmpty());
 		// we don't answer to the last request, @after should check is there is
 		// no leak.
 
@@ -1359,7 +1369,7 @@ public class BlockwiseClientSideTest {
 		server.expectRequest(CON, PUT, path).storeBoth("C").block1(2, true, 128).payload(reqtPayload, 256, 384).go();
 		Thread.sleep((long) (TEST_BLOCKWISE_STATUS_LIFETIME * 0.75));
 		
-		assertTrue(!client.getStack().getBlockwiseLayer().isEmpty());
+		assertTrue(!client.getStack().getLayer(BlockwiseLayer.class).isEmpty());
 		// we don't answer to the last request, @after should check is there is
 		// no leak.
 
@@ -1411,11 +1421,12 @@ public class BlockwiseClientSideTest {
 		client.sendRequest(request);
 
 		server.expectRequest(CON, PUT, path).storeBoth("A").block1(0, true, 128).payload(reqtPayload, 0, 128).go();
-		server.sendResponse(ACK, CONTINUE).loadBoth("A").block1(1, false, 128).go();
+		server.sendResponse(ACK, CONTINUE).loadBoth("A").block1(0, false, 128).go();
 		server.expectRequest(CON, PUT, path).storeBoth("B").block1(1, true, 128).payload(reqtPayload, 128, 256).go();
 		printServerLog(clientInterceptor);
-
 		request.cancel();
+		server.sendResponse(ACK, CONTINUE).loadBoth("B").block1(1, false, 128).go();
+
 		assertAllExchangesAreCompleted(config, client.getExchangeStore(), time);
 	}
 

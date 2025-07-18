@@ -31,6 +31,7 @@ import org.eclipse.californium.core.coap.CoAP.ResponseCode;
 import org.eclipse.californium.core.coap.MediaTypeRegistry;
 import org.eclipse.californium.core.coap.Option;
 import org.eclipse.californium.core.coap.OptionSet;
+import org.eclipse.californium.elements.category.Small;
 import org.eclipse.californium.elements.util.ExpectedExceptionWrapper;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.proxy2.InvalidMethodException;
@@ -38,8 +39,10 @@ import org.eclipse.californium.proxy2.TranslationException;
 import org.hamcrest.Description;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 import org.junit.rules.ExpectedException;
 
+@Category(Small.class)
 public class CrossProtocolTranslatorTest {
 
 	/**
@@ -112,6 +115,10 @@ public class CrossProtocolTranslatorTest {
 				is(MediaTypeRegistry.APPLICATION_JSON));
 		assertThat(translator.getCoapMediaType(ContentType.APPLICATION_XML.getMimeType()),
 				is(MediaTypeRegistry.APPLICATION_XML));
+		assertThat(translator.getCoapMediaType("text/xml"), is(MediaTypeRegistry.APPLICATION_XML));
+		assertThat(translator.getCoapMediaType("text/html"), is(MediaTypeRegistry.TEXT_PLAIN));
+		assertThat(translator.getCoapMediaType("text/xyz"), is(MediaTypeRegistry.TEXT_PLAIN));
+		assertThat(translator.getCoapMediaType("text"), is(MediaTypeRegistry.TEXT_PLAIN));
 	}
 
 	@Test
@@ -122,10 +129,10 @@ public class CrossProtocolTranslatorTest {
 
 	@Test
 	public void testSpecialCoapMediaType() throws Exception {
-		assertThat(translator.getCoapMediaType(ContentType.TEXT_XML.getMimeType()),
-				is(MediaTypeRegistry.APPLICATION_OCTET_STREAM));
-		assertThat(translator.getCoapMediaType(ContentType.TEXT_XML.getMimeType(), MediaTypeRegistry.APPLICATION_XML),
+		assertThat(translator.getCoapMediaType("application/x+y+z"), is(MediaTypeRegistry.APPLICATION_OCTET_STREAM));
+		assertThat(translator.getCoapMediaType("application/x+y+z", MediaTypeRegistry.APPLICATION_XML),
 				is(MediaTypeRegistry.APPLICATION_XML));
+		assertThat(translator.getCoapMediaType("bin"), is(MediaTypeRegistry.APPLICATION_OCTET_STREAM));
 	}
 
 	@Test
@@ -136,9 +143,9 @@ public class CrossProtocolTranslatorTest {
 		assertThat(coapOptions.size(), is(3));
 		OptionSet options = new OptionSet().addOptions(coapOptions);
 		assertThat(options.getETagCount(), is(3));
-		assertThat(options.getETags().get(0), is("test".getBytes()));
-		assertThat(options.getETags().get(1), is("ab".getBytes()));
-		assertThat(options.getETags().get(2), is("abc".getBytes()));
+		assertThat(options.getETags().get(0).getValue(), is("test".getBytes()));
+		assertThat(options.getETags().get(1).getValue(), is("ab".getBytes()));
+		assertThat(options.getETags().get(2).getValue(), is("abc".getBytes()));
 	}
 
 	@Test
@@ -149,8 +156,8 @@ public class CrossProtocolTranslatorTest {
 		assertThat(coapOptions.size(), is(2));
 		OptionSet options = new OptionSet().addOptions(coapOptions);
 		assertThat(options.getETagCount(), is(2));
-		assertThat(options.getETags().get(0), is(StringUtil.hex2ByteArray("01abcd34")));
-		assertThat(options.getETags().get(1), is(StringUtil.hex2ByteArray("7788")));
+		assertThat(options.getETags().get(0).getValue(), is(StringUtil.hex2ByteArray("01abcd34")));
+		assertThat(options.getETags().get(1).getValue(), is(StringUtil.hex2ByteArray("7788")));
 	}
 
 	@Test
@@ -160,7 +167,7 @@ public class CrossProtocolTranslatorTest {
 		assertThat(coapOptions.size(), is(1));
 		OptionSet options = new OptionSet().addOptions(coapOptions);
 		assertThat(options.getETagCount(), is(1));
-		assertThat(options.getETags().get(0), is("test".getBytes()));
+		assertThat(options.getETags().get(0).getValue(), is("test".getBytes()));
 	}
 
 	@Test
@@ -170,8 +177,8 @@ public class CrossProtocolTranslatorTest {
 		assertThat(coapOptions.size(), is(2));
 		OptionSet options = new OptionSet().addOptions(coapOptions);
 		assertThat(options.getIfMatchCount(), is(2));
-		assertThat(options.getIfMatch().get(0), is("test".getBytes()));
-		assertThat(options.getIfMatch().get(1), is("ab".getBytes()));
+		assertThat(options.getIfMatch().get(0).getValue(), is("test".getBytes()));
+		assertThat(options.getIfMatch().get(1).getValue(), is("ab".getBytes()));
 	}
 
 	@Test

@@ -4,7 +4,7 @@
 
 October, 2021
 
-The version 2.x is now out for about more than a year and reached version 2.6.5.
+The version 2.x is now out for about more than a year and reached version 2.7.0.
 We have already started to work on a 3.0 on December 2020 starting with removing deprecates APIs.
 
 To migrate to the 3.0 this gives some hints to do so. If you miss something, don't hesitate to create an issue.
@@ -15,9 +15,46 @@ Please, keep in mind, that the 3.0 API is under develop.
 
 This document doesn't contain hints for migrating versions before 2.0. That excludes also hints to migrate any of the 2.0 MILESTONE releases.
 
-If a 2.0.0 or newer is used, it's recommended to update first to 2.6.5 and cleanup all deprecation using the documentation on the deprecation.
+If a 2.0.0 or newer is used, it's recommended to update first to 2.7.0 and cleanup all deprecation using the documentation on the deprecation.
 
 The version 3.0.0-M4 is the last one with the old `NetworkConfig` and `DtlsConnectorConfig.Builder`. Depending on the usage of these classes, it may be easier to first migrate to that 3.0.0-M4 and then in a final step migrate to the 3.0 adapting for these changes in the configuration.
+
+The file-format has also changed and old property files are not longer read!.
+
+Old format:
+
+```
+ACK_TIMEOUT=2000
+UDP_CONNECTOR_SEND_BUFFER=0
+...
+NETWORK_STAGE_RECEIVER_THREAD_COUNT=1
+```
+
+The order of the entries is random and the values don't provide some explanation.
+
+```
+# Initial CoAP acknowledge timeout.
+# Default: 2[s]
+COAP.ACK_TIMEOUT=2[s]
+...
+# Number of DTLS receiver threads.
+# Default: 1
+DTLS.RECEIVER_THREAD_COUNT=2
+...
+# DTLS send-buffer size.
+DTLS.SEND_BUFFER_SIZE=
+...
+# Number of UDP receiver threads.
+# Default: 1
+UDP.RECEIVER_THREAD_COUNT=2
+...
+# UDP send-buffer size.
+UDP.SEND_BUFFER_SIZE=
+```
+
+Grouped and alphabetic order of entries with some explanation.
+
+It's recommended, that different values are checked and revalidated, if that difference still provides a benefit. If it still has a benefit for you, you may consider to add also a note into the resulting properties file. You may also consider to use an application specific defaults approach, see `Configuration` using a `DefinitionsProvider`.
 
 ## First Experience
 
@@ -31,11 +68,7 @@ In order to use newer crypto function with java 7 and java 8 (e.g. on Android) f
 
 That uncovered a couple of differences just in order to make the unit test running. It is assumed, that more will be required. If you find some, don't hesitate to report issues, perhaps research and analysis, and fixes. On the other hand, the project Californium will for now not be able to provide support for Bouncy Castle questions with or without relation to Californium. You may create issues, but they may be not processed.
 
-One issue seems to be the `SecureRandom` generator, which shows in some environments strange CPU/time consumption.
-
-An other issue is, that the function seems to depend on the combination of the OS (Unix, Windows, Android), the java version (7, 8, 11, 15, or 16), and the Bouncy Castle build (jdk15on or jdk15to18). It makes also a difference, if it's used by Scandium (DTLS) or by netty.io (TLS). For Scandium internal adaption is possible, for netty.io it must be requested there.
-
-With that, it gets very time consuming to test all combinations. Therefore, if you need a specific one, please test it on your own. If you consider, that some adaption is required, let us know by creating an issue.
+Please see [Scandium - Support for Bouncy Castle](scandium-core#support-for-bouncy-castle) for more details.
 
 ### Element-Connector:
 
@@ -97,6 +130,8 @@ The maximum message size calculations from [Record Size Limit](https://tools.iet
 Using X509 to authenticate the server now includes to match the destination with the server certificate's subject. This is enabled per default, as requested by [RFC7252 - 9.1.3.3. X.509 Certificates](https://datatracker.ietf.org/doc/html/rfc7252#section-9.1.3.3). It could be disabled using `DTLS.VERIFY_SERVER_CERTIFICATES_SUBJECT`.
 
 Introducing support for multiple x509 certificates (see `KeyManagerCertificateProvider`) and RSA, also in combination with `CLIENT_ONLY` and support the asymmetric certificate based handshakes (means: a peer may send credentials with algorithms, the peer itself doesn't support), makes the "auto-configuration" feature very hard. Please report, if you consider that the auto-configuration has issues. That may help to either improve it, or at least to improve the documentation.
+
+The `Connection` provided in the callback of `ConnectionListener.onConnectionRemoved(Connection connection)` is now always "cleaned up" before. That results in a `null` peer address, ongoing handshake, and dtls context. Please consider to use a `SessionListener` instead. With Californium 3.2.0 this is included in the `DtlsConnectorConfig` (see issue #1868, PR #1869).
 
 ### Element-Connector-TCP-Netty:
 
@@ -171,7 +206,7 @@ The updated proxy2 now processes more coap-options and http-headers.
 
 are removed and must be replaced by
 
-`AdvancedPskStore`, `AdvancedSinglePskStore` and `AdvancedMultiPskStore`.
+`PskStore`, `SinglePskStore` and `MultiPskStore`.
 
 2) `TrustedRpkStore`, `TrustAllRpks`, `InMemoryRpkTrustStore`, `CertificateVerifier`, and `AdvancedCertificateVerifier`
 
@@ -204,7 +239,7 @@ are removed and must be replaced by
 14) Change `useNoServerSessionId` into `useServerSessionId` with inverse logic.
 
 15) To support [RFC 7627, Extended Master Secret](https://tools.ietf.org/html/rfc7627), a parameter `useExtendedMasterSecret` is added to
-`AdvancedPskStore.requestPskSecretResult`.
+`PskStore.requestPskSecretResult`.
 
 16) Change `DtlsConnectorConfig.getPrivateKey`, `getPublicKey`, and `getCertificateChain` are replaced by the introduced `CertificateProvider`. `DtlsConnectorConfig.getCertificateIdentityProvider` is added to access the `CertificateProvider`. The `SingleCertificateProvider` is provided, if only  a single certificate based identity is required. The related setters in the `DtlsConnectorConfig.Builder` are replaced also by `setCertificateIdentityProvider`.
 

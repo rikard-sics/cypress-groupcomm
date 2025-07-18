@@ -19,10 +19,12 @@ import java.util.concurrent.TimeUnit;
 
 import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.elements.config.Configuration.ModuleDefinitionsProvider;
+import org.eclipse.californium.elements.config.DefinitionUtils;
+import org.eclipse.californium.elements.config.EnumDefinition;
+import org.eclipse.californium.elements.config.IntegerDefinition;
 import org.eclipse.californium.elements.config.SystemConfig;
 import org.eclipse.californium.elements.config.TimeDefinition;
-import org.eclipse.californium.elements.config.Configuration.ModuleDefinitionsProvider;
-import org.eclipse.californium.elements.config.IntegerDefinition;
 
 /**
  * Configuration definitions for proxy2.
@@ -32,6 +34,17 @@ import org.eclipse.californium.elements.config.IntegerDefinition;
 public final class Proxy2Config {
 
 	public static final String MODULE = "PROXY2.";
+
+	/**
+	 * HTTP version.
+	 * 
+	 * @since 3.7
+	 */
+	public enum HttpVersion {
+
+		HTTP_1, HTTP_2, NEGOTIATE
+
+	}
 
 	/**
 	 * The default http-tcp connection idle timeout in seconds.
@@ -69,6 +82,9 @@ public final class Proxy2Config {
 			DEFAULT_HTTP_CONNECTION_IDLE_TIMEOUT_IN_SECONDS, TimeUnit.SECONDS);
 	public static final TimeDefinition HTTP_CONNECT_TIMEOUT = new TimeDefinition(MODULE + "HTTP_CONNECT_TIMEOUT",
 			"HTTP connect timeout", DEFAULT_HTTP_CONNECT_TIMEOUT_IN_SECONDS, TimeUnit.SECONDS);
+	public static final EnumDefinition<HttpVersion> HTTP_VERSION_POLICY = new EnumDefinition<>(
+			MODULE + "HTTP_VERSION_POLICY", "HTTP version policy.", HttpVersion.NEGOTIATE,
+			HttpVersion.values());
 	public static final IntegerDefinition HTTP_WORKER_THREADS = new IntegerDefinition(MODULE + "HTTP_WORKER_THREADS",
 			"HTTP worker threads", 1, 1);
 	public static final TimeDefinition HTTPS_HANDSHAKE_TIMEOUT = new TimeDefinition(MODULE + "HTTPS_HANDSHAKE_TIMEOUT",
@@ -91,8 +107,9 @@ public final class Proxy2Config {
 			config.set(HTTP_CONNECTION_IDLE_TIMEOUT, DEFAULT_HTTP_CONNECTION_IDLE_TIMEOUT_IN_SECONDS, TimeUnit.SECONDS);
 			config.set(HTTP_WORKER_THREADS, 1);
 			config.set(HTTP_CONNECT_TIMEOUT, DEFAULT_HTTP_CONNECT_TIMEOUT_IN_SECONDS, TimeUnit.SECONDS);
+			config.set(HTTP_VERSION_POLICY, HttpVersion.NEGOTIATE);
 			config.set(HTTPS_HANDSHAKE_TIMEOUT, DEFAULT_HTTPS_HANDSHAKE_TIMEOUT_IN_SECONDS, TimeUnit.SECONDS);
-
+			DefinitionUtils.verify(Proxy2Config.class, config);
 		}
 	};
 

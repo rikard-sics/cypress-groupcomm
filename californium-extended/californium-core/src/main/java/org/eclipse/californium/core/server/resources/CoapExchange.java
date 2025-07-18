@@ -22,21 +22,23 @@ package org.eclipse.californium.core.server.resources;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.util.HashMap;
-import java.util.Map;
+import java.security.Principal;
 
 import org.eclipse.californium.core.CoapResource;
 import org.eclipse.californium.core.coap.CoAP.Code;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+import org.eclipse.californium.core.coap.option.NoResponseOption;
 import org.eclipse.californium.core.coap.MediaTypeRegistry;
-import org.eclipse.californium.core.coap.NoResponseOption;
+import org.eclipse.californium.core.coap.OptionNumberRegistry;
 import org.eclipse.californium.core.coap.OptionSet;
 import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.coap.UriQueryParameter;
 import org.eclipse.californium.core.network.Exchange;
 import org.eclipse.californium.elements.DtlsEndpointContext;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.californium.elements.MapBasedEndpointContext;
 import org.eclipse.californium.elements.MapBasedEndpointContext.Attributes;
+import org.eclipse.californium.elements.auth.ApplicationAuthorizer;
 import org.eclipse.californium.elements.UdpMulticastConnector;
 
 /**
@@ -48,50 +50,46 @@ public class CoapExchange {
 
 	/* The internal (advanced) exchange. */
 	private final Exchange exchange;
-	private final Map<String, String> queryParameters;
-
-	/* The destination resource. */
-	private final CoapResource resource;
 
 	/* Response option values. */
 	private String locationPath = null;
 	private String locationQuery = null;
 	private String handshakeMode = null;
-	private long maxAge = 60;
+	private long maxAge = OptionNumberRegistry.Defaults.MAX_AGE;
 	private byte[] eTag = null;
 
 	/**
-	 * Creates a new CoAP Exchange object for an exchange and resource.
+	 * Creates a new CoAP Exchange object for an exchange.
 	 * 
 	 * @param exchange The message exchange.
-	 * @param resource The resource.
-	 * @throws NullPointerException if any of the parameters is {@code null}.
+	 * @throws NullPointerException if the message exchange is {@code null}.
 	 */
-	public CoapExchange(final Exchange exchange, final CoapResource resource) {
+	public CoapExchange(Exchange exchange) {
 		if (exchange == null) {
 			throw new NullPointerException("exchange must not be null");
-		} else if (resource == null) {
-			throw new NullPointerException("resource must not be null");
 		}
 		this.exchange = exchange;
-		this.resource = resource;
-		if (getRequestOptions().getURIQueryCount() > 0) {
-			this.queryParameters = new HashMap<>();
-			for (String param : getRequestOptions().getUriQuery()) {
-				addParameter(param);
-			}
-		} else {
-			this.queryParameters = null;
-		}
 	}
 
-	private void addParameter(final String param) {
-		int idx = param.indexOf("=");
-		if (idx > 0) {
-			queryParameters.put(param.substring(0, idx), param.substring(idx + 1));
-		} else {
-			queryParameters.put(param, Boolean.TRUE.toString());
-		}
+	/**
+	 * Gets the source principal.
+	 *
+	 * @return the source principal. May be {@code null}, if source is
+	 *         anonymous.
+	 * @since 4.0
+	 */
+	public final Principal getSourcePrincipal() {
+		return getSourceContext().getPeerIdentity();
+	}
+
+	/**
+	 * Gets the source context.
+	 *
+	 * @return the source context.
+	 * @since 4.0
+	 */
+	public final EndpointContext getSourceContext() {
+		return exchange.getRequest().getSourceContext();
 	}
 
 	/**
@@ -100,8 +98,8 @@ public class CoapExchange {
 	 * @return the source socket address
 	 * @since 2.1
 	 */
-	public InetSocketAddress getSourceSocketAddress() {
-		return exchange.getRequest().getSourceContext().getPeerAddress();
+	public final InetSocketAddress getSourceSocketAddress() {
+		return getSourceContext().getPeerAddress();
 	}
 
 	/**
@@ -109,8 +107,8 @@ public class CoapExchange {
 	 *
 	 * @return the source address
 	 */
-	public InetAddress getSourceAddress() {
-		return exchange.getRequest().getSourceContext().getPeerAddress().getAddress();
+	public final InetAddress getSourceAddress() {
+		return getSourceSocketAddress().getAddress();
 	}
 
 	/**
@@ -118,8 +116,19 @@ public class CoapExchange {
 	 *
 	 * @return the source port
 	 */
-	public int getSourcePort() {
-		return exchange.getRequest().getSourceContext().getPeerAddress().getPort();
+	public final int getSourcePort() {
+		return getSourceSocketAddress().getPort();
+	}
+
+	/**
+	 * Gets application authorizer.
+	 * 
+	 * @return application authorizer, or {@code null}, if not supported by this
+	 *         exchange.
+	 * @since 4.0
+	 */
+	public ApplicationAuthorizer getApplicationAuthorizer() {
+		return exchange.getApplicationAuthorizer();
 	}
 
 	/**
@@ -134,10 +143,10 @@ public class CoapExchange {
 	}
 
 	/**
-	 * Gets the request code: <tt>GET</tt>, <tt>POST</tt>, <tt>PUT</tt> or
-	 * <tt>DELETE</tt>.
+	 * Gets the request code.
 	 * 
-	 * @return the request code
+	 * @return the request code, {@code GET}, {@code POST}, {@code PUT},
+	 *         {@code DELETE}, {@code FETCH}, {@code PATCH} or {@code IPATCH}.
 	 */
 	public Code getRequestCode() {
 		return exchange.getRequest().getCode();
@@ -157,15 +166,15 @@ public class CoapExchange {
 	 * 
 	 * @param name The name of the query parameter.
 	 * @return The value of the parameter or {@code null} if the request did not
-	 *         include a query parameter with the given name.
+	 *         include a query parameter with the given name. If the parameter
+	 *         is available, but has no argument, {@code "true"} is returned.
 	 */
 	public String getQueryParameter(final String name) {
-
-		if (queryParameters != null) {
-			return queryParameters.get(name);
-		} else {
-			return null;
+		UriQueryParameter uriQueryParameter = getRequestOptions().getUriQueryParameter();
+		if (uriQueryParameter.hasParameter(name)) {
+			return uriQueryParameter.getArgument(name, Boolean.TRUE.toString());
 		}
+		return null;
 	}
 
 	/**
@@ -509,22 +518,21 @@ public class CoapExchange {
 	 * @since 3.0 {@link NoResponseOption} is considered
 	 */
 	public void respond(Response response) {
-		if (response == null)
-			throw new NullPointerException();
-
+		if (response == null) {
+			throw new NullPointerException("Response must not be null!");
+		}
 		// set the response options configured through the CoapExchange API
 		if (locationPath != null)
 			response.getOptions().setLocationPath(locationPath);
 		if (locationQuery != null)
 			response.getOptions().setLocationQuery(locationQuery);
-		if (maxAge != 60)
+		if (maxAge != OptionNumberRegistry.Defaults.MAX_AGE)
 			response.getOptions().setMaxAge(maxAge);
 		if (eTag != null) {
 			response.getOptions().clearETags();
 			response.getOptions().addETag(eTag);
 		}
 
-		resource.checkObserveRelation(exchange, response);
 		if (response.getDestinationContext() == null) {
 			response.setDestinationContext(applyHandshakeMode());
 		}

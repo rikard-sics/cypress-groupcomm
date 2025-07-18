@@ -26,9 +26,11 @@ import javax.crypto.KeyAgreement;
 
 import org.eclipse.californium.cose.AlgorithmID;
 import org.eclipse.californium.cose.CoseException;
+import org.eclipse.californium.cose.EncryptCommon;
 import org.eclipse.californium.cose.KeyKeys;
 import org.eclipse.californium.cose.OneKey;
 import org.eclipse.californium.elements.util.Bytes;
+import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.oscore.ByteId;
 import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.californium.oscore.OSCoreCtx;
@@ -50,18 +52,29 @@ public class GroupCtx {
 	AlgorithmID hkdfAlg;
 	byte[] idContext;
 	AlgorithmID algSign;
-	AlgorithmID algSignEnc;
+	AlgorithmID algGroupEnc;
 	int[][] parCountersign;
 	AlgorithmID algKeyAgreement;
 	int[][] parSecret;
-	byte[] groupEncryptionKey;
+	byte[] signatureEncryptionKey;
 	byte[] gmPublicKey;
+	CRED_FORMAT authCredFmt;
+
+	public enum CRED_FORMAT {
+		CWT(0), CCS(1), X509(2), C509(3);
+
+		public final int value;
+
+		private CRED_FORMAT(int value) {
+			this.value = value;
+		}
+	}
 
 	// Reference to the associated sender context
-	GroupSenderCtx senderCtx;
+	public GroupSenderCtx senderCtx;
 
 	// References to the associated recipient contexts
-	HashMap<ByteId, GroupRecipientCtx> recipientCtxMap;
+	public HashMap<ByteId, GroupRecipientCtx> recipientCtxMap;
 
 	// References to public keys without existing contexts
 	// (For dynamic context generation)
@@ -71,8 +84,12 @@ public class GroupCtx {
 	boolean pairwiseModeResponses = false;
 	boolean pairwiseModeRequests = false;
 
+	// Map holding replay windows for long exchanges
+	public HashMap<ByteId, ResponseReplayWindow> longExchanges = new HashMap<ByteId, ResponseReplayWindow>();
+
 	/**
-	 * Construct a Group OSCORE context.
+	 * Construct a Group OSCORE context. Uses default value for authCredFmt and
+	 * uses same algGroupEnc as aeadAlg.
 	 * 
 	 * @param masterSecret
 	 * @param masterSalt
@@ -85,24 +102,13 @@ public class GroupCtx {
 	public GroupCtx(byte[] masterSecret, byte[] masterSalt, AlgorithmID aeadAlg, AlgorithmID hkdfAlg, byte[] idContext,
 			AlgorithmID algSign, byte[] gmPublicKey) {
 
-		this.masterSecret = masterSecret;
-		this.masterSalt = masterSalt;
-		this.aeadAlg = aeadAlg;
-		this.hkdfAlg = hkdfAlg;
-		this.idContext = idContext;
-		this.algSign = algSign;
-		this.gmPublicKey = gmPublicKey;
-		this.algSignEnc = aeadAlg; // Same if not indicated
+		this(masterSecret, masterSalt, aeadAlg, hkdfAlg, idContext, algSign, aeadAlg, AlgorithmID.ECDH_SS_HKDF_256,
+				gmPublicKey, CRED_FORMAT.CCS);
 
-		recipientCtxMap = new HashMap<ByteId, GroupRecipientCtx>();
-		publicKeysMap = new HashMap<ByteId, OneKey>();
-
-		// Default since not indicated
-		this.algKeyAgreement = AlgorithmID.ECDH_SS_HKDF_256;
 	}
 
 	/**
-	 * Construct a Group OSCORE context. New one to be used.
+	 * Construct a Group OSCORE context. Uses default value for authCredFmt.
 	 * 
 	 * @param masterSecret
 	 * @param masterSalt
@@ -111,11 +117,33 @@ public class GroupCtx {
 	 * @param idContext
 	 * @param algSign
 	 * @param gmPublicKey
-	 * @param algSignEnc
+	 * @param algGroupEnc
 	 * @param algKeyAgreement
 	 */
 	public GroupCtx(byte[] masterSecret, byte[] masterSalt, AlgorithmID aeadAlg, AlgorithmID hkdfAlg, byte[] idContext,
-			AlgorithmID algSign, AlgorithmID algSignEnc, AlgorithmID algKeyAgreement, byte[] gmPublicKey) {
+			AlgorithmID algSign, AlgorithmID algGroupEnc, AlgorithmID algKeyAgreement, byte[] gmPublicKey) {
+
+		this(masterSecret, masterSalt, aeadAlg, hkdfAlg, idContext, algSign, algGroupEnc, algKeyAgreement, gmPublicKey,
+				CRED_FORMAT.CCS);
+	}
+
+	/**
+	 * Construct a Group OSCORE context.
+	 * 
+	 * @param masterSecret
+	 * @param masterSalt
+	 * @param aeadAlg
+	 * @param hkdfAlg
+	 * @param idContext
+	 * @param algSign
+	 * @param gmPublicKey
+	 * @param algGroupEnc
+	 * @param algKeyAgreement
+	 * @param authCredFmt
+	 */
+	public GroupCtx(byte[] masterSecret, byte[] masterSalt, AlgorithmID aeadAlg, AlgorithmID hkdfAlg, byte[] idContext,
+			AlgorithmID algSign, AlgorithmID algGroupEnc, AlgorithmID algKeyAgreement, byte[] gmPublicKey,
+			CRED_FORMAT authCredFmt) {
 
 		this.masterSecret = masterSecret;
 		this.masterSalt = masterSalt;
@@ -124,13 +152,14 @@ public class GroupCtx {
 		this.idContext = idContext;
 		this.algSign = algSign;
 		this.gmPublicKey = gmPublicKey;
-		this.algSignEnc = algSignEnc;
+		this.algGroupEnc = algGroupEnc;
 		this.algKeyAgreement = algKeyAgreement;
+		this.authCredFmt = authCredFmt;
 
 		recipientCtxMap = new HashMap<ByteId, GroupRecipientCtx>();
 		publicKeysMap = new HashMap<ByteId, OneKey>();
-
 	}
+
 
 	/**
 	 * Add a recipient context.
@@ -142,8 +171,9 @@ public class GroupCtx {
 	 */
 	public void addRecipientCtx(byte[] recipientId, int replayWindow, OneKey otherEndpointPubKey) throws OSException {
 		GroupRecipientCtx recipientCtx = new GroupRecipientCtx(masterSecret, false, aeadAlg, null, recipientId, hkdfAlg,
-				replayWindow, masterSalt, idContext, otherEndpointPubKey,
-				null, this);
+				replayWindow, masterSalt, idContext, otherEndpointPubKey, null, this);
+
+		recipientCtx.setCommonIV(deriveCommonIv());
 
 		recipientCtxMap.put(new ByteId(recipientId), recipientCtx);
 
@@ -164,9 +194,10 @@ public class GroupCtx {
 
 		GroupSenderCtx senderCtx = new GroupSenderCtx(masterSecret, false, aeadAlg, senderId, null, hkdfAlg, 0,
 				masterSalt, idContext, ownPrivateKey, null, this);
+		senderCtx.setCommonIV(deriveCommonIv());
 		this.senderCtx = senderCtx;
 
-		this.groupEncryptionKey = deriveGroupEncryptionKey();
+		this.signatureEncryptionKey = deriveSignatureEncryptionKey();
 	}
 
 	//
@@ -188,6 +219,7 @@ public class GroupCtx {
 			recipientCtx = new GroupRecipientCtx(masterSecret, false, aeadAlg, null, recipientId, hkdfAlg, replayWindow,
 					masterSalt, idContext, null, null, this);
 		}
+		recipientCtx.setCommonIV(deriveCommonIv());
 
 		recipientCtxMap.put(new ByteId(recipientId), recipientCtx);
 
@@ -208,9 +240,10 @@ public class GroupCtx {
 
 		GroupSenderCtx senderCtx = new GroupSenderCtx(masterSecret, false, aeadAlg, senderId, null, hkdfAlg, 0,
 				masterSalt, idContext, ownPrivateKey.getCoseKey(), ownPrivateKey.getRawKey(), this);
+		senderCtx.setCommonIV(deriveCommonIv());
 		this.senderCtx = senderCtx;
 
-		this.groupEncryptionKey = deriveGroupEncryptionKey();
+		this.signatureEncryptionKey = deriveSignatureEncryptionKey();
 	}
 	//
 
@@ -221,6 +254,26 @@ public class GroupCtx {
 	 */
 	public byte[] getGmPublicKey() {
 		return gmPublicKey;
+	}
+
+
+	/**
+	 * Retrieve the recipient contexts
+	 * 
+	 * @return the recipient contexts
+	 */
+	public HashMap<ByteId, GroupRecipientCtx> getRecipientContexts() {
+		return recipientCtxMap;
+	}
+
+	/**
+	 * Retrieve the sender context
+	 * 
+	 * @return the sender context
+	 */
+
+	public GroupSenderCtx getSenderCtx() {
+		return senderCtx;
 	}
 
 	public int getCountersignatureLen() {
@@ -238,14 +291,6 @@ public class GroupCtx {
 		}
 	}
 
-	public GroupSenderCtx getSenderCtx() {
-		return senderCtx;
-	}
-
-	public HashMap<ByteId, GroupRecipientCtx> getRecipientContexts() {
-		return recipientCtxMap;
-	}
-	
 	/**
 	 * Get the countersign_alg_capab array for an algorithm.
 	 * 
@@ -360,7 +405,7 @@ public class GroupCtx {
 	}
 
 	// TODO: Merge with below?
-	byte[] deriveGroupEncryptionKey() {
+	byte[] deriveSignatureEncryptionKey() {
 
 		String digest = "";
 		if (senderCtx.getKdf().toString().contains("SHA_256")) {
@@ -370,26 +415,27 @@ public class GroupCtx {
 		}
 
 		CBORObject info = CBORObject.NewArray();
-		int keyLength = this.algSignEnc.getKeySize() / 8;
+		int keyLength = this.algGroupEnc.getKeySize() / 8;
 
-		// Then derive the group encryption key
+		// Then derive the signature encryption key
 		info = CBORObject.NewArray();
 		info.Add(Bytes.EMPTY);
 		info.Add(this.idContext);
-		info.Add(this.aeadAlg.AsCBOR());
-		info.Add(CBORObject.FromObject("Group Encryption Key"));
+		// https://datatracker.ietf.org/doc/html/draft-ietf-core-oscore-groupcomm-17#section-2.1.6
+		info.Add(this.algGroupEnc.AsCBOR());
+		info.Add(CBORObject.FromObject("SEKey"));
 		info.Add(keyLength);
 
-		byte[] groupEncryptionKey = null;
+		byte[] signatureEncryptionKey = null;
 		try {
-			groupEncryptionKey = OSCoreCtx.deriveKey(senderCtx.getMasterSecret(), senderCtx.getSalt(), keyLength,
+			signatureEncryptionKey = OSCoreCtx.deriveKey(senderCtx.getMasterSecret(), senderCtx.getSalt(), keyLength,
 					digest, info.EncodeToBytes());
 
 		} catch (CoseException e) {
 			System.err.println(e.getMessage());
 		}
 
-		return groupEncryptionKey;
+		return signatureEncryptionKey;
 	}
 
 	// TODO: Merge with below?
@@ -430,6 +476,11 @@ public class GroupCtx {
 		info.Add(CBORObject.FromObject("Key"));
 		info.Add(this.aeadAlg.getKeySize() / 8);
 
+		System.out.println("derivePairwiseSenderKey");
+		System.out.println("sharedSecret: " + StringUtil.byteArray2HexString(sharedSecret));
+		System.out.println("keysConcatenated: " + StringUtil.byteArray2HexString(sharedSecret));
+		System.out.println("ikmSender: " + StringUtil.byteArray2HexString(sharedSecret));
+
 		byte[] keysConcatenated = Bytes.concatenate(senderCtx.getPublicKeyRaw(), recipientPublicKeyRaw);
 		byte[] ikmSender = Bytes.concatenate(keysConcatenated, sharedSecret);
 
@@ -441,6 +492,8 @@ public class GroupCtx {
 		} catch (CoseException e) {
 			System.err.println(e.getMessage());
 		}
+
+		System.out.println("pairwiseSenderKey: " + StringUtil.byteArray2HexString(pairwiseSenderKey));
 
 		return pairwiseSenderKey;
 	}
@@ -483,6 +536,11 @@ public class GroupCtx {
 			System.err.println("Error: Unknown countersignature!");
 		}
 
+		System.out.println("derivePairwiseRecipientKey");
+		System.out.println("sharedSecret: " + StringUtil.byteArray2HexString(sharedSecret));
+		System.out.println("keysConcatenated: " + StringUtil.byteArray2HexString(sharedSecret));
+		System.out.println("ikmRecipient: " + StringUtil.byteArray2HexString(sharedSecret));
+
 		byte[] keysConcatenated = Bytes.concatenate(recipientPublicKeyRaw, senderCtx.getPublicKeyRaw());
 		byte[] ikmRecipient = Bytes.concatenate(keysConcatenated, sharedSecret);
 
@@ -493,6 +551,8 @@ public class GroupCtx {
 		} catch (CoseException e) {
 			System.err.println(e.getMessage());
 		}
+
+		System.out.println("pairwiseRecipientKey: " + StringUtil.byteArray2HexString(pairwiseRecipientKey));
 
 		return pairwiseRecipientKey;
 	}
@@ -544,12 +604,72 @@ public class GroupCtx {
 	}
 
 	/**
-	 * Get the group encryption key from the common context (used for making a
+	 * Get the signature encryption key from the common context (used for making a
 	 * keystream to encrypt the signature).
 	 * 
-	 * @return the group encryption key
+	 * @return the signature encryption key
 	 */
-	public byte[] getGroupEncryptionKey() {
-		return groupEncryptionKey;
+	public byte[] getSignatureEncryptionKey() {
+		return signatureEncryptionKey;
+	}
+
+	/**
+	 * Derive Common IV with its length being equal to the longest nonce length
+	 * of: 1. AEAD Algorithm 2. Group Encryption Algorithm
+	 * 
+	 * @return the derived Common IV value
+	 */
+	byte[] deriveCommonIv() throws OSException {
+
+		// Set digest value depending on HKDF
+		String digest = null;
+		switch (hkdfAlg) {
+		case HKDF_HMAC_SHA_256:
+			digest = "SHA256";
+			break;
+		case HKDF_HMAC_SHA_512:
+			digest = "SHA512";
+			break;
+		case HKDF_HMAC_AES_128:
+		case HKDF_HMAC_AES_256:
+		default:
+			throw new OSException("HKDF algorithm not supported");
+		}
+
+		// Find length of Common IV to use
+		int iv_length;
+		if (aeadAlg == null) {
+			iv_length = EncryptCommon.getIvLength(algGroupEnc);
+		} else if (algGroupEnc == null) {
+			iv_length = EncryptCommon.getIvLength(aeadAlg);
+		} else {
+			iv_length = (EncryptCommon.getIvLength(algGroupEnc) > EncryptCommon.getIvLength(aeadAlg))
+					? EncryptCommon.getIvLength(algGroupEnc)
+					: EncryptCommon.getIvLength(aeadAlg);
+		}
+
+		AlgorithmID ivAlg = null;
+		if (algGroupEnc != null) {
+			ivAlg = algGroupEnc;
+		} else {
+			ivAlg = aeadAlg;
+		}
+		// Derive common_iv
+		CBORObject info = CBORObject.NewArray();
+		info = CBORObject.NewArray();
+		info.Add(Bytes.EMPTY);
+		info.Add(idContext);
+		info.Add(ivAlg.AsCBOR());
+		info.Add(CBORObject.FromObject("IV"));
+		info.Add(iv_length);
+
+		byte[] derivedCommonIv = null;
+		try {
+			derivedCommonIv = OSCoreCtx.deriveKey(masterSecret, masterSalt, iv_length, digest, info.EncodeToBytes());
+		} catch (CoseException e) {
+			throw new OSException("Failed to derive Common IV");
+		}
+
+		return derivedCommonIv;
 	}
 }

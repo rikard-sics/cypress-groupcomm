@@ -55,6 +55,7 @@ import org.eclipse.californium.oscore.group.GroupCtx;
 import org.eclipse.californium.oscore.group.GroupRecipientCtx;
 import org.eclipse.californium.oscore.group.GroupSenderCtx;
 import org.eclipse.californium.oscore.group.OneKeyDecoder;
+import org.junit.Assert;
 
 import net.i2p.crypto.eddsa.EdDSASecurityProvider;
 
@@ -132,24 +133,24 @@ public class GroupOSCOREInteropClientNonTransparentBW {
 	private final static AlgorithmID algCountersign = AlgorithmID.ECDSA_256;
 
 	// test vector OSCORE draft Appendix C.1.1
-	private final static byte[] master_secret = InteropParametersNew.RIKARD_MASTER_SECRET_ECDSA;
-	private final static byte[] master_salt = InteropParametersNew.RIKARD_MASTER_SALT_ECDSA;
+	private final static byte[] master_secret = InteropParametersOld.RIKARD_MASTER_SECRET_ECDSA;
+	private final static byte[] master_salt = InteropParametersOld.RIKARD_MASTER_SALT_ECDSA;
 
 	private static final int REPLAY_WINDOW = 32;
 
 	// Public and private keys for group members
-	private final static byte[] sid = InteropParametersNew.RIKARD_ENTITY_3_KID_ECDSA;
+	private final static byte[] sid = InteropParametersOld.RIKARD_ENTITY_3_KID_ECDSA;
 	private static OneKey sid_private_key;
 
-	private final static byte[] rid1 = InteropParametersNew.RIKARD_ENTITY_1_KID_ECDSA;
+	private final static byte[] rid1 = InteropParametersOld.RIKARD_ENTITY_1_KID_ECDSA;
 	private static OneKey rid1_public_key;
 
-	private final static byte[] rid2 = InteropParametersNew.RIKARD_ENTITY_2_KID_ECDSA;
+	private final static byte[] rid2 = InteropParametersOld.RIKARD_ENTITY_2_KID_ECDSA;
 	private static OneKey rid2_public_key;
 
 	private final static byte[] rid0 = new byte[] { (byte) 0xCC }; // Dummy
 
-	private final static byte[] group_identifier = InteropParametersNew.RIKARD_GROUP_ID_ECDSA;
+	private final static byte[] group_identifier = InteropParametersOld.RIKARD_GROUP_ID_ECDSA;
 
 	private final static int MAX_UNFRAGMENTED_SIZE = 4096;
 
@@ -160,6 +161,12 @@ public class GroupOSCOREInteropClientNonTransparentBW {
 	 */
 	static final String requestPayload = "Post from " + Utils.toHexString(sid);
 
+	/**
+	 * Main method
+	 * 
+	 * @param args command line arguments
+	 * @throws Exception on failure
+	 */
 	public static void main(String args[]) throws Exception {
 
 		// Disable replay detection
@@ -171,7 +178,8 @@ public class GroupOSCOREInteropClientNonTransparentBW {
 		 */
 		String requestURI;
 		if (destinationIP instanceof Inet6Address) {
-			requestURI = "coap://" + "[" + destinationIP.getHostAddress() + "]" + ":" + destinationPort + requestResource;
+			requestURI = "coap://" + "[" + destinationIP.getHostAddress() + "]" + ":" + destinationPort
+					+ requestResource;
 		} else {
 			requestURI = "coap://" + destinationIP.getHostAddress() + ":" + destinationPort + requestResource;
 		}
@@ -182,9 +190,9 @@ public class GroupOSCOREInteropClientNonTransparentBW {
 		// InstallCryptoProviders.generateCounterSignKey();
 
 		// Add private & public keys for sender & receiver(s)
-		sid_private_key = OneKeyDecoder.parseDiagnostic(InteropParametersNew.RIKARD_ENTITY_3_KEY_ECDSA);
-		rid1_public_key = OneKeyDecoder.parseDiagnostic(InteropParametersNew.RIKARD_ENTITY_1_KEY_ECDSA);
-		rid2_public_key = OneKeyDecoder.parseDiagnostic(InteropParametersNew.RIKARD_ENTITY_2_KEY_ECDSA);
+		sid_private_key = OneKeyDecoder.parseDiagnostic(InteropParametersOld.RIKARD_ENTITY_3_KEY_ECDSA);
+		rid1_public_key = OneKeyDecoder.parseDiagnostic(InteropParametersOld.RIKARD_ENTITY_1_KEY_ECDSA);
+		rid2_public_key = OneKeyDecoder.parseDiagnostic(InteropParametersOld.RIKARD_ENTITY_2_KEY_ECDSA);
 
 		// Check that KIDs in public/private keys match corresponding
 		// recipient/sender ID (just to double check configuration)
@@ -201,7 +209,8 @@ public class GroupOSCOREInteropClientNonTransparentBW {
 		GroupRecipientCtx recipient2Ctx;
 		if (useOSCORE) {
 
-			GroupCtx commonCtx = new GroupCtx(master_secret, master_salt, alg, kdf, group_identifier, algCountersign, null);
+			GroupCtx commonCtx = new GroupCtx(master_secret, master_salt, alg, kdf, group_identifier, algCountersign,
+					null);
 
 			commonCtx.addSenderCtx(sid, sid_private_key);
 
@@ -241,7 +250,6 @@ public class GroupOSCOREInteropClientNonTransparentBW {
 			// Case 8: Server request signature failure
 			// senderCtx.setAsymmetricSenderKey(OneKey.generateKey(algCountersign));
 
-
 		}
 
 		Configuration config = Configuration.createWithFile(CONFIG_FILE, CONFIG_HEADER, DEFAULTS);
@@ -275,12 +283,11 @@ public class GroupOSCOREInteropClientNonTransparentBW {
 		}
 		System.out.println("Sending from: " + client.getEndpoint().getAddress());
 
-		
 		// //If observe is to be used
 		// if (requestURI.endsWith("observe")) {
 		// multicastRequest.setObserve();
 		// }
-		
+
 		/* === Sends the initial multicast request */
 		int blockSize = 0;
 		HashMap<String, String> returnedPayloads = new HashMap<String, String>();
@@ -294,6 +301,7 @@ public class GroupOSCOREInteropClientNonTransparentBW {
 		}
 
 		// Use non-confirmable for multicast requests
+		Assert.assertNotNull(multicastRequest);
 		if (destinationIP.isMulticastAddress()) {
 			multicastRequest.setType(Type.NON);
 		} else {
@@ -358,6 +366,7 @@ public class GroupOSCOREInteropClientNonTransparentBW {
 				}
 
 				// Use confirmable for unicast requests
+				Assert.assertNotNull(unicastRequest);
 				unicastRequest.setType(Type.CON);
 
 				if (useOSCORE) {
@@ -457,6 +466,7 @@ public class GroupOSCOREInteropClientNonTransparentBW {
 			try {
 				wait(timeout);
 			} catch (InterruptedException e) {
+				//
 			}
 			return on;
 		}
@@ -490,6 +500,7 @@ public class GroupOSCOREInteropClientNonTransparentBW {
 	 * Add an OSCORE Context to the DB (OSCORE RFC C.2.2.)
 	 */
 	static OSCoreCtx oscoreCtx;
+
 	private static void addOSCOREContext(String requestURI) {
 		byte[] master_secret = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
 				0x0f, 0x10 };

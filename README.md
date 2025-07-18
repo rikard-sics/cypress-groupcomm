@@ -10,6 +10,8 @@ Joint codebase for CYPRESS including ACE, EDHOC, OSCORE, Group OSCORE, and Group
 
 1. Run the `config.sh` script
 
+1.5. Set the correct maven profile as described below.
+
 2. Start Eclipse, then import the following projects:
   
     - californium-extended

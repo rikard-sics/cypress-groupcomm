@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -46,9 +46,11 @@ import com.upokecenter.cbor.CBORType;
 
 import se.sics.ace.AceException;
 import se.sics.ace.Constants;
+import se.sics.ace.GroupcommParameters;
 import se.sics.ace.Message;
 import se.sics.ace.TimeProvider;
 import se.sics.ace.cwt.CwtCryptoCtx;
+import se.sics.ace.examples.LocalMessage;
 import se.sics.ace.oscore.GroupInfo;
 import se.sics.ace.rs.AudienceValidator;
 import se.sics.ace.rs.AuthzInfo;
@@ -83,12 +85,12 @@ public class AuthzInfoGroupOSCORE extends AuthzInfo {
     /**
 	 * Handles audience validation
 	 */
-	private GroupOSCOREJoinValidator audience;
+	private GroupOSCOREValidator audience;
     
     /**
-     * OSCORE groups active under the Group Manager
+     * Existing OSCORE groups under the Group Manager
      */
-	private Map<String, GroupInfo> activeGroups;
+	private Map<String, GroupInfo> existingGroups;
 	
 	private final String rootGroupMembershipResource;
 	
@@ -119,7 +121,7 @@ public class AuthzInfoGroupOSCORE extends AuthzInfo {
 		super(issuers, time, intro, rsId, audience, ctx, keyDerivationKey, derivedKeySize, tokenFile, 
 		        scopeValidator, checkCnonce);
 		
-		this.audience = (GroupOSCOREJoinValidator) audience;
+		this.audience = (GroupOSCOREValidator) audience;
 		
 		this.rootGroupMembershipResource = this.audience.getRootGroupMembershipResource();
 		
@@ -224,7 +226,7 @@ public class AuthzInfoGroupOSCORE extends AuthzInfo {
     	if (scope.getType().equals(CBORType.ByteString)) {
     		
     		Set<String> myGMAudiences = this.audience.getAllGMAudiences();
-    		Set<String> myJoinResources = this.audience.getAllJoinResources();
+    		Set<String> myGroupMembershipResources = this.audience.getAllGroupMembershipResources();
     		
     		CBORObject audCbor = claims.get(Constants.AUD);
     		String aud = audCbor.AsString();
@@ -238,21 +240,44 @@ public class AuthzInfoGroupOSCORE extends AuthzInfo {
 				error = false;
 	    	}
 			
-      	  	for (int entryIndex = 0; entryIndex < cborScope.size(); entryIndex++)
-      	  		groupNames.add(cborScope.get(entryIndex).get(0).AsString());
-    		
-    		// Check that all the group names in scope refer to group-membership resources
-    		if (error == false) {
-    			for (String groupName : groupNames) {
-    				if (myJoinResources.contains(rootGroupMembershipResource + "/" + groupName) == false) {
-    					error = true;
-    					break;
-    				}
-    			}
-    		}
+      	  	for (int entryIndex = 0; entryIndex < cborScope.size(); entryIndex++) {
+      	  		
+      	  		if (cborScope.get(entryIndex).get(1).getType() != CBORType.Integer) {
+      	  			error = true;
+      	  			break;
+      	  		}
+      	  		
+      	  		int tperm = cborScope.get(entryIndex).get(1).AsInt32();
+      	  		if (tperm <= 0) {
+      	  			error = true;
+      	  			break;
+      	  		}
+      	  		if ((tperm % 2) == 0) {
+      	  			// This is a user scope entry
+      	  			if (cborScope.get(entryIndex).get(0).getType() != CBORType.TextString) {
+	      	  			error = true;
+	      	  			break;
+	      	  		}
+      	  			// This OSCORE group currently exists
+      	  			String groupName = cborScope.get(entryIndex).get(0).AsString();
+      	  			if (myGroupMembershipResources.contains(rootGroupMembershipResource + "/" + groupName)) {
+      	  				groupNames.add(groupName);
+      	  			}
+      	  		}
+      	  		if ((tperm % 2) == 1) {
+      	  		// This is an admin scope entry
+      	  			if (cborScope.get(entryIndex).get(0).getType() != CBORType.TextString &&
+      	  				cborScope.get(entryIndex).get(0).equals(CBORObject.True) == false) {
+	      	  			error = true;
+	      	  			break;
+	      	  		}
+      	  		}
+
+      	  	}
     		
     		if (error == true) {
-                LOGGER.info("The audience must be a Group Manager; group name must point at group-membership resources of that Group Manager");
+                LOGGER.info("The audience must be a Group Manager; the format of the scope entries" +
+                			" must be consistent the AIF-OSCORE-GROUPCOMM data model");
                 CBORObject map = CBORObject.NewMap();
                 map.Add(Constants.ERROR, Constants.INVALID_REQUEST);
                 return msg.failReply(Message.FAIL_BAD_REQUEST, map); 
@@ -284,10 +309,10 @@ public class AuthzInfoGroupOSCORE extends AuthzInfo {
     	        for (String groupName : groupNames) {
     	            
     	            // Retrieve the entry for the target group, using the name of the OSCORE group
-    	            GroupInfo myGroup = this.activeGroups.get(groupName);
+    	            GroupInfo myGroup = this.existingGroups.get(groupName);
     	            
     	            // The group uses the group mode
-    	            if (provideSignInfo && myGroup.getMode() != Constants.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {
+    	            if (provideSignInfo && myGroup.getMode() != GroupcommParameters.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {
     	            
     	                CBORObject signInfoEntry = CBORObject.NewArray();
     	                
@@ -318,7 +343,7 @@ public class AuthzInfoGroupOSCORE extends AuthzInfo {
     	            }
 
     	            // The group uses the pairwise mode
-		        	if (provideEcdhInfo && myGroup.getMode() != Constants.GROUP_OSCORE_GROUP_MODE_ONLY) {
+		        	if (provideEcdhInfo && myGroup.getMode() != GroupcommParameters.GROUP_OSCORE_GROUP_MODE_ONLY) {
 		        		
 						CBORObject ecdhEntry = CBORObject.NewArray();
 						
@@ -360,16 +385,28 @@ public class AuthzInfoGroupOSCORE extends AuthzInfo {
     		
     	}
 	    
-	    
 	    LOGGER.info("Successfully processed token");
+	    
+	    if ((msg instanceof LocalMessage) == false) {
+	    	// This is not a cosmetic message generated by a Junit test, thus
+	    	// the CTI parameter is removed, as not to be sent on the wire
+	    	rep.Remove(Constants.CTI);
+	    	
+	    	// If this results in an empty CBOR map, the response must
+	    	// have an empty payload (i.e., not the empty CBOR map)
+	    	if (rep.size() == 0) {
+	    		rep = null;
+	    	}
+	    }
+	    
         return msg.successReply(reply.getMessageCode(), rep);
 	}
     
 	/**
-	 * @param activeGroups
+	 * @param existingGroups
 	 */
-	public synchronized void setActiveGroups(Map<String, GroupInfo> activeGroups) {
-		this.activeGroups = activeGroups;
+	public synchronized void setExistingGroups(Map<String, GroupInfo> existingGroups) {
+		this.existingGroups = existingGroups;
 	}
 	
 	@Override

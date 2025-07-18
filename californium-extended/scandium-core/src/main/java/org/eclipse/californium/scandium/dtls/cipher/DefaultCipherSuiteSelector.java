@@ -24,8 +24,6 @@ import org.eclipse.californium.scandium.dtls.cipher.CipherSuite.CertificateKeyAl
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuiteParameters.CertificateBasedMismatch;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuiteParameters.GeneralMismatch;
 import org.eclipse.californium.scandium.dtls.cipher.XECDHECryptography.SupportedGroup;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Default cipher suite selector.
@@ -36,10 +34,6 @@ import org.slf4j.LoggerFactory;
  * @since 2.3
  */
 public class DefaultCipherSuiteSelector implements CipherSuiteSelector {
-
-	// Logging ////////////////////////////////////////////////////////
-
-	protected static final Logger LOGGER = LoggerFactory.getLogger(DefaultCipherSuiteSelector.class);
 
 	@Override
 	public boolean select(CipherSuiteParameters parameters) {
@@ -129,10 +123,17 @@ public class DefaultCipherSuiteSelector implements CipherSuiteSelector {
 			parameters.setCertificateMismatch(CertificateBasedMismatch.SERVER_CERT_TYPE);
 			return false;
 		}
+		CertificateType clientCertificateType = null;
 		CertificateAuthenticationMode clientAuthentication = parameters.getClientAuthenticationMode();
-		if (clientAuthentication.useCertificateRequest() && parameters.getClientCertTypes().isEmpty()) {
-			parameters.setCertificateMismatch(CertificateBasedMismatch.CLIENT_CERT_TYPE);
-			return false;
+		if (clientAuthentication.useCertificateRequest()) {
+			if (parameters.getClientCertTypes().isEmpty()) {
+				if (CertificateAuthenticationMode.NEEDED == clientAuthentication) {
+					parameters.setCertificateMismatch(CertificateBasedMismatch.CLIENT_CERT_TYPE);
+					return false;
+				}
+			} else {
+				clientCertificateType = parameters.getClientCertTypes().get(0);
+			}
 		}
 		if (parameters.getSignatures().isEmpty()) {
 			parameters.setCertificateMismatch(CertificateBasedMismatch.SIGNATURE_ALGORITHMS);
@@ -152,14 +153,14 @@ public class DefaultCipherSuiteSelector implements CipherSuiteSelector {
 			parameters.setCertificateMismatch(CertificateBasedMismatch.CERTIFICATE_SIGNATURE_ALGORITHMS);
 			return false;
 		}
-		CertificateType certificateType = parameters.getServerCertTypes().get(0);
-		if (CertificateType.X_509.equals(certificateType)) {
+		CertificateType serverCertificateType = parameters.getServerCertTypes().get(0);
+		if (CertificateType.X_509.equals(serverCertificateType)) {
 			if (parameters.getCertificateChain() == null) {
 				throw new IllegalArgumentException("Certificate type x509 requires a certificate chain!");
 			}
 			// check, if certificate chain is supported
-			boolean supported = SignatureAndHashAlgorithm
-					.isSignedWithSupportedAlgorithms(parameters.getSignatures(), parameters.getCertificateChain());
+			boolean supported = SignatureAndHashAlgorithm.isSignedWithSupportedAlgorithms(parameters.getSignatures(),
+					parameters.getCertificateChain());
 			if (supported) {
 				supported = SupportedGroup.isSupported(parameters.getSupportedGroups(),
 						parameters.getCertificateChain());
@@ -169,21 +170,18 @@ public class DefaultCipherSuiteSelector implements CipherSuiteSelector {
 				// contains unsupported signature hash algorithms or groups
 				// (curves).
 				if (parameters.getServerCertTypes().contains(CertificateType.RAW_PUBLIC_KEY)) {
-					certificateType = CertificateType.RAW_PUBLIC_KEY;
+					serverCertificateType = CertificateType.RAW_PUBLIC_KEY;
 				} else {
-					parameters
-							.setCertificateMismatch(CertificateBasedMismatch.CERTIFICATE_PATH_SIGNATURE_ALGORITHMS);
+					parameters.setCertificateMismatch(CertificateBasedMismatch.CERTIFICATE_PATH_SIGNATURE_ALGORITHMS);
 					return false;
 				}
 			}
 		}
 		parameters.select(cipherSuite);
-		parameters.selectServerCertificateType(certificateType);
+		parameters.selectServerCertificateType(serverCertificateType);
 		parameters.selectSignatureAndHashAlgorithm(signatureAndHashAlgorithm);
 		parameters.selectSupportedGroup(parameters.getSupportedGroups().get(0));
-		certificateType = clientAuthentication.useCertificateRequest() ? parameters.getClientCertTypes().get(0)
-				: null;
-		parameters.selectClientCertificateType(certificateType);
+		parameters.selectClientCertificateType(clientCertificateType);
 		return true;
 	}
 }

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -52,7 +52,7 @@ import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
-import org.eclipse.californium.scandium.dtls.pskstore.AdvancedMultiPskStore;
+import org.eclipse.californium.scandium.dtls.pskstore.MultiPskStore;
 import org.eclipse.californium.scandium.dtls.x509.SingleCertificateProvider;
 
 import com.upokecenter.cbor.CBORObject;
@@ -301,9 +301,9 @@ public class PlugtestClient {
             builder = new DtlsConnectorConfig.Builder(dtlsConfig);
             builder.setAddress(new InetSocketAddress(0));
 
-            AdvancedMultiPskStore pskStore = new AdvancedMultiPskStore();
+            MultiPskStore pskStore = new MultiPskStore();
             pskStore.setKey("client1", client1);
-            builder.setAdvancedPskStore(pskStore);
+            builder.setPskStore(pskStore);
 
             dtlsConnector = new DTLSConnector(builder.build());
             ceb = new CoapEndpoint.Builder();
@@ -333,9 +333,9 @@ public class PlugtestClient {
             builder = new DtlsConnectorConfig.Builder(dtlsConfig);
             builder.setAddress(new InetSocketAddress(0));
 
-            pskStore = new AdvancedMultiPskStore();
+            pskStore = new MultiPskStore();
             pskStore.setKey("client2", client2);
-            builder.setAdvancedPskStore(pskStore);
+            builder.setPskStore(pskStore);
 
             dtlsConnector = new DTLSConnector(builder.build());
             ceb = new CoapEndpoint.Builder();
@@ -477,9 +477,9 @@ public class PlugtestClient {
             builder = new DtlsConnectorConfig.Builder(dtlsConfig);
             builder.setAddress(new InetSocketAddress(0));
 
-            pskStore = new AdvancedMultiPskStore();
+            pskStore = new MultiPskStore();
             pskStore.setKey("client4", client4);
-            builder.setAdvancedPskStore(pskStore);
+            builder.setPskStore(pskStore);
 
             dtlsConnector = new DTLSConnector(builder.build());
             ceb = new CoapEndpoint.Builder();

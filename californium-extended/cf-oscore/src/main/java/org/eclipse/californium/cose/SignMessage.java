@@ -192,3 +192,4 @@ public class SignMessage extends Message {
         throw new CoseException("Signer not found");
     }
 }
+

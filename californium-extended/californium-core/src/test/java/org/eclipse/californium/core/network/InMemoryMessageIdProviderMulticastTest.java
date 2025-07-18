@@ -15,7 +15,6 @@
  ******************************************************************************/
 package org.eclipse.californium.core.network;
 
-import static org.eclipse.californium.elements.util.TestConditionTools.inRange;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -26,6 +25,8 @@ import java.util.concurrent.TimeUnit;
 import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.elements.category.Small;
 import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.elements.matcher.InRange;
+import org.eclipse.californium.elements.rule.TestTimeRule;
 import org.eclipse.californium.rule.CoapNetworkRule;
 import org.eclipse.californium.rule.CoapThreadsRule;
 import org.junit.ClassRule;
@@ -42,6 +43,9 @@ public class InMemoryMessageIdProviderMulticastTest {
 
 	@Rule
 	public CoapThreadsRule cleanup = new CoapThreadsRule();
+
+	@Rule
+	public TestTimeRule time = new TestTimeRule();
 
 	private static final String GROUP = "224.0.1.187";
 	private static final String GROUP2 = "224.0.1.188";
@@ -63,21 +67,17 @@ public class InMemoryMessageIdProviderMulticastTest {
 	public void testMidsWithTwoMulticastGroupsAtOnce() {
 		final int multicastBaseMid = 65515;
 		Configuration config = network.createStandardTestConfig();
-		config.set(CoapConfig.EXCHANGE_LIFETIME, 1, TimeUnit.MILLISECONDS);
 		config.set(CoapConfig.MULTICAST_BASE_MID, multicastBaseMid);
 		InMemoryMessageIdProvider midProvider = new InMemoryMessageIdProvider(config);
 		for (int i = 1; i < 20; i++) {
 			if ((i % 5) == 0) {
-				try {
-					Thread.sleep(1);
-				} catch (InterruptedException e) {
-				}
+				time.addTestTimeShift(config.getTimeAsInt(CoapConfig.EXCHANGE_LIFETIME, TimeUnit.MILLISECONDS) + 1, TimeUnit.MILLISECONDS);
 			}
 			int multicastMidGroup1 = midProvider.getNextMessageId(new InetSocketAddress(GROUP, PORT));
 			int multicastMidGroup2 = midProvider.getNextMessageId(new InetSocketAddress(GROUP2, PORT));
 			String tag = "loop " + i + ":";
-			assertThat(tag, multicastMidGroup1, is(inRange(multicastBaseMid, 65536)));
-			assertThat(tag, multicastMidGroup2, is(inRange(multicastBaseMid, 65536)));
+			assertThat(tag, multicastMidGroup1, is(InRange.inRange(multicastBaseMid, 65536)));
+			assertThat(tag, multicastMidGroup2, is(InRange.inRange(multicastBaseMid, 65536)));
 			assertThat(tag, multicastMidGroup1, is(not(multicastMidGroup2)));
 		}
 	}
@@ -104,8 +104,8 @@ public class InMemoryMessageIdProviderMulticastTest {
 			}
 			int multicastMid = midProvider.getNextMessageId(multicast);
 			int nonMulticastMid = midProvider.getNextMessageId(unicast);
-			assertThat(multicastMid, is(inRange(multicastBaseMid, 65536)));
-			assertThat(nonMulticastMid, is(inRange(0, multicastBaseMid)));
+			assertThat(multicastMid, is(InRange.inRange(multicastBaseMid, 65536)));
+			assertThat(nonMulticastMid, is(InRange.inRange(0, multicastBaseMid)));
 		}
 	}
 }

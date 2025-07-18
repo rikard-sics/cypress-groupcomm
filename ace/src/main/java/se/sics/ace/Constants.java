@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -361,7 +361,6 @@ public class Constants {
 		
 	//profile = 38  
 	//cnonce = 39
-	//rs_cnf = 40
 
     /**
      * The expiration of the token in seconds from when it first was seen by the RS.
@@ -548,6 +547,116 @@ public class Constants {
     public static final CBORObject COSE_KID_CBOR 
         = CBORObject.FromObject(COSE_KID);
     
+	/**
+	 * A cnf containing a chain of X.509 certificates
+	 */
+	public static final short CWT_CNF_X5CHAIN = 6; // Provisional
+
+    /**
+     * ... same as above as CBORObject
+     */
+    public static final CBORObject CWT_CNF_X5CHAIN_CBOR 
+        = CBORObject.FromObject(CWT_CNF_X5CHAIN);
+
+	/**
+	 * A cnf containing a bag of X.509 certificates
+	 */
+	public static final short CWT_CNF_X5BAG = 7; // Provisional
+
+    /**
+     * ... same as above as CBORObject
+     */
+    public static final CBORObject CWT_CNF_X5BAG_CBOR 
+        = CBORObject.FromObject(CWT_CNF_X5BAG);
+
+	/**
+	 * A cnf containing a hash of an X.509 certificate
+	 */
+	public static final short CWT_CNF_X5T = 8; // Provisional
+
+    /**
+     * ... same as above as CBORObject
+     */
+    public static final CBORObject CWT_CNF_X5T_CBOR 
+        = CBORObject.FromObject(CWT_CNF_X5T);
+
+	/**
+	 * A cnf containing a URI of an X.509 certificate
+	 */
+	public static final short CWT_CNF_X5U = 9; // Provisional
+
+    /**
+     * ... same as above as CBORObject
+     */
+    public static final CBORObject CWT_CNF_X5U_CBOR 
+        = CBORObject.FromObject(CWT_CNF_X5U);
+
+	/**
+	 * A cnf containing a chain of C509 certificates
+	 */
+	public static final short CWT_CNF_C5C = 10; // Provisional
+
+    /**
+     * ... same as above as CBORObject
+     */
+    public static final CBORObject CWT_CNF_C5C_CBOR 
+        = CBORObject.FromObject(CWT_CNF_C5C);
+
+	/**
+	 * A cnf containing a bag of C509 certificates
+	 */
+	public static final short CWT_CNF_C5B = 11; // Provisional
+
+    /**
+     * ... same as above as CBORObject
+     */
+    public static final CBORObject CWT_CNF_C5B_CBOR 
+        = CBORObject.FromObject(CWT_CNF_C5B);
+
+	/**
+	 * A cnf containing a hash of a C509 certificate
+	 */
+	public static final short CWT_CNF_C5T = 12; // Provisional
+
+    /**
+     * ... same as above as CBORObject
+     */
+    public static final CBORObject CWT_CNF_C5T_CBOR 
+        = CBORObject.FromObject(CWT_CNF_C5T);
+
+	/**
+	 * A cnf containing a URI of a C509 certificate
+	 */
+	public static final short CWT_CNF_C5U = 13; // Provisional
+
+    /**
+     * ... same as above as CBORObject
+     */
+    public static final CBORObject CWT_CNF_C5U_CBOR 
+        = CBORObject.FromObject(CWT_CNF_C5U);
+
+	/**
+	 * A cnf containing a CWT that includes at least a cnf claim with a COSE Key
+	 */
+	public static final short CWT_CNF_KCWT = 14; // Provisional
+
+    /**
+     * ... same as above as CBORObject
+     */
+    public static final CBORObject CWT_CNF_KCWT_CBOR 
+        = CBORObject.FromObject(CWT_CNF_KCWT);
+
+	/**
+	 * A cnf containing a CCS that includes at least a cnf claim with a COSE Key
+	 */
+	public static final short CWT_CNF_KCCS = 15; // Provisional
+
+    /**
+     * ... same as above as CBORObject
+     */
+    public static final CBORObject CWT_CNF_KCCS_CBOR 
+        = CBORObject.FromObject(CWT_CNF_KCCS);
+    
 
     /**
      * Searches an array of strings for the index of the given string.
@@ -610,17 +719,6 @@ public class Constants {
      */
     public static final String[] GRANT_TYPES = {"password", 
             "authorization_code", "client_credentials", "refresh_token"};
-
-    
-    /**
-     * The abbreviation code for the DTLS profile
-     */
-    public static final short COAP_DTLS = 1;
-    
-    /**
-     * The abbreviation code for the OSCORE profile
-     */
-    public static final short COAP_OSCORE = 2;
     
     /**
      * Value for the label "nonce1" in the Token POST request for the OSCORE profile
@@ -641,6 +739,38 @@ public class Constants {
      * Value for the label "ace_server_recipientid" in the Token POST request for the OSCORE profile
      */
     public static final short ACE_SERVER_RECIPIENTID = 44;
+    
+    /**
+     * Value for the label "sign_info" in the Token POST request/response with Content-Format application/ace+cbor
+     */
+    public static final short SIGN_INFO = 45;
+
+    /**
+     * Value for the label "kdcchallenge" in the Token POST request/response with Content-Format application/ace+cbor
+     */
+    public static final short KDCCHALLENGE = 46;
+
+    /**
+     * Value for the label "ecdh_info" in the Token POST request/response with Content-Format application/ace+cbor
+     */
+    public static final short ECDH_INFO = 92; // provisional
+
+    /**
+     * Value for the label "kdc_dh_creds" in the Token POST request/response with Content-Format application/ace+cbor
+     */
+    public static final short KDC_DH_CREDS = 93; // provisional
+    
+    
+    
+    /**
+     * The abbreviation code for the DTLS profile, as value of the ace_profile parameter/claim
+     */
+    public static final short COAP_DTLS = 1;
+    
+    /**
+     * The abbreviation code for the OSCORE profile, as value of the ace_profile parameter/claim
+     */
+    public static final short COAP_OSCORE = 2;
     
     /**
      * Return the abbreviated profile id for the full profile name.
@@ -733,7 +863,7 @@ public class Constants {
     /**
      * Array of the human readable names for the CWT claims
      */
-    public static String[] ABBREV_CWT = new String[42];
+    public static String[] ABBREV_CWT = new String[41];
     static {
         ABBREV_CWT[1] = "iss"; 
         ABBREV_CWT[2] = "sub"; 
@@ -747,7 +877,6 @@ public class Constants {
         ABBREV_CWT[38] = "profile"; 
         ABBREV_CWT[39] = "cnonce";
         ABBREV_CWT[40] = "exi";
-        ABBREV_CWT[41] = "rs_cnf";
     }
     
     /**
@@ -866,219 +995,62 @@ public class Constants {
     public static final short iPATCH = 7;
     
     
-
     /**
-     * Content-Format ace+cbor
+     * Content-Format application/ace+cbor
      */
     public static final int APPLICATION_ACE_CBOR = 19;
     
     /**
-     * Content-Format ace-groupcomm+cbor
+     * Content-Format application/cbor
      */
-    public static final int APPLICATION_ACE_GROUPCOMM_CBOR = 65001;
-    
+    public static final int APPLICATION_CBOR = 60;
     
     /**
-	 * Group OSCORE abbreviations =================================
-	 */
+     * Content-Format application/cwt
+     */
+    public static final int APPLICATION_CWT = 61;
 
     /**
-     * The OSCORE group uses only the group mode
+     * Content-Format application/ace-groupcomm+cbor
      */
-    public static final short GROUP_OSCORE_GROUP_MODE_ONLY = 1;
-    
+    public static final int APPLICATION_CONCISE_PROBLEM_DETAILS_CBOR = 257;
+   
     /**
-     * The OSCORE group uses both the group mode and the pairwise mode
+     * Content-Format application/ace-groupcomm+cbor
      */
-    public static final short GROUP_OSCORE_GROUP_PAIRWISE_MODE = 2;
+    public static final int APPLICATION_ACE_GROUPCOMM_CBOR = 261;
     
-    /**
-     * The OSCORE group uses only the pairwise mode
-     */
-    public static final short GROUP_OSCORE_PAIRWISE_MODE_ONLY = 3;
-    
-    
-    /**
-     * Requester role
-     */
-    public static final short GROUP_OSCORE_REQUESTER = 1;
-    
-    /**
-     * Responder role
-     */
-    public static final short GROUP_OSCORE_RESPONDER = 2;
-    
-    /**
-     * Monitor role
-     */
-    public static final short GROUP_OSCORE_MONITOR = 3;
-    
-    /**
-     * Verifier role
-     */
-    public static final short GROUP_OSCORE_VERIFIER = 4;
-    
-    /**
-     * Roles as strings
-     */
-    public static final String[] GROUP_OSCORE_ROLES = {"reserved", "requester", "responder", "monitor", "verifier"};
-    
-     /**
-      * Value for the label "get_creds" in the Join Request message
-      */
-     public static final short GET_CREDS = 101;
-     
-     /**
-      * Value for the label "client_cred" in the Join Request message
-      */
-     public static final short CLIENT_CRED = 102;
-     
-     /**
-      * Value for the label "client_cred_verify" in the Join Request message
-      */
-     public static final short CLIENT_CRED_VERIFY = 103;
-     
-     /**
-      * Value for the label "gkty" in the Join Response message
-      */
-     public static final short GKTY = 1;
-     
-     /**
-      * Value for the label "key" in the Join Response message
-      */
-     public static final short KEY = 2;
-     
-     /**
-      * Value for the label "creds" in the Join Response message
-      */
-     public static final short CREDS = 3;
-     
-     /**
-      * Value for the label "ace-groupcomm-profile" in the Join Response message
-      */
-     public static final short ACE_GROUPCOMM_PROFILE = 38;
-     
-     /**
-      * Value for the label "sign_info" in the Token POST request/response and in the error response to the Join Request
-      */
-     public static final short SIGN_INFO = 203;
-     
-     /**
-      * Value for the label "ecdh_info" in the Token POST request/response and in the error response to the Join Request
-      */
-     public static final short ECDH_INFO = 204;
-     
-     /**
-      * Value for the label "kdc_dh_creds" in the Token POST request/response and in the error response to the Join Request
-      */
-     public static final short KDC_DH_CREDS = 205;
-     
-     /**
-      * Value for the label "kdcchallenge" in the Token POST response
-      */
-     public static final short KDCCHALLENGE = 206;
-     
-     /**
-      * Value for the label "num" in the Join Response message
-      */
-     public static final short NUM = 207;
-     
-     /**
-      * Value for the label "group_policies" in the Join Response message
-      */
-     public static final short GROUP_POLICIES = 208;
-     
-     /**
-      * Value for the label "peer_roles" in the Join Response message
-      */
-     public static final short PEER_ROLES = 209;
-     
-     /**
-      * Value for the label "peer_identifiers" in the Join Response message
-      */
-     public static final short PEER_IDENTIFIERS = 210;
-     
-     /**
-      * Value for the label "kdc_nonce" in the Join Response message
-      */
-     public static final short KDC_NONCE = 211;
-     
-     /**
-      * Value for the label "kdc_cred" in the Join Response message
-      */
-     public static final short KDC_CRED = 212;
-     
-     /**
-      * Value for the label "kdc_cred_verify" in the Join Response message
-      */
-     public static final short KDC_CRED_VERIFY = 213;
-     
-     /**
-      * Value for the label "group_senderId" in the Key Renewal Response message
-      */
-     public static final short GROUP_SENDER_ID = 214;
-     
-     /**
-      * Value for the label "gid" in the Group Name and URI Retrieval Request/Response message
-      */
-     public static final short GID = 215;
-     
-     /**
-      * Value for the label "gname" in the Group Name and URI Retrieval Response message
-      */
-     public static final short GNAME = 216;
-     
-     /**
-      * Value for the label "guri" in the Group Name and URI Retrieval Response message
-      */
-     public static final short GURI = 217;
-     
-     /**
-      * Value for the label "group_key_enc" in the Signature Verification Data Response message
-      */
-     public static final short GROUP_KEY_ENC = 218;
-     
-     
-     /**
-      * Value for the group key type "Group_OSCORE_Input_Material object"
-      */
-     public static final short GROUP_OSCORE_INPUT_MATERIAL_OBJECT = 1;
-     
-     /**
-      * Value for the application profile "coap_group_oscore_app"
-      */
-     public static final short COAP_GROUP_OSCORE_APP = 1;
-     
-     
-     /* Values for labels of group policies */
-     /**
-      * Value for the label of "Sequence Number Synchronization Method"
-      * 
-      * This policy is not used by this application profile
-      */
-     public static final short POLICY_SN_SYNCH = 1;
-     
-     /**
-      * Value for the label of "Key Update Check Interval"
-      * 
-      * Default: 3600 s
-      */
-     public static final short POLICY_KEY_CHECK_INTERVAL = 2;
-     
-     /**
-      * Value for the label of "Expiration delta"
-      * 
-      * Default: 0 s
-      */
-     public static final short POLICY_EXP_DELTA = 3;
-     
      
      /**
       * COSE Header Parameters
       * https://www.iana.org/assignments/cose/cose.xhtml
       */
+     public static final int COSE_HEADER_PARAM_KCWT = 13;
+     public static final int COSE_HEADER_PARAM_KCCS = 14;
+     public static final int COSE_HEADER_PARAM_C5B = 24;
+     public static final int COSE_HEADER_PARAM_C5C = 25;
+     public static final int COSE_HEADER_PARAM_X5BAG = 32;
      public static final int COSE_HEADER_PARAM_X5CHAIN = 33;
-     public static final int COSE_HEADER_PARAM_CWT = 36;
-     public static final int COSE_HEADER_PARAM_CCS = 37;
      
+     
+     /**
+      * Standard Problem Detail Keys
+      * https://www.iana.org/assignments/core-parameters/core-parameters.xhtml#core-standard-problem-detail-keys
+      */
+     public static final int PROBLEM_DETAIL_KEY_TITLE = -1;
+     public static final int PROBLEM_DETAIL_KEY_DETAIL = -2;
+     public static final int PROBLEM_DETAIL_KEY_INSTANCE = -3;
+     public static final int PROBLEM_DETAIL_KEY_RESPONSE_CODE = -4;
+     public static final int PROBLEM_DETAIL_KEY_BASE_URI = -5;
+     public static final int PROBLEM_DETAIL_KEY_BASE_LANG = -6;
+     public static final int PROBLEM_DETAIL_KEY_RTL = -7;
+     public static final int PROBLEM_DETAIL_KEY_UNPROCESSES_COAP_OPTION = -8;
+     
+     /**
+      * Custom Problem Detail Keys
+      * https://www.iana.org/assignments/core-parameters/core-parameters.xhtml#core-custom-problem-detail-keys
+      */
+     public static final int PROBLEM_DETAIL_ACE_GROUPCOMM_ERROR = 0;
+     public static final int PROBLEM_DETAIL_ACE_TRL_ERROR = 1;
+
 }

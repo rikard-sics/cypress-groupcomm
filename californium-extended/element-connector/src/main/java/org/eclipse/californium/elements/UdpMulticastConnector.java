@@ -109,8 +109,10 @@ import org.slf4j.LoggerFactory;
  *        one multicast group is provided.
  */
 public class UdpMulticastConnector extends UDPConnector {
-
-	public static final Logger LOGGER = LoggerFactory.getLogger(UdpMulticastConnector.class);
+	/**
+	 * The logger.
+	 */
+	private static final Logger LOGGER = LoggerFactory.getLogger(UdpMulticastConnector.class);
 
 	/**
 	 * Network interface of socket for outgoing multicast traffic. May be
@@ -233,7 +235,7 @@ public class UdpMulticastConnector extends UDPConnector {
 
 	@Override
 	public synchronized void start() throws IOException {
-		if (this.running)
+		if (isRunning())
 			return;
 
 		InetAddress effectiveInterface = localAddr.getAddress();

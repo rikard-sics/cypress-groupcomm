@@ -19,6 +19,9 @@
  ******************************************************************************/
 package org.eclipse.californium.core.coap;
 
+import org.eclipse.californium.core.coap.option.OptionDefinition;
+import org.eclipse.californium.core.coap.option.OptionRegistry;
+
 /**
  * This class describes the CoAP Option Number Registry as defined in RFC 7252,
  * Section 12.2 and other CoAP extensions.
@@ -26,6 +29,14 @@ package org.eclipse.californium.core.coap;
  * <a href=
  * "https://www.iana.org/assignments/core-parameters/core-parameters.xhtml#option-numbers">
  * IANA - CoAP Option Numbers</a>.
+ * 
+ * Since 3.8 {@link OptionDefinition} and {@link OptionRegistry} is introduced
+ * and is the preferred and future way to specify, which option is represented.
+ * The option number on it's own represents this only for the traditional
+ * options, but options introduced with
+ * <a href="https://www.rfc-editor.org/rfc/rfc8323#section-5.2" target=
+ * "_blank"> RFC8323 5.2. Signaling Option Numbers</a> options dependent also on
+ * the message code.
  */
 public final class OptionNumberRegistry {
 	public static final int UNKNOWN			= -1;
@@ -62,9 +73,6 @@ public final class OptionNumberRegistry {
 
 	// RFC 8613
 	public static final int OSCORE			= 9;
-	
-	// EDHOC (temporary assignment)
-	public static final int EDHOC			= 21;
 
 	// RFC 7967
 	public static final int NO_RESPONSE		= 258;
@@ -100,9 +108,6 @@ public final class OptionNumberRegistry {
 		public static final String Object_Security	= "Object-Security";
 
 		public static final String No_Response		= "No-Response";
-		
-		public static final String Edhoc            = "EDHOC";
-		
 	}
 
 	/**
@@ -119,47 +124,6 @@ public final class OptionNumberRegistry {
 	 */
 	public static enum OptionFormat {
 		INTEGER, STRING, OPAQUE, UNKNOWN, EMPTY
-	}
-
-	/**
-	 * Returns the option format based on the option number.
-	 * 
-	 * @param optionNumber
-	 *            The option number
-	 * @return The option format corresponding to the option number
-	 */
-	public static OptionFormat getFormatByNr(int optionNumber) {
-		switch (optionNumber) {
-		case CONTENT_FORMAT:
-		case MAX_AGE:
-		case URI_PORT:
-		case OBSERVE:
-		case BLOCK2:
-		case BLOCK1:
-		case SIZE2:
-		case SIZE1:
-		case ACCEPT:
-		case NO_RESPONSE:
-			return OptionFormat.INTEGER;
-		case IF_NONE_MATCH:
-			return OptionFormat.EMPTY;
-		case URI_HOST:
-		case URI_PATH:
-		case URI_QUERY:
-		case LOCATION_PATH:
-		case LOCATION_QUERY:
-		case PROXY_URI:
-		case PROXY_SCHEME:
-			return OptionFormat.STRING;
-		case ETAG:
-		case IF_MATCH:
-		case OSCORE:
-			return OptionFormat.OPAQUE;
-		case EDHOC: // EDHOC
-			return OptionFormat.EMPTY;
-		default:
-			return OptionFormat.UNKNOWN;
-		}
 	}
 
 	/**
@@ -243,149 +207,6 @@ public final class OptionNumberRegistry {
 	}
 
 	/**
-	 * Checks if is single value.
-	 * 
-	 * @param optionNumber
-	 *            the option number
-	 * @return {@code true} if is single value
-	 */
-	public static boolean isSingleValue(int optionNumber) {
-		switch (optionNumber) {
-		case CONTENT_FORMAT:
-		case MAX_AGE:
-		case PROXY_URI:
-		case PROXY_SCHEME:
-		case URI_HOST:
-		case URI_PORT:
-		case IF_NONE_MATCH:
-		case OBSERVE:
-		case ACCEPT:
-		case OSCORE:
-		case BLOCK1:
-		case BLOCK2:
-		case SIZE1:
-		case SIZE2:
-		case NO_RESPONSE:
-		case EDHOC: // EDHOC
-		default:
-			return true;
-		case ETAG:
-		case IF_MATCH:
-		case URI_PATH:
-		case URI_QUERY:
-		case LOCATION_PATH:
-		case LOCATION_QUERY:
-			return false;
-		}
-	}
-
-	/**
-	 * Assert, that the value matches the options's definition.
-	 * 
-	 * See <a href="https://tools.ietf.org/html/rfc7252#page-53" target="_blank">RFC7252, 5.10.
-	 * Option Definitions </a>.
-	 * 
-	 * @param optionNumber option's number
-	 * @param value value to check
-	 * @throws IllegalArgumentException if value doesn't match the definition
-	 * @since 3.0
-	 */
-	public static void assertValue(int optionNumber, long value) {
-		try {
-			int length = (Long.SIZE - Long.numberOfLeadingZeros(value) + 7) / Byte.SIZE;
-			assertValueLength(optionNumber, length);
-		} catch (IllegalArgumentException ex) {
-			throw new IllegalArgumentException(ex.getMessage() + " Value " + value);
-		}
-	}
-
-	/**
-	 * Assert, that the value length matches the options's definition.
-	 * 
-	 * See <a href="https://tools.ietf.org/html/rfc7252#page-53" target="_blank">RFC7252, 5.10.
-	 * Option Definitions </a>.
-	 * 
-	 * @param optionNumber option's number
-	 * @param valueLength value length
-	 * @throws IllegalArgumentException if value length doesn't match the
-	 *             definition
-	 * @since 3.0
-	 */
-	public static void assertValueLength(int optionNumber, int valueLength) {
-		int min = 0;
-		int max = 65535 + 269;
-		switch (optionNumber) {
-		case IF_MATCH:
-			max = 8;
-			break;
-		case URI_HOST:
-		case PROXY_SCHEME:
-			min = 1;
-			max = 255;
-			break;
-		case ETAG:
-			min = 1;
-			max = 8;
-			break;
-		case IF_NONE_MATCH:
-			max = 0;
-			break;
-		case URI_PORT:
-		case CONTENT_FORMAT:
-		case ACCEPT:
-			max = 2;
-			break;
-		case NO_RESPONSE:
-			max = 1;
-			break;
-		case URI_PATH:
-		case URI_QUERY:
-		case LOCATION_PATH:
-		case LOCATION_QUERY:
-		case OSCORE:
-			max = 255;
-			break;
-		// EDHOC
-		case EDHOC:
-			max = 0;
-			break;
-
-		case MAX_AGE:
-		case SIZE1:
-		case SIZE2:
-			max = 4;
-			break;
-
-		case PROXY_URI:
-			min = 1;
-			max = 1034;
-			break;
-		case OBSERVE:
-		case BLOCK1:
-		case BLOCK2:
-			max = 3;
-			break;
-		default:
-			// empty, already min/max already initialized.
-		}
-		if (valueLength < min || valueLength > max) {
-			String name = toString(optionNumber);
-			if (min == max) {
-				if (min == 0) {
-					throw new IllegalArgumentException(
-							"Option " + name + " value of " + valueLength + " bytes must be empty.");
-				} else {
-					throw new IllegalArgumentException(
-							"Option " + name + " value of " + valueLength + " bytes must be " + min + " bytes.");
-				}
-			} else {
-				throw new IllegalArgumentException("Option " + name + " value of " + valueLength
-						+ " bytes must be in range of [" + min + "-" + max + "] bytes.");
-			}
-		}
-	}
-
-	/**
 	 * Checks if is uri option.
 	 * 
 	 * @param optionNumber
@@ -395,96 +216,6 @@ public final class OptionNumberRegistry {
 	public static boolean isUriOption(int optionNumber) {
 		boolean result = optionNumber == URI_HOST || optionNumber == URI_PATH || optionNumber == URI_PORT || optionNumber == URI_QUERY;
 		return result;
-	}
-
-	/**
-	 * Returns a string representation of the option number.
-	 * 
-	 * @param optionNumber
-	 *            the option number to describe
-	 * @return a string describing the option number
-	 */
-	public static String toString(int optionNumber) {
-		switch (optionNumber) {
-		case RESERVED_0:
-		case RESERVED_1:
-		case RESERVED_2:
-		case RESERVED_3:
-		case RESERVED_4:
-			return Names.Reserved;
-		case IF_MATCH:
-			return Names.If_Match;
-		case URI_HOST:
-			return Names.Uri_Host;
-		case ETAG:
-			return Names.ETag;
-		case IF_NONE_MATCH:
-			return Names.If_None_Match;
-		case URI_PORT:
-			return Names.Uri_Port;
-		case LOCATION_PATH:
-			return Names.Location_Path;
-		case URI_PATH:
-			return Names.Uri_Path;
-		case CONTENT_FORMAT:
-			return Names.Content_Format;
-		case MAX_AGE:
-			return Names.Max_Age;
-		case URI_QUERY:
-			return Names.Uri_Query;
-		case ACCEPT:
-			return Names.Accept;
-		case LOCATION_QUERY:
-			return Names.Location_Query;
-		case PROXY_URI:
-			return Names.Proxy_Uri;
-		case PROXY_SCHEME:
-			return Names.Proxy_Scheme;
-		case OBSERVE:
-			return Names.Observe;
-		case BLOCK2:
-			return Names.Block2;
-		case BLOCK1:
-			return Names.Block1;
-		case SIZE2:
-			return Names.Size2;
-		case SIZE1:
-			return Names.Size1;
-		case OSCORE:
-			return Names.Object_Security;
-		case NO_RESPONSE:
-			return Names.No_Response;
-		case EDHOC: // EDHOC
-			return Names.Edhoc;
-		default:
-			return String.format("Unknown (%d)", optionNumber);
-		}
-	}
-
-	public static int toNumber(String name) {
-		if (Names.If_Match.equals(name))			return IF_MATCH;
-		else if (Names.Uri_Host.equals(name))		return URI_HOST;
-		else if (Names.ETag.equals(name))			return ETAG;
-		else if (Names.If_None_Match.equals(name))	return IF_NONE_MATCH;
-		else if (Names.Uri_Port.equals(name))		return URI_PORT;
-		else if (Names.Location_Path.equals(name))	return LOCATION_PATH;
-		else if (Names.Uri_Path.equals(name))		return URI_PATH;
-		else if (Names.Content_Format.equals(name))	return CONTENT_FORMAT;
-		else if (Names.Max_Age.equals(name))		return MAX_AGE;
-		else if (Names.Uri_Query.equals(name))		return URI_QUERY;
-		else if (Names.Accept.equals(name))			return ACCEPT;
-		else if (Names.Location_Query.equals(name))	return LOCATION_QUERY;
-		else if (Names.Proxy_Uri.equals(name))		return PROXY_URI;
-		else if (Names.Proxy_Scheme.equals(name))	return PROXY_SCHEME;
-		else if (Names.Observe.equals(name))		return OBSERVE;
-		else if (Names.Block2.equals(name))			return BLOCK2;
-		else if (Names.Block1.equals(name))			return BLOCK1;
-		else if (Names.Size2.equals(name))			return SIZE2;
-		else if (Names.Size1.equals(name))			return SIZE1;
-		else if (Names.Object_Security.equals(name)) return OSCORE;
-		else if (Names.No_Response.equals(name))	return NO_RESPONSE;
-		else if (Names.Edhoc.equals(name))          return EDHOC; // EDHOC
-		else return UNKNOWN;
 	}
 
 	private OptionNumberRegistry() {

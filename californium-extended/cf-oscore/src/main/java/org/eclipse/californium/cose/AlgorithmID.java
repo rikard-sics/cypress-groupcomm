@@ -84,6 +84,47 @@ public enum AlgorithmID {
     ECDH_SS_HKDF_256_AES_KW_128(-32, 0, 0),
     ECDH_SS_HKDF_256_AES_KW_192(-33, 0, 0),
     ECDH_SS_HKDF_256_AES_KW_256(-34, 0, 0),
+    
+    CHACHA20_POLY1305(24, 256, 128),
+
+	RSA_PSS_256(-37, 0, 0), RSA_PSS_384(-38, 0, 0), RSA_PSS_512(-39, 0, 0),
+
+	/**
+	 * @deprecated Do NOT use without an integrity protection mechanism
+	 */
+	@Deprecated
+	CHACHA20(23, 256, 0),
+
+	/**
+	 * @deprecated Do NOT use without an integrity protection mechanism
+	 */
+	@Deprecated
+	A128CTR(-65534, 128, 0),
+	/**
+	 * @deprecated Do NOT use without an integrity protection mechanism
+	 */
+	@Deprecated
+	A192CTR(-65533, 192, 0),
+	/**
+	 * @deprecated Do NOT use without an integrity protection mechanism
+	 */
+	@Deprecated
+	A256CTR(-65532, 256, 0),
+	/**
+	 * @deprecated Do NOT use without an integrity protection mechanism
+	 */
+	@Deprecated
+	A128CBC(-65531, 128, 0),
+	/**
+	 * @deprecated Do NOT use without an integrity protection mechanism
+	 */
+	@Deprecated
+	A192CBC(-65530, 192, 0),
+	/**
+	 * @deprecated Do NOT use without an integrity protection mechanism
+	 */
+	@Deprecated
+	A256CBC(-65529, 256, 0)
     ;
  
     private final CBORObject value;

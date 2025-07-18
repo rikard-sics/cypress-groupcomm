@@ -20,16 +20,25 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.apache.hc.core5.http.HttpStatus;
 import org.eclipse.californium.core.coap.CoAP.Code;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
 import org.eclipse.californium.core.coap.MediaTypeRegistry;
 import org.eclipse.californium.core.coap.OptionNumberRegistry;
+import org.eclipse.californium.core.coap.option.OptionDefinition;
+import org.eclipse.californium.core.coap.option.StandardOptionRegistry;
+import org.eclipse.californium.elements.config.PropertiesUtility;
+import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.proxy2.InvalidMethodException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,6 +62,7 @@ public class MappingProperties extends Properties {
 	protected static final String KEY_COAP_CODE = "coap.response.code.";
 	protected static final String KEY_COAP_OPTION = "coap.message.option.";
 	protected static final String KEY_COAP_MEDIA = "coap.message.media.";
+	protected static final String KEY_COAP_CONVERSION = "coap.message.conv.";
 	protected static final String KEY_HTTP_CODE = "http.response.code.";
 	protected static final String KEY_HTTP_METHOD = "http.request.method.";
 	protected static final String KEY_HTTP_HEADER = "http.message.header.";
@@ -67,6 +77,7 @@ public class MappingProperties extends Properties {
 	protected final Map<ResponseCode, Integer> coapResponseCodes = new ConcurrentHashMap<>();
 	protected final Map<String, Integer> httpMediaTypes = new ConcurrentHashMap<>();
 	protected final Map<Integer, String> coapMediaTypes = new ConcurrentHashMap<>();
+	protected final Map<Integer, String> coapMediaConversion = new ConcurrentHashMap<>();
 	protected final Map<String, Integer> httpHeaders = new ConcurrentHashMap<>();
 	protected final Map<Integer, String> coapOptions = new ConcurrentHashMap<>();
 
@@ -103,6 +114,7 @@ public class MappingProperties extends Properties {
 		coapResponseCodes.clear();
 		httpMediaTypes.clear();
 		coapMediaTypes.clear();
+		coapMediaConversion.clear();
 		httpHeaders.clear();
 		coapOptions.clear();
 	}
@@ -136,6 +148,8 @@ public class MappingProperties extends Properties {
 			initCoapMethod(key);
 		} else if (key.startsWith(KEY_COAP_MEDIA)) {
 			initCoapMediaType(key);
+		} else if (key.startsWith(KEY_COAP_CONVERSION)) {
+			initCoapMediaConversion(key);
 		} else if (key.startsWith(KEY_HTTP_CONTENT_TYPE)) {
 			initHttpMediaType(key);
 		} else if (key.startsWith(KEY_COAP_OPTION)) {
@@ -218,6 +232,20 @@ public class MappingProperties extends Properties {
 		Integer coapMediaType = getIntegerTag(KEY_COAP_MEDIA, key);
 		if (coapMediaType != null && httpMediaType != null) {
 			coapMediaTypes.put(coapMediaType, httpMediaType);
+		}
+	}
+
+	/**
+	 * Initialize {@link #coapMediaConversion} from raw property.
+	 * 
+	 * @param key key for entry to load
+	 * @since 3.13
+	 */
+	protected void initCoapMediaConversion(String key) {
+		String httpMediaConversion = getString(key);
+		Integer coapMediaType = getIntegerTag(KEY_COAP_CONVERSION, key);
+		if (coapMediaType != null && httpMediaConversion != null) {
+			coapMediaConversion.put(coapMediaType, httpMediaConversion);
 		}
 	}
 
@@ -359,12 +387,14 @@ public class MappingProperties extends Properties {
 		if (coapMethod == null) {
 			throw new NullPointerException("coap method must not be null!");
 		}
-		if (httpStatusCode == HttpStatus.SC_NO_CONTENT) {
-			// special mapping for http 2.04 using the coap request code
-			// RFC 7252 5.9.1.2 and 5.9.1.4
-			httpStatusCode += 10000 * coapMethod.value;
+		// special mapping for http 2.04 using the coap request code
+		// RFC 7252 5.9.1.2 and 5.9.1.4
+		int httpRequestAndStatusCode = 10000 * coapMethod.value + httpStatusCode;
+		ResponseCode code = httpStatusCodes.get(httpRequestAndStatusCode);
+		if (code == null) {
+			code = httpStatusCodes.get(httpStatusCode);
 		}
-		return httpStatusCodes.get(httpStatusCode);
+		return code;
 	}
 
 	/**
@@ -394,6 +424,19 @@ public class MappingProperties extends Properties {
 	}
 
 	/**
+	 * Get http charset for CoAP media type.
+	 * 
+	 * Used to convert the charset, e.g. from UTF-8 (coap) to ISO-8859-1 (http).
+	 * 
+	 * @param coapMediaType CoAP media type
+	 * @return charset, or {@code null}, if not available.
+	 * @since 3.13
+	 */
+	public String getHttpCharset(Integer coapMediaType) {
+		return coapMediaConversion.get(coapMediaType);
+	}
+
+	/**
 	 * Get CoAP option number for http header name.
 	 * 
 	 * @param httpHeader http header name
@@ -402,6 +445,21 @@ public class MappingProperties extends Properties {
 	 */
 	public Integer getCoapOption(String httpHeader) {
 		return httpHeaders.get(httpHeader);
+	}
+
+	/**
+	 * Get CoAP option definition for http header name.
+	 * 
+	 * @param httpHeader http header name
+	 * @return CoAP option definition, or {@code null}, if not available.
+	 * @since 3.8
+	 */
+	public OptionDefinition getCoapOptionDefinition(String httpHeader) {
+		Integer number = getCoapOption(httpHeader);
+		if (number != null) {
+			return StandardOptionRegistry.getDefaultOptionRegistry().getDefinitionByNumber(number);
+		}
+		return null;
 	}
 
 	/**
@@ -510,9 +568,56 @@ public class MappingProperties extends Properties {
 	protected void store(String fileName) throws IOException {
 		OutputStream out = new FileOutputStream(fileName);
 		try {
-			store(out, HEADER);
+			store(out, HEADER, fileName);
 		} finally {
 			out.close();
+		}
+	}
+
+	/**
+	 * Stores the configuration to a stream using a given header.
+	 * 
+	 * @param out stream to store
+	 * @param header header to use
+	 * @param resourceName resource name of store for logging.
+	 * @throws NullPointerException if out stream or header is {@code null}
+	 */
+	public void store(OutputStream out, String header, String resourceName) {
+		if (out == null) {
+			throw new NullPointerException("output stream must not be null!");
+		}
+		if (header == null) {
+			throw new NullPointerException("header must not be null!");
+		}
+		LOGGER.info("writing mapping properties to {}", resourceName);
+		try {
+			Set<String> keys = stringPropertyNames();
+			List<String> sortedKeys = new ArrayList<>(keys);
+			Collections.sort(sortedKeys);
+			try (OutputStreamWriter fileWriter = new OutputStreamWriter(out)) {
+				String line = PropertiesUtility.normalizeComments(header);
+				fileWriter.write(line);
+				fileWriter.write(StringUtil.lineSeparator());
+				line = PropertiesUtility.normalizeComments(new Date().toString());
+				fileWriter.write(line);
+				fileWriter.write(StringUtil.lineSeparator());
+				fileWriter.write("#");
+				fileWriter.write(StringUtil.lineSeparator());
+				for (String key : sortedKeys) {
+					String value = getProperty(key);
+					if (value == null) {
+						throw new IllegalArgumentException("Definition for " + key + " not found!");
+					}
+					String encoded = PropertiesUtility.normalize(key, true);
+					fileWriter.write(encoded);
+					fileWriter.write('=');
+					encoded = PropertiesUtility.normalize(value, false);
+					fileWriter.write(encoded);
+					fileWriter.write(StringUtil.lineSeparator());
+				}
+			}
+		} catch (IOException e) {
+			LOGGER.warn("cannot write mapping properties to {}: {}", resourceName, e.getMessage());
 		}
 	}
 
@@ -558,11 +663,13 @@ public class MappingProperties extends Properties {
 		set(KEY_HTTP_CODE + "102", "5.02");
 
 		set(KEY_HTTP_CODE + "200", "2.05");
+		set(KEY_HTTP_CODE + "20200", "2.04"); // 2.04 for POST
 		set(KEY_HTTP_CODE + "201", "2.01");
 		set(KEY_HTTP_CODE + "202", "2.05");
+		set(KEY_HTTP_CODE + "20202", "2.04"); // 2.04 for POST
 		set(KEY_HTTP_CODE + "203", "2.05");
-		set(KEY_HTTP_CODE + "20204", "2.04"); // 2.04 for POST 0.02 * 10000
-		set(KEY_HTTP_CODE + "30204", "2.04"); // 2.04 for PUT 0.03 * 10000
+		set(KEY_HTTP_CODE + "20203", "2.04"); // 2.04 for POST
+		set(KEY_HTTP_CODE + "204", "2.04");
 		set(KEY_HTTP_CODE + "40204", "2.02"); // 2.02 for DELETE 0.04 * 10000
 		set(KEY_HTTP_CODE + "205", "2.05");
 		set(KEY_HTTP_CODE + "206", "2.05");
@@ -597,9 +704,10 @@ public class MappingProperties extends Properties {
 		set(KEY_HTTP_CODE + "418", "4.00");
 		set(KEY_HTTP_CODE + "419", "4.00");
 		set(KEY_HTTP_CODE + "420", "4.00");
-		set(KEY_HTTP_CODE + "422", "4.00");
+		set(KEY_HTTP_CODE + "422", "4.22");
 		set(KEY_HTTP_CODE + "423", "4.00");
 		set(KEY_HTTP_CODE + "424", "4.00");
+		set(KEY_HTTP_CODE + "429", "4.29");
 
 		set(KEY_HTTP_CODE + "500", "5.00");
 		set(KEY_HTTP_CODE + "501", "5.01");
@@ -661,14 +769,20 @@ public class MappingProperties extends Properties {
 
 		/* Media types */
 		set(KEY_HTTP_CONTENT_TYPE + "text/plain", MediaTypeRegistry.TEXT_PLAIN);
+		set(KEY_HTTP_CONTENT_TYPE + "text/html", MediaTypeRegistry.TEXT_PLAIN);
+		set(KEY_HTTP_CONTENT_TYPE + "text/xml", MediaTypeRegistry.APPLICATION_XML);
+		set(KEY_HTTP_CONTENT_TYPE + "text", MediaTypeRegistry.TEXT_PLAIN);
 		set(KEY_HTTP_CONTENT_TYPE + "application/link-format", MediaTypeRegistry.APPLICATION_LINK_FORMAT);
 		set(KEY_HTTP_CONTENT_TYPE + "application/xml", MediaTypeRegistry.APPLICATION_XML);
 		set(KEY_HTTP_CONTENT_TYPE + "application/json", MediaTypeRegistry.APPLICATION_JSON);
+		set(KEY_HTTP_CONTENT_TYPE + "application/cbor", MediaTypeRegistry.APPLICATION_CBOR);
 
 		set(KEY_COAP_MEDIA + MediaTypeRegistry.TEXT_PLAIN, "text/plain; charset=UTF-8");
 		set(KEY_COAP_MEDIA + MediaTypeRegistry.APPLICATION_LINK_FORMAT, "application/link-format");
 		set(KEY_COAP_MEDIA + MediaTypeRegistry.APPLICATION_XML, "application/xml");
 		set(KEY_COAP_MEDIA + MediaTypeRegistry.APPLICATION_JSON, "application/json; charset=UTF-8");
+
+		set(KEY_COAP_CONVERSION + MediaTypeRegistry.TEXT_PLAIN, "ISO-8859-1");
 
 		if (initialized.get()) {
 			initMaps();

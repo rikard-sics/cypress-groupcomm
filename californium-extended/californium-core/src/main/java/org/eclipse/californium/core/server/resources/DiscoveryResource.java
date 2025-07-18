@@ -23,25 +23,32 @@
 package org.eclipse.californium.core.server.resources;
 
 import java.util.List;
+import java.util.Set;
 
 import org.eclipse.californium.core.CoapResource;
+import org.eclipse.californium.core.WebLink;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
 import org.eclipse.californium.core.coap.LinkFormat;
 import org.eclipse.californium.core.coap.MediaTypeRegistry;
 
 /**
- * The DiscoveryResource implements CoAP's discovery service. It is typically
- * accessible over CoAP on the well-known URI: <tt>/.well-known/core</tt>. It
- * responds to GET requests with a list of the server's resources, i.e. links.
+ * The DiscoveryResource implements CoAP's discovery service.
+ * 
+ * It is typically accessible over CoAP on the well-known URI:
+ * {@code /.well-known/core}. It responds to GET requests with a list of the
+ * server's resources, i.e. links.
+ * 
+ * Since 3.1, this resource and its children are not longer contained in the
+ * discover result.
  */
 public class DiscoveryResource extends CoapResource {
 
 	/** The Constant CORE. */
 	public static final String CORE = "core";
-	
+
 	/** The root of the server's resource tree */
 	private final Resource root;
-	
+
 	/**
 	 * Instantiates a new discovery resource.
 	 *
@@ -50,7 +57,7 @@ public class DiscoveryResource extends CoapResource {
 	public DiscoveryResource(Resource root) {
 		this(CORE, root);
 	}
-	
+
 	/**
 	 * Instantiates a new discovery resource with the specified name.
 	 *
@@ -59,9 +66,10 @@ public class DiscoveryResource extends CoapResource {
 	 */
 	public DiscoveryResource(String name, Resource root) {
 		super(name);
+		setVisible(false);
 		this.root = root;
 	}
-	
+
 	/**
 	 * Responds with a list of all resources of the server, i.e. links.
 	 * 
@@ -69,16 +77,21 @@ public class DiscoveryResource extends CoapResource {
 	 */
 	@Override
 	public void handleGET(CoapExchange exchange) {
-		List<String> query = exchange.getRequestOptions().getUriQuery();
-		if (query.size() <= 1) {
-			String tree = discoverTree(root, query);
-			exchange.respond(ResponseCode.CONTENT, tree, MediaTypeRegistry.APPLICATION_LINK_FORMAT);
+		if (exchange.getRequestOptions().hasAccept()
+				&& exchange.getRequestOptions().getAccept() != MediaTypeRegistry.APPLICATION_LINK_FORMAT) {
+			exchange.respond(ResponseCode.NOT_ACCEPTABLE);
+			return;
 		}
-		else {
-			exchange.respond(ResponseCode.BAD_OPTION, "only one search query is supported!", MediaTypeRegistry.TEXT_PLAIN);
+		List<String> query = exchange.getRequestOptions().getUriQueryStrings();
+		if (query.size() > 1) {
+			exchange.respond(ResponseCode.BAD_OPTION, "only one search query is supported!",
+					MediaTypeRegistry.TEXT_PLAIN);
+			return;
 		}
+		String tree = discoverTree(root, query);
+		exchange.respond(ResponseCode.CONTENT, tree, MediaTypeRegistry.APPLICATION_LINK_FORMAT);
 	}
-	
+
 	/**
 	 * Builds up the list of resources of the specified root resource. Queries
 	 * serve as filter and might prevent undesired resources from appearing on
@@ -89,16 +102,7 @@ public class DiscoveryResource extends CoapResource {
 	 * @return the list of resources as string
 	 */
 	public String discoverTree(Resource root, List<String> queries) {
-		StringBuilder buffer = new StringBuilder();
-		for (Resource child : root.getChildren()) {
-			LinkFormat.serializeTree(child, queries, buffer);
-		}
-		
-		// remove last comma ',' of the buffer
-		if (buffer.length() > 1) {
-			buffer.setLength(buffer.length() - 1);
-		}
-		
-		return buffer.toString();
+		Set<WebLink> subTree = LinkFormat.getSubTree(root, queries);
+		return LinkFormat.serialize(subTree);
 	}
 }

@@ -17,12 +17,15 @@ package org.eclipse.californium.elements.util;
 
 import java.math.BigInteger;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.cert.CertPathValidatorException;
+import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECGenParameterSpec;
 import java.security.spec.ECParameterSpec;
@@ -30,134 +33,22 @@ import java.security.spec.ECPoint;
 import java.security.spec.ECPrivateKeySpec;
 import java.security.spec.ECPublicKeySpec;
 import java.security.spec.EncodedKeySpec;
+import java.security.spec.InvalidKeySpecException;
 import java.security.spec.KeySpec;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * ASN.1 DER decoder for SEQUENCEs and OIDs.
  */
 public class Asn1DerDecoder {
-	/**
-	 * Key algorithm EC to be used by KeyFactory.
-	 */
-	public static final String EC = "EC";
-	/**
-	 * Key algorithm RSA to be used by KeyFactory.
-	 */
-	public static final String RSA = "RSA";
-	/**
-	 * Key algorithm DSA to be used by KeyFactory.
-	 */
-	public static final String DSA = "DSA";
-	/**
-	 * Key algorithm DH to be used by KeyFactory.
-	 */
-	public static final String DH = "DH";
-	/**
-	 * Key algorithm EC v2 (RFC 5958), not to be used by KeyFactory.
-	 * 
-	 * @see #readEcPrivateKeyV2(byte[])
-	 */
-	public static final String ECv2 = "EC.v2";
-	/**
-	 * Key algorithm ED25519 (RFC 8422).
-	 * 
-	 * @since 2.4
-	 */
-	public static final String ED25519 = "Ed25519";
-	/**
-	 * Key algorithm Ed25519 v2 (RFC 8410), not to be used by KeyFactory.
-	 * 
-	 * @see #readEdDsaPrivateKeyV2(byte[])
-	 * 
-	 * @since 3.0
-	 */
-	public static final String ED25519v2 = "Ed25519.v2";
-	/**
-	 * Key algorithm ED448 (RFC 8422).
-	 * 
-	 * @since 2.4
-	 */
-	public static final String ED448 = "Ed448";
-	/**
-	 * Key algorithm Ed448 v2 (RFC 8410), not to be used by KeyFactory.
-	 * 
-	 * @see #readEdDsaPrivateKeyV2(byte[])
-	 * 
-	 * @since 3.0
-	 */
-	public static final String ED448v2 = "Ed448.v2";
-	/**
-	 * Key algorithm X25519 (RFC 8422).
-	 * 
-	 * @since 3.0
-	 */
-	public static final String X25519 = "X25519";
-	/**
-	 * Key algorithm X25519 v2 (RFC 8410), not to be used by KeyFactory.
-	 * 
-	 * @since 3.0
-	 */
-	public static final String X25519v2 = "X25519.v2";
-	/**
-	 * Key algorithm X448 (RFC 8422).
-	 * 
-	 * @since 3.0
-	 */
-	public static final String X448 = "X448";
-	/**
-	 * Key algorithm X448 v2 (RFC 8410), not to be used by KeyFactory.
-	 * 
-	 * @since 3.0
-	 */
-	public static final String X448v2 = "X448.v2";
-	/**
-	 * OID key algorithm X25519
-	 * (<a href="https://datatracker.ietf.org/doc/html/rfc8410#section-3" target
-	 * ="_blank"> RFC 8410, 3. Curve25519 and Curve448 Algorithm
-	 * Identifiers</a>).
-	 * 
-	 * @since 3.0
-	 */
-	public static final String OID_X25519 = "OID.1.3.101.110";
-	/**
-	 * OID key algorithm X448
-	 * (<a href="https://datatracker.ietf.org/doc/html/rfc8410#section-3" target
-	 * ="_blank"> RFC 8410, 3. Curve25519 and Curve448 Algorithm
-	 * Identifiers</a>).
-	 * 
-	 * @since 3.0
-	 */
-	public static final String OID_XD448 = "OID.1.3.101.111";
-	/**
-	 * OID key algorithm ED25519
-	 * (<a href="https://datatracker.ietf.org/doc/html/rfc8410#section-3" target
-	 * ="_blank"> RFC 8410, 3. Curve25519 and Curve448 Algorithm
-	 * Identifiers</a>).
-	 * 
-	 * @since 2.4
-	 */
-	public static final String OID_ED25519 = "OID.1.3.101.112";
-	/**
-	 * OID key algorithm ED448
-	 * (<a href="https://datatracker.ietf.org/doc/html/rfc8410#section-3" target
-	 * ="_blank"> RFC 8410, 3. Curve25519 and Curve448 Algorithm
-	 * Identifiers</a>).
-	 * 
-	 * @since 2.4
-	 */
-	public static final String OID_ED448 = "OID.1.3.101.113";
-	/**
-	 * Key algorithm EdDSA (RFC 8422).
-	 * 
-	 * @since 2.4
-	 */
-	public static final String EDDSA = "EdDSA";
+
 	/**
 	 * ECPoint uncompressed.
-	 * <a href="https://tools.ietf.org/html/rfc5480#section-2.2" target="_blank">RFC 5480, Section 2.2</a>
+	 * <a href="https://tools.ietf.org/html/rfc5480#section-2.2" target=
+	 * "_blank">RFC 5480, Section 2.2</a>
 	 * 
 	 * @since 2.3
 	 */
@@ -172,6 +63,7 @@ public class Asn1DerDecoder {
 	private static final int TAG_SEQUENCE = 0x30;
 	/**
 	 * Tag for ASN.1 SET.
+	 * 
 	 * @since 3.0
 	 */
 	private static final int TAG_SET = 0x31;
@@ -236,7 +128,8 @@ public class Asn1DerDecoder {
 	 * 
 	 * @since 3.0
 	 */
-	private static final int[] TAGS_STRING = {TAG_UTF8_STRING, TAG_PRINTABLE_STRING, TAG_BMP_STRING, TAG_UNIVERSAL_STRING, TAG_TELETEX_STRING};
+	private static final int[] TAGS_STRING = { TAG_UTF8_STRING, TAG_PRINTABLE_STRING, TAG_BMP_STRING,
+			TAG_UNIVERSAL_STRING, TAG_TELETEX_STRING };
 	/**
 	 * Tag for ASN.1 CONTEXT SPECIFIC 0.
 	 */
@@ -321,6 +214,8 @@ public class Asn1DerDecoder {
 	private static final OidEntityDefinition OID = new OidEntityDefinition();
 	/**
 	 * ASN.1 entity definition for INTEGER.
+	 * 
+	 * Converts values up to 4 bytes into {@code int}.
 	 */
 	private static final IntegerEntityDefinition INTEGER = new IntegerEntityDefinition();
 	/**
@@ -348,29 +243,8 @@ public class Asn1DerDecoder {
 	 * 
 	 * @since 3.0
 	 */
-	private static final EntityDefinition CONTEXT_SPECIFIC_PRIMITIVE_1 = new EntityDefinition(TAG_CONTEXT_1_SPECIFIC_PRIMITIVE,
-			MAX_DEFAULT_LENGTH, "CONTEXT SPECIFIC PRIMITIVE 1");
-
-	/**
-	 * Alias algorithms for Ed25519.
-	 * 
-	 * @since 3.0
-	 */
-	private static final String[] ED25519_ALIASES = { ED25519, "1.3.101.112", OID_ED25519, EDDSA, ED25519v2 };
-
-	/**
-	 * Alias algorithms for Ed448.
-	 * 
-	 * @since 3.0
-	 */
-	private static final String[] ED448_ALIASES = { ED448, "1.3.101.113", OID_ED448, EDDSA, ED448v2 };
-
-	/**
-	 * Table of algorithm aliases.
-	 * 
-	 * @since 3.0
-	 */
-	private static final String[][] ALGORITHM_ALIASES = { { "DH", "DiffieHellman" }, ED25519_ALIASES, ED448_ALIASES };
+	private static final EntityDefinition CONTEXT_SPECIFIC_PRIMITIVE_1 = new EntityDefinition(
+			TAG_CONTEXT_1_SPECIFIC_PRIMITIVE, MAX_DEFAULT_LENGTH, "CONTEXT SPECIFIC PRIMITIVE 1");
 
 	/**
 	 * ISO-10646-UCS-2 charset, if supported.
@@ -402,57 +276,41 @@ public class Asn1DerDecoder {
 	}
 
 	/**
-	 * Checks, whether the set contains the value, or not. The check is done
-	 * using {@link String#equalsIgnoreCase(String)}.
-	 * 
-	 * @param set set of strings
-	 * @param value value to match
-	 * @return {@code true}, if value is contained in set, {@code false},
-	 *         otherwise.
-	 * @since 3.0
-	 */
-	private static boolean contains(String[] set, String value) {
-		for (String item : set) {
-			if (item.equalsIgnoreCase(value)) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	/**
 	 * Gets the algorithm of the public key.
 	 * 
 	 * The v2 variants are not supported by the java 7 KeyFactory.
 	 * 
 	 * @param oid OID of public key.
 	 * @param version version of format. {@code 0}, for v1, {@code 2} for v2.
-	 * @return {@link #EC}, {@link #RSA}, {@link #DSA}, {@link #DH},
-	 *         {@link #ED25519}, and {@link #ED448} for v1, {@link #ECv2},
-	 *         {@link #ED25519v2}, and {@link #ED448v2} for v2, {@code null}, if
-	 *         unknown.
+	 * @return {@link JceNames#EC}, {@link JceNames#RSA}, {@link JceNames#DSA},
+	 *         {@link JceNames#DH}, {@link JceNames#ED25519},
+	 *         {@link JceNames#ED448}, {@link JceNames#X25519}, and
+	 *         {@link JceNames#X448} for v1, {@link JceNames#ECv2},
+	 *         {@link JceNames#ED25519v2}, and {@link JceNames#ED448v2},
+	 *         {@link JceNames#X25519v2}, and {@link JceNames#X448v2} for v2,
+	 *         {@code null}, if unknown.
 	 * @since 3.0
 	 */
 	private static String getPublicKeyAlgorithm(final byte[] oid, int version) {
 		String algorithm = null;
 		if (Arrays.equals(oid, OID_EC_PUBLIC_KEY)) {
-			algorithm = version == 0 ? EC : ECv2;
+			algorithm = version == 0 ? JceNames.EC : JceNames.ECv2;
 		} else if (Arrays.equals(oid, OID_RSA_PUBLIC_KEY)) {
-			algorithm = version == 0 ? RSA : null;
+			algorithm = version == 0 ? JceNames.RSA : null;
 		} else if (Arrays.equals(oid, OID_DSA_PUBLIC_KEY)) {
-			algorithm = version == 0 ? DSA : null;
+			algorithm = version == 0 ? JceNames.DSA : null;
 		} else if (Arrays.equals(oid, OID_DH_PUBLIC_KEY)) {
-			algorithm = version == 0 ? DH : null;
+			algorithm = version == 0 ? JceNames.DH : null;
 		} else if (Arrays.equals(oid, OID_DH_KEY_AGREEMENT)) {
-			algorithm = version == 0 ? DH : null;
+			algorithm = version == 0 ? JceNames.DH : null;
 		} else if (Arrays.equals(oid, OID_ED25519_PUBLIC_KEY)) {
-			algorithm = version == 0 ? ED25519 : ED25519v2;
+			algorithm = version == 0 ? JceNames.ED25519 : JceNames.ED25519v2;
 		} else if (Arrays.equals(oid, OID_ED448_PUBLIC_KEY)) {
-			algorithm = version == 0 ? ED448 : ED448v2;
+			algorithm = version == 0 ? JceNames.ED448 : JceNames.ED448v2;
 		} else if (Arrays.equals(oid, OID_X25519_PUBLIC_KEY)) {
-			algorithm = version == 0 ? X25519 : X25519v2;
+			algorithm = version == 0 ? JceNames.X25519 : JceNames.X25519v2;
 		} else if (Arrays.equals(oid, OID_X448_PUBLIC_KEY)) {
-			algorithm = version == 0 ? X448 : X448v2;
+			algorithm = version == 0 ? JceNames.X448 : JceNames.X448v2;
 		}
 		return algorithm;
 	}
@@ -465,10 +323,10 @@ public class Asn1DerDecoder {
 	 * @since 3.0
 	 */
 	public static boolean isEcBased(String algorithm) {
-		if (EC.equalsIgnoreCase(algorithm)) {
+		if (JceNames.EC.equalsIgnoreCase(algorithm)) {
 			return true;
 		} else {
-			return getEdDsaStandardAlgorithmName(algorithm, null) != null;
+			return JceProviderUtil.getEdDsaStandardAlgorithmName(algorithm, null) != null;
 		}
 	}
 
@@ -532,7 +390,8 @@ public class Asn1DerDecoder {
 	 * Read key algorithm from subjects public key encoded in ASN.1 DER.
 	 * 
 	 * <pre>
-	 * <a href="https://tools.ietf.org/html/rfc5480" target="_blank">RFC 5480</a>
+	 * <a href="https://tools.ietf.org/html/rfc5480" target=
+	"_blank">RFC 5480</a>
 	 * SubjectPublicKeyInfo ::= SEQUENCE { 
 	 *    algorithm AlgorithmIdentifier,
 	 *    subjectPublicKey BIT STRING 
@@ -570,7 +429,8 @@ public class Asn1DerDecoder {
 	 * Read public key from subjects public key encoded in ASN.1 DER.
 	 * 
 	 * <pre>
-	 * <a href="https://tools.ietf.org/html/rfc5480" target="_blank">RFC 5480</a>
+	 * <a href="https://tools.ietf.org/html/rfc5480" target=
+	"_blank">RFC 5480</a>
 	 * SubjectPublicKeyInfo ::= SEQUENCE { 
 	 *    algorithm AlgorithmIdentifier,
 	 *    subjectPublicKey BIT STRING 
@@ -610,7 +470,8 @@ public class Asn1DerDecoder {
 	 * Supports:
 	 * 
 	 * <pre>
-	 * v1 (PKCS8), <a href="https://tools.ietf.org/html/rfc5208" target="_blank">RFC 5208</a>
+	 * v1 (PKCS8), <a href="https://tools.ietf.org/html/rfc5208" target=
+	"_blank">RFC 5208</a>
 	 * PrivateKeyInfo ::= SEQUENCE {
 	 *  version                   Version,
 	 *  privateKeyAlgorithm       PrivateKeyAlgorithmIdentifier,
@@ -618,8 +479,10 @@ public class Asn1DerDecoder {
 	 *  attributes           [0]  IMPLICIT Attributes OPTIONAL }
 	 * 
 	 * v2 (PKCS12), 
-	 * <a href="https://tools.ietf.org/html/rfc5958" target="_blank">RFC 5958 - (EC only!)</a>,
-	 * <a href="https://tools.ietf.org/html/rfc8410" target="_blank">RFC 8410 - EdDSA</a>
+	 * <a href="https://tools.ietf.org/html/rfc5958" target=
+	"_blank">RFC 5958 - (EC only!)</a>,
+	 * <a href="https://tools.ietf.org/html/rfc8410" target=
+	"_blank">RFC 8410 - EdDSA</a>
 	 * OneAsymmetricKey ::= SEQUENCE {
 	 *  version                   Version,
 	 *  privateKeyAlgorithm       PrivateKeyAlgorithmIdentifier,
@@ -632,9 +495,10 @@ public class Asn1DerDecoder {
 	 * </pre>
 	 * 
 	 * @param data private key encoded in ASN.1 DER
-	 * @return key algorithm name to be used by KeyFactory, or {@link #ECv2},
-	 *         {@link #ED25519v2}, and {@link #ED448v2} for v2, which are not
-	 *         supported by the java 7 KeyFactory, or {@code null}, if unknown.
+	 * @return key algorithm name to be used by KeyFactory, or
+	 *         {@link JceNames#ECv2}, {@link JceNames#ED25519v2}, and
+	 *         {@link JceNames#ED448v2} for v2, which are not supported by the
+	 *         java 7 KeyFactory, or {@code null}, if unknown.
 	 * @throws IllegalArgumentException if the private key algorithm could not
 	 *             be read
 	 * @see #readEcPrivateKeyV2(byte[])
@@ -672,7 +536,7 @@ public class Asn1DerDecoder {
 					try {
 						ECParameterSpec ecParameterSpec = getECParameterSpec(oidAsString);
 						if (ecParameterSpec != null) {
-							algorithm = ECv2;
+							algorithm = JceNames.ECv2;
 						}
 					} catch (GeneralSecurityException e) {
 					}
@@ -697,16 +561,19 @@ public class Asn1DerDecoder {
 	 * Supports:
 	 * 
 	 * <pre>
-	 * v1 (PKCS8), <a href="https://tools.ietf.org/html/rfc5208" target="_blank">RFC 5208</a>
+	 * v1 (PKCS #8), <a href="https://tools.ietf.org/html/rfc5208" target=
+	"_blank">RFC 5208</a>
 	 * PrivateKeyInfo ::= SEQUENCE {
 	 *  version                   Version,
 	 *  privateKeyAlgorithm       PrivateKeyAlgorithmIdentifier,
 	 *  privateKey                PrivateKey,
 	 *  attributes           [0]  IMPLICIT Attributes OPTIONAL }
 	 * 
-	 * v2 (PKCS12), 
-	 * <a href="https://tools.ietf.org/html/rfc5958" target="_blank">RFC 5958 - (EC only!)</a>,
-	 * <a href="https://tools.ietf.org/html/rfc8410" target="_blank">RFC 8410 - EdDSA</a>
+	 * v2 (PKCS #12), 
+	 * <a href="https://tools.ietf.org/html/rfc5958" target=
+	"_blank">RFC 5958 - (EC only!)</a>,
+	 * <a href="https://tools.ietf.org/html/rfc8410" target=
+	"_blank">RFC 8410 - EdDSA</a>
 	 * OneAsymmetricKey ::= SEQUENCE {
 	 *  version                   Version,
 	 *  privateKeyAlgorithm       PrivateKeyAlgorithmIdentifier,
@@ -719,25 +586,108 @@ public class Asn1DerDecoder {
 	 * </pre>
 	 * 
 	 * @param data private key encoded in ASN.1 DER
-	 * @return keys with private key for RFC 5208 encoding and optional public
-	 *         key for RFC 5958 or RFC8410 encoding. Or {@code null}, if the OID
-	 *         of the private key is unknown.
+	 * @return keys with private key and optional public key for RFC 5208, RFC
+	 *         5958 or RFC8410 encoding. Or {@code null}, if the OID of the
+	 *         private key is unknown.
 	 * @throws GeneralSecurityException if private key could not be read
 	 */
 	public static Keys readPrivateKey(final byte[] data) throws GeneralSecurityException {
 		Keys keys = null;
 		String algorithm = readPrivateKeyAlgorithm(data);
 		if (algorithm != null) {
-			if (algorithm == ED25519v2 || algorithm == ED448v2) {
+			if (algorithm == JceNames.ED25519v2 || algorithm == JceNames.ED448v2) {
 				keys = readEdDsaPrivateKeyV2(data);
-			} else if (algorithm == ECv2) {
+			} else if (algorithm == JceNames.ECv2) {
 				keys = readEcPrivateKeyV2(data);
+			} else if (algorithm == JceNames.EC) {
+				keys = readEcPrivateKeyV1(data);
 			} else {
 				KeyFactory factory = getKeyFactory(algorithm);
 				EncodedKeySpec privateKeySpec = new PKCS8EncodedKeySpec(data);
 				keys = new Keys();
 				keys.privateKey = factory.generatePrivate(privateKeySpec);
 			}
+		}
+		return keys;
+	}
+
+	/**
+	 * Read EC private key (and public key) from PKCS #8 / RFC 5208 v1 format.
+	 * 
+	 * <pre>
+	 * EC private key, <a href="https://tools.ietf.org/html/rfc5915" target=
+	 * "_blank">RFC 5915</a>
+	 * ECPrivateKey ::= SEQUENCE {
+	 *      version        INTEGER { ecPrivkeyVer1(1) } (ecPrivkeyVer1),
+	 *      privateKey     OCTET STRING,
+	 *      parameters [0] ECParameters {{ NamedCurve }} OPTIONAL,
+	 *      publicKey  [1] BIT STRING OPTIONAL }
+	 * </pre>
+	 * 
+	 * @param data ec private key encoded according PKCS #8, RFC 5208 / RFC 5915
+	 *            v1
+	 * @return keys with private and public key. {@code null}, if keys could not
+	 *         be read.
+	 * @throws GeneralSecurityException if decoding fails.
+	 * @since 3.12
+	 */
+	public static Keys readEcPrivateKeyV1(final byte[] data) throws GeneralSecurityException {
+		Keys keys = null;
+		// outer sequence, PrivateKeyInfo
+		DatagramReader reader = new DatagramReader(data, false);
+		reader = SEQUENCE.createRangeReader(reader, false);
+		// INTEGER version
+		byte[] readValue = INTEGER.readValue(reader);
+		if (readValue.length == 1 && readValue[0] == 0) {
+			try {
+				// RFC 5480, PrivateKeyAlgorithmIdentifier
+				DatagramReader sequenceReader = SEQUENCE.createRangeReader(reader, false);
+				byte[] oid = readOidValue(sequenceReader);
+				if (!Arrays.equals(oid, OID_EC_PUBLIC_KEY)) {
+					throw new InvalidKeySpecException("Provided key is no EC key! " + OID.toString(oid));
+				}
+				oid = readOidValue(sequenceReader);
+				ECParameterSpec ecParameterSpec = getECParameterSpec(OID.toString(oid));
+				// RFC 5208, private key as OCTET_STRING
+				reader = OCTET_STRING.createRangeReader(reader, false);
+				// RFC 5915, EC private key, SEQUENCE
+				reader = SEQUENCE.createRangeReader(reader, false);
+				// INTEGER version
+				readValue = INTEGER.readValue(reader);
+				if (readValue.length == 1 && readValue[0] == 1) {
+					// OCTET_STRING, private key
+					byte[] privateKeyValue = OCTET_STRING.readValue(reader);
+					int keySize = (ecParameterSpec.getCurve().getField().getFieldSize() + Byte.SIZE - 1) / Byte.SIZE;
+					if (privateKeyValue.length != keySize) {
+						throw new GeneralSecurityException(
+								"private key size " + privateKeyValue.length + " doesn't match " + keySize);
+					}
+					KeySpec privateKeySpec = new ECPrivateKeySpec(new BigInteger(1, privateKeyValue), ecParameterSpec);
+					keys = new Keys();
+					keys.privateKey = KeyFactory.getInstance(JceNames.EC).generatePrivate(privateKeySpec);
+					// ignore, optional
+					CONTEXT_SPECIFIC_0.createOptionalRangeReader(reader, false);
+					// BIT_STRING. optional
+					DatagramReader value = CONTEXT_SPECIFIC_1.createOptionalRangeReader(reader, false);
+					if (value != null) {
+						value = BIT_STRING.createRangeReader(value, false);
+						// BIT_STRING, unused bits in last byte
+						int unusedBits = value.read(Byte.SIZE);
+						if (unusedBits == 0) {
+							keys.publicKey = readEcPublicKey(value, ecParameterSpec);
+						}
+					}
+				} else {
+					throw new InvalidKeySpecException("Provided EC private key version " + readValue[0] + " is not 1!");
+				}
+			} catch (IllegalArgumentException e) {
+				throw new GeneralSecurityException(e.getMessage(), e);
+			} catch (GeneralSecurityException e) {
+				// currently only EC is supported for RFC 5958 v2
+				throw e;
+			}
+		} else {
+			throw new InvalidKeySpecException("Provided version " + readValue[0] + " is not 0!");
 		}
 		return keys;
 	}
@@ -758,11 +708,8 @@ public class Asn1DerDecoder {
 		// INTEGER version
 		byte[] readValue = INTEGER.readValue(reader);
 		if (readValue.length == 1 && readValue[0] == 1) {
-			try {
-				SEQUENCE.createRangeReader(reader, false);
-			} catch(IllegalArgumentException ex) {
-				// ignore, optional
-			}
+			// ignore, optional
+			SEQUENCE.createOptionalRangeReader(reader, false);
 			// RFC 5958
 			// OCTET_STRING
 			byte[] privateKeyValue = OCTET_STRING.readValue(reader);
@@ -777,7 +724,7 @@ public class Asn1DerDecoder {
 				}
 				KeySpec privateKeySpec = new ECPrivateKeySpec(new BigInteger(1, privateKeyValue), ecParameterSpec);
 				keys = new Keys();
-				keys.privateKey = KeyFactory.getInstance(EC).generatePrivate(privateKeySpec);
+				keys.privateKey = KeyFactory.getInstance(JceNames.EC).generatePrivate(privateKeySpec);
 				// BIT_STRING
 				DatagramReader value = CONTEXT_SPECIFIC_1.createRangeReader(reader, false);
 				value = BIT_STRING.createRangeReader(value, false);
@@ -792,6 +739,8 @@ public class Asn1DerDecoder {
 				// currently only EC is supported for RFC 5958 v2
 				throw e;
 			}
+		} else {
+			throw new InvalidKeySpecException("Provided version " + readValue[0] + " is not 1!");
 		}
 		return keys;
 	}
@@ -800,7 +749,8 @@ public class Asn1DerDecoder {
 	 * Read EC public key from encoded ec public key.
 	 * 
 	 * <pre>
-	 * <a href="https://tools.ietf.org/html/rfc5480#section-2.2" target="_blank">RFC 5480, Section 2.2</a>
+	 * <a href="https://tools.ietf.org/html/rfc5480#section-2.2" target=
+	"_blank">RFC 5480, Section 2.2</a>
 	 *  byte[0]        : compression := 4 (not compressed)
 	 *  byte[1..n]     : x
 	 *  byte[n+1..n+n] : y
@@ -824,7 +774,7 @@ public class Asn1DerDecoder {
 				BigInteger x = new BigInteger(1, reader.readBytes(left));
 				BigInteger y = new BigInteger(1, reader.readBytes(left));
 				KeySpec publicKeySpec = new ECPublicKeySpec(new ECPoint(x, y), ecParameterSpec);
-				return (ECPublicKey) KeyFactory.getInstance(EC).generatePublic(publicKeySpec);
+				return (ECPublicKey) KeyFactory.getInstance(JceNames.EC).generatePublic(publicKeySpec);
 			}
 		}
 		return null;
@@ -833,7 +783,8 @@ public class Asn1DerDecoder {
 	/**
 	 * Read EdDSA private key (and public key) from PKCS12 / RFC 8410 v2 format.
 	 * 
-	 * See <a href="https://tools.ietf.org/html/rfc8410" target="_blank">RFC 8410 - EdDSA</a>.
+	 * See <a href="https://tools.ietf.org/html/rfc8410" target="_blank">RFC
+	 * 8410 - EdDSA</a>.
 	 * 
 	 * @param data eddsa private key encoded according RFC 8410 v2
 	 * @return keys with private and public key. {@code null}, if keys could not
@@ -900,25 +851,85 @@ public class Asn1DerDecoder {
 	}
 
 	/**
-	 * Check for equal key algorithm synonyms.
+	 * Checks, if chain contains a vulnerable ECDSA signature.
 	 * 
-	 * Currently on "DH" and "DiffieHellman" are supported synonyms.
-	 * 
-	 * @param keyAlgorithm1 key algorithm 1
-	 * @param keyAlgorithm2 key algorithm 2
-	 * @return {@code true}, if the key algorithms are equal or synonyms,
-	 *         {@code false}, otherwise.
+	 * @param chain certificate chain to check.
+	 * @param trust trusted certificate
+	 * @param last number of certificates to check in chain.
+	 * @throws CertPathValidatorException if signature contains INTEGER values
+	 *             not in range {@code [1, N-1]}.
+	 * @see #checkEcDsaSignature(byte[], PublicKey)
+	 * @since 3.5
 	 */
-	public static boolean equalKeyAlgorithmSynonyms(String keyAlgorithm1, String keyAlgorithm2) {
-		if (keyAlgorithm1 != null && keyAlgorithm1.equals(keyAlgorithm2)) {
-			return true;
-		}
-		for (String[] aliases : ALGORITHM_ALIASES) {
-			if (contains(aliases, keyAlgorithm1) && contains(aliases, keyAlgorithm2)) {
-				return true;
+	public static void checkCertificateChain(List<X509Certificate> chain, X509Certificate trust, int last)
+			throws CertPathValidatorException {
+		try {
+			for (int index = 0; index < last; ++index) {
+				X509Certificate certificate = chain.get(index);
+				String signatureAlgorithm = certificate.getSigAlgName();
+				if (signatureAlgorithm.endsWith("withECDSA") || signatureAlgorithm.endsWith("WITHECDSA")) {
+					X509Certificate issuerCertificate;
+					if (index + 1 < chain.size()) {
+						issuerCertificate = chain.get(index + 1);
+					} else {
+						issuerCertificate = trust;
+					}
+					Asn1DerDecoder.checkEcDsaSignature(certificate.getSignature(), issuerCertificate.getPublicKey());
+				}
 			}
+		} catch (GeneralSecurityException ex) {
+			throw new CertPathValidatorException(ex.getMessage());
 		}
-		return false;
+	}
+
+	/**
+	 * Check, if provided ECDSA signature is vulnerable.
+	 * 
+	 * Some java JCE versions 15 to 18 fail to check the signature for 0 and n.
+	 * This method adds that check.
+	 * 
+	 * @param signature received signature.
+	 * @param publicKey public key to read the order (N)
+	 * @throws GeneralSecurityException if signature contains INTEGER values not
+	 *             in range {@code [1, N-1]}.
+	 * @see JceProviderUtil#isEcdsaVulnerable()
+	 * @see <a href=
+	 *      "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-21449"
+	 *      target="_blank">CVE-2022-21449</a>
+	 * @since 3.5
+	 */
+	public static void checkEcDsaSignature(byte[] signature, PublicKey publicKey) throws GeneralSecurityException {
+		DatagramReader reader = new DatagramReader(signature, false);
+		reader = SEQUENCE.createRangeReader(reader, false);
+		byte[] valueR = INTEGER.read(reader, false);
+		byte[] valueS = INTEGER.read(reader, false);
+		BigInteger order = ((ECPublicKey) publicKey).getParams().getOrder();
+		checkSignatureInteger("R", valueR, order);
+		checkSignatureInteger("S", valueS, order);
+	}
+
+	/**
+	 * Checks, if the provided ASN.1 INTEGER is valid for a signature.
+	 * 
+	 * @param name name of signature parameter
+	 * @param value byte value of signature parameter
+	 * @param order order of the public key (N)
+	 * @throws GeneralSecurityException if the signature parameter is not in
+	 *             range {@code [1, N-1]}.
+	 * @since 3.5
+	 */
+	private static void checkSignatureInteger(String name, byte[] value, BigInteger order)
+			throws GeneralSecurityException {
+		if (value.length == 0) {
+			throw new GeneralSecurityException("ECDSA signature " + name + " is 0!");
+		}
+		BigInteger big = new BigInteger(value);
+		if (big.compareTo(BigInteger.ONE) < 0) {
+			throw new GeneralSecurityException("ECDSA signature " + name + " is less than 1!");
+		}
+		if (big.compareTo(order) >= 0) {
+			throw new GeneralSecurityException("ECDSA signature " + name + " is not less than N!");
+		}
 	}
 
 	/**
@@ -928,34 +939,13 @@ public class Asn1DerDecoder {
 	 * 
 	 * @param oid oid name of curve
 	 * @return EC parameter spec
-	 * @throws GeneralSecurityException if curve ist not available
+	 * @throws GeneralSecurityException if curve is not available
 	 */
 	public static ECParameterSpec getECParameterSpec(String oid) throws GeneralSecurityException {
-		KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(EC);
+		KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(JceNames.EC);
 		keyPairGenerator.initialize(new ECGenParameterSpec(oid));
 		ECPublicKey apub = (ECPublicKey) keyPairGenerator.generateKeyPair().getPublic();
 		return apub.getParams();
-	}
-
-	/**
-	 * Get EdDSA standard algorithm name.
-	 * 
-	 * @param algorithm algorithm
-	 * @param def default algorithm
-	 * @return Either {@link #OID_ED25519}, {@link #OID_ED448}, {@link #EDDSA},
-	 *         or the provided default algorithm
-	 * @since 2.4
-	 */
-	public static String getEdDsaStandardAlgorithmName(String algorithm, String def) {
-		if (EDDSA.equalsIgnoreCase(algorithm)) {
-			return EDDSA;
-		} else if (contains(ED25519_ALIASES, algorithm)) {
-			return OID_ED25519;
-		} else if (contains(ED448_ALIASES, algorithm)) {
-			return OID_ED448;
-		} else {
-			return def;
-		}
 	}
 
 	/**
@@ -967,7 +957,7 @@ public class Asn1DerDecoder {
 	 * @since 2.4
 	 */
 	public static KeyFactory getKeyFactory(String algorithm) throws NoSuchAlgorithmException {
-		String standardAlgorithm = getEdDsaStandardAlgorithmName(algorithm, algorithm);
+		String standardAlgorithm = JceProviderUtil.getEdDsaStandardAlgorithmName(algorithm, algorithm);
 		return KeyFactory.getInstance(standardAlgorithm);
 	}
 
@@ -980,7 +970,7 @@ public class Asn1DerDecoder {
 	 * @since 3.0
 	 */
 	public static KeyPairGenerator getKeyPairGenerator(String algorithm) throws NoSuchAlgorithmException {
-		String standardAlgorithm = getEdDsaStandardAlgorithmName(algorithm, algorithm);
+		String standardAlgorithm = JceProviderUtil.getEdDsaStandardAlgorithmName(algorithm, algorithm);
 		return KeyPairGenerator.getInstance(standardAlgorithm);
 	}
 
@@ -1199,10 +1189,34 @@ public class Asn1DerDecoder {
 		 * @return range reader for the value or entity.
 		 * @throws IllegalArgumentException if provided bytes doesn't contain
 		 *             this valid entity.
+		 * @see #createOptionalRangeReader(DatagramReader, boolean)
 		 */
 		public DatagramReader createRangeReader(DatagramReader reader, boolean entity) {
 			int length = readLength(reader, entity);
 			return reader.createRangeReader(length);
+		}
+
+		/**
+		 * Create an optional range reader for value or entity.
+		 * 
+		 * Returns {@code null} instead of throwing a
+		 * {@link IllegalArgumentException}.
+		 * 
+		 * @param reader reader containing the bytes to read.
+		 * @param entity {@code true} to return the entity including the tag and
+		 *            length, {@code false} to return the value excluding the
+		 *            tag and length
+		 * @return range reader for the value or entity, or {@code null}, if
+		 *         provided bytes doesn't contain this valid entity.
+		 * @see #createRangeReader(DatagramReader, boolean)
+		 * @since 3.12
+		 */
+		public DatagramReader createOptionalRangeReader(DatagramReader reader, boolean entity) {
+			try {
+				return createRangeReader(reader, entity);
+			} catch (IllegalArgumentException ex) {
+				return null;
+			}
 		}
 
 		/**
@@ -1222,7 +1236,8 @@ public class Asn1DerDecoder {
 				throw new IllegalArgumentException(String.format("Not enough bytes for %s! Required %d, available %d.",
 						description, HEADER_LENGTH, leftBytes));
 			}
-			// mark reader, if the entity must be returned, or the tag doesn't match
+			// mark reader, if the entity must be returned,
+			// or the tag doesn't match
 			reader.mark();
 			// check tag
 			int tag = reader.read(Byte.SIZE);
@@ -1273,7 +1288,7 @@ public class Asn1DerDecoder {
 	}
 
 	private static class OidEntityDefinition extends EntityDefinition {
-		
+
 		public OidEntityDefinition() {
 			super(TAG_OID, MAX_OID_LENGTH, "OID");
 		}

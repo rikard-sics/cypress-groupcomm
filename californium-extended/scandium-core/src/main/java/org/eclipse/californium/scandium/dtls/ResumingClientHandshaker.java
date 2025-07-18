@@ -46,6 +46,8 @@ import org.eclipse.californium.scandium.dtls.AlertMessage.AlertDescription;
 import org.eclipse.californium.scandium.dtls.AlertMessage.AlertLevel;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
 import org.eclipse.californium.scandium.util.SecretUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The resuming client handshaker executes a abbreviated handshake by adding a
@@ -107,12 +109,14 @@ import org.eclipse.californium.scandium.util.SecretUtil;
 @NoPublicAPI
 public class ResumingClientHandshaker extends ClientHandshaker {
 
+	private static final Logger LOGGER = LoggerFactory.getLogger(ResumingClientHandshaker.class);
+
 	private static final HandshakeState[] ABBREVIATED_HANDSHAKE = { 
 			new HandshakeState(ContentType.CHANGE_CIPHER_SPEC),
 			new HandshakeState(HandshakeType.FINISHED) };
 
 	// flag to indicate if we must do a full handshake or an abbreviated one
-	private boolean fullHandshake = false;
+	private volatile boolean fullHandshake = false;
 
 	/**
 	 * Creates a new handshaker for resuming an existing session with a server.
@@ -127,18 +131,16 @@ public class ResumingClientHandshaker extends ClientHandshaker {
 	 *            the connection related with the session.
 	 * @param config
 	 *            the DTLS configuration parameters to use for the handshake.
-	 * @param probe {@code true} enable probing for this resumption handshake,
-	 *            {@code false}, not probing handshake.
 	 * @throws IllegalArgumentException
 	 *            if the given session does not contain an identifier.
 	 * @throws NullPointerException if any of the provided parameter is
 	 *             {@code null}
 	 */
 	public ResumingClientHandshaker(DTLSSession session, RecordLayer recordLayer, ScheduledExecutorService timer, Connection connection,
-			DtlsConnectorConfig config, boolean probe) {
-		super(null, recordLayer, timer, connection, config, probe);
+			DtlsConnectorConfig config) {
+		super(null, recordLayer, timer, connection, config);
 		SessionId sessionId = session.getSessionIdentifier();
-		if (sessionId == null || sessionId.isEmpty()) {
+		if (sessionId.isEmpty()) {
 			throw new IllegalArgumentException("Session must contain the ID of the session to resume");
 		}
 		getSession().set(session);
@@ -299,5 +301,10 @@ public class ResumingClientHandshaker extends ClientHandshaker {
 		wrapMessage(flight, message);
 		sendFlight(flight);
 		setExpectedStates(INIT);
+	}
+
+	@Override
+	public boolean isFullHandshake() {
+		return fullHandshake;
 	}
 }

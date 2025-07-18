@@ -25,7 +25,6 @@ import static org.mockito.Mockito.mock;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ScheduledExecutorService;
 
 import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.Request;
@@ -34,11 +33,14 @@ import org.eclipse.californium.core.network.Exchange;
 import org.eclipse.californium.core.network.Exchange.Origin;
 import org.eclipse.californium.core.network.Outbox;
 import org.eclipse.californium.elements.AddressEndpointContext;
+import org.eclipse.californium.elements.TcpEndpointContextMatcher;
+import org.eclipse.californium.elements.UdpEndpointContextMatcher;
 import org.eclipse.californium.elements.category.Small;
 import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.config.SystemConfig;
 import org.eclipse.californium.elements.config.TcpConfig;
 import org.eclipse.californium.elements.util.ExecutorsUtil;
+import org.eclipse.californium.elements.util.ProtocolScheduledExecutorService;
 import org.eclipse.californium.elements.util.TestSynchroneExecutor;
 import org.eclipse.californium.elements.util.TestThreadFactory;
 import org.eclipse.californium.rule.CoapThreadsRule;
@@ -60,9 +62,9 @@ public class CoapStackTest {
 
 	public CoapStackTest(CoapStack stack, Outbox outbox) {
 		this.stack = stack;
-		ScheduledExecutorService executor = ExecutorsUtil.newSingleThreadScheduledExecutor(new TestThreadFactory("coap-stack-"));
+		ProtocolScheduledExecutorService executor = ExecutorsUtil.newSingleThreadedProtocolExecutor(new TestThreadFactory("coap-stack-"));
 		cleanup.add(executor);
-		this.stack.setExecutors(executor, executor);
+		this.stack.setExecutor(executor);
 		this.outbox = outbox;
 	}
 
@@ -76,8 +78,8 @@ public class CoapStackTest {
 		Configuration config = Configuration.createStandardWithoutFile();
 
 		List<Object[]> parameters = new ArrayList<>();
-		parameters.add(new Object[]{new CoapTcpStack("tcp-test ", config, tcpOutbox), tcpOutbox});
-		parameters.add(new Object[]{new CoapUdpStack("udp-test ", config, udpOutbox), udpOutbox});
+		parameters.add(new Object[]{new CoapTcpStack("tcp-test ", config, new TcpEndpointContextMatcher(), tcpOutbox), tcpOutbox});
+		parameters.add(new Object[]{new CoapUdpStack("udp-test ", config, new UdpEndpointContextMatcher(true), udpOutbox), udpOutbox});
 		return parameters;
 	}
 

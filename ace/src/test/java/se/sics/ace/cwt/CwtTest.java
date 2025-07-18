@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -36,9 +36,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.junit.BeforeClass;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 
 import com.upokecenter.cbor.CBORObject;
 
@@ -95,12 +93,6 @@ public class CwtTest {
         claims.put(Constants.CNF, CBORObject.DecodeFromBytes(publicKey.EncodeToBytes()));
         claims.put(Constants.SCOPE, CBORObject.FromObject("r+/s/light rwx+/a/led w+/dtls"));
     }
-
-    /**
-     * 
-     */
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
 
     /**
      * Test of Signed CWT for single recipient.

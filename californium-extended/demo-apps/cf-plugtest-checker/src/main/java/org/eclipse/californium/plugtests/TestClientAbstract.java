@@ -19,13 +19,14 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.eclipse.californium.core.Utils;
-import org.eclipse.californium.core.coap.BlockOption;
+import org.eclipse.californium.core.WebLink;
 import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.LinkFormat;
 import org.eclipse.californium.core.coap.MediaTypeRegistry;
@@ -34,12 +35,14 @@ import org.eclipse.californium.core.coap.Option;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.coap.Token;
+import org.eclipse.californium.core.coap.option.BlockOption;
+import org.eclipse.californium.core.coap.option.OptionDefinition;
+import org.eclipse.californium.core.coap.option.StandardOptionRegistry;
 import org.eclipse.californium.core.coap.CoAP.Type;
 import org.eclipse.californium.core.coap.EndpointContextTracer;
 import org.eclipse.californium.core.network.Endpoint;
 import org.eclipse.californium.core.network.EndpointManager;
 import org.eclipse.californium.core.observe.NotificationListener;
-import org.eclipse.californium.core.server.resources.Resource;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.californium.elements.util.StringUtil;
 
@@ -67,8 +70,8 @@ public abstract class TestClientAbstract {
 	protected boolean verbose = true;
 
 	/**
-	 * Use synchronous or asynchronous requests. Sync recommended due to
-	 * single threaded servers and slow resources.
+	 * Use synchronous or asynchronous requests. Sync recommended due to single
+	 * threaded servers and slow resources.
 	 */
 	protected boolean sync = true;
 
@@ -85,7 +88,7 @@ public abstract class TestClientAbstract {
 	 * Replaces deprecated notification processing with
 	 * {@link Request#waitForResponse(long)}.
 	 * 
-	 * @see #waitForNotification(int)
+	 * @see #waitForNotification(long)
 	 * @see #startObserve(Request)
 	 * @see #stopObservation()
 	 */
@@ -93,15 +96,16 @@ public abstract class TestClientAbstract {
 
 	/**
 	 * Notification listener forwarding notifications to
-	 * {@link #waitForNotification(int)}.
+	 * {@link #waitForNotification(long)}.
 	 */
 	protected TestNotificationListener listener;
 
 	/**
 	 * Instantiates a new test client abstract.
 	 * 
-	 * @param testName the test name
-	 * @param verbose the verbose
+	 * @param testName    the test name
+	 * @param verbose     the verbose
+	 * @param synchronous use synchronous or asynchronous requests
 	 */
 	public TestClientAbstract(String testName, boolean verbose, boolean synchronous) {
 		if (testName == null || testName.isEmpty()) {
@@ -128,6 +132,8 @@ public abstract class TestClientAbstract {
 
 	/**
 	 * Start observe.
+	 * 
+	 * @param request request to start observation.
 	 */
 	protected void startObserve(Request request) {
 		stopObservation();
@@ -143,11 +149,11 @@ public abstract class TestClientAbstract {
 	 * Wait for notification.
 	 * 
 	 * @param timeout timeout in milliseconds
-	 * @return response, or {@code null}, if no response is received within
-	 *         the provided timeout.
-	 * @throws IllegalStateException if the observation was not started
-	 *             calling {@link #startObserve(Request)}
-	 * @throws InterruptedException if thread was interrupted during wait.
+	 * @return response, or {@code null}, if no response is received within the
+	 *         provided timeout.
+	 * @throws IllegalStateException if the observation was not started calling
+	 *                               {@link #startObserve(Request)}
+	 * @throws InterruptedException  if thread was interrupted during wait.
 	 */
 	protected Response waitForNotification(long timeout) throws IllegalStateException, InterruptedException {
 		if (listener == null) {
@@ -179,8 +185,8 @@ public abstract class TestClientAbstract {
 	/**
 	 * Execute request.
 	 * 
-	 * @param request the request
-	 * @param serverURI the server uri
+	 * @param request     the request
+	 * @param serverURI   the server uri
 	 * @param resourceUri the resource uri
 	 */
 	protected void executeRequest(Request request, String serverURI, String resourceUri) {
@@ -292,7 +298,8 @@ public abstract class TestClientAbstract {
 				// print response info
 				if (verbose) {
 					System.out.println("Response received");
-					System.out.println("Time elapsed (ms): " + TimeUnit.NANOSECONDS.toMillis(response.getApplicationRttNanos()));
+					System.out.println(
+							"Time elapsed (ms): " + TimeUnit.NANOSECONDS.toMillis(response.getApplicationRttNanos()));
 					if (requests > 1) {
 						System.out.println(requests + " blocks");
 					}
@@ -387,7 +394,7 @@ public abstract class TestClientAbstract {
 	/**
 	 * Check response.
 	 * 
-	 * @param request the request
+	 * @param request  the request
 	 * @param response the response
 	 * @return true, if successful
 	 */
@@ -396,8 +403,8 @@ public abstract class TestClientAbstract {
 	/**
 	 * Check int.
 	 * 
-	 * @param expected the expected
-	 * @param actual the actual
+	 * @param expected  the expected
+	 * @param actual    the actual
 	 * @param fieldName the field name
 	 * @return true, if successful
 	 */
@@ -416,8 +423,8 @@ public abstract class TestClientAbstract {
 	/**
 	 * Check int.
 	 * 
-	 * @param expected the expected
-	 * @param actual the actual
+	 * @param expected  the expected
+	 * @param actual    the actual
 	 * @param fieldName the field name
 	 * @return true, if successful
 	 */
@@ -431,8 +438,8 @@ public abstract class TestClientAbstract {
 		}
 
 		if (!success) {
-			System.out.println(
-					"FAIL: Expected " + fieldName + ": " + Arrays.toString(expected) + ", but was: " + actual);
+			System.out
+					.println("FAIL: Expected " + fieldName + ": " + Arrays.toString(expected) + ", but was: " + actual);
 		} else {
 			System.out.println("PASS: Correct " + fieldName + String.format(" (%d)", actual));
 		}
@@ -444,7 +451,7 @@ public abstract class TestClientAbstract {
 	 * Check code.
 	 * 
 	 * @param expected the expected code
-	 * @param actual the actual code
+	 * @param actual   the actual code
 	 * @return true, if successful
 	 */
 	protected boolean checkCode(CoAP.ResponseCode expected, CoAP.ResponseCode actual) {
@@ -463,7 +470,7 @@ public abstract class TestClientAbstract {
 	 * Check codes.
 	 * 
 	 * @param expected the expected codec
-	 * @param actual the actual code
+	 * @param actual   the actual code
 	 * @return true, if successful
 	 */
 	protected boolean checkCodes(CoAP.ResponseCode[] expected, CoAP.ResponseCode actual) {
@@ -484,12 +491,11 @@ public abstract class TestClientAbstract {
 		return success;
 	}
 
-
 	/**
 	 * Check String.
 	 * 
-	 * @param expected the expected
-	 * @param actual the actual
+	 * @param expected  the expected
+	 * @param actual    the actual
 	 * @param fieldName the field name
 	 * @return true, if successful
 	 */
@@ -497,8 +503,7 @@ public abstract class TestClientAbstract {
 		boolean success = expected.equals(actual);
 
 		if (!success) {
-			System.out
-					.println("FAIL: Expected " + fieldName + ": \"" + expected + "\", but was: \"" + actual + "\"");
+			System.out.println("FAIL: Expected " + fieldName + ": \"" + expected + "\", but was: \"" + actual + "\"");
 		} else {
 			System.out.println("PASS: Correct " + fieldName + " \"" + actual + "\"");
 		}
@@ -510,7 +515,7 @@ public abstract class TestClientAbstract {
 	 * Check type.
 	 * 
 	 * @param expectedMessageType the expected message type
-	 * @param actualMessageType the actual message type
+	 * @param actualMessageType   the actual message type
 	 * @return true, if successful
 	 */
 	protected boolean checkType(Type expectedMessageType, Type actualMessageType) {
@@ -533,7 +538,7 @@ public abstract class TestClientAbstract {
 	 * Check types.
 	 * 
 	 * @param expectedMessageTypes the expected message types
-	 * @param actualMessageType the actual message type
+	 * @param actualMessageType    the actual message type
 	 * @return true, if successful
 	 */
 	protected boolean checkTypes(Type[] expectedMessageTypes, Type actualMessageType) {
@@ -552,8 +557,7 @@ public abstract class TestClientAbstract {
 			}
 			sb.delete(0, 2); // delete the first ", "
 
-			System.out.printf("FAIL: Expected type %s, but was %s\n", "[ " + sb.toString() + " ]",
-					actualMessageType);
+			System.out.printf("FAIL: Expected type %s, but was %s\n", "[ " + sb.toString() + " ]", actualMessageType);
 		} else {
 			System.out.printf("PASS: Correct type (%s)\n", actualMessageType.toString());
 		}
@@ -608,16 +612,14 @@ public abstract class TestClientAbstract {
 	 * @return true, if successful
 	 */
 	protected boolean hasEtag(Response response) {
-		// boolean success = response.hasOption(OptionNumberRegistry.ETAG);
-		boolean success = response.getOptions().getETagCount() > 0;
-
-		if (!success) {
+		byte[] etag = response.getOptions().getResponseEtag();
+		if (etag == null) {
 			System.out.println("FAIL: Response without Etag");
+			return false;
 		} else {
-			System.out.printf("PASS: Etag (%s)\n", Utils.toHexString(response.getOptions().getETags().get(0)));
+			System.out.printf("PASS: Etag (%s)\n", Utils.toHexString(etag));
+			return true;
 		}
-
-		return success;
 	}
 
 	/**
@@ -722,39 +724,42 @@ public abstract class TestClientAbstract {
 		return success;
 	}
 
-	/**
-	 * Checks for Observe option.
-	 * 
-	 * @param response the response
-	 * @return true, if successful
-	 */
-	private boolean hasObserve(Response response, boolean invert) {
-		// boolean success =
-		// response.hasOption(OptionNumberRegistry.OBSERVE);
-		boolean success = response.getOptions().hasObserve();
-
-		// invert to check for not having the option
-		success ^= invert;
-
-		if (!success) {
-			System.out.println("FAIL: Response without Observe");
-		} else if (!invert) {
-			System.out.printf("PASS: Observe (%d)\n",
-					// response.getFirstOption(OptionNumberRegistry.OBSERVE).getIntValue());
-					response.getOptions().getObserve());
-		} else {
-			System.out.println("PASS: No Observe");
-		}
-
-		return success;
-	}
-
 	protected boolean hasObserve(Response response) {
-		return hasObserve(response, false);
+		return hasOption(response, StandardOptionRegistry.OBSERVE, false);
 	}
 
 	protected boolean hasNoObserve(Response response) {
-		return hasObserve(response, true);
+		return hasOption(response, StandardOptionRegistry.OBSERVE, true);
+	}
+
+	protected boolean hasOption(Response response, OptionDefinition optionDefintion, boolean invert) {
+		String name = optionDefintion.getName();
+		List<Option> asSortedList = response.getOptions().asSortedList();
+		Option match = null;
+		for (Option option : asSortedList) {
+			if (optionDefintion.equals(option.getDefinition())) {
+				match = option;
+				break;
+			}
+		}
+		// invert to check for not having the option
+		boolean success = match != null ^ invert;
+
+		StringBuilder result = new StringBuilder();
+		if (success) {
+			result.append("PASS: Response ");
+		} else {
+			result.append("FAIL: Response ");
+		}
+		if (match != null) {
+			result.append("with ");
+			result.append(name);
+		} else {
+			result.append("without ").append(name);
+		}
+		System.out.println(result);
+
+		return success;
 	}
 
 	protected boolean checkOption(Option expextedOption, Option actualOption) {
@@ -859,8 +864,8 @@ public abstract class TestClientAbstract {
 		boolean success = !Arrays.equals(expected, actual);
 
 		if (!success) {
-			System.out.println("FAIL: Option " + optionName + ": expected " + Utils.toHexString(expected)
-					+ " but was " + Utils.toHexString(actual));
+			System.out.println("FAIL: Option " + optionName + ": expected " + Utils.toHexString(expected) + " but was "
+					+ Utils.toHexString(actual));
 		} else {
 			System.out.println("PASS: Correct option " + optionName);
 		}
@@ -872,7 +877,7 @@ public abstract class TestClientAbstract {
 	 * Check token.
 	 * 
 	 * @param expectedToken the expected token
-	 * @param actualToken the actual token
+	 * @param actualToken   the actual token
 	 * @return true, if successful
 	 */
 	protected boolean checkToken(Token expectedToken, Token actualToken) {
@@ -917,7 +922,7 @@ public abstract class TestClientAbstract {
 	 * Check discovery.
 	 * 
 	 * @param expextedAttribute the resource attribute to filter
-	 * @param actualDiscovery the reported Link Format
+	 * @param actualDiscovery   the reported Link Format
 	 * @return true, if successful
 	 */
 	protected boolean checkDiscoveryAttributes(String expextedAttribute, String actualDiscovery) {
@@ -927,24 +932,18 @@ public abstract class TestClientAbstract {
 			return false;
 		}
 
-		Resource res = LinkParser.parseTree(actualDiscovery);
+		Set<WebLink> links = LinkFormat.parse(actualDiscovery);
 
 		List<String> query = Arrays.asList(expextedAttribute);
 
 		boolean success = true;
 
-		for (Resource sub : res.getChildren()) {
+		for (WebLink link : links) {
 
-			// goes to leaf resource -- necessary?
-			while (sub.getChildren().size() > 0) {
-				sub = sub.getChildren().iterator().next();
-			}
-
-			success &= LinkFormat.matches(sub, query);
+			success &= LinkFormat.matches(link, query);
 
 			if (!success) {
-				System.out.printf("FAIL: Expected %s, but was %s\n", expextedAttribute,
-						LinkFormat.serializeResource(sub));
+				System.out.printf("FAIL: Expected %s, but was %s\n", expextedAttribute, link);
 			}
 		}
 

@@ -15,13 +15,11 @@
  ******************************************************************************/
 package org.eclipse.californium.core.network.interceptors;
 
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-
 import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.EmptyMessage;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.elements.RawData;
 import org.eclipse.californium.elements.util.CounterStatisticManager;
 import org.eclipse.californium.elements.util.SimpleCounterStatistic;
 import org.eclipse.californium.elements.util.StringUtil;
@@ -30,9 +28,10 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Health implementation using counter and logging for result.
+ * 
  * @since 2.1
  */
-public class HealthStatisticLogger extends CounterStatisticManager implements MessageInterceptor {
+public class HealthStatisticLogger extends CounterStatisticManager implements MalformedMessageInterceptor {
 
 	/** the logger. */
 	private static final Logger LOGGER = LoggerFactory.getLogger(HealthStatisticLogger.class);
@@ -53,6 +52,12 @@ public class HealthStatisticLogger extends CounterStatisticManager implements Me
 	private final SimpleCounterStatistic duplicateRequests = new SimpleCounterStatistic("duplicate requests", align);
 	private final SimpleCounterStatistic duplicateResponses = new SimpleCounterStatistic("duplicate responses", align);
 	private final SimpleCounterStatistic ignoredMessages = new SimpleCounterStatistic("ignored", align);
+	/**
+	 * Counter for malformed messages.
+	 * 
+	 * @since 3.7
+	 */
+	private final SimpleCounterStatistic malformedMessages = new SimpleCounterStatistic("malformed", align);
 	private final SimpleCounterStatistic offloadedMessages = new SimpleCounterStatistic("offloaded", align);
 
 	/**
@@ -60,6 +65,8 @@ public class HealthStatisticLogger extends CounterStatisticManager implements Me
 	 * tcp.
 	 */
 	private final boolean udp;
+
+	private volatile boolean used;
 
 	/**
 	 * Create passive health logger.
@@ -76,82 +83,73 @@ public class HealthStatisticLogger extends CounterStatisticManager implements Me
 		init();
 	}
 
-	/**
-	 * Create active health logger.
-	 * 
-	 * {@link #dump()} is called repeated with configurable interval.
-	 * 
-	 * @param tag logging tag
-	 * @param udp {@code true} dump statistic for udp, {@code false}, dump
-	 *            statistic for tcp.
-	 * @param interval interval. {@code 0} to disable active logging.
-	 * @param unit time unit of interval
-	 * @param executor executor executor to schedule active logging.
-	 * @throws NullPointerException if executor is {@code null}
-	 * @since 3.0 (added unit)
-	 */
-	public HealthStatisticLogger(String tag, boolean udp, long interval, TimeUnit unit, ScheduledExecutorService executor) {
-		super(tag, interval, unit, executor);
-		this.udp = udp;
-		init();
-	}
-
 	private void init() {
 		add("send-", sentRequests);
 		add("send-", sentResponses);
-		add("send-", sentAcknowledges);
-		add("send-", sentRejects);
-		add("send-", resentRequests);
-		add("send-", resentResponses);
+		if (udp) {
+			add("send-", sentAcknowledges);
+			add("send-", sentRejects);
+			add("send-", resentRequests);
+			add("send-", resentResponses);
+		}
 		add("send-", sendErrors);
 
 		add("recv-", receivedRequests);
 		add("recv-", receivedResponses);
-		add("recv-", receivedAcknowledges);
-		add("recv-", receivedRejects);
-		add("recv-", duplicateRequests);
-		add("recv-", duplicateResponses);
+		if (udp) {
+			add("recv-", receivedAcknowledges);
+			add("recv-", receivedRejects);
+			add("recv-", duplicateRequests);
+			add("recv-", duplicateResponses);
+			add("recv-", offloadedMessages);
+		}
 		add("recv-", ignoredMessages);
+		add("recv-", malformedMessages);
 	}
 
 	@Override
 	public boolean isEnabled() {
-		return LOGGER.isDebugEnabled();
+		return LOGGER.isInfoEnabled();
 	}
 
 	@Override
 	public void dump() {
 		try {
-			if (receivedRequests.isUsed() || sentRequests.isUsed() || sendErrors.isUsed()) {
-				String eol = StringUtil.lineSeparator();
-				String head = "   " + tag;
-				StringBuilder log = new StringBuilder();
-				log.append(tag).append("endpoint statistic:").append(eol);
-				log.append(tag).append("send statistic:").append(eol);
-				log.append(head).append(sentRequests).append(eol);
-				log.append(head).append(sentResponses).append(eol);
-				if (udp) {
-					log.append(head).append(sentAcknowledges).append(eol);
-					log.append(head).append(sentRejects).append(eol);
-					log.append(head).append(resentRequests).append(eol);
-					log.append(head).append(resentResponses).append(eol);
+			if (isEnabled()) {
+				if (LOGGER.isDebugEnabled()) {
+					if (used) {
+						String eol = StringUtil.lineSeparator();
+						String head = "   " + tag;
+						StringBuilder log = new StringBuilder();
+						log.append(tag).append("endpoint statistic:").append(eol);
+						log.append(tag).append("send statistic:").append(eol);
+						log.append(head).append(sentRequests).append(eol);
+						log.append(head).append(sentResponses).append(eol);
+						if (udp) {
+							log.append(head).append(sentAcknowledges).append(eol);
+							log.append(head).append(sentRejects).append(eol);
+							log.append(head).append(resentRequests).append(eol);
+							log.append(head).append(resentResponses).append(eol);
+						}
+						log.append(head).append(sendErrors).append(eol);
+						log.append(tag).append("receive statistic:").append(eol);
+						log.append(head).append(receivedRequests).append(eol);
+						log.append(head).append(receivedResponses).append(eol);
+						if (udp) {
+							log.append(head).append(receivedAcknowledges).append(eol);
+							log.append(head).append(receivedRejects).append(eol);
+							log.append(head).append(duplicateRequests).append(eol);
+							log.append(head).append(duplicateResponses).append(eol);
+							log.append(head).append(offloadedMessages).append(eol);
+						}
+						log.append(head).append(ignoredMessages).append(eol);
+						long sent = getSentCounters();
+						long processed = getProcessedCounters();
+						log.append(tag).append("sent ").append(sent).append(", received ").append(processed);
+						LOGGER.debug("{}", log);
+					}
 				}
-				log.append(head).append(sendErrors).append(eol);
-				log.append(tag).append("receive statistic:").append(eol);
-				log.append(head).append(receivedRequests).append(eol);
-				log.append(head).append(receivedResponses).append(eol);
-				if (udp) {
-					log.append(head).append(receivedAcknowledges).append(eol);
-					log.append(head).append(receivedRejects).append(eol);
-					log.append(head).append(duplicateRequests).append(eol);
-					log.append(head).append(duplicateResponses).append(eol);
-					log.append(head).append(offloadedMessages).append(eol);
-				}
-				log.append(head).append(ignoredMessages).append(eol);
-				long sent = getSentCounters();
-				long processed = getProcessedCounters();
-				log.append(tag).append("sent ").append(sent).append(", received ").append(processed);
-				LOGGER.debug("{}", log);
+				transferCounter();
 			}
 		} catch (Throwable e) {
 			LOGGER.error("{}", tag, e);
@@ -173,6 +171,7 @@ public class HealthStatisticLogger extends CounterStatisticManager implements Me
 
 	@Override
 	public void sendRequest(Request request) {
+		used = true;
 		if (request.getSendError() != null) {
 			sendErrors.increment();
 		} else if (request.isDuplicate()) {
@@ -184,6 +183,7 @@ public class HealthStatisticLogger extends CounterStatisticManager implements Me
 
 	@Override
 	public void sendResponse(Response response) {
+		used = true;
 		if (response.getOffloadMode() != null) {
 			offloadedMessages.increment();
 		}
@@ -198,6 +198,7 @@ public class HealthStatisticLogger extends CounterStatisticManager implements Me
 
 	@Override
 	public void sendEmptyMessage(EmptyMessage message) {
+		used = true;
 		if (message.getSendError() != null) {
 			sendErrors.increment();
 		} else if (message.getType() == CoAP.Type.ACK) {
@@ -209,6 +210,7 @@ public class HealthStatisticLogger extends CounterStatisticManager implements Me
 
 	@Override
 	public void receiveRequest(Request request) {
+		used = true;
 		if (request.isDuplicate()) {
 			duplicateRequests.increment();
 		} else {
@@ -218,6 +220,7 @@ public class HealthStatisticLogger extends CounterStatisticManager implements Me
 
 	@Override
 	public void receiveResponse(Response response) {
+		used = true;
 		if (response.isCanceled()) {
 			ignoredMessages.increment();
 		} else if (response.isDuplicate()) {
@@ -229,6 +232,7 @@ public class HealthStatisticLogger extends CounterStatisticManager implements Me
 
 	@Override
 	public void receiveEmptyMessage(EmptyMessage message) {
+		used = true;
 		if (message.isCanceled()) {
 			ignoredMessages.increment();
 		} else if (message.getType() == CoAP.Type.ACK) {
@@ -236,5 +240,11 @@ public class HealthStatisticLogger extends CounterStatisticManager implements Me
 		} else {
 			receivedRejects.increment();
 		}
+	}
+
+	@Override
+	public void receivedMalformedMessage(RawData message) {
+		used = true;
+		malformedMessages.increment();
 	}
 }

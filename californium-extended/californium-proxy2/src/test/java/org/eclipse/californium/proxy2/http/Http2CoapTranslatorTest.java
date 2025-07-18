@@ -16,10 +16,11 @@
  ******************************************************************************/
 package org.eclipse.californium.proxy2.http;
 
-import static org.eclipse.californium.elements.util.StandardCharsets.ISO_8859_1;
-import static org.eclipse.californium.elements.util.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.StringContains.containsString;
 
@@ -33,13 +34,16 @@ import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.CoAP.Code;
 import org.eclipse.californium.core.coap.MediaTypeRegistry;
 import org.eclipse.californium.core.coap.Request;
+import org.eclipse.californium.elements.category.Small;
 import org.eclipse.californium.elements.util.ExpectedExceptionWrapper;
 import org.eclipse.californium.proxy2.TranslationException;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 import org.junit.rules.ExpectedException;
 
+@Category(Small.class)
 public class Http2CoapTranslatorTest {
 
 	/**
@@ -87,6 +91,15 @@ public class Http2CoapTranslatorTest {
 
 		// For XML no Charset is provided nor is the content converted
 		validateCharset(req, null);
+	}
+
+	@Test
+	public void testPutHttpEntityWithoutPayload() throws Exception {
+		Request req = new Request(Code.PUT);
+
+		ContentTypedEntity httpEntity = crossTranslator.getHttpEntity(req);
+		assertThat(httpEntity, is(nullValue()));
+		
 	}
 
 	// public Request getCoapRequest(HttpRequest httpRequest, String

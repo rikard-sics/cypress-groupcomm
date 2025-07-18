@@ -24,7 +24,13 @@ import org.eclipse.californium.elements.util.Bytes;
 
 import com.upokecenter.cbor.CBORObject;
 
-//TODO: Need clone?
+/**
+ * Handle CCS type keys where Group OSCORE needs both the verbatim bytes and the
+ * COSE key part
+ * 
+ * TODO: Need clone?
+ *
+ */
 public class MultiKey {
 
 	private byte[] rawKeyBytes;
@@ -138,6 +144,10 @@ public class MultiKey {
 	/**
 	 * Search the data byte array for the first occurrence of the byte array
 	 * pattern.
+	 * 
+	 * @param data data to search through
+	 * @param pattern pattern to find
+	 * @return index of found pattern
 	 */
 	public static int indexOf(byte[] data, byte[] pattern) {
 		int[] failure = computeFailure(pattern);

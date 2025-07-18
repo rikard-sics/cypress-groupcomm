@@ -21,6 +21,7 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -29,16 +30,20 @@ import java.lang.reflect.Field;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.eclipse.californium.elements.category.Small;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 /**
  * Test ThreadFactory and predefined ThreadGroups. Ensure, that the predefined
  * ThreadGroups are no daemons, regardless of the ThreadGroup context.
  */
+@Category(Small.class)
 public class NamedThreadFactoryTest {
 
 	@Test
 	public void testDaemonThreadGroup() throws Exception {
+		assumeTrue(System.getProperty("java.version").compareTo("21.") < 0);
 		ThreadGroup group = new ThreadGroup("test-group");
 		group.setDaemon(true);
 		createAndStopThread(group);

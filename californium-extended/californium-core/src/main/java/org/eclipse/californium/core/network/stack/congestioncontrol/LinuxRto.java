@@ -17,21 +17,25 @@
 
 package org.eclipse.californium.core.network.stack.congestioncontrol;
 
-import java.net.InetSocketAddress;
-
 import org.eclipse.californium.core.network.stack.CongestionControlLayer;
 import org.eclipse.californium.core.network.stack.RemoteEndpoint;
 import org.eclipse.californium.elements.config.Configuration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class LinuxRto extends CongestionControlLayer {
+	/**
+	 * @since 3.10
+	 */
+	private static final Logger LOG = LoggerFactory.getLogger(LinuxRto.class);
 
 	public LinuxRto(String tag, Configuration config) {
 		super(tag, config);
 	}
 
 	@Override
-	protected RemoteEndpoint createRemoteEndpoint(InetSocketAddress remoteSocketAddress) {
-		return new LinuxRemoteEndpoint(remoteSocketAddress, defaultReliabilityLayerParameters.getAckTimeout(),
+	protected RemoteEndpoint createRemoteEndpoint(Object peersIdentity) {
+		return new LinuxRemoteEndpoint(peersIdentity, defaultReliabilityLayerParameters.getAckTimeout(),
 				defaultReliabilityLayerParameters.getNstart());
 	}
 
@@ -43,8 +47,8 @@ public class LinuxRto extends CongestionControlLayer {
 		private long mdev;
 		private long mdev_max;
 
-		private LinuxRemoteEndpoint(InetSocketAddress remoteAddress, int ackTimeout, int nstart) {
-			super(remoteAddress, ackTimeout, nstart, true);
+		private LinuxRemoteEndpoint(Object peersIdentity, int ackTimeout, int nstart) {
+			super(peersIdentity, ackTimeout, nstart, true);
 		}
 
 		private void initializeRTOEstimators(long measuredRTT) {
@@ -106,7 +110,7 @@ public class LinuxRto extends CongestionControlLayer {
 		}
 
 		private void printLinuxStats() {
-			LOGGER.trace("SRTT: {}, RTTVAR: {}, mdev: {}, mdev_max: {}", SRTT, RTTVAR, mdev, mdev_max);
+			LOG.trace("SRTT: {}, RTTVAR: {}, mdev: {}, mdev_max: {}", SRTT, RTTVAR, mdev, mdev_max);
 		}
 	}
 }

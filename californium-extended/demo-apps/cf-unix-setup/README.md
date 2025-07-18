@@ -9,7 +9,7 @@ Yes, there are more modern service types out, but I still prefer the plain syste
 ### Requirements
 
 As mention above, one of my reasons for using a unix systemd service is, it requires nearly nothing else.
-Though Californium is implemented in java without own UI, you need a Java Runtime Environment, headless. The Java Development Kit will do it naturally as well and none headless also. The minimum required version is "1.7". I mainly use "1.8" and "java 11". The installation of that Java depends on your unix distribution. Some came with an already installed java. Therefore first check, if it's already install executing 
+Though Californium is implemented in java without own UI, you need a Java Runtime Environment, headless. The Java Development Kit will do it naturally as well and none headless also. The minimum required version is "1.8". I mainly use "java 11" and "java 17". The installation of that Java depends on your unix distribution. Some came with an already installed java. Therefore first check, if it's already install executing 
 
 ```
 java -version
@@ -18,22 +18,18 @@ java -version
 in a command-line-terminal. If it's already installed, the output will be similar to:
 
 ```
-openjdk version "1.8.0_265"
-OpenJDK Runtime Environment (build 1.8.0_265-8u265-b01-0ubuntu2~18.04-b01)
-OpenJDK 64-Bit Server VM (build 25.265-b01, mixed mode)
+openjdk version "11.0.13" 2021-10-19
+OpenJDK Runtime Environment (build 11.0.13+8-Ubuntu-0ubuntu1.18.04)
+OpenJDK 64-Bit Server VM (build 11.0.13+8-Ubuntu-0ubuntu1.18.04, mixed mode, sharing)
 ```
 
-The variant and version may vary, but usually all from java "1.7" on will do it and all variants (jre or jdk, maybe headless) will work. If the command fails, the error message usually contains the information what to do. Using Ubuntu 18.04 LTS you may install it with:
+The variant and version may vary, but usually all from java "1.8" on will do it and all variants (jre or jdk, maybe headless) will work. If the command fails, the error message usually contains the information what to do. Using Ubuntu 18.04 LTS you may install it with:
 
-```
-sudo apt install openjdk-8-jre-headless
-```
-or
 ```
 sudo apt install openjdk-11-jre-headless
 ```
 
-and check the result again with `java -version`. If that's done, then copy your californium.jar to the host. If you want to run the cf-plugtest-server, it's the "<californium>/demo-apps/run/cf-plugtest-server-???.jar" (replace the ??? with the version your using, e.g. 3.0.0). The [cf-plugtest-server-3.0.0.jar](https://repo.eclipse.org/content/repositories/californium-releases/org/eclipse/californium/cf-plugtest-server/3.0.0/cf-plugtest-server-3.0.0.jar) is also available for download.
+and check the result again with `java -version`. If that's done, then copy your californium.jar to the host. If you want to run the cf-plugtest-server, it's the "<californium>/demo-apps/run/cf-plugtest-server-???.jar" (replace the ??? with the version your using, e.g. 4.0.0-M3). The [cf-plugtest-server-4.0.0-M3.jar](https://repo.eclipse.org/content/repositories/californium-releases/org/eclipse/californium/cf-plugtest-server/4.0.0-M3/cf-plugtest-server-4.0.0-M3.jar) is also available for download.
 
 ### Preparation
 
@@ -43,7 +39,7 @@ For a systemd service it's a good practice, to run it as "no root, no login user
 sudo adduser --system --home /home/cali --disabled-login cali
 ```
  
-([Download template to copy lines from](src/main/resources/install.sh) )
+([Download template to copy lines from](scripts/install.sh) )
 
 Check, if "/home/cali" have been created successfully.
 Now move the californium.jar into the "/home/cali" folder using "cf-plugtest-server-update.jar" as destination
@@ -80,13 +76,15 @@ OOMPolicy=stop
 WantedBy=multi-user.target
 ```
 
-[Download "cali.service" file](src/main/resources/cali.service)
+[Download "cali.service" file](scripts/cali.service)
 
-Depending on the number of connectors, the value of `TasksMax` in the service description must be adapted. There may be also a limit of  `TasksMax` from the machine it runs on. Especially, if a container solution is used instead of VM.  Check, if  "/proc/user_beancounters" is available, and if so, check the number of "numproc". The required number depends also from the used configuration value in the "Californium???3.properties". Check the values for receiving and sending threads per connector.  
+Depending on the number of connectors, the value of `TasksMax` in the service description must be adapted. There may be also a limit of  `TasksMax` from the machine it runs on. Especially, if a container solution is used instead of VM.  Check, if  "/proc/user_beancounters" is available, and if so, check the number of "numproc". The required number depends also from the used configuration value in the "Californium???3.properties". Check the values for receiving and sending threads per connector.
 
-**Note:** the number of connectors is not the number of connections. A connector can run many connections and doesn't require to use a high number of tasks.  
+**Note:** the number of connectors is not the number of connections. A connector can run many connections and doesn't require to use a high number of tasks.
 
 **Note:** `-XX:MaxRAMPercentage=75` is supported from java 11 on. For older java versions please adjust the size  of the java heap according your needs using `-Xmx`, e.g. `-Xmx1000m`.
+
+**Note:** `-XX:UseZGC` from java 17 on lowers slightly the peek performance, but also has no "GC coffee breaks" :-).
 
 Copy the "cali.service" file into the "/etc/systemd/system" folder. Use 
 
@@ -116,28 +114,28 @@ users:
    no_user_group: true
 
 runcmd:
- - [ wget, "https://github.com/eclipse/californium/raw/master/demo-apps/cf-unix-setup/src/main/resources/cali.service", -O, "/etc/systemd/system/cali.service" ]
- - [ wget, "https://repo.eclipse.org/content/repositories/californium-releases/org/eclipse/californium/cf-plugtest-server/3.0.0/cf-plugtest-server-3.0.0.jar", -O, "/home/cali/cf-plugtest-server-update.jar" ]
- - [ wget, "https://github.com/eclipse/californium/raw/master/demo-apps/cf-plugtest-server/src/main/resources/logback.xml", -O, "/home/cali/logback.xml" ]
+ - [ wget, "https://github.com/eclipse-californium/californium/raw/main/demo-apps/cf-unix-setup/scripts/cali.service", -O, "/etc/systemd/system/cali.service" ]
+ - [ wget, "https://repo.eclipse.org/content/repositories/californium-releases/org/eclipse/californium/cf-plugtest-server/4.0.0-M3/cf-plugtest-server-4.0.0-M3.jar", -O, "/home/cali/cf-plugtest-server-update.jar" ]
+ - [ wget, "https://github.com/eclipse-californium/californium/raw/main/demo-apps/cf-plugtest-server/src/main/resources/logback.xml", -O, "/home/cali/logback.xml" ]
  - [ systemctl, start, cali ]
  - [ systemctl, enable, cali ]
- - [ wget, "https://github.com/eclipse/californium/raw/master/demo-apps/cf-unix-setup/src/main/resources/fail2ban/cali2fail.conf", -O, "/etc/fail2ban/jail.d/cali2fail.conf" ]
- - [ wget, "https://github.com/eclipse/californium/raw/master/demo-apps/cf-unix-setup/src/main/resources/fail2ban/cali.conf", -O, "/etc/fail2ban/filter.d/cali.conf" ]
+ - [ wget, "https://github.com/eclipse-californium/californium/raw/main/demo-apps/cf-unix-setup/scripts/fail2ban/cali2fail.conf", -O, "/etc/fail2ban/jail.d/cali2fail.conf" ]
+ - [ wget, "https://github.com/eclipse-californium/californium/raw/main/demo-apps/cf-unix-setup/scripts/fail2ban/cali.conf", -O, "/etc/fail2ban/filter.d/cali.conf" ]
+ - [ sleep, 5 ]
  - [ systemctl, restart, fail2ban ]
-
 ```
 
-[cloud-config.yaml](src/main/resources/cloud-installs/cloud-config.yaml)
+[cloud-config.yaml](scripts/cloud-installs/cloud-config.yaml)
 
-This updates all packages, installs a java runtime and [fail2ban](#fail2ban). It the follows the manual installation, copying files and configuring the systemd service. The used files are downloaded from this git repository and the [Eclipse Release Repository](https://repo.eclipse.org/content/repositories/californium-releases/org/eclipse/californium/cf-plugtest-server/3.0.0/cf-plugtest-server-3.0.0.jar) 
+This updates all packages, installs a java runtime and [fail2ban](#fail2ban). It the follows the manual installation, copying files and configuring the systemd service. The used files are downloaded from this git repository and the [Eclipse Release Repository](https://repo.eclipse.org/content/repositories/californium-releases/org/eclipse/californium/cf-plugtest-server/4.0.0-M3/cf-plugtest-server-4.0.0-M3.jar).
 
 ### Installation on Exoscale cloud
 
 [Exoscale - European cloud hosting](https://www.exoscale.com/)
 
-[deploy_exo.sh](src/main/resources/cloud-installs/deploy_exo.sh)
+[deploy_exo.sh](scripts/cloud-installs/deploy_exo.sh)
 
-This script uses the exoscale cli (exo) to create a compute instance and the [cloud-config.yaml](src/main/resources/cloud-installs/cloud-config.yaml) to configure and install the [Californium Plugtest Server](https://repo.eclipse.org/content/repositories/californium-releases/org/eclipse/californium/cf-plugtest-server/3.0.0/cf-plugtest-server-3.0.0.jar).
+This script uses the exoscale cli (exo) to create a compute instance and the [cloud-config.yaml](scripts/cloud-installs/cloud-config.yaml) to configure and install the [Californium Plugtest Server](https://repo.eclipse.org/content/repositories/californium-releases/org/eclipse/californium/cf-plugtest-server/4.0.0-M3/cf-plugtest-server-4.0.0-M3.jar).
 
 Features: IPv4, IPv6, Firewall
 
@@ -147,9 +145,9 @@ For further instructions see the comments in that script.
 
 [DigitalOcean - The developer cloud](https://www.digitalocean.com/)
 
-[deploy_do.sh](src/main/resources/cloud-installs/deploy_do.sh)
+[deploy_do.sh](scripts/cloud-installs/deploy_do.sh)
 
-This script uses the digitalocean cli (doctl) to create a compute droplet and the [cloud-config.yaml](src/main/resources/cloud-installs/cloud-config.yaml) to configure and install the [Californium Plugtest Server](https://repo.eclipse.org/content/repositories/californium-releases/org/eclipse/californium/cf-plugtest-server/3.0.0/cf-plugtest-server-3.0.0.jar) 
+This script uses the digitalocean cli (doctl) to create a compute droplet and the [cloud-config.yaml](scripts/cloud-installs/cloud-config.yaml) to configure and install the [Californium Plugtest Server](https://repo.eclipse.org/content/repositories/californium-releases/org/eclipse/californium/cf-plugtest-server/4.0.0-M3/cf-plugtest-server-4.0.0-M3.jar).
 
 Features: IPv4, IPv6, Firewall
 
@@ -159,9 +157,9 @@ For further instructions see the comments in that script.
 
 [Google Cloud - Cloud-Computing-Service](https://cloud.google.com)
 
-[deploy_gcloud.sh](src/main/resources/cloud-installs/deploy_gcloud.sh)
+[deploy_gcloud.sh](scripts/cloud-installs/deploy_gcloud.sh)
 
-This script uses the google cloud API (gcloud) to create a compute instance and the [cloud-config.yaml](src/main/resources/cloud-installs/cloud-config.yaml) to configure and install the [Californium Plugtest Server](https://repo.eclipse.org/content/repositories/californium-releases/org/eclipse/californium/cf-plugtest-server/3.0.0/cf-plugtest-server-3.0.0.jar) 
+This script uses the google cloud API (gcloud) to create a compute instance and the [cloud-config.yaml](scripts/cloud-installs/cloud-config.yaml) to configure and install the [Californium Plugtest Server](https://repo.eclipse.org/content/repositories/californium-releases/org/eclipse/californium/cf-plugtest-server/4.0.0-M3/cf-plugtest-server-4.0.0-M3.jar).
 
 Features: IPv4, Firewall
 
@@ -171,9 +169,21 @@ For further instructions see the comments in that script.
 
 [Azure - Cloud-Computing-Service](https://azure.microsoft.com)
 
-[deploy_azure.sh](src/main/resources/cloud-installs/deploy_azure.sh)
+[deploy_azure.sh](scripts/cloud-installs/deploy_azure.sh)
 
-This script uses the azure cloud API (az) to create a vm and the [cloud-config.yaml](src/main/resources/cloud-installs/cloud-config.yaml) to configure and install the [Californium Plugtest Server](https://repo.eclipse.org/content/repositories/californium-releases/org/eclipse/californium/cf-plugtest-server/3.0.0/cf-plugtest-server-3.0.0.jar) 
+This script uses the azure cloud API (az) to create a vm and the [cloud-config.yaml](scripts/cloud-installs/cloud-config.yaml) to configure and install the [Californium Plugtest Server](https://repo.eclipse.org/content/repositories/californium-releases/org/eclipse/californium/cf-plugtest-server/4.0.0-M3/cf-plugtest-server-4.0.0-M3.jar).
+
+Features: IPv4, Firewall
+
+For further instructions see the comments in that script.
+
+### Installation on AWS
+
+[Amazon Web Service](https://aws.amazon.com)
+
+[deploy_aws.sh](scripts/cloud-installs/deploy_aws.sh)
+
+This script uses the aws API (aws) to create a vm and the [cloud-config.yaml](scripts/cloud-installs/cloud-config.yaml) to configure and install the [Californium Plugtest Server](https://repo.eclipse.org/content/repositories/californium-releases/org/eclipse/californium/cf-plugtest-server/4.0.0-M3/cf-plugtest-server-4.0.0-M3.jar).
 
 Features: IPv4, Firewall
 
@@ -221,6 +231,13 @@ sudo systemctl disable cali
 
 ## Apply jar updates
 
+Copy the updated californium.jar to the machine, you run the service and open a shell on that machine.
+
+```
+scp <updated-californium.jar> <your-machine>:.
+ssh <your-machine>
+```
+
 Move the updated californium.jar into the "/home/cali" folder using "cf-plugtest-server-update.jar" as destination
 
 ```
@@ -233,7 +250,7 @@ Restart the service
 sudo systemctl restart cali
 ```
 
-If "cf-plugtest-server.jar" is updated in-place when running,  that my cause unintended exceptions, which prevents Californium from successfully gracefull-restart of the dtls state.  Therefore the "cf-plugtest-server-update.jar" is used for staging and copied to "cf-plugtest-server.jar" on (re-)starting the service.
+If "cf-plugtest-server.jar" is updated in-place when running,  that my cause unintended exceptions, which prevents Californium from successfully graceful-restart of the dtls state.  Therefore the "cf-plugtest-server-update.jar" is used for staging and copied to "cf-plugtest-server.jar" on (re-)starting the service.
 
 ## Hardening - already done by systemd
 
@@ -305,7 +322,7 @@ before = common.conf
 failregex = Ban:\s+<HOST>
 ```
 
-and copy [cali.conf](src/main/resources/fail2ban/cali.conf) into folder "/etc/fail2ban/filter.d". That selects the `<HOST>` after the tag "Ban:".
+and copy [cali.conf](scripts/fail2ban/cali.conf) into folder "/etc/fail2ban/filter.d". That selects the `<HOST>` after the tag "Ban:".
 
 Then create a jail:
 
@@ -332,7 +349,7 @@ logpath  = /home/cali/logs/ban.log
 maxretry = 3
 ```
 
-and copy [cali2fail.conf](src/main/resources/fail2ban/cali2fail.conf) into folder "/etc/fail2ban/jail.d". That applies the before defined filter to the "ban.log" and "jails" `<HOST>` on 3 failures within the last 5 (300s) minutes for 30 minutes (1800s).
+and copy [cali2fail.conf](scripts/fail2ban/cali2fail.conf) into folder "/etc/fail2ban/jail.d". That applies the before defined filter to the "ban.log" and "jails" `<HOST>` on 3 failures within the last 5 (300s) minutes for 30 minutes (1800s).
 
 To check the jail, use
 
@@ -349,3 +366,72 @@ Status for the jail: cali-udp
    |- Total banned:	7
    `- Banned IP list:	
 ```
+
+(If fail2ban is started before the "ban.log" is available, it fails. Just restart it with `sudo systemctl restart fail2ban` should fix it.)
+
+## UDP Fine-Tuning
+
+The most linux images are not "out-of-the-box" tuned for a UDP server. Mostly a small receive buffer is configured. That works not that bad, but especially if the work-load goes up, packages my get dropped because the receive buffer is full. You may check the dropped messages with:
+
+```
+> netstat -u -s
+...
+Udp:
+    71938370 packets received
+    63 packets to unknown port received
+    103853 packet receive errors
+    70954198 packets sent
+    103843 receive buffer errors
+    16 send buffer errors
+    InCsumErrors: 10
+    IgnoredMulti: 15
+...
+```
+
+The value `receive buffer errors` reports the dropped messages. 
+
+With
+ 
+```
+> netstat -u -a -n
+
+...
+Proto Recv-Q Send-Q Local Address           Foreign Address         State
+udp        0      0 0.0.0.0:631             0.0.0.0:*                          
+udp        0      0 0.0.0.0:33678           0.0.0.0:*                          
+udp6       0      0 :::5353                 :::*                               
+udp6       0      0 :::40923                :::*        
+...
+```
+you may check the current usage of the buffers.
+
+Information about the settings for UDP on Linux can be found in [UDP Linux Manual](https://man7.org/linux/man-pages/man7/udp.7.html) and [Socket Linux Manual](https://man7.org/linux/man-pages/man7/socket.7.html). The most relevant setting in my experience is `net.core.rmem_max`.
+
+```
+> sysctl net.core.rmem_max
+net.core.rmem_max = 212992
+```
+
+Depending on the amount of RAM and number of receiving `CoapEndpoint`s, this value could be enlarged with
+
+```
+> sudo sysctl -w net.core.rmem_max=1000000
+net.core.rmem_max = 1000000
+```
+
+In order to use that larger value, either adjust  `net.core.rmem_default` as well, or set
+
+```
+DTLS.RECEIVE_BUFFER_SIZE=1000000
+```
+
+In the according "Californium3.properties" (or "Californium???3.properties").
+
+You may also use vnstat to see, how much traffic your system is currently transferring.
+
+```
+> vnstat -l
+
+ rx:    40,77 Mbit/s 39375 p/s          tx:   102,85 Mbit/s 64257 p/s
+```
+ 

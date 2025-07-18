@@ -599,3 +599,4 @@ public class Recipient extends Message {
         return contextArray.EncodeToBytes();
     }
 }
+

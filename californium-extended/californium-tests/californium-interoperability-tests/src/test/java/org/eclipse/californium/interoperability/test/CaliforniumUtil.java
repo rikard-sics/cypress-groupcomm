@@ -22,6 +22,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.security.Principal;
 import java.util.Arrays;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -38,6 +39,9 @@ import org.eclipse.californium.core.coap.MediaTypeRegistry;
 import org.eclipse.californium.core.coap.Option;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.coap.option.MapBasedOptionRegistry;
+import org.eclipse.californium.core.coap.option.OpaqueOption;
+import org.eclipse.californium.core.coap.option.StandardOptionRegistry;
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.elements.DtlsEndpointContext;
@@ -45,7 +49,6 @@ import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.californium.elements.MapBasedEndpointContext;
 import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.exception.ConnectorException;
-import org.eclipse.californium.elements.util.StandardCharsets;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
 
@@ -59,6 +62,10 @@ public class CaliforniumUtil extends ConnectorUtil {
 	static {
 		CoapConfig.register();
 	}
+
+	public static final int OPTION_TRACE_CONTEXT_NO = 0b1111110111111110; // 65022
+
+	public static final OpaqueOption.Definition OPTION_TRACE_CONTEXT = new OpaqueOption.Definition(OPTION_TRACE_CONTEXT_NO, "Trace_Context", true, 1, 128);
 
 	/**
 	 * {@code true}, if used as client, {@code false}, otherwise.
@@ -130,7 +137,7 @@ public class CaliforniumUtil extends ConnectorUtil {
 	 * Start coap-server or -client.
 	 * 
 	 * @param bind address to bind connector to
-	 * @param dtlsBuilder preconfigured dtls builder. May be {@link null}.
+	 * @param dtlsBuilder preconfigured dtls builder. May be {@code null}.
 	 * @param trust alias of trusted certificate, or {@code null} to trust all
 	 *            received certificates.
 	 * @param cipherSuites cipher suites to support.
@@ -145,9 +152,11 @@ public class CaliforniumUtil extends ConnectorUtil {
 
 	private void start() throws IOException {
 		Configuration config = Configuration.createStandardWithoutFile();
+		MapBasedOptionRegistry registry = new MapBasedOptionRegistry(StandardOptionRegistry.STANDARD_OPTIONS, OPTION_TRACE_CONTEXT);
 		CoapEndpoint.Builder builder = new CoapEndpoint.Builder();
 		builder.setConfiguration(config);
 		builder.setConnector(getConnector());
+		builder.setOptionRegistry(registry);
 		CoapEndpoint endpoint = builder.build();
 		if (asClient) {
 			client = new CoapClient();
@@ -188,9 +197,7 @@ public class CaliforniumUtil extends ConnectorUtil {
 					Response response = new Response(ResponseCode.CHANGED);
 					response.setPayload("Custom Greetings!");
 					response.getOptions().setContentFormat(MediaTypeRegistry.MAX_TYPE - 10);
-					int OPTION_TRACE_CONTEXT = 0b1111110111111110; // 65022
-					Option custom = new Option(OPTION_TRACE_CONTEXT);
-					custom.setStringValue("test");
+					Option custom = OPTION_TRACE_CONTEXT.create("test".getBytes());
 					response.getOptions().addOption(custom);
 					response.getOptions().setContentFormat(MediaTypeRegistry.MAX_TYPE - 10);
 					exchange.respond(response);

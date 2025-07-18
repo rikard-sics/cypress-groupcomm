@@ -13,14 +13,12 @@ doc/
 *.tmp
 *~.nib
 local.properties
-*~
 
 # Android #
 ###########
 .gradle
-gradle*.properties
-gradlew*
 build/
+!gradlew.bat
 
 # Maven #
 #########
@@ -65,15 +63,18 @@ target/
 *.tar
 *.zip
 
+# the gradle-wrapper.jar should be included in the Android demo so
+!gradle-wrapper.jar
+
 # Logs and databases #
 ######################
 Californium*.properties
 UUID.properties
 Proxy.properties
+Proxy2.properties
 *.log
 *.sql
 *.sqlite
-mvn_res
 
 # OS generated files #
 ######################
@@ -88,3 +89,9 @@ Icon?
 ehthumbs.db
 Thumbs.db
 Desktop.ini
+*~
+
+# Group OSCORE test vectors #
+######################
+cf-oscore/*.txt
+

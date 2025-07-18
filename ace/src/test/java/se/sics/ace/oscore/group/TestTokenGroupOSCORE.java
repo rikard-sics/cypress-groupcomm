@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -62,6 +62,7 @@ import se.sics.ace.AceException;
 import se.sics.ace.COSEparams;
 import se.sics.ace.Constants;
 import se.sics.ace.DBHelper;
+import se.sics.ace.GroupcommParameters;
 import se.sics.ace.Message;
 import se.sics.ace.Util;
 import se.sics.ace.as.AccessTokenFactory;
@@ -113,6 +114,15 @@ public class TestTokenGroupOSCORE {
         keyData.Add(KeyKeys.KeyType.AsCBOR(), KeyKeys.KeyType_Octet);
         keyData.Add(KeyKeys.Octet_K.AsCBOR(), CBORObject.FromObject(key128));
         OneKey skey = new OneKey(keyData);
+        
+        String groupName = "feedca570000";
+        String complexPattern = "^[J-Z][0-9][-a-z0-9]*$";
+        String[] prefixes = {GroupcommParameters.GROUP_OSCORE_AS_SCOPE_WILDCARD_PREFIX + ":",
+        		             GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_",
+        		             GroupcommParameters.GROUP_OSCORE_AS_SCOPE_COMPLEX_PREFIX + ":" + "21065" + ":" +
+        		                                                                        complexPattern.length() + ":" + complexPattern + "_"};
+        String[] permissions = GroupcommParameters.GROUP_OSCORE_ADMIN_PERMISSIONS;
+        
         
         //Setup RS entries
         Set<String> profiles = new HashSet<>();
@@ -211,7 +221,6 @@ public class TestTokenGroupOSCORE {
         expiration = 30000L;
         db.addRS("rs6", profiles, scopes, auds, keyTypes, tokenTypes, cose, expiration, null, null, publicKey);
         
-        
         profiles.clear();
         profiles.add("coap_oscore");
         auds.clear();
@@ -226,15 +235,53 @@ public class TestTokenGroupOSCORE {
         expiration = 30000L;
         db.addRS("rs7", profiles, scopes, auds, keyTypes, tokenTypes, cose, expiration, null, null, publicKey);
 
+
         // Add a further resource server "rs8" acting as OSCORE Group Manager
         // This resource server uses only REF Tokens
         profiles.clear();
         profiles.add("coap_dtls");
         scopes.clear();
-        scopes.add("feedca570000_requester");
-        scopes.add("feedca570000_responder");
-        scopes.add("feedca570000_monitor");
-        scopes.add("feedca570000_requester_responder");
+        
+        // Add identifiers of scope for user scope entries
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_requester");
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_responder");
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_monitor");
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_requester_responder");
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_requester_monitor");
+        
+        // Add identifiers of scope for admin scope entries
+        
+        // One permission
+        for (int i = 0; i < prefixes.length; i++) {
+        	scopes.add(prefixes[i] + permissions[0]);
+        }
+        // Two permissions
+        for (int i = 0; i < prefixes.length; i++) {
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[2]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[3]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[4]);
+        }
+        // Three permissions
+        for (int i = 0; i < prefixes.length; i++) {
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[2]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[3]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[4]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[2] + "_" + permissions[3]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[2] + "_" + permissions[4]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[3] + "_" + permissions[4]);
+        }
+        // Four permissions
+        for (int i = 0; i < prefixes.length; i++) {
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[2] + "_" + permissions[3]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[2] + "_" + permissions[4]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[2] + "_" + permissions[3] + "_" + permissions[4]);
+        }
+        // Five permissions
+        for (int i = 0; i < prefixes.length; i++) {
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[2] + "_" + permissions[3] + "_" + permissions[4]);
+        }
+        
         auds.clear();
         auds.add("aud8");
         keyTypes.clear();
@@ -251,15 +298,20 @@ public class TestTokenGroupOSCORE {
         // to the table OSCOREGroupManagers in the Database
         db.addOSCOREGroupManagers("rs8", auds);
         
+        
         // Add a further resource server "rs9" acting as OSCORE Group Manager
         // This resource server uses only REF Tokens
         profiles.clear();
         profiles.add("coap_dtls");
         scopes.clear();
-        scopes.add("feedca570000_requester");
-        scopes.add("feedca570000_responder");
-        scopes.add("feedca570000_monitor");
-        scopes.add("feedca570000_requester_responder");
+        
+        // Add identifiers of scope for user scope entries
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_requester");
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_responder");
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_monitor");
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_requester_responder");
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_requester_monitor");
+        
         auds.clear();
         auds.add("aud9");
         keyTypes.clear();
@@ -272,19 +324,57 @@ public class TestTokenGroupOSCORE {
         expiration = 1000000L;
         db.addRS("rs9", profiles, scopes, auds, keyTypes, tokenTypes, cose, expiration, skey, skey, publicKey);
         
-        // Add the resource server rs8 and its OSCORE Group Manager audience
+        // Add the resource server rs9 and its OSCORE Group Manager audience
         // to the table OSCOREGroupManagers in the Database
         db.addOSCOREGroupManagers("rs9", auds);
+        
         
         // Add a further resource server "rs10" acting as OSCORE Group Manager
         // This resource server uses only CBOR Web Tokens
         profiles.clear();
         profiles.add("coap_dtls");
         scopes.clear();
-        scopes.add("feedca570000_requester");
-        scopes.add("feedca570000_responder");
-        scopes.add("feedca570000_monitor");
-        scopes.add("feedca570000_requester_responder");
+        
+        // Add identifiers of scope for user scope entries
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_requester");
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_responder");
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_monitor");
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_requester_responder");
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_requester_monitor");
+        
+        // Add identifiers of scope for admin scope entries
+
+        // One permission
+        for (int i = 0; i < prefixes.length; i++) {
+        	scopes.add(prefixes[i] + permissions[0]);
+        }
+        // Two permissions
+        for (int i = 0; i < prefixes.length; i++) {
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[2]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[3]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[4]);
+        }
+        // Three permissions
+        for (int i = 0; i < prefixes.length; i++) {
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[2]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[3]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[4]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[2] + "_" + permissions[3]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[2] + "_" + permissions[4]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[3] + "_" + permissions[4]);
+        }
+        // Four permissions
+        for (int i = 0; i < prefixes.length; i++) {
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[2] + "_" + permissions[3]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[2] + "_" + permissions[4]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[2] + "_" + permissions[3] + "_" + permissions[4]);
+        }
+        // Five permissions
+        for (int i = 0; i < prefixes.length; i++) {
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[2] + "_" + permissions[3] + "_" + permissions[4]);
+        }
+        
         auds.clear();
         auds.add("aud10");
         keyTypes.clear();
@@ -301,15 +391,20 @@ public class TestTokenGroupOSCORE {
         // to the table OSCOREGroupManagers in the Database
         db.addOSCOREGroupManagers("rs10", auds);
         
+        
         // Add a further resource server "rs11" acting as OSCORE Group Manager
         // This resource server uses only CBOR Web Tokens
         profiles.clear();
         profiles.add("coap_dtls");
         scopes.clear();
-        scopes.add("feedca570000_requester");
-        scopes.add("feedca570000_responder");
-        scopes.add("feedca570000_monitor");
-        scopes.add("feedca570000_requester_responder");
+        
+        // Add identifiers of scope for user scope entries
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_requester");
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_responder");
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_monitor");
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_requester_responder");
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_requester_monitor");
+        
         auds.clear();
         auds.add("aud11");
         keyTypes.clear();
@@ -382,6 +477,21 @@ public class TestTokenGroupOSCORE {
         keyTypes.add("PSK");        
         db.addClient("clientG", profiles, null, null, keyTypes, skey, null);
         
+        // Add an further client "admin1" as an Administrator of an OSCORE group
+        profiles.clear();
+        profiles.add("coap_dtls");
+        keyTypes.clear();
+        keyTypes.add("PSK");        
+        db.addClient("admin1", profiles, null, null, keyTypes, skey, null);
+        
+        // Add an further client "admin2" as an Administrator of an OSCORE group
+        profiles.clear();
+        profiles.add("coap_dtls");
+        keyTypes.clear();
+        keyTypes.add("PSK");        
+        db.addClient("admin2", profiles, null, null, keyTypes, skey, null);
+        
+        
         time = new KissTime();
         
         //Setup token entries
@@ -418,6 +528,10 @@ public class TestTokenGroupOSCORE {
         pdp.addTokenAccess("clientF");
         // Add also client "clientG" as a joining node of an OSCORE group.
         pdp.addTokenAccess("clientG");
+        // Add also client "admin1" as an Administrator of an OSCORE group.
+        pdp.addTokenAccess("admin1");
+        // Add also client "admin2" as an Administrator of an OSCORE group.
+        pdp.addTokenAccess("admin2");
 
         pdp.addAccess(rpkid.getName(), "rs3", "rw_valve");
         pdp.addAccess("clientA", "rs5", "failTokenNotImplemented");
@@ -442,22 +556,97 @@ public class TestTokenGroupOSCORE {
         // Specify access right also for client "clientF" as a joining node of an OSCORE group.
         // On this Group Manager, this client is allowed to be
         // requester, responder, requester+responder or monitor.
-        pdp.addAccess("clientF", "rs8", "feedca570000_requester_monitor_responder");
+        pdp.addAccess("clientF", "rs8",
+           GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX +
+           ":" + groupName.length() +
+           ":" + groupName + "_requester_monitor_responder");
+                
         // On this Group Manager, this client is allowed to be requester or monitor.
-        pdp.addAccess("clientF", "rs9", "feedca570000_requester_monitor");
+        pdp.addAccess("clientF", "rs9",
+           GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX +
+           ":" + groupName.length() +
+           ":" + groupName + "_requester_monitor");
         
         // On this Group Manager, this client is allowed to be
         // requester, responder, requester+responder or monitor.
-        pdp.addAccess("clientF", "rs10", "feedca570000_requester_monitor_responder");
+        pdp.addAccess("clientF", "rs10",
+           GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX +
+           ":" + groupName.length() +
+           ":" + groupName + "_requester_monitor_responder");
+        
         // On this Group Manager, this client is allowed to be requester or monitor.
-        pdp.addAccess("clientF", "rs11", "feedca570000_requester_monitor");
+        pdp.addAccess("clientF", "rs11",
+           GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX +
+           ":" + groupName.length() +
+           ":" + groupName + "_requester_monitor");
         
         // Specify access right also for client "clientG" as a joining node of an OSCORE group.
         // This client is allowed to be only requester.
-        pdp.addAccess("clientG", "rs8", "feedca570000_requester");
-        pdp.addAccess("clientG", "rs10", "feedca570000_requester");
+        pdp.addAccess("clientG", "rs8",
+           GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX +
+           ":" + groupName.length() +
+           ":" + groupName + "_requester");
+        pdp.addAccess("clientG", "rs10",
+           GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX +
+           ":" + groupName.length() +
+           ":" + groupName + "_requester");
         
-        // Add the resource servers rs8, rs9, r10 and rs11 and their OSCORE Group Manager audience
+        // Specify admin permissions for client "admin1" as an Administrator of an OSCORE group.
+        // This Administrator is allowed to perform all the possible operations on this particular group. 
+        pdp.addAccess("admin1", "rs8",
+           GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX +
+     	  ":" + groupName.length() +
+     	  ":" + groupName + "_list_create_read_write_delete");
+        pdp.addAccess("admin1", "rs10",
+                GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX +
+          	  ":" + groupName.length() +
+          	  ":" + groupName + "_list_create_read_write_delete");
+        
+        // Specify admin permissions for client "admin1" as an Administrator of an OSCORE group.
+        // This Administrator is allowed to perform the "list" and "read" operations on a group with any name.
+        pdp.addAccess("admin1", "rs8",
+           GroupcommParameters.GROUP_OSCORE_AS_SCOPE_WILDCARD_PREFIX +
+     	  ":" + "list_read");
+        pdp.addAccess("admin1", "rs10",
+                GroupcommParameters.GROUP_OSCORE_AS_SCOPE_WILDCARD_PREFIX +
+          	  ":" + "list_read");
+        
+        // Specify admin permissions for client "admin1" as an Administrator of an OSCORE group.
+        // This Administrator is allowed to perform the "list", "read" and "delete" operations
+        // on a group with any name that matches with the regular expression "^[J-Z][0-9][-a-z0-9]*$".
+        pdp.addAccess("admin1", "rs8",
+           GroupcommParameters.GROUP_OSCORE_AS_SCOPE_COMPLEX_PREFIX +
+     	  ":" + "21065" +
+           ":" + complexPattern.length() +
+           ":" + complexPattern + "_list_read_delete");
+        pdp.addAccess("admin1", "rs10",
+                GroupcommParameters.GROUP_OSCORE_AS_SCOPE_COMPLEX_PREFIX +
+          	  ":" + "21065" +
+                ":" + complexPattern.length() +
+                ":" + complexPattern + "_list_read_delete");
+        
+        // Specify admin permissions for client "admin2" as an Administrator of an OSCORE group.
+        // This Administrator is allowed to perform all the possible operations on this particular group. 
+        pdp.addAccess("admin2", "rs8",
+           GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX +
+     	  ":" + groupName.length() +
+     	  ":" + groupName + "_list_read_delete");
+        pdp.addAccess("admin2", "rs10",
+                GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX +
+          	  ":" + groupName.length() +
+          	  ":" + groupName + "_list_read_delete");
+        
+        // Specify admin permissions for client "admin2" as an Administrator of an OSCORE group.
+        // This Administrator is allowed to perform the "list" and "read" operations on a group with any name.
+        pdp.addAccess("admin2", "rs8",
+           GroupcommParameters.GROUP_OSCORE_AS_SCOPE_WILDCARD_PREFIX +
+     	  ":" + "list_read");
+        pdp.addAccess("admin2", "rs10",
+                GroupcommParameters.GROUP_OSCORE_AS_SCOPE_WILDCARD_PREFIX +
+          	  ":" + "list_read");
+        
+        
+        // Add the resource servers rs8, rs9, r10 and rs11 and their OSCORE Group Manager  audience
         // to the table OSCOREGroupManagersTable in the PDP
         
         Set<String> aud8 = Collections.singleton("aud8");
@@ -827,8 +1016,8 @@ public class TestTokenGroupOSCORE {
      */
     @Test
     public void testGroupOSCORESingleRoleREFToken() throws Exception { 
-        String gid = new String("feedca570000");
-        String gid2 = new String("feedca570001");
+        String groupName = new String("feedca570000");
+        String groupName2 = new String("feedca570001");
     	
     	// The scope is a CBOR Array encoded as a CBOR byte string
     	
@@ -839,10 +1028,10 @@ public class TestTokenGroupOSCORE {
         CBORObject cborArrayScope = CBORObject.NewArray();
         
         CBORObject cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
     	int myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
     	cborArrayEntry.Add(myRoles);
         
         cborArrayScope.Add(cborArrayEntry);
@@ -873,7 +1062,7 @@ public class TestTokenGroupOSCORE {
         assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
         
         int expectedRoles = 0;
-        expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_REQUESTER);
+        expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
         assert(cborArrayEntry.get(1).AsInt32() == expectedRoles);
         
         assert(!params.containsKey(Constants.PROFILE));
@@ -885,10 +1074,10 @@ public class TestTokenGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_MONITOR);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_MONITOR);
     	cborArrayEntry.Add(myRoles);
     	
         
@@ -918,11 +1107,11 @@ public class TestTokenGroupOSCORE {
         cborArrayEntry = cborArrayScope.get(0);
         assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
         assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
-        assert(cborArrayEntry.get(0).AsString().equals(gid));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName));
         assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
         
         expectedRoles = 0;
-        expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_MONITOR);
+        expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_MONITOR);
         assert(cborArrayEntry.get(1).AsInt32() == expectedRoles);
         
         assert(!params.containsKey(Constants.PROFILE));
@@ -934,10 +1123,10 @@ public class TestTokenGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
     	cborArrayEntry.Add(myRoles);
     	
         
@@ -971,7 +1160,7 @@ public class TestTokenGroupOSCORE {
         assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
         
         expectedRoles = 0;
-        expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_REQUESTER);
+        expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
         assert(cborArrayEntry.get(1).AsInt32() == expectedRoles);
         
         
@@ -984,10 +1173,10 @@ public class TestTokenGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid2);
+        cborArrayEntry.Add(groupName2);
         
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
     	cborArrayEntry.Add(myRoles);
     	
         
@@ -1011,10 +1200,10 @@ public class TestTokenGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
     	
         cborArrayScope.Add(cborArrayEntry);
@@ -1036,7 +1225,7 @@ public class TestTokenGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
     	myRoles = 0;
     	myRoles = Util.addGroupOSCORERole(myRoles, (short)10);
@@ -1062,10 +1251,10 @@ public class TestTokenGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_MONITOR);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_MONITOR);
     	cborArrayEntry.Add(myRoles);
     	
         
@@ -1092,8 +1281,8 @@ public class TestTokenGroupOSCORE {
      */
     @Test
     public void testGroupOSCORESingleRoleCWT() throws Exception { 
-        String gid = new String("feedca570000");
-        String gid2 = new String("feedca570001");
+        String groupName = new String("feedca570000");
+        String groupName2 = new String("feedca570001");
     	
     	// The scope is a CBOR Array encoded as a CBOR byte string
     	
@@ -1103,10 +1292,10 @@ public class TestTokenGroupOSCORE {
         
         CBORObject cborArrayScope = CBORObject.NewArray();
         CBORObject cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
     	int myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
     	cborArrayEntry.Add(myRoles);
     	
         cborArrayScope.Add(cborArrayEntry);
@@ -1138,7 +1327,7 @@ public class TestTokenGroupOSCORE {
         assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
         
         int expectedRoles = 0;
-        expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_REQUESTER);
+        expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
         assert(cborArrayEntry.get(1).AsInt32() == expectedRoles);
         
         assert(!params.containsKey(Constants.PROFILE));
@@ -1150,10 +1339,10 @@ public class TestTokenGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_MONITOR);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_MONITOR);
     	cborArrayEntry.Add(myRoles);
     	
         cborArrayScope.Add(cborArrayEntry);
@@ -1180,11 +1369,11 @@ public class TestTokenGroupOSCORE {
         cborArrayEntry = cborArrayScope.get(0);
         assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
         assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
-        assert(cborArrayEntry.get(0).AsString().equals(gid));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName));
         assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
         
         expectedRoles = 0;
-        expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_MONITOR);
+        expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_MONITOR);
         assert(cborArrayEntry.get(1).AsInt32() == expectedRoles);
         
         assert(!params.containsKey(Constants.PROFILE));
@@ -1196,10 +1385,10 @@ public class TestTokenGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
     	cborArrayEntry.Add(myRoles);
     	
         cborArrayScope.Add(cborArrayEntry);
@@ -1226,11 +1415,11 @@ public class TestTokenGroupOSCORE {
         cborArrayEntry = cborArrayScope.get(0);
         assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
         assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
-        assert(cborArrayEntry.get(0).AsString().equals(gid));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName));
         assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
         
         expectedRoles = 0;
-        expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_REQUESTER);
+        expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
         assert(cborArrayEntry.get(1).AsInt32() == expectedRoles);
         
         assert(!params.containsKey(Constants.PROFILE));
@@ -1242,10 +1431,10 @@ public class TestTokenGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid2);
+        cborArrayEntry.Add(groupName2);
         
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
     	cborArrayEntry.Add(myRoles);
     	
         cborArrayScope.Add(cborArrayEntry);
@@ -1267,10 +1456,10 @@ public class TestTokenGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
         
         cborArrayScope.Add(cborArrayEntry);
@@ -1293,7 +1482,7 @@ public class TestTokenGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
     	myRoles = 0;
     	myRoles = Util.addGroupOSCORERole(myRoles, (short)10);
@@ -1319,10 +1508,10 @@ public class TestTokenGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_MONITOR);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_MONITOR);
     	cborArrayEntry.Add(myRoles);
         
         cborArrayScope.Add(cborArrayEntry);
@@ -1349,8 +1538,8 @@ public class TestTokenGroupOSCORE {
      */
     @Test
     public void testGroupOSCOREMultipleRolesREFToken() throws Exception { 
-        String gid = new String("feedca570000");
-        String gid2 = new String("feedca570001");
+        String groupName = new String("feedca570000");
+        String groupName2 = new String("feedca570001");
     	
     	// The scope is a CBOR Array encoded as a CBOR byte string
     	
@@ -1360,11 +1549,11 @@ public class TestTokenGroupOSCORE {
         
         CBORObject cborArrayScope = CBORObject.NewArray();
         CBORObject cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
     	
     	int myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
     	
     	cborArrayScope.Add(cborArrayEntry);
@@ -1393,13 +1582,13 @@ public class TestTokenGroupOSCORE {
         cborArrayEntry = cborArrayScope.get(0);
         assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
         assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
-        assert(cborArrayEntry.get(0).AsString().equals(gid));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName));
         
         assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
         
         int expectedRoles = 0;
-        expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_REQUESTER);
-        expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_RESPONDER);
+        expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+        expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
         assert(cborArrayEntry.get(1).AsInt32() == expectedRoles);
         
         assert(!params.containsKey(Constants.PROFILE));
@@ -1411,11 +1600,11 @@ public class TestTokenGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid2);
+        cborArrayEntry.Add(groupName2);
         
         myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
     	
     	cborArrayScope.Add(cborArrayEntry);
@@ -1437,11 +1626,11 @@ public class TestTokenGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
         myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
     	
     	cborArrayScope.Add(cborArrayEntry);
@@ -1469,11 +1658,11 @@ public class TestTokenGroupOSCORE {
         cborArrayEntry = cborArrayScope.get(0);
         assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
         assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
-        assert(cborArrayEntry.get(0).AsString().equals(gid));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName));
         assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
         
         expectedRoles = 0;
-        expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_REQUESTER);
+        expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
         assert(cborArrayEntry.get(1).AsInt32() == expectedRoles);
         
         assert(!params.containsKey(Constants.PROFILE));
@@ -1485,11 +1674,11 @@ public class TestTokenGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
         myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
     	    	
     	cborArrayScope.Add(cborArrayEntry);
@@ -1517,11 +1706,11 @@ public class TestTokenGroupOSCORE {
         cborArrayEntry = cborArrayScope.get(0);
         assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
         assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
-        assert(cborArrayEntry.get(0).AsString().equals(gid));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName));
         assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
         
         expectedRoles = 0;
-        expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_REQUESTER);
+        expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
         assert(cborArrayEntry.get(1).AsInt32() == expectedRoles);
         
         assert(!params.containsKey(Constants.PROFILE));
@@ -1533,11 +1722,11 @@ public class TestTokenGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
         myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
     		
     	cborArrayScope.Add(cborArrayEntry);
@@ -1564,8 +1753,8 @@ public class TestTokenGroupOSCORE {
      */
     @Test
     public void testGroupOSCOREMultipleRolesCWT() throws Exception { 
-        String gid = new String("feedca570000");
-        String gid2 = new String("feedca570001");
+        String groupName = new String("feedca570000");
+        String groupName2 = new String("feedca570001");
     	
     	// The scope is a CBOR Array encoded as a CBOR byte string
     	
@@ -1575,11 +1764,11 @@ public class TestTokenGroupOSCORE {
         
         CBORObject cborArrayScope = CBORObject.NewArray();
         CBORObject cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
     	int myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
     	
     	cborArrayScope.Add(cborArrayEntry);
@@ -1607,13 +1796,13 @@ public class TestTokenGroupOSCORE {
         cborArrayEntry = cborArrayScope.get(0);
         assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
         assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
-        assert(cborArrayEntry.get(0).AsString().equals(gid));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName));
         
         assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
         
         int expectedRoles = 0;
-        expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_REQUESTER);
-        expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_RESPONDER);
+        expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+        expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
         assert(cborArrayEntry.get(1).AsInt32() == expectedRoles);
         
         assert(!params.containsKey(Constants.PROFILE));
@@ -1625,11 +1814,11 @@ public class TestTokenGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid2);
+        cborArrayEntry.Add(groupName2);
         
         myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
      	
     	cborArrayScope.Add(cborArrayEntry);
@@ -1652,11 +1841,11 @@ public class TestTokenGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
         myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
     	
     	cborArrayScope.Add(cborArrayEntry);
@@ -1685,11 +1874,11 @@ public class TestTokenGroupOSCORE {
         cborArrayEntry = cborArrayScope.get(0);
         assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
         assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
-        assert(cborArrayEntry.get(0).AsString().equals(gid));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName));
         assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
         
         expectedRoles = 0;
-        expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_REQUESTER);
+        expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
         assert(cborArrayEntry.get(1).AsInt32() == expectedRoles);
         
         assert(!params.containsKey(Constants.PROFILE));
@@ -1701,11 +1890,11 @@ public class TestTokenGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
         myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
     	
     	cborArrayScope.Add(cborArrayEntry);
@@ -1734,11 +1923,11 @@ public class TestTokenGroupOSCORE {
         cborArrayEntry = cborArrayScope.get(0);
         assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
         assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
-        assert(cborArrayEntry.get(0).AsString().equals(gid));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName));
         assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
         
         expectedRoles = 0;
-        expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_REQUESTER);
+        expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
         assert(cborArrayEntry.get(1).AsInt32() == expectedRoles);
         
         assert(!params.containsKey(Constants.PROFILE));
@@ -1750,11 +1939,11 @@ public class TestTokenGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
         myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
     	
     	cborArrayScope.Add(cborArrayEntry);
@@ -1771,6 +1960,1576 @@ public class TestTokenGroupOSCORE {
         Assert.assertArrayEquals(response.getRawPayload(), cbor.EncodeToBytes());
         
     }
+    
+    
+    /**
+     * Test the token endpoint for asking permissions as an Administrator of an
+     * OSCORE group, using a REF token with a scope including the requested permissions.
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void testGroupOSCOREAdminREFToken() throws Exception { 
+    	
+        String groupName = new String("feedca570000");
+        String groupName2 = new String("feedca570001");
+        String complexPattern = "^[J-Z][0-9][-a-z0-9]*$";
+        int myPermissions = 0;
+        int expectedPermissions = 0;
+        byte[] byteStringScope = null;
+        
+    	Map<Short, CBORObject> params = new HashMap<>();
+        CBORObject cborArrayScope = CBORObject.NewArray();
+        CBORObject cborArrayEntry = CBORObject.NewArray();
+    	
+        // The scope is a CBOR Array encoded as a CBOR byte string
+        
+    	// The Administrator "admin1" can have all permission on the group with group name "feedca57000000"
+        
+    	// Toid is the literal pattern "feedca570000"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with two stored patterns: the literal pattern "feedca57000000"; the wildcard pattern
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud8"));
+        Message msg = new LocalMessage(-1, "admin1", "TestAS", params);
+        Message response = t.processMessage(msg);
+        CBORObject rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        CBORObject token = params.get(Constants.ACCESS_TOKEN);     
+        
+        String ctiStr = Base64.getEncoder().encodeToString(
+                			   CBORObject.DecodeFromBytes(
+                					   	  token.GetByteString()).GetByteString());
+        Map<Short, CBORObject> claims = db.getClaims(ctiStr);
+        
+        byteStringScope = claims.get(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the literal pattern "feedca570000"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with two stored patterns: the literal pattern "feedca57000000"; the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud8"));
+        msg = new LocalMessage(-1, "admin1", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);     
+        
+        ctiStr = Base64.getEncoder().encodeToString(
+        		 		CBORObject.DecodeFromBytes(
+        		 				   token.GetByteString()).GetByteString());
+        claims = db.getClaims(ctiStr);
+        
+        byteStringScope = claims.get(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the literal pattern "P1ab13"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with two stored patterns: the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add("P1ab13");
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud8"));
+        msg = new LocalMessage(-1, "admin1", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);     
+        
+        ctiStr = Base64.getEncoder().encodeToString(
+        		 		CBORObject.DecodeFromBytes(
+        		 				   token.GetByteString()).GetByteString());
+        claims = db.getClaims(ctiStr);
+        
+        byteStringScope = claims.get(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).AsString().equals("P1ab13"));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the literal pattern "P1ab13"; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with two stored patterns: the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add("P1ab13");
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud8"));
+        msg = new LocalMessage(-1, "admin1", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);     
+        
+        ctiStr = Base64.getEncoder().encodeToString(
+        		 		CBORObject.DecodeFromBytes(
+        		 				   token.GetByteString()).GetByteString());
+        claims = db.getClaims(ctiStr);
+        
+        byteStringScope = claims.get(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).AsString().equals("P1ab13"));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the literal pattern "feedca570001"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with the stored wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName2);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud8"));
+        msg = new LocalMessage(-1, "admin1", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);     
+        
+        ctiStr = Base64.getEncoder().encodeToString(
+        		 		CBORObject.DecodeFromBytes(
+        		 				   token.GetByteString()).GetByteString());
+        claims = db.getClaims(ctiStr);
+        
+        byteStringScope = claims.get(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName2));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the literal pattern "feedca570001"; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with the stored wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName2);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud8"));
+        msg = new LocalMessage(-1, "admin1", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);     
+        
+        ctiStr = Base64.getEncoder().encodeToString(
+        		 		CBORObject.DecodeFromBytes(
+        		 				   token.GetByteString()).GetByteString());
+        claims = db.getClaims(ctiStr);
+        
+        byteStringScope = claims.get(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName2));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the wildcard pattern; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with the stored wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(CBORObject.True);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud8"));
+        msg = new LocalMessage(-1, "admin1", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);     
+        
+        ctiStr = Base64.getEncoder().encodeToString(
+        		 		CBORObject.DecodeFromBytes(
+        		 				   token.GetByteString()).GetByteString());
+        claims = db.getClaims(ctiStr);
+        
+        byteStringScope = claims.get(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).equals(CBORObject.True));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the wildcard pattern; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with the stored wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(CBORObject.True);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud8"));
+        msg = new LocalMessage(-1, "admin1", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);     
+        
+        ctiStr = Base64.getEncoder().encodeToString(
+        		 		CBORObject.DecodeFromBytes(
+        		 				   token.GetByteString()).GetByteString());
+        claims = db.getClaims(ctiStr);
+        
+        byteStringScope = claims.get(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).equals(CBORObject.True));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with two stored patterns: the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        CBORObject toid = CBORObject.FromObjectAndTag(complexPattern, 21065);
+    	cborArrayEntry.Add(toid);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud8"));
+        msg = new LocalMessage(-1, "admin1", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);     
+        
+        ctiStr = Base64.getEncoder().encodeToString(
+        		 		CBORObject.DecodeFromBytes(
+        		 				   token.GetByteString()).GetByteString());
+        claims = db.getClaims(ctiStr);
+        
+        byteStringScope = claims.get(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).HasTag(21065));
+        assert(cborArrayEntry.get(0).equals(toid));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with two stored patterns: the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        toid = CBORObject.FromObjectAndTag(complexPattern, 21065);
+    	cborArrayEntry.Add(toid);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud8"));
+        msg = new LocalMessage(-1, "admin1", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);     
+        
+        ctiStr = Base64.getEncoder().encodeToString(
+        		 		CBORObject.DecodeFromBytes(
+        		 				   token.GetByteString()).GetByteString());
+        claims = db.getClaims(ctiStr);
+        
+        byteStringScope = claims.get(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).HasTag(21065));
+        assert(cborArrayEntry.get(0).equals(toid));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the complex (iregexp) pattern "^[A-M][0-9][-a-z0-9]*$"; Tperm expresses permissions that cannot be obtained
+    	// The Toid does not match with the stored complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$", but it matches with the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+    	toid = CBORObject.FromObjectAndTag("^[A-M][0-9][-a-z0-9]*$", 21065);
+    	cborArrayEntry.Add(toid);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud8"));
+        msg = new LocalMessage(-1, "admin1", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);     
+        
+        ctiStr = Base64.getEncoder().encodeToString(
+        		 		CBORObject.DecodeFromBytes(
+        		 				   token.GetByteString()).GetByteString());
+        claims = db.getClaims(ctiStr);
+        
+        byteStringScope = claims.get(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).HasTag(21065));
+        assert(cborArrayEntry.get(0).equals(toid));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// The Administrator "admin2" can have the permission LIST, READ, and DELETE on the group with group name "feedca57000000"
+    	
+    	// Toid is the literal pattern "feedca570000"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with two stored patterns: the literal pattern "feedca57000000"; the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud8"));
+        msg = new LocalMessage(-1, "admin2", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);     
+        
+        ctiStr = Base64.getEncoder().encodeToString(
+        		 		CBORObject.DecodeFromBytes(
+        		 				   token.GetByteString()).GetByteString());
+        claims = db.getClaims(ctiStr);
+        
+        byteStringScope = claims.get(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the literal pattern "feedca570000"; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with two stored patterns: the literal pattern "feedca57000000"; the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud8"));
+        msg = new LocalMessage(-1, "admin2", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);     
+        
+        ctiStr = Base64.getEncoder().encodeToString(
+        		 		CBORObject.DecodeFromBytes(
+        		 				   token.GetByteString()).GetByteString());
+        claims = db.getClaims(ctiStr);
+        
+        byteStringScope = claims.get(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the literal pattern "feedca570001"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with stored wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName2);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud8"));
+        msg = new LocalMessage(-1, "admin2", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);     
+        
+        ctiStr = Base64.getEncoder().encodeToString(
+        		 		CBORObject.DecodeFromBytes(
+        		 				   token.GetByteString()).GetByteString());
+        claims = db.getClaims(ctiStr);
+        
+        byteStringScope = claims.get(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName2));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the literal pattern "feedca570001"; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with stored wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName2);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud8"));
+        msg = new LocalMessage(-1, "admin2", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);     
+        
+        ctiStr = Base64.getEncoder().encodeToString(
+        		 		CBORObject.DecodeFromBytes(
+        		 				   token.GetByteString()).GetByteString());
+        claims = db.getClaims(ctiStr);
+        
+        byteStringScope = claims.get(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName2));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    }
+    
+    /**
+     * Test the token endpoint for asking permissions as an Administrator of an
+     * OSCORE group, using a CWT with a scope including the requested permissions.
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void testGroupOSCOREAdminCWT() throws Exception {
+    	
+        String groupName = new String("feedca570000");
+        String groupName2 = new String("feedca570001");
+        String complexPattern = "^[J-Z][0-9][-a-z0-9]*$";
+        int myPermissions = 0;
+        int expectedPermissions = 0;
+        byte[] byteStringScope = null;
+        
+    	Map<Short, CBORObject> params = new HashMap<>();
+        CBORObject cborArrayScope = CBORObject.NewArray();
+        CBORObject cborArrayEntry = CBORObject.NewArray();
+    	
+        // The scope is a CBOR Array encoded as a CBOR byte string
+        
+    	// The Administrator "admin1" can have all permission on the group with group name "feedca57000000"
+        
+    	// Toid is the literal pattern "feedca570000"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with two stored patterns: the literal pattern "feedca57000000"; the wildcard pattern
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud10"));
+        Message msg = new LocalMessage(-1, "admin1", "TestAS", params);
+        Message response = t.processMessage(msg);
+        CBORObject rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        CBORObject token = params.get(Constants.ACCESS_TOKEN);
+        
+        CWT cwt = CWT.processCOSE(CBORObject.DecodeFromBytes(
+                token.GetByteString()).EncodeToBytes(), 
+                CwtCryptoCtx.sign1Verify(publicKey, AlgorithmID.ECDSA_256.AsCBOR()));
+        
+        byteStringScope = cwt.getClaim(Constants.SCOPE).GetByteString();
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+        // Toid is the literal pattern "feedca570000"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with two stored patterns: the literal pattern "feedca57000000"; the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud10"));
+        msg = new LocalMessage(-1, "admin1", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);
+        
+        cwt = CWT.processCOSE(CBORObject.DecodeFromBytes(
+            token.GetByteString()).EncodeToBytes(), 
+            CwtCryptoCtx.sign1Verify(publicKey, AlgorithmID.ECDSA_256.AsCBOR()));
+        
+        byteStringScope = cwt.getClaim(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the literal pattern "P1ab13"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with two stored patterns: the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add("P1ab13");
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud10"));
+        msg = new LocalMessage(-1, "admin1", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);
+        
+        cwt = CWT.processCOSE(CBORObject.DecodeFromBytes(
+            token.GetByteString()).EncodeToBytes(), 
+            CwtCryptoCtx.sign1Verify(publicKey, AlgorithmID.ECDSA_256.AsCBOR()));
+        
+        byteStringScope = cwt.getClaim(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).AsString().equals("P1ab13"));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the literal pattern "P1ab13"; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with two stored patterns: the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add("P1ab13");
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud10"));
+        msg = new LocalMessage(-1, "admin1", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);
+        
+        cwt = CWT.processCOSE(CBORObject.DecodeFromBytes(
+            token.GetByteString()).EncodeToBytes(), 
+            CwtCryptoCtx.sign1Verify(publicKey, AlgorithmID.ECDSA_256.AsCBOR()));
+        
+        byteStringScope = cwt.getClaim(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).AsString().equals("P1ab13"));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the literal pattern "feedca570001"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with the stored wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName2);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud10"));
+        msg = new LocalMessage(-1, "admin1", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);
+        
+        cwt = CWT.processCOSE(CBORObject.DecodeFromBytes(
+            token.GetByteString()).EncodeToBytes(), 
+            CwtCryptoCtx.sign1Verify(publicKey, AlgorithmID.ECDSA_256.AsCBOR()));
+        
+        byteStringScope = cwt.getClaim(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName2));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the literal pattern "feedca570001"; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with the stored wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName2);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud10"));
+        msg = new LocalMessage(-1, "admin1", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);
+        
+        cwt = CWT.processCOSE(CBORObject.DecodeFromBytes(
+            token.GetByteString()).EncodeToBytes(), 
+            CwtCryptoCtx.sign1Verify(publicKey, AlgorithmID.ECDSA_256.AsCBOR()));
+        
+        byteStringScope = cwt.getClaim(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName2));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the wildcard pattern; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with the stored wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(CBORObject.True);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud10"));
+        msg = new LocalMessage(-1, "admin1", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);
+        
+        cwt = CWT.processCOSE(CBORObject.DecodeFromBytes(
+            token.GetByteString()).EncodeToBytes(), 
+            CwtCryptoCtx.sign1Verify(publicKey, AlgorithmID.ECDSA_256.AsCBOR()));
+        
+        byteStringScope = cwt.getClaim(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).equals(CBORObject.True));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the wildcard pattern; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with the stored wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(CBORObject.True);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud10"));
+        msg = new LocalMessage(-1, "admin1", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);
+        
+        cwt = CWT.processCOSE(CBORObject.DecodeFromBytes(
+            token.GetByteString()).EncodeToBytes(), 
+            CwtCryptoCtx.sign1Verify(publicKey, AlgorithmID.ECDSA_256.AsCBOR()));
+        
+        byteStringScope = cwt.getClaim(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).equals(CBORObject.True));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with two stored patterns: the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        CBORObject toid = CBORObject.FromObjectAndTag(complexPattern, 21065);
+    	cborArrayEntry.Add(toid);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud10"));
+        msg = new LocalMessage(-1, "admin1", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);
+        
+        cwt = CWT.processCOSE(CBORObject.DecodeFromBytes(
+            token.GetByteString()).EncodeToBytes(), 
+            CwtCryptoCtx.sign1Verify(publicKey, AlgorithmID.ECDSA_256.AsCBOR()));
+        
+        byteStringScope = cwt.getClaim(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).HasTag(21065));
+        assert(cborArrayEntry.get(0).equals(toid));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with two stored patterns: the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        toid = CBORObject.FromObjectAndTag(complexPattern, 21065);
+    	cborArrayEntry.Add(toid);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud10"));
+        msg = new LocalMessage(-1, "admin1", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);  
+        
+        cwt = CWT.processCOSE(CBORObject.DecodeFromBytes(
+            token.GetByteString()).EncodeToBytes(), 
+            CwtCryptoCtx.sign1Verify(publicKey, AlgorithmID.ECDSA_256.AsCBOR()));
+        
+        byteStringScope = cwt.getClaim(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).HasTag(21065));
+        assert(cborArrayEntry.get(0).equals(toid));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the complex (iregexp) pattern "^[A-M][0-9][-a-z0-9]*$"; Tperm expresses permissions that cannot be obtained
+    	// The Toid does not match with the stored complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$", but it matches with the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+    	toid = CBORObject.FromObjectAndTag("^[A-M][0-9][-a-z0-9]*$", 21065);
+    	cborArrayEntry.Add(toid);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud10"));
+        msg = new LocalMessage(-1, "admin1", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);
+        
+        cwt = CWT.processCOSE(CBORObject.DecodeFromBytes(
+            token.GetByteString()).EncodeToBytes(), 
+            CwtCryptoCtx.sign1Verify(publicKey, AlgorithmID.ECDSA_256.AsCBOR()));
+        
+        byteStringScope = cwt.getClaim(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).HasTag(21065));
+        assert(cborArrayEntry.get(0).equals(toid));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// The Administrator "admin2" can have the permission LIST, READ, and DELETE on the group with group name "feedca57000000"
+    	
+    	// Toid is the literal pattern "feedca570000"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with two stored patterns: the literal pattern "feedca57000000"; the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud10"));
+        msg = new LocalMessage(-1, "admin2", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);
+        
+        cwt = CWT.processCOSE(CBORObject.DecodeFromBytes(
+            token.GetByteString()).EncodeToBytes(), 
+            CwtCryptoCtx.sign1Verify(publicKey, AlgorithmID.ECDSA_256.AsCBOR()));
+        
+        byteStringScope = cwt.getClaim(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the literal pattern "feedca570000"; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with two stored patterns: the literal pattern "feedca57000000"; the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud10"));
+        msg = new LocalMessage(-1, "admin2", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN); 
+        
+        cwt = CWT.processCOSE(CBORObject.DecodeFromBytes(
+            token.GetByteString()).EncodeToBytes(), 
+            CwtCryptoCtx.sign1Verify(publicKey, AlgorithmID.ECDSA_256.AsCBOR()));
+        
+        byteStringScope = cwt.getClaim(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the literal pattern "feedca570001"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with stored wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName2);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud10"));
+        msg = new LocalMessage(-1, "admin2", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);
+        
+        cwt = CWT.processCOSE(CBORObject.DecodeFromBytes(
+            token.GetByteString()).EncodeToBytes(), 
+            CwtCryptoCtx.sign1Verify(publicKey, AlgorithmID.ECDSA_256.AsCBOR()));
+        
+        byteStringScope = cwt.getClaim(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName2));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+        
+        
+    	// Toid is the literal pattern "feedca570001"; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with stored wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName2);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud10"));
+        msg = new LocalMessage(-1, "admin2", "TestAS", params);
+        response = t.processMessage(msg);
+        rparams = CBORObject.DecodeFromBytes(response.getRawPayload());
+        params = Constants.getParams(rparams);
+        assert(response.getMessageCode() == Message.CREATED);
+        token = params.get(Constants.ACCESS_TOKEN);
+        
+        cwt = CWT.processCOSE(CBORObject.DecodeFromBytes(
+            token.GetByteString()).EncodeToBytes(), 
+            CwtCryptoCtx.sign1Verify(publicKey, AlgorithmID.ECDSA_256.AsCBOR()));
+        
+        byteStringScope = cwt.getClaim(Constants.SCOPE).GetByteString();
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayScope = CBORObject.DecodeFromBytes(byteStringScope);
+        assert(cborArrayScope.size() == 1);
+        cborArrayEntry = cborArrayScope.get(0);
+        assert(cborArrayEntry.getType().equals(CBORType.Array) && cborArrayEntry.size() == 2);
+        assert(cborArrayEntry.get(0).getType().equals(CBORType.TextString));
+        assert(cborArrayEntry.get(0).AsString().equals(groupName2));
+        assert(cborArrayEntry.get(1).getType().equals(CBORType.Integer));
+        
+        expectedPermissions = 0;
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        expectedPermissions = Util.addGroupOSCOREAdminPermission(expectedPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        assert(cborArrayEntry.get(1).AsInt32() == expectedPermissions);
+        
+        assert(!params.containsKey(Constants.PROFILE));
+
+    }
+    
+    
     
     /**
      * Test the token endpoint. Test purging expired tokens.

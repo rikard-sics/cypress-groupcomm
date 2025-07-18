@@ -15,12 +15,12 @@
  ******************************************************************************/
 package org.eclipse.californium.interoperability.test.libcoap;
 
-import static org.eclipse.californium.interoperability.test.OpenSslUtil.CLIENT_CERTIFICATE;
-import static org.eclipse.californium.interoperability.test.OpenSslUtil.OPENSSL_PSK_IDENTITY;
-import static org.eclipse.californium.interoperability.test.OpenSslUtil.OPENSSL_PSK_SECRET;
-import static org.eclipse.californium.interoperability.test.OpenSslUtil.ROOT_CERTIFICATE;
-import static org.eclipse.californium.interoperability.test.OpenSslUtil.SERVER_CERTIFICATE;
-import static org.eclipse.californium.interoperability.test.OpenSslUtil.TRUSTSTORE;
+import static org.eclipse.californium.interoperability.test.CredentialslUtil.CLIENT_CERTIFICATE;
+import static org.eclipse.californium.interoperability.test.CredentialslUtil.OPENSSL_PSK_IDENTITY;
+import static org.eclipse.californium.interoperability.test.CredentialslUtil.OPENSSL_PSK_SECRET;
+import static org.eclipse.californium.interoperability.test.CredentialslUtil.ROOT_CERTIFICATE;
+import static org.eclipse.californium.interoperability.test.CredentialslUtil.SERVER_CERTIFICATE;
+import static org.eclipse.californium.interoperability.test.CredentialslUtil.TRUSTSTORE;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeNotNull;
 import static org.junit.Assume.assumeTrue;
@@ -65,8 +65,13 @@ import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
  * 
  * <pre>
  * ./configure --disable-shared --enable-dtls --with-openssl --disable-doxygen --disable-manpages
- * ./configure --disable-shared --enable-dtls --with-tinydtls --disable-doxygen --disable-manpages
  * ./configure --disable-shared --enable-dtls --with-gnutls --disable-doxygen --disable-manpages
+ * 
+ * With tinydtls:
+ * ./configure --disable-shared --enable-dtls --with-tinydtls --disable-doxygen --disable-manpages
+ * or
+ * ./configure --disable-shared --enable-dtls --with-tinydtls --with-submodule-tinydtls --disable-doxygen --disable-manpages
+ * 
  * With libcoap 4.3.0:
  * ./configure --disable-shared --enable-dtls --with-mbedtls --disable-doxygen --disable-manpages
  * </pre>
@@ -74,6 +79,11 @@ import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
  * After {@code sudo make install}, execution of {@code sudo ldconfig} may be
  * required on Ubuntu 18.04. If {@code --disable-shared} is added, the binaries
  * are statically linked.
+ * 
+ * Note: eclipse/tinydtls has been continuously improved over 2021. Consider to
+ * use the development branch
+ * <a href="https://github.com/eclipse/tinydtls/tree/develop">github
+ * eclipse/tinydtls - develop"</a> for the interoperability tests.
  */
 public class LibCoapProcessUtil extends ProcessUtil {
 
@@ -128,12 +138,12 @@ public class LibCoapProcessUtil extends ProcessUtil {
 	private String client = LIBCOAP_CLIENT_OPENSSL;
 	private String server = LIBCOAP_SERVER_OPENSSL;
 
-	private String version;
 	private String dtlsVersion;
 	private String valgrindVersion;
 	private boolean valgrindActive;
 
 	private String verboseLevel = DEFAULT_VERBOSE_LEVEL;
+	private boolean dtlsVerboseLevel;
 	private String certificate;
 	private String privateKey;
 	private String ca;
@@ -279,6 +289,7 @@ public class LibCoapProcessUtil extends ProcessUtil {
 			execute(application, "-h");
 			ProcessResult result = waitResult(timeMillis);
 			assumeNotNull(result);
+			versionResult = result;
 			Matcher matcher = result.match(application + " v(\\S+) ");
 			assumeNotNull(matcher);
 			version = matcher.group(1);
@@ -286,6 +297,8 @@ public class LibCoapProcessUtil extends ProcessUtil {
 			matcher = result.match(dtlsLibrary + " - runtime (\\S+),");
 			assumeNotNull(matcher);
 			dtlsVersion = matcher.group(1);
+
+			dtlsVerboseLevel = result.contains("\\[-V num\\]");
 
 			return result;
 		} catch (InterruptedException ex) {
@@ -326,46 +339,17 @@ public class LibCoapProcessUtil extends ProcessUtil {
 		}
 	}
 
-	public void assumeMinVersion(String version) {
-		assumeNotNull(version);
-		assumeTrue(this.version + " > " + version, compareVersion(this.version, version) >= 0);
-	}
-
 	public void assumeMinDtlsVersion(String version) {
-		assumeNotNull(version);
+		assumeNotNull(this.dtlsVersion);
 		assumeTrue(this.dtlsVersion + " > " + version, compareVersion(this.dtlsVersion, version) >= 0);
-	}
-
-	public String getVersion() {
-		return version;
 	}
 
 	public String getDtlsVersion() {
 		return dtlsVersion;
 	}
 
-	public int compareVersion(String version2) {
-		return compareVersion(version, version2);
-	}
-
 	public int compareDtlsVersion(String version2) {
 		return compareVersion(dtlsVersion, version2);
-	}
-
-	public static int compareVersion(String version1, String version2) {
-		String[] versionPath1 = version1.split("\\.");
-		String[] versionPath2 = version2.split("\\.");
-		int length = versionPath1.length;
-		if (versionPath2.length < length) {
-			length = versionPath2.length;
-		}
-		for (int index = 0; index < length; ++index) {
-			int cmp = versionPath1[index].compareTo(versionPath2[index]);
-			if (cmp != 0) {
-				return cmp;
-			}
-		}
-		return versionPath1.length - versionPath2.length;
 	}
 
 	public void setVerboseLevel(String level) {
@@ -408,8 +392,12 @@ public class LibCoapProcessUtil extends ProcessUtil {
 		addValgrind(args);
 		args.add(client);
 		if (verboseLevel != null) {
-			args.add("-v");
+			args.add("-v"); // coap
 			args.add(verboseLevel);
+			if (dtlsVerboseLevel) {
+				args.add("-V"); // dtls
+				args.add(verboseLevel);
+			}
 		}
 		if (message != null) {
 			message = message.replace(" ", "%20");
@@ -441,7 +429,7 @@ public class LibCoapProcessUtil extends ProcessUtil {
 		}
 		if (clientOption != null) {
 			args.add("-O");
-			byte[] value = clientOption.getValue();
+			byte[] value = clientOption.encode();
 			args.add(clientOption.getNumber() + ",0x" + StringUtil.byteArray2Hex(value));
 		}
 		if (clientBlocksize != null) {
@@ -452,6 +440,7 @@ public class LibCoapProcessUtil extends ProcessUtil {
 			args.add("-N");
 		}
 		args.add(destination);
+		args.addAll(extraArgs);
 		print(args);
 		execute(args);
 	}
@@ -464,8 +453,12 @@ public class LibCoapProcessUtil extends ProcessUtil {
 		// provide coap port, coaps will be +1
 		args.addAll(Arrays.asList(server, "-p", "5683"));
 		if (verboseLevel != null) {
-			args.add("-v");
+			args.add("-v"); // coap
 			args.add(verboseLevel);
+			if (dtlsVerboseLevel) {
+				args.add("-V"); // dtls
+				args.add(verboseLevel);
+			}
 		}
 		if (CipherSuite.containsPskBasedCipherSuite(list)) {
 			args.add("-k");
@@ -485,6 +478,7 @@ public class LibCoapProcessUtil extends ProcessUtil {
 				add(args, authMode);
 			}
 		}
+		args.addAll(extraArgs);
 		print(args);
 		execute(args);
 		// wait for DEBG created DTLS endpoint [::]:5684
@@ -500,7 +494,7 @@ public class LibCoapProcessUtil extends ProcessUtil {
 		case RPK:
 			break;
 		case CHAIN:
-			if (version.startsWith("4.3.0")) {
+			if (compareVersion("4.3.0") >= 0) {
 				args.add("-n");
 			}
 			args.add("-R");

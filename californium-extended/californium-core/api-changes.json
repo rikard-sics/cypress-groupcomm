@@ -11,5 +11,103 @@
 				}
 			]
 		}
-	}
+	},
+	"3.4.0": [
+		{
+			"extension": "revapi.differences",
+			"configuration": {
+				"ignore": true,
+				"differences": [
+					{
+						"code": "java.method.visibilityReduced",
+						"old": "method void org.eclipse.californium.core.network.serialization.DataParser::<init>()",
+						"new": "method void org.eclipse.californium.core.network.serialization.DataParser::<init>()",
+						"oldVisibility": "public",
+						"newVisibility": "protected",
+						"justification": "abstract class, init is only intended to be called from subclasses"
+					}
+				]
+			}
+		}
+	],
+	"3.7.0": [
+		{
+			"extension": "revapi.differences",
+			"configuration": {
+				"ignore": true,
+				"differences": [
+					{
+						"code": "java.method.numberOfParametersChanged",
+						"old": "method void org.eclipse.californium.core.network.stack.BlockwiseStatus::addBlock(byte[]) throws org.eclipse.californium.core.network.stack.BlockwiseTransferException",
+						"new": "method void org.eclipse.californium.core.network.stack.BlockwiseStatus::addBlock(byte[], int) throws org.eclipse.californium.core.network.stack.BlockwiseTransferException",
+						"justification": "Internal API"
+					}
+				]
+			}
+		}
+	],
+	"3.8.0": [
+		{
+			"extension": "revapi.differences",
+			"configuration": {
+				"ignore": true,
+				"differences": [
+					{
+						  "code": "java.method.parameterTypeChanged",
+						  "old": "parameter org.eclipse.californium.core.network.stack.RemoteEndpoint org.eclipse.californium.core.network.stack.CongestionControlLayer::createRemoteEndpoint(===java.net.InetSocketAddress===)",
+						  "new": "parameter org.eclipse.californium.core.network.stack.RemoteEndpoint org.eclipse.californium.core.network.stack.CongestionControlLayer::createRemoteEndpoint(===java.lang.Object===)",
+						  "parameterIndex": "0",
+						  "justification": "Bugfix InetSocketAddress was already generally replaced by Object and EndpointIdentityResolver"
+					},
+					{
+						  "code": "java.method.parameterTypeChanged",
+						  "old": "parameter org.eclipse.californium.core.network.stack.RemoteEndpoint org.eclipse.californium.core.network.stack.congestioncontrol.BasicRto::createRemoteEndpoint(===java.net.InetSocketAddress===)",
+						  "new": "parameter org.eclipse.californium.core.network.stack.RemoteEndpoint org.eclipse.californium.core.network.stack.congestioncontrol.BasicRto::createRemoteEndpoint(===java.lang.Object===)",
+						  "parameterIndex": "0",
+						  "justification": "Bugfix InetSocketAddress was already generally replaced by Object and EndpointIdentityResolver"
+					},
+					{
+						  "code": "java.method.parameterTypeChanged",
+						  "old": "parameter org.eclipse.californium.core.network.stack.RemoteEndpoint org.eclipse.californium.core.network.stack.congestioncontrol.Cocoa::createRemoteEndpoint(===java.net.InetSocketAddress===)",
+						  "new": "parameter org.eclipse.californium.core.network.stack.RemoteEndpoint org.eclipse.californium.core.network.stack.congestioncontrol.Cocoa::createRemoteEndpoint(===java.lang.Object===)",
+						  "parameterIndex": "0",
+						  "justification": "Bugfix InetSocketAddress was already generally replaced by Object and EndpointIdentityResolver"
+					},
+					{
+						  "code": "java.method.parameterTypeChanged",
+						  "old": "parameter org.eclipse.californium.core.network.stack.RemoteEndpoint org.eclipse.californium.core.network.stack.congestioncontrol.LinuxRto::createRemoteEndpoint(===java.net.InetSocketAddress===)",
+						  "new": "parameter org.eclipse.californium.core.network.stack.RemoteEndpoint org.eclipse.californium.core.network.stack.congestioncontrol.LinuxRto::createRemoteEndpoint(===java.lang.Object===)",
+						  "parameterIndex": "0",
+						  "justification": "Bugfix InetSocketAddress was already generally replaced by Object and EndpointIdentityResolver"
+					},
+					{
+						  "code": "java.method.parameterTypeChanged",
+						  "old": "parameter org.eclipse.californium.core.network.stack.RemoteEndpoint org.eclipse.californium.core.network.stack.congestioncontrol.PeakhopperRto::createRemoteEndpoint(===java.net.InetSocketAddress===)",
+						  "new": "parameter org.eclipse.californium.core.network.stack.RemoteEndpoint org.eclipse.californium.core.network.stack.congestioncontrol.PeakhopperRto::createRemoteEndpoint(===java.lang.Object===)",
+						  "parameterIndex": "0",
+						  "justification": "Bugfix InetSocketAddress was already generally replaced by Object and EndpointIdentityResolver"
+					},
+					{
+						  "code": "java.method.parameterTypeChanged",
+						  "old": "parameter void org.eclipse.californium.core.network.stack.RemoteEndpoint::<init>(===java.net.InetSocketAddress===, int, int, boolean)",
+						  "new": "parameter void org.eclipse.californium.core.network.stack.RemoteEndpoint::<init>(===java.lang.Object===, int, int, boolean)",
+						  "parameterIndex": "0",
+						  "justification": "Bugfix InetSocketAddress was already generally replaced by Object and EndpointIdentityResolver"
+					},
+					{
+						  "code": "java.method.removed",
+						  "old": "method java.net.InetSocketAddress org.eclipse.californium.core.network.stack.RemoteEndpoint::getRemoteAddress()",
+						  "justification": "Bugfix InetSocketAddress was already generally replaced by Object and EndpointIdentityResolver"
+					},
+					{
+						  "code": "java.method.numberOfParametersChanged",
+						  "old": "method org.eclipse.californium.core.coap.Option org.eclipse.californium.core.network.serialization.DataParser::createOption(int, byte[])",
+						  "new": "method org.eclipse.californium.core.coap.Option org.eclipse.californium.core.network.serialization.DataParser::createOption(int, int, byte[])",
+						  "justification": "Redesign of new and rather rare used API.  Omit new major release for mainly one user of this function."
+					}				
+				]
+			}
+		}
+	]
+	
 }

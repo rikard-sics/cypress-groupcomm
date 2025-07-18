@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -40,6 +40,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.upokecenter.cbor.CBORObject;
 import com.upokecenter.cbor.CBORType;
@@ -47,7 +49,7 @@ import com.upokecenter.cbor.CBORType;
 import se.sics.ace.AceException;
 import se.sics.ace.as.DBConnector;
 import se.sics.ace.as.PDP;
-import se.sics.ace.Constants;
+import se.sics.ace.GroupcommParameters;
 import se.sics.ace.Util;
 import se.sics.ace.examples.SQLConnector;
 
@@ -113,6 +115,8 @@ public class GroupOSCOREJoinPDP implements PDP, AutoCloseable {
     private PreparedStatement selectOSCOREGroupManagers;
     
     private Map<String, Short> rolesToInt = new HashMap<>();
+    
+    private Map<String, Short> permissionsToInt = new HashMap<>();
 
 	/**
 	 * Constructor, can supply an initial configuration.
@@ -240,10 +244,17 @@ public class GroupOSCOREJoinPDP implements PDP, AutoCloseable {
                         + DBConnector.rsIdColumn + "=? ORDER BY " 
 		                + DBConnector.audColumn +";"));
         
-        rolesToInt.put("requester", Constants.GROUP_OSCORE_REQUESTER);
-        rolesToInt.put("responder", Constants.GROUP_OSCORE_RESPONDER);
-        rolesToInt.put("monitor", Constants.GROUP_OSCORE_MONITOR);
-        rolesToInt.put("verifier", Constants.GROUP_OSCORE_VERIFIER);
+        rolesToInt.put("requester", GroupcommParameters.GROUP_OSCORE_REQUESTER);
+        rolesToInt.put("responder", GroupcommParameters.GROUP_OSCORE_RESPONDER);
+        rolesToInt.put("monitor", GroupcommParameters.GROUP_OSCORE_MONITOR);
+        rolesToInt.put("verifier", GroupcommParameters.GROUP_OSCORE_VERIFIER);
+
+        permissionsToInt.put("list", GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+        permissionsToInt.put("create", GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);
+        permissionsToInt.put("read", GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+        permissionsToInt.put("write", GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE);
+        permissionsToInt.put("delete", GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+        
 	}
 	
 	@Override
@@ -268,11 +279,11 @@ public class GroupOSCOREJoinPDP implements PDP, AutoCloseable {
 	}
 	
 	/**
-	 * FIXME: Add description of method, parameters and return value.
+	 * Determine whether a Resource Server is specifically an OSCORE Group Manager
 	 * 
-	 * @param rsId
-	 * @param aud
-	 * @return  FIXME
+	 * @param rsId  the identifier of the Resource Server
+	 * @param aud   the audience for which the requested Access Token has to be issued
+	 * @return  true if the Resource Server is an OSCORE Group Manager, or false otherwise 
 	 * @throws AceException
 	 */
 	public boolean isOSCOREGroupManager(String rsId, Set<String> aud) throws AceException {
@@ -451,97 +462,312 @@ public class GroupOSCOREJoinPDP implements PDP, AutoCloseable {
         	
         	if (scopeCBOR.getType().equals(CBORType.Array)) {
         	
-        	  // Inspect each scope entry, i.e. group name followed by role(s)
+        	  // Inspect each scope entry, i.e. group name followed by role(s),
+        	  // or a group name pattern followed by admin permissions.
         	  for (int entryIndex = 0; entryIndex < scopeCBOR.size(); entryIndex++) {
         		
         		  CBORObject scopeEntry = scopeCBOR.get(entryIndex);
         		  
         		  if (scopeEntry.getType().equals(CBORType.Array)) {
 		        		
-		        	  if (scopeEntry.size() != 2)
-		        		  throw new AceException("Scope must have two elements, i.e. Group ID and list of roles");
-		        	  
+		        	  if (scopeEntry.size() != 2) {
+		        		  throw new AceException("Scope must have two elements, i.e., group name and list of roles");
+		        	  }
+
 		        	  String groupName = "";
-		        	  Set<String> roles = new HashSet<>();
-		        	  
-		        	  // Retrieve the group name of the OSCORE group
-		        	  CBORObject scopeElement = scopeEntry.get(0);
-		        	  if (scopeElement.getType().equals(CBORType.TextString)) {
-		        		  groupName = scopeElement.AsString();
-		        	  }
-		        	  else {throw new AceException("The group name must be a CBOR Text String");}
-		        	  
+		        	  Set<String> permissions = new HashSet<>();
+		        	  		        	  
 		        	  // Retrieve the role or list of roles
-		        	  scopeElement = scopeEntry.get(1);
+		        	  CBORObject scopeElement = scopeEntry.get(1);
 		        	  
-		          	  // NEW VERSION USING the AIF-BASED ENCODING AS SINGLE INTEGER
+		        	  int permissionSet = 0;
 		        	  if (scopeElement.getType().equals(CBORType.Integer)) {
-		        		  int roleSet = scopeElement.AsInt32();
 		        		  
-		        		  if (roleSet <= 0)
-		        			  throw new AceException("The roles must be encoded as a CBOR Unsigned Integer greater than 0");
+		        		  permissionSet = scopeElement.AsInt32();
 		        		  
-		        		  Set<Integer> roleIdSet = Util.getGroupOSCORERoles(roleSet);
-		        		  short[] roleIdArray = new short[roleIdSet.size()];
-		        		  int index = 0;
-		        		  for (Integer elem : roleIdSet)
-		        			  roleIdArray[index++] = elem.shortValue(); 
-		        		  for (int i=0; i<roleIdArray.length; i++) {
-		        			  short roleIdentifier = roleIdArray[i];
-		        			  // Silently ignore unrecognized roles
-		        			  if (roleIdentifier < Constants.GROUP_OSCORE_ROLES.length)
-			        			  roles.add(Constants.GROUP_OSCORE_ROLES[roleIdentifier]);
+		        		  if (permissionSet <= 0)
+		        			  throw new AceException("The permission set must be encoded as a CBOR Unsigned Integer greater than 0");
+		        		  
+		        		  if ((permissionSet % 2) == 0) {
+		        			  // This is a user scope entry, hence Tperm specifies roles to have as a group member
+		        			  
+			        		  Set<Integer> roleIdSet = Util.getGroupOSCORERoles(permissionSet);
+			        		  short[] roleIdArray = new short[roleIdSet.size()];
+			        		  int index = 0;
+			        		  for (Integer elem : roleIdSet) {
+			        			  roleIdArray[index++] = elem.shortValue();
+			        		  }
+			        		  for (int i = 0; i < roleIdArray.length; i++) {
+			        			  short roleIdentifier = roleIdArray[i];
+			        			  // Silently ignore unrecognized roles
+			        			  if (roleIdentifier < GroupcommParameters.GROUP_OSCORE_ROLES.length) {
+			        				  permissions.add(GroupcommParameters.GROUP_OSCORE_ROLES[roleIdentifier]);
+			        			  }
+			        		  }
 		        		  }
-		        		  
-		        	  }
-		        	  
-		        	  else {throw new AceException("Invalid format of roles");}
-		        	  
-		        	  // Check if the client can access the specified group on the RS with the specified roles
-		        	  // Note: this assumes that there is only one RS acting as Group Manager specified as audience
-		        	  // Then, each element of 'scopes' refers to one OSCORE group under that Group Manager
-		        	  boolean canJoin = false;
-		        	  Set<String> allowedRoles = new HashSet<>();
-		        	  for (String foo : scopes) {
-		        		  String[] scopeParts = foo.split("_");
-		        		  if(groupName.equals(scopeParts[0])) {
-		        			  canJoin = true;
-		        			  for (int i=1; i<scopeParts.length; i++) {
-		        				  if (roles.contains(scopeParts[i]))
-		        					  allowedRoles.add(scopeParts[i]);
+		        		  else {
+		        			  // This is an admin scope entry, hence Tperm specifies actions allowed to an Administrator
+		        			  
+		        			  Set<Integer> adminPermissionIdSet = Util.getGroupOSCOREAdminPermissions(permissionSet);
+		        			  short[] adminPermissionIdArray = new short[adminPermissionIdSet.size()];
+		        			  int index = 0;
+		        			  for (Integer elem : adminPermissionIdSet) {
+		        				  adminPermissionIdArray[index++] = elem.shortValue();
 		        			  }
+		        			  for (int i = 0; i < adminPermissionIdArray.length; i++) {
+		        				  short adminPermissionIdentifier = adminPermissionIdArray[i];
+		        				  // Silently ignore unrecognized admin permissions
+		        				  if (adminPermissionIdentifier < GroupcommParameters.GROUP_OSCORE_ADMIN_PERMISSIONS.length) {
+		        					  permissions.add(GroupcommParameters.GROUP_OSCORE_ADMIN_PERMISSIONS[adminPermissionIdentifier]);
+		        				  }  
+		        			  }
+		        			  
 		        		  }
+		        		  
+		        	  }
+		        	  else {
+		        		  throw new AceException("Invalid format of permissions for accessing an OSCORE Group Manager");
 		        	  }
 		        	  
-		        	  if (canJoin == true && !allowedRoles.isEmpty()) {
+		        	  
+		        	  if ((permissionSet % 2) == 0) {
+		        		  // This is a user scope entry, hence Toid specifies a group name as a literal string
 		        		  
-		        		  CBORObject cborArrayScopeEntry = CBORObject.NewArray();
-		        	      
-		        		  cborArrayScopeEntry.Add(groupName);
-		        	      
-		        		  int grantedRoles = 0;
-	        	    	  for (String foo : allowedRoles)
-	        	    		  grantedRoles = Util.addGroupOSCORERole(grantedRoles, rolesToInt.get(foo));
-	        	    	  cborArrayScopeEntry.Add(grantedRoles);
-		        	      
-		        	      cborArrayScope.Add(cborArrayScopeEntry);
-		        	     
-		        	  }
-  		      
+			        	  // Retrieve the group name of the OSCORE group
+			        	  scopeElement = scopeEntry.get(0);
+			        	  if (scopeElement.getType().equals(CBORType.TextString)) {
+			        		  groupName = scopeElement.AsString();
+			        	  }
+			        	  else {throw new AceException("The group name must be a CBOR Text String");}
+			        	  
+			        	  // Check if the client can access the specified group on the RS with the specified roles.
+			        	  // Note: this assumes that there is only one RS acting as Group Manager specified as audience
+			        	  // Then, each element of 'scopes' refers to one OSCORE group under that Group Manager
+			        	  
+			        	  Set<String> allowedRoles = new HashSet<>();
+			        	  
+			        	  for (String myScope : scopes) {
+			        		  
+			        		  // The only valid format for a valid stored scope record to parse is:
+			        		  //
+			        		  // "oscgm1:LENGTH:NAME_ROLE1_ROLE2_...
+			        		  //
+			        		  // where LENGTH is the number of characters of the group name NAME
+			        		  
+			        		  int index = myScope.indexOf(":");
+			        		  if (index == -1 || (index == (myScope.length() - 1))) {
+			        			  continue;
+			        		  }
+			        		  String mySubstr = myScope.substring(0, index);
+			        		  if (GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX.equals(mySubstr) == false) {
+			        			  continue;
+			        		  }
+			        		  
+			        		  parseOscoreGroupcommStoredScopeLiteralPattern(groupName, permissions, myScope, index, allowedRoles);
+			        		  
+			        	  }
+			        	  
+			        	  if (!allowedRoles.isEmpty()) {
+			        		  
+			        		  CBORObject cborArrayScopeEntry = CBORObject.NewArray();
+			        	      
+			        		  cborArrayScopeEntry.Add(groupName);
+			        	      
+			        		  int grantedRoles = 0;
+		        	    	  for (String foo : allowedRoles) {
+		        	    		  grantedRoles = Util.addGroupOSCORERole(grantedRoles, rolesToInt.get(foo));
+		        	    	  }
+		        	    	  cborArrayScopeEntry.Add(grantedRoles);
+			        	      
+			        	      cborArrayScope.Add(cborArrayScopeEntry);
+			        	     
+			        	  }
+        		     }
+		        	 else {
+		        		 // This is an admin scope entry, hence Tperm specifies actions allowed to an Administrator
+		        		 
+		        		  boolean wildcardPattern = false;
+		        		  boolean complexPattern = false;
+		        		  boolean invalidGroupNamePattern = true;
+		        		 
+			        	  // Retrieve the group name pattern
+			        	  scopeElement = scopeEntry.get(0);
+			        	  if (scopeElement.equals(CBORObject.True)) {
+			        		  // Wildcard pattern
+			        		  wildcardPattern = true;
+			        		  invalidGroupNamePattern = false;
+			        	  }
+			        	  else if (scopeElement.getType().equals(CBORType.TextString)) {
+
+			        		  if (scopeElement.isTagged() == false) {
+				        		  // Literal pattern
+				        		  groupName = scopeElement.AsString();
+				        		  invalidGroupNamePattern = false;
+			        		  }
+			        		  else if (scopeElement.HasTag(21065)) {
+			        			  // Complex pattern (I-Regexp regular expression)
+			        			  complexPattern = true;
+			        			  groupName = scopeElement.AsString();
+			        			  invalidGroupNamePattern = false;
+			        		  }
+			        		  
+			        	  }
+			        	  if (invalidGroupNamePattern) {
+			        		  throw new AceException("The group name pattern must be the CBOR Simple Value true or a "
+			        	  							 + "CBOR Text String, possibly as an I-Regexp regular expression");
+			        	  }
+		        		 
+			        	  // Check if the client can be Administrator for the groups on the RS whose group name matches
+			        	  // with the specified group name pattern, and according with the specified admin permissions.
+			        	  // Note: this assumes that there is only one RS acting as Group Manager specified as audience
+			        	  // Then, each element of 'scopes' refers to one OSCORE group under that Group Manager
+			        	  
+			        	  Set<String> allowedPermissions = new HashSet<>();
+			        	  			        	  
+			        	  for (String myScope : scopes) {
+			        		  
+			        		  // The format to parse for valid scope records depends on the type of
+			        		  // group name pattern specified in the Toid of the present scope entry
+			        		  
+			        		  if (wildcardPattern == true) {
+			        			  // Wildcard pattern
+			        			  
+				        		  // The only valid format for a valid stored scope record to parse is:
+				        		  //
+				        		  // "oscgm0:ROLE1_ROLE2_...
+			        			  
+			        			  int index = myScope.indexOf(":");
+			        			  if (index == -1 || (index == (myScope.length() - 1))) {
+				        			  continue;
+				        		  }
+			        			  
+			        			  String mySubstr = myScope.substring(0, index);
+			        			  
+			        			  if (GroupcommParameters.GROUP_OSCORE_AS_SCOPE_WILDCARD_PREFIX.equals(mySubstr)) {
+			        				  parseOscoreGroupcommStoredScopeWildcardPattern(permissions, myScope, index, allowedPermissions);
+				        		  }
+
+			        		  }
+			        		  else {
+			        			  if (complexPattern == true) {
+			        				  // Complex pattern
+			        				  
+					        		  // Any of the two following formats of stored scope records are valid to parse:
+				        			  //
+				        			  // "oscgm0:ROLE1_ROLE2_...
+			        				  //
+			        				  //
+					        		  // "oscgm2:SEMANTICS_ID:LENGTH:COMPLEXPATTERN_ROLE1_ROLE2_...
+					        		  //
+					        		  // where SEMANTICS_ID is the integer identifier of the semantics used for the
+			        				  // group name pattern (only 21065 as I-Regexp regular expression is supported),
+			        				  // and LENGTH is the number of characters of the group name pattern
+			        			  			        				  
+					        		  int index = myScope.indexOf(":");
+					        		  if (index == -1 || (index == (myScope.length() - 1))) {
+					        			  continue;
+					        		  }
+
+					        		  String mySubstr = myScope.substring(0, index);
+					        		  
+					        		  if (GroupcommParameters.GROUP_OSCORE_AS_SCOPE_WILDCARD_PREFIX.equals(mySubstr)) {
+					        			  parseOscoreGroupcommStoredScopeWildcardPattern(permissions, myScope,
+					        					  										 index, allowedPermissions);
+					        		  }
+					        		  if (GroupcommParameters.GROUP_OSCORE_AS_SCOPE_COMPLEX_PREFIX.equals(mySubstr)) {
+					        			  parseOscoreGroupcommStoredScopeComplexPattern(true, groupName, permissions, myScope,
+					        					  										index, allowedPermissions);
+					        		  }
+					        		  
+			        			  }
+				        		  else {
+				        			  // Literal pattern
+				        			  
+					        		  // Any of the three formats of stored scope records are valid to parse:
+				        			  //
+				        			  // "oscgm0:ROLE1_ROLE2_...
+					        		  //
+				        			  //
+					        		  // "oscgm1::LENGTH:COMPLEXPATTERN_ROLE1_ROLE2_...
+					        		  //
+					        		  // where SEMANTICS_ID is the integer identifier of the semantics used for the
+			        				  // group name pattern (only 21065 as I-Regexp regular expression is supported),
+			        				  // and LENGTH is the number of characters of the group name pattern
+				        			  //
+				        			  //
+					        		  // "oscgm2:SEMANTICS_ID:LENGTH:COMPLEXPATTERN_ROLE1_ROLE2_...
+					        		  //
+					        		  // where SEMANTICS_ID is the integer identifier of the semantics used for the
+			        				  // group name pattern (only 21065 as I-Regexp regular expression is supported),
+			        				  // and LENGTH is the number of characters of the group name pattern
+
+					        		  int index = myScope.indexOf(":");
+					        		  if (index == -1 || (index == (myScope.length() - 1))) {
+					        			  continue;
+					        		  }
+					        		  
+					        		  String mySubstr = myScope.substring(0, index);
+					        		  
+					        		  if (GroupcommParameters.GROUP_OSCORE_AS_SCOPE_WILDCARD_PREFIX.equals(mySubstr)) {
+					        			  parseOscoreGroupcommStoredScopeWildcardPattern(permissions, myScope,
+					        					  										 index, allowedPermissions);
+					        		  }
+					        		  if (GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX.equals(mySubstr)) {
+					        			  parseOscoreGroupcommStoredScopeLiteralPattern(groupName, permissions, myScope,
+					        					  										index, allowedPermissions);
+					        		  }
+					        		  if (GroupcommParameters.GROUP_OSCORE_AS_SCOPE_COMPLEX_PREFIX.equals(mySubstr)) {
+					        			  parseOscoreGroupcommStoredScopeComplexPattern(false, groupName, permissions, myScope,
+					        					  										index, allowedPermissions);
+					        		  }
+				        			  
+				        		  }
+			        		  }
+			        		  
+			        	  }
+			        	  
+			        	  if (!allowedPermissions.isEmpty()) {
+			        		  
+			        		  CBORObject cborArrayScopeEntry = CBORObject.NewArray();
+			        		  CBORObject toid;
+			        		  
+			        		  if (wildcardPattern) {
+			        			  toid = CBORObject.True;
+			        		  }
+			        		  else {
+			        			  if (complexPattern) {
+			        				  toid = CBORObject.FromObjectAndTag(groupName, 21065);
+			        			  }
+			        			  else {
+			        				  toid = CBORObject.FromObject(groupName);
+			        			  }
+			        		  }
+		        			  cborArrayScopeEntry.Add(toid);
+			        		  
+			        		  int grantedPermissions = 0;
+		        	    	  for (String foo : allowedPermissions) {
+		        	    		  grantedPermissions = Util.addGroupOSCOREAdminPermission(grantedPermissions, permissionsToInt.get(foo));
+		        	    	  }
+		        	    	  cborArrayScopeEntry.Add(grantedPermissions);
+			        	      
+			        	      cborArrayScope.Add(cborArrayScopeEntry);
+			        	     
+			        	  }
+			        	  
+		        	 }
+		        	  
         		  } else {
-        	            throw new AceException(
-          	                    "Invalid scope entry format for joining OSCORE groups");
+        			  throw new AceException("Invalid scope entry format for accessing an OSCORE Group Manager");
           	      }
         		  
-        	  
         	  } // End of scope entries inspection
         	  
-        	  if (cborArrayScope.size() != 0)
+        	  if (cborArrayScope.size() != 0) {
         		  grantedScopes = cborArrayScope.EncodeToBytes();
+        	  }
         	  
   		    } else {
-  	            throw new AceException(
-  	                    "Invalid scope format for joining OSCORE groups");
+  		    	throw new AceException("Invalid scope format for accessing an OSCORE Group Manager");
   	        }
         	
         }
@@ -551,13 +777,11 @@ public class GroupOSCOREJoinPDP implements PDP, AutoCloseable {
     	// In fact, no processing for byte string scopes are defined, other than
     	// the one implemented above according to draft-ietf-ace-key-groupcomm-oscore
         else if (scope instanceof byte[]) {
-        	throw new AceException(
-  	                "Unknown processing for this byte string scope");
+        	throw new AceException("Unknown processing for this byte string scope");
         }
         
         else {
-        	throw new AceException(
-                   "Scopes must be Text Strings or Byte Strings");
+        	throw new AceException("Scopes must be Text Strings or Byte Strings");
         }
         
         return grantedScopes;
@@ -891,6 +1115,184 @@ public class GroupOSCOREJoinPDP implements PDP, AutoCloseable {
         } catch (SQLException e) {
             throw new AceException(e.getMessage());
         }
+    }
+    
+    /**
+     * Determine which permissions can be granted to a client that has requested an Access Token for accessing
+     * an OSCORE Group Manager, based on a related stored scope that considers a wildcard pattern group name
+     *
+     * @param permissions  the set of permissions from Tperm of the considered scope entry
+     * @param input  the stored scope to parse
+     * @param index  the position of the character of the stored scope from which to start the parsing
+     * @param allowedPermissions  the set where to add the actually granted permissions
+     *
+     * @throws AceException
+     */
+    private void parseOscoreGroupcommStoredScopeWildcardPattern(final Set<String> permissions, final String input,
+    															final int index, Set<String> allowedPermissions) {
+    
+		String storedPermissionSequence = null;
+		String[] storedPermissions = null;
+		
+		
+		// Any type of group name pattern in the Toid of the scope entry of the Access Token Request
+    	// matches with the wildcard group name pattern in the stored scope
+		
+		storedPermissionSequence = input.substring((index + 1));
+		storedPermissions = storedPermissionSequence.split("_");
+		  
+		for (int i = 0; i < storedPermissions.length; i++) {
+			if (permissions.contains(storedPermissions[i])) {
+				// Concede only permissions that are both
+				// possible to give and requested by the client
+				allowedPermissions.add(storedPermissions[i]);
+			}
+		}
+    	
+    }
+    
+    /**
+     * Determine which permissions can be granted to a client that has requested an Access Token for accessing
+     * an OSCORE Group Manager, based on a related stored scope that considers a literal pattern group name
+     *
+     * @param groupNamePattern  the literal group name pattern from Toid of the considered scope entry
+     * @param permissions  the set of permissions from Tperm of the considered scope entry
+     * @param input  the stored scope to parse
+     * @param index  the position of the character of the stored scope from which to start the parsing
+     * @param allowedPermissions  the set where to add the actually granted permissions
+     *
+     * @throws AceException
+     */
+    private void parseOscoreGroupcommStoredScopeLiteralPattern(final String groupNamePattern, final Set<String> permissions,
+    														   final String input, final int index,
+    														   Set<String> allowedRolesOrPermissions) {
+    	
+    	int index2 = input.indexOf(":", (index + 1));
+    	if (index2 == -1 || (index2 == (input.length() - 1))) {
+    		return;
+    	}
+    	int length = 0;
+    	String mySubstr = input.substring((index + 1), index2);
+    	try {
+    	    length = Integer.parseInt(mySubstr);
+    	}
+    	catch (NumberFormatException e) {
+    	    return;
+    	}
+    	if ((length < 1)) {
+    		return;
+    	}
+    	mySubstr = input.substring((index2 + 1));
+    	if (mySubstr.length() < (length + 2) ) {
+    	    return;
+    	}
+
+    	String storedGroupNamePattern = mySubstr.substring(0, length);
+
+		// The literal group name pattern in the Toid of the scope entry of the Access Token Request
+    	// has to be equal to the literal group name pattern in the stored scope
+    	
+    	if(groupNamePattern.equals(storedGroupNamePattern)) {
+    	    String storedSequence = mySubstr.substring(length + 1);
+    	    String[] storedElements = storedSequence.split("_");
+    	    
+    	    for (int i = 0; i < storedElements.length; i++) {
+    	    	if (permissions.contains(storedElements[i])) {
+    				// Concede only permissions that are both
+    				// possible to give and requested by the client
+    	    		allowedRolesOrPermissions.add(storedElements[i]);
+    	    	}
+    	    }
+    	}
+
+    }
+    
+    /**
+     * Determine which permissions can be granted to a client that has requested an Access Token for accessing
+     * an OSCORE Group Manager, based on a related stored scope that considers a complex pattern group name
+     *
+     * @param isComplexPattern  true if the group name pattern from the considered scope entry is complex, or false if it is literal 
+     * @param groupNamePattern  the literal/complex group name pattern from Toid of the considered scope entry
+     * @param permissions  the set of permissions from Tperm of the considered scope entry
+     * @param input  the stored scope to parse
+     * @param index  the position of the character of the stored scope from which to start the parsing
+     * @param allowedPermissions  the set where to add the actually granted permissions
+     *
+     * @throws AceException
+     */
+    private void parseOscoreGroupcommStoredScopeComplexPattern(boolean isComplexPattern, final String groupNamePattern,
+												    		   final Set<String> permissions, final String input,
+												    		   final int index, Set<String> allowedPermissions) {
+    	
+		  String storedGroupNamePattern = null;
+		  String storedPermissionSequence = null;
+		  String[] storedPermissions = null;
+		  
+		  int index2 = input.indexOf(":", (index + 1));
+		  if (index2 == -1 || (index2 == (input.length() - 1))) {
+			  return;
+		  }
+		  int semanticsId = -1;
+		  String mySubstr = input.substring((index + 1), index2);
+		  try {
+  		  semanticsId = Integer.parseInt(mySubstr);
+		  }
+		  catch (NumberFormatException e) {
+			  return;
+		  }
+		  if ((semanticsId != 21065)) {
+			  return;
+		  }
+		  
+		  int index3 = input.indexOf(":", (index2 + 1));
+		  if (index3 == -1 || (index3 == (input.length() - 1))) {
+			  return;
+		  }
+		  int length = 0;
+		  mySubstr = input.substring((index2 + 1), index3);
+		  try {			        		  
+  		  length = Integer.parseInt(mySubstr);
+		  }
+		  catch (NumberFormatException e) {
+			  return;
+		  }
+		  if ((length < 1)) {
+			  return;
+		  }
+		  mySubstr = input.substring((index3 + 1));
+		  if (mySubstr.length() < (length + 2) ) {
+			  return;
+		  }
+		  
+		  storedGroupNamePattern = mySubstr.substring(0, length);
+		  
+		  boolean matching = false;		  
+		  if (isComplexPattern) {
+			  // In the Access Token Request, the Toid of this scope entry is a complex pattern.
+			  // Therefore, it has to be equal to the regular expression in the stored scope.
+			  matching = (groupNamePattern.equals(storedGroupNamePattern));
+		  }
+		  else {
+			  // In the Access Token Request, the Toid of this scope entry is a literal pattern.
+			  // Therefore, it has to match with the regular expression in the stored scope.
+			  Pattern pat = Pattern.compile(storedGroupNamePattern);
+			  Matcher myMatcher = pat.matcher(groupNamePattern);
+			  matching = myMatcher.matches();
+		  }
+				  
+		  if (matching) {
+	  		  storedPermissionSequence = mySubstr.substring(length + 1);
+	  		  storedPermissions = storedPermissionSequence.split("_");
+				  
+			  for (int i = 0; i < storedPermissions.length; i++) {
+				  if (permissions.contains(storedPermissions[i])) {
+					  // Concede only permissions that are both
+					  // possible to give and requested by the client
+					  allowedPermissions.add(storedPermissions[i]);
+				  }
+			  }
+		  }
+		  
     }
     
 }

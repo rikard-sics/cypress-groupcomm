@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -106,13 +106,13 @@ public class MySQLDBAdapter implements SQLDBAdapter {
     @Override
     public synchronized void createUser(String adminUser, String adminPwd) throws AceException {
         String cUser = "CREATE USER IF NOT EXISTS'" + this.user
-                + "'@'%' IDENTIFIED BY '" + this.password
+                + "'@'localhost' IDENTIFIED BY '" + this.password
                 + "';";
         String authzUser = "GRANT DELETE, INSERT, SELECT, UPDATE, CREATE ON "
-                + this.dbName + ".* TO '" + this.user + "'@'%';";
+                + this.dbName + ".* TO '" + this.user + "'@'localhost';";
 
         try (Connection adminConn = getAdminConnection(adminUser, adminPwd);
-        	Statement stmt = adminConn.createStatement()) {
+             Statement stmt = adminConn.createStatement()) {
             stmt.execute(cUser);
             stmt.execute(authzUser);
         } catch (SQLException e) {
@@ -237,7 +237,7 @@ public class MySQLDBAdapter implements SQLDBAdapter {
 
 
         try (Connection adminConn = getAdminConnection(adminUser, adminPwd);
-            Statement stmt = adminConn.createStatement()) {
+             Statement stmt = adminConn.createStatement()) {
             stmt.execute(createDB);
             stmt.execute(createRs);
             stmt.execute(createC);
@@ -272,12 +272,12 @@ public class MySQLDBAdapter implements SQLDBAdapter {
     @Override
     public void wipeDB(String adminUser, String adminPwd) throws AceException
     {
-    	try (Connection adminConn = getAdminConnection(adminUser, adminPwd);
-            Statement stmt = adminConn.createStatement())
+        try (Connection adminConn = getAdminConnection(adminUser, adminPwd);
+             Statement stmt = adminConn.createStatement())
         {
             String dropDB = "DROP DATABASE IF EXISTS " + this.dbName + ";";
             String dropUser = "DROP USER IF EXISTS '" + this.user 
-                    + "'@'%';";
+                    + "'@'localhost';";
             stmt.execute(dropDB);
             stmt.execute(dropUser);
         } catch (SQLException e) {

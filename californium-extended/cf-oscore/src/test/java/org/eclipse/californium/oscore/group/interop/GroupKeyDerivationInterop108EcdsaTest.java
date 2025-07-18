@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2020 RISE SICS and others.
+ * Copyright (c) 2023 RISE SICS and others.
  * 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
@@ -66,6 +66,9 @@ import net.i2p.crypto.eddsa.EdDSASecurityProvider;
 @Ignore
 public class GroupKeyDerivationInterop108EcdsaTest {
 
+	/**
+	 * Test name logging rule
+	 */
 	@Rule
 	public TestNameLoggerRule name = new TestNameLoggerRule();
 
@@ -83,37 +86,37 @@ public class GroupKeyDerivationInterop108EcdsaTest {
 	/* --- Context parameters for ECDSA 256 --- */
 
 	// My entity #1
-	static byte[] sid = InteropParametersOld.RIKARD_ENTITY_1_KID;
+	static byte[] sid = InteropParametersOld2.RIKARD_ENTITY_1_KID;
 	// JS entity #2
-	static byte[] rid1 = InteropParametersOld.JS_ENTITY_2_KID;
+	static byte[] rid1 = InteropParametersOld2.JS_ENTITY_2_KID;
 	// JS entity #3
-	static byte[] rid2 = InteropParametersOld.JS_ENTITY_3_KID;
+	static byte[] rid2 = InteropParametersOld2.JS_ENTITY_3_KID;
 
-	private final static byte[] master_secret = InteropParametersOld.MASTER_SECRET_ECDSA;
-	private final static byte[] master_salt = InteropParametersOld.MASTER_SALT_ECDSA;
-	private final static byte[] context_id = InteropParametersOld.GROUP_ID_ECDSA;
+	private final static byte[] master_secret = InteropParametersOld2.MASTER_SECRET_ECDSA;
+	private final static byte[] master_salt = InteropParametersOld2.MASTER_SALT_ECDSA;
+	private final static byte[] context_id = InteropParametersOld2.GROUP_ID_ECDSA;
 
 	// My entity #1
-	private static String senderFullKeyEcdsa256 = InteropParametersOld.RIKARD_ENTITY_1_KEY_ECDSA;
+	private static String senderFullKeyEcdsa256 = InteropParametersOld2.RIKARD_ENTITY_1_KEY_ECDSA;
 
 	// JS entity #2 (only public part is added to context)
-	private static String recipient1PublicKeyEcdsa256 = InteropParametersOld.JS_ENTITY_2_KEY_ECDSA;
+	private static String recipient1PublicKeyEcdsa256 = InteropParametersOld2.JS_ENTITY_2_KEY_ECDSA;
 
 	// JS entity #3 (only public part is added to context)
-	private static String recipient2PublicKeyEcdsa256 = InteropParametersOld.JS_ENTITY_3_KEY_ECDSA;
+	private static String recipient2PublicKeyEcdsa256 = InteropParametersOld2.JS_ENTITY_3_KEY_ECDSA;
 
 	/* --- End Context parameters for ECDSA 256 --- */
 
 	/* --- Context parameters for EdDSA TODO --- */
 
 	// My entity #1
-	private static String senderFullKeyEddsa = InteropParametersOld.RIKARD_ENTITY_1_KEY_EDDSA;
+	private static String senderFullKeyEddsa = InteropParametersOld2.RIKARD_ENTITY_1_KEY_EDDSA;
 
 	// JS entity #3
-	private static String recipient1PublicKeyEddsa = InteropParametersOld.JS_ENTITY_2_KEY_EDDSA;
+	private static String recipient1PublicKeyEddsa = InteropParametersOld2.JS_ENTITY_2_KEY_EDDSA;
 
 	// JS entity #3
-	private static String recipient2PublicKeyEddsa = InteropParametersOld.JS_ENTITY_3_KEY_EDDSA;
+	private static String recipient2PublicKeyEddsa = InteropParametersOld2.JS_ENTITY_3_KEY_EDDSA;
 
 	/* --- End Context parameters for EdDSA --- */
 
@@ -191,7 +194,7 @@ public class GroupKeyDerivationInterop108EcdsaTest {
 	}
 
 	@Test
-	public void testContextsAlgCountersign() throws OSException {
+	public void testContextsAlgCountersign() {
 		// Check that the contexts use the correct countersignature algorithms
 
 		assertEquals(AlgorithmID.ECDSA_256, senderCtxEcdsa.getAlgSign());
@@ -204,7 +207,7 @@ public class GroupKeyDerivationInterop108EcdsaTest {
 	}
 
 	@Test
-	public void testSenderKeys() throws OSException {
+	public void testSenderKeys() {
 		// Check that sender keys match in both contexts
 		assertArrayEquals(senderCtxEcdsa.getSenderKey(), senderCtxEddsa.getSenderKey());
 
@@ -214,7 +217,7 @@ public class GroupKeyDerivationInterop108EcdsaTest {
 	}
 
 	@Test
-	public void testRecipientKeys() throws OSException {
+	public void testRecipientKeys() {
 		// Check that recipient keys match in both contexts
 		assertArrayEquals(recipient1CtxEcdsa.getRecipientKey(), recipient1CtxEddsa.getRecipientKey());
 		assertArrayEquals(recipient2CtxEcdsa.getRecipientKey(), recipient2CtxEddsa.getRecipientKey());
@@ -228,7 +231,7 @@ public class GroupKeyDerivationInterop108EcdsaTest {
 	}
 
 	@Test
-	public void testPairwiseRecipientKeys() throws OSException {
+	public void testPairwiseRecipientKeys() {
 		byte[] recipient1EcdsaPairwiseKey = recipient1CtxEcdsa.getPairwiseRecipientKey();
 		byte[] recipient2EcdsaPairwiseKey = recipient2CtxEcdsa.getPairwiseRecipientKey();
 
@@ -253,7 +256,7 @@ public class GroupKeyDerivationInterop108EcdsaTest {
 	}
 
 	@Test
-	public void testPairwiseSenderKeys() throws OSException {
+	public void testPairwiseSenderKeys() {
 		byte[] senderEcdsaPairwiseKey1 = senderCtxEcdsa.getPairwiseSenderKey(rid1);
 		byte[] senderEcdsaPairwiseKey2 = senderCtxEcdsa.getPairwiseSenderKey(rid2);
 
@@ -336,7 +339,8 @@ public class GroupKeyDerivationInterop108EcdsaTest {
 
 		// Create context using ECDSA_256
 
-		GroupCtx groupCtxEcdsa = new GroupCtx(master_secret, master_salt, alg, kdf, context_id, AlgorithmID.ECDSA_256, null);
+		GroupCtx groupCtxEcdsa = new GroupCtx(master_secret, master_salt, alg, kdf, context_id, AlgorithmID.ECDSA_256,
+				null);
 
 		OneKey senderFullKey = new OneKey(OneKeyDecoder.parseDiagnosticToCbor(senderFullKeyEcdsa256));
 		groupCtxEcdsa.addSenderCtx(sid, senderFullKey);
@@ -365,7 +369,8 @@ public class GroupKeyDerivationInterop108EcdsaTest {
 		Provider EdDSA = new EdDSASecurityProvider();
 		Security.insertProviderAt(EdDSA, 1);
 
-		GroupCtx groupCtxEddsa = new GroupCtx(master_secret, master_salt, alg, kdf, context_id, AlgorithmID.EDDSA, null);
+		GroupCtx groupCtxEddsa = new GroupCtx(master_secret, master_salt, alg, kdf, context_id, AlgorithmID.EDDSA,
+				null);
 
 		senderFullKey = new OneKey(OneKeyDecoder.parseDiagnosticToCbor(senderFullKeyEddsa));
 		groupCtxEddsa.addSenderCtx(sid, senderFullKey);

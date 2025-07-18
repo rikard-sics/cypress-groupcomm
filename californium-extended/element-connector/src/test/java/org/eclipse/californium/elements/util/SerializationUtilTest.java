@@ -18,7 +18,6 @@ package org.eclipse.californium.elements.util;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.eclipse.californium.elements.util.TestConditionTools.inRange;
 
 import java.net.InetSocketAddress;
 import java.util.Map;
@@ -28,11 +27,15 @@ import org.eclipse.californium.elements.Definition;
 import org.eclipse.californium.elements.Definitions;
 import org.eclipse.californium.elements.MapBasedEndpointContext;
 import org.eclipse.californium.elements.MapBasedEndpointContext.Attributes;
+import org.eclipse.californium.elements.category.Small;
+import org.eclipse.californium.elements.matcher.InRange;
 import org.eclipse.californium.elements.rule.TestTimeRule;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
+@Category(Small.class)
 public class SerializationUtilTest {
 
 	private static final long MILLISECOND_IN_NANOS = TimeUnit.MILLISECONDS.toNanos(1);
@@ -142,7 +145,7 @@ public class SerializationUtilTest {
 		timePassed -= ClockUtil.nanoRealtime();
 		long delta = SerializationUtil.readNanotimeSynchronizationMark(reader);
 		timePassed += ClockUtil.nanoRealtime();
-		assertThat(delta, is(inRange(-MILLISECOND_IN_NANOS, timePassed + MILLISECOND_IN_NANOS)));
+		assertThat(delta, is(InRange.inRange(-MILLISECOND_IN_NANOS, timePassed + MILLISECOND_IN_NANOS)));
 	}
 
 	@Test
@@ -155,7 +158,44 @@ public class SerializationUtilTest {
 		timePassed -= ClockUtil.nanoRealtime();
 		long delta = SerializationUtil.readNanotimeSynchronizationMark(reader);
 		timePassed += ClockUtil.nanoRealtime();
-		assertThat(delta, is(inRange(9 * MILLISECOND_IN_NANOS, timePassed + 11 * MILLISECOND_IN_NANOS)));
+		assertThat(delta, is(InRange.inRange(9 * MILLISECOND_IN_NANOS, timePassed + 11 * MILLISECOND_IN_NANOS)));
+	}
+
+	@Test
+	public void testSkipItems() {
+		int pos = SerializationUtil.writeStartItem(writer, 10, Short.SIZE);
+		writer.writeVarBytes("hello".getBytes(), Byte.SIZE);
+		SerializationUtil.writeFinishedItem(writer, pos, Short.SIZE);
+		pos = SerializationUtil.writeStartItem(writer, 10, Short.SIZE);
+		writer.writeVarBytes(",".getBytes(), Byte.SIZE);
+		SerializationUtil.writeFinishedItem(writer, pos, Short.SIZE);
+		pos = SerializationUtil.writeStartItem(writer, 10, Short.SIZE);
+		writer.writeVarBytes("world!".getBytes(), Byte.SIZE);
+		SerializationUtil.writeFinishedItem(writer, pos, Short.SIZE);
+		SerializationUtil.writeNoItem(writer);
+		pos = SerializationUtil.writeStartItem(writer, 10, Short.SIZE);
+		writer.writeVarBytes("Next!".getBytes(), Byte.SIZE);
+		SerializationUtil.writeFinishedItem(writer, pos, Short.SIZE);
+		SerializationUtil.writeNoItem(writer);
+		swap();
+		int len = SerializationUtil.readStartItem(reader, 10, Short.SIZE);
+		byte[] data = reader.readVarBytes(Byte.SIZE);
+		assertThat(data, is("hello".getBytes()));
+		assertThat(len, is(data.length + 1)); // size of var-bytes
+		int count = SerializationUtil.skipItems(reader, Short.SIZE);
+		assertThat(count, is(2));
+		len = SerializationUtil.readStartItem(reader, 10, Short.SIZE);
+		data = reader.readVarBytes(Byte.SIZE);
+		assertThat(data, is("Next!".getBytes()));
+	}
+
+	@Test (expected = IllegalArgumentException.class)
+	public void testSkipBitsEndOfStream() {
+		int pos = SerializationUtil.writeStartItem(writer, 10, Short.SIZE);
+		writer.writeVarBytes("hello".getBytes(), Byte.SIZE);
+		SerializationUtil.writeFinishedItem(writer, pos, Short.SIZE);
+		swap();
+		SerializationUtil.skipBits(reader, 1024);
 	}
 
 	private void swap() {

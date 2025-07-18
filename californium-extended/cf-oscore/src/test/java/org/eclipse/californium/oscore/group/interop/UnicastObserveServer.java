@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019 RISE SICS and others.
+ * Copyright (c) 2023 RISE SICS and others.
  * 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
@@ -30,6 +30,10 @@ import org.eclipse.californium.core.coap.CoAP.Type;
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.server.resources.CoapExchange;
 
+/**
+ * Server for CoAP observations using unicast requests
+ *
+ */
 public class UnicastObserveServer {
 
 	private static CoapServer server;
@@ -42,10 +46,8 @@ public class UnicastObserveServer {
 
 	/**
 	 * Creates server with resources to test Observe functionality
-	 * 
-	 * @throws InterruptedException if resource update task fails
 	 */
-	public static void createServer() throws InterruptedException {
+	public static void createServer() {
 
 		Random rand = new Random();
 		final int serverID = rand.nextInt(100);

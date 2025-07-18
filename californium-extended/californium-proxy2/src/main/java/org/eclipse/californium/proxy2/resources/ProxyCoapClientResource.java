@@ -19,6 +19,7 @@ package org.eclipse.californium.proxy2.resources;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -28,6 +29,8 @@ import java.util.Map;
 import java.util.Set;
 
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+import org.eclipse.californium.core.coap.CoAP;
+import org.eclipse.californium.core.coap.MediaTypeRegistry;
 import org.eclipse.californium.core.coap.CoAP.Type;
 import org.eclipse.californium.core.CoapClient;
 import org.eclipse.californium.core.CoapHandler;
@@ -125,7 +128,8 @@ public class ProxyCoapClientResource extends ProxyCoapResource {
 			}
 
 			outgoingRequest
-					.addMessageObserver(new ProxySendResponseMessageObserver(translator, exchange, cacheKey, cache));
+					.addMessageObserver(
+							new ProxySendResponseMessageObserver(translator, exchange, cacheKey, cache, this));
 
 			/* --- RH: Handle multicast requests --- */
 
@@ -138,6 +142,10 @@ public class ProxyCoapClientResource extends ProxyCoapResource {
 				e.printStackTrace();
 			}
 			if (add.isMulticastAddress()) {
+
+				// Set exchange to not close after first response
+				exchange.setMultiResponse(true);
+
 				outgoingRequest.setType(Type.NON);
 
 				// Send using multicast handler
@@ -187,22 +195,74 @@ public class ProxyCoapClientResource extends ProxyCoapResource {
 		private final Exchange incomingExchange;
 		private final CacheKey cacheKey;
 		private final CacheResource cache;
+		private final ProxyCoapResource baseResource;
 
 		private ProxySendResponseMessageObserver(Coap2CoapTranslator translator, Exchange incomingExchange,
-				CacheKey cacheKey, CacheResource cache) {
+				CacheKey cacheKey, CacheResource cache, ProxyCoapResource baseResource) {
 			this.translator = translator;
 			this.incomingExchange = incomingExchange;
 			this.cacheKey = cacheKey;
 			this.cache = cache;
+			this.baseResource = baseResource;
 		}
 
 		@Override
 		public void onResponse(Response incomingResponse) {
+			int size = incomingResponse.getPayloadSize();
+			if (!baseResource.checkMaxResourceBodySize(size)) {
+				incomingResponse = new Response(ResponseCode.BAD_GATEWAY);
+				incomingResponse.setPayload("CoAP response of " + size + " bytes exceeds maximum support size of "
+						+ baseResource.getMaxResourceBodySize() + " bytes!");
+				incomingResponse.getOptions().setContentFormat(MediaTypeRegistry.TEXT_PLAIN);
+			}
 			if (cache != null) {
 				cache.cacheResponse(cacheKey, incomingResponse);
 			}
 			ProxyCoapClientResource.LOGGER.debug("ProxyCoapClientResource received {}", incomingResponse);
-			incomingExchange.sendResponse(translator.getResponse(incomingResponse));
+
+			// Save source address of response to add as CoAP option
+			// (Response-Forwarding)
+			InetAddress responseSourceHost = incomingResponse.getSourceContext().getPeerAddress().getAddress();
+			int responseSourcePort = incomingResponse.getSourceContext().getPeerAddress().getPort();
+
+			// Retrieve information about original request
+			// Meaning the Proxy-Uri, or Uri-Host (when Proxy-Scheme is used)
+			Integer originalReqDstPort = null;
+			boolean originalReqEndDstMcast = false;
+			if (cacheKey != null) {
+				originalReqDstPort = cacheKey.getUri().getPort();
+				String originalReqDstHost = cacheKey.getUri().getHost();
+
+				try {
+					InetAddress originalReqDstIp = InetAddress.getByName(originalReqDstHost);
+					if (originalReqDstIp.isMulticastAddress()) {
+						originalReqEndDstMcast = true;
+					}
+				} catch (UnknownHostException e) {
+					System.err.println("Failed to convert original request end destination to IP");
+					e.printStackTrace();
+				}
+			}
+
+			// https://datatracker.ietf.org/doc/html/draft-tiloca-core-groupcomm-proxy-07#section-3
+			ResponseForwardingOption responseForwarding = new ResponseForwardingOption(ResponseForwardingOption.NUMBER);
+			responseForwarding.setTpId(1);
+			responseForwarding.setSrvHost(responseSourceHost);
+			if (responseSourcePort != -1 && responseSourcePort != CoAP.DEFAULT_COAP_PORT) {
+				responseForwarding.setSrvPort(responseSourcePort);
+			}
+			if (originalReqDstPort != null && originalReqDstPort == responseSourcePort) {
+				responseForwarding.setSrvPortNull();
+			}
+
+			if (originalReqEndDstMcast) {
+				incomingResponse.getOptions().addOption(responseForwarding);
+			}
+
+			// Build outgoing response with option
+			Response outgoingResponse = translator.getResponse(incomingResponse);
+
+			incomingExchange.sendResponse(outgoingResponse);
 		}
 
 		@Override
@@ -244,8 +304,11 @@ public class ProxyCoapClientResource extends ProxyCoapResource {
 
 		private boolean on;
 
+		// Untested
 		public List<CoapResponse> getResponses() {
-			return responses;
+			List<CoapResponse> returnList = new ArrayList<CoapResponse>(responses);
+			responses.clear();
+			return returnList;
 		}
 
 		public void clearResponses() {

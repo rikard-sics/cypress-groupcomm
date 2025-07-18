@@ -15,6 +15,7 @@
  ******************************************************************************/
 package org.eclipse.californium.integration.test;
 
+import static org.eclipse.californium.integration.test.NatTestHelper.DISABLE_CID;
 import static org.eclipse.californium.integration.test.NatTestHelper.USE_CID;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -50,7 +51,6 @@ public class SecureNatTest {
 	@Rule
 	public TestNameLoggerRule name = new TestNameLoggerRule();
 
-	static final int ACK_TIMEOUT = 200;
 	static final int NUM_OF_CLIENTS = 20;
 	static final int NUM_OF_LOOPS = 50;
 
@@ -71,9 +71,9 @@ public class SecureNatTest {
 
 	@Test
 	public void testSecureGet() throws Exception {
-		helper.setupConfiguration(MatcherMode.STRICT, ACK_TIMEOUT);
+		helper.setupConfiguration(MatcherMode.STRICT);
 		helper.createSecureServer((ConnectionIdGenerator) null);
-		helper.createDefaultClientEndpoint(null);
+		helper.createDefaultClientEndpoint(DISABLE_CID);
 
 		CoapClient client = new CoapClient(helper.uri);
 		CoapResponse coapResponse = client.get();
@@ -89,7 +89,7 @@ public class SecureNatTest {
 
 	@Test
 	public void testSecureGetWithCID() throws Exception {
-		helper.setupConfiguration(MatcherMode.STRICT, ACK_TIMEOUT);
+		helper.setupConfiguration(MatcherMode.STRICT);
 		helper.createSecureServer(USE_CID);
 		helper.createDefaultClientEndpoint(USE_CID);
 
@@ -107,7 +107,7 @@ public class SecureNatTest {
 
 	@Test
 	public void testMultipleSecureGetWithCID() throws Exception {
-		helper.setupConfiguration(MatcherMode.STRICT, ACK_TIMEOUT);
+		helper.setupConfiguration(MatcherMode.STRICT);
 		helper.createSecureServer(USE_CID);
 		helper.createDefaultClientEndpoint(USE_CID);
 
@@ -133,7 +133,7 @@ public class SecureNatTest {
 
 	@Test
 	public void testMultipleSecureGetWithCIDAndResumption() throws Exception {
-		helper.setupConfiguration(MatcherMode.STRICT, ACK_TIMEOUT);
+		helper.setupConfiguration(MatcherMode.STRICT);
 		helper.createSecureServer(USE_CID);
 		helper.createDefaultClientEndpoint(USE_CID);
 
@@ -164,7 +164,7 @@ public class SecureNatTest {
 
 	@Test
 	public void testSecureGetWithMixedAddressesAndCID() throws Exception {
-		helper.setupConfiguration(MatcherMode.STRICT, ACK_TIMEOUT);
+		helper.setupConfiguration(MatcherMode.STRICT);
 		helper.createSecureServer(USE_CID);
 		helper.createDefaultClientEndpoint(USE_CID);
 
@@ -190,7 +190,7 @@ public class SecureNatTest {
 
 	@Test
 	public void testSecureGetWithMixedAddressesCIDAndResumption() throws Exception {
-		helper.setupConfiguration(MatcherMode.STRICT, ACK_TIMEOUT);
+		helper.setupConfiguration(MatcherMode.STRICT);
 		helper.createSecureServer(USE_CID);
 		helper.createDefaultClientEndpoint(USE_CID);
 
@@ -227,7 +227,7 @@ public class SecureNatTest {
 	 */
 	@Test
 	public void testSecureGetWithMixedAddressesCIDReordered() throws Exception {
-		helper.setupConfiguration(MatcherMode.STRICT, ACK_TIMEOUT);
+		helper.setupConfiguration(MatcherMode.STRICT);
 		helper.createSecureServer(USE_CID);
 		helper.createDefaultClientEndpoint(USE_CID);
 		helper.nat.setMessageReordering(10, 500, 500);

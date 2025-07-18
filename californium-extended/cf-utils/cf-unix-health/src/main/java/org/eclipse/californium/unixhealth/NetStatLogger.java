@@ -20,8 +20,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 import org.eclipse.californium.elements.util.CounterStatisticManager;
 import org.eclipse.californium.elements.util.NotForAndroid;
@@ -41,27 +39,33 @@ import org.slf4j.LoggerFactory;
 @NotForAndroid
 public class NetStatLogger extends CounterStatisticManager {
 
-	/** the logger. */
+	/**
+	 * The logger.
+	 */
 	private static final Logger LOGGER = LoggerFactory.getLogger(NetStatLogger.class);
 
-	/**
-	 * File to read the OS network statistic.
-	 */
-	private static final File SNMP = new File("/proc/net/snmp");
 	// Udp: InDatagrams NoPorts InErrors OutDatagrams RcvbufErrors SndbufErrors
 	// InCsumErrors IgnoredMulti
-	private final SimpleCounterStatistic sent = new SimpleCounterStatistic("OutDatagrams", align);
-	private final SimpleCounterStatistic received = new SimpleCounterStatistic("InDatagrams", align);
-	private final SimpleCounterStatistic sendBufferErrors = new SimpleCounterStatistic("SndbufErrors", align);
-	private final SimpleCounterStatistic receiveBufferErrors = new SimpleCounterStatistic("RcvbufErrors", align);
-	private final SimpleCounterStatistic inErrors = new SimpleCounterStatistic("InErrors", align);
-	private final SimpleCounterStatistic inChecksumErrors = new SimpleCounterStatistic("InCsumErrors", align);
-	private final SimpleCounterStatistic noPorts = new SimpleCounterStatistic("NoPorts", align);
+	protected final SimpleCounterStatistic sent = new SimpleCounterStatistic("OutDatagrams", align);
+	protected final SimpleCounterStatistic received = new SimpleCounterStatistic("InDatagrams", align);
+	protected final SimpleCounterStatistic sendBufferErrors = new SimpleCounterStatistic("SndbufErrors", align);
+	protected final SimpleCounterStatistic receiveBufferErrors = new SimpleCounterStatistic("RcvbufErrors", align);
+	protected final SimpleCounterStatistic inErrors = new SimpleCounterStatistic("InErrors", align);
+	protected final SimpleCounterStatistic inChecksumErrors = new SimpleCounterStatistic("InCsumErrors", align);
+	protected final SimpleCounterStatistic noPorts = new SimpleCounterStatistic("NoPorts", align);
 
 	/**
-	 * Start values to adjust logged values.
+	 * File to read.
+	 * 
+	 * @since 3.1
 	 */
-	private final long[] START = new long[10];
+	private final File file;
+	/**
+	 * Parser for lines.
+	 * 
+	 * @since 3.1
+	 */
+	private final Parser parser;
 
 	/**
 	 * Create passive netstat logger.
@@ -69,28 +73,13 @@ public class NetStatLogger extends CounterStatisticManager {
 	 * {@link #dump()} is intended to be called externally.
 	 * 
 	 * @param tag logging tag
+	 * @param ipv6 {@code true} for IPv6, {@code false} for IPv4
+	 * @since 3.1
 	 */
-	public NetStatLogger(String tag) {
+	public NetStatLogger(String tag, boolean ipv6) {
 		super(tag);
-		if (isEnabled()) {
-			init();
-		}
-	}
-
-	/**
-	 * Create active netstat logger.
-	 * 
-	 * {@link #dump()} is called repeated with configurable interval.
-	 * 
-	 * @param tag logging tag
-	 * @param interval interval. {@code 0} to disable active logging.
-	 * @param unit time unit of interval
-	 * @param executor executor executor to schedule active logging.
-	 * @throws NullPointerException if executor is {@code null}
-	 * @since 3.0 (added unit)
-	 */
-	public NetStatLogger(String tag, int interval, TimeUnit unit, ScheduledExecutorService executor) {
-		super(tag, interval, unit, executor);
+		this.parser = ipv6 ? new SnmpIPv6Parser() : new SnmpIPv4Parser();
+		this.file = getFile(ipv6);
 		if (isEnabled()) {
 			init();
 		}
@@ -104,76 +93,146 @@ public class NetStatLogger extends CounterStatisticManager {
 		add(inErrors);
 		add(inChecksumErrors);
 		add(noPorts);
-		read(true);
+
+		read();
+		reset();
 	}
 
 	@Override
 	public boolean isEnabled() {
-		return LOGGER.isDebugEnabled() && SNMP.canRead();
+		return LOGGER.isInfoEnabled() && file.canRead();
 	}
 
 	@Override
 	public void dump() {
 		if (isEnabled()) {
-			try {
-				read(false);
-				if (sent.isUsed() || received.isUsed()) {
-					String eol = StringUtil.lineSeparator();
-					String head = "   " + tag;
-					StringBuilder log = new StringBuilder();
-					log.append(tag).append("network statistic:").append(eol);
-					log.append(head).append(sent).append(eol);
-					log.append(head).append(received).append(eol);
-					log.append(head).append(sendBufferErrors).append(eol);
-					log.append(head).append(receiveBufferErrors).append(eol);
-					log.append(head).append(inErrors).append(eol);
-					log.append(head).append(inChecksumErrors).append(eol);
-					log.append(head).append(noPorts);
-					LOGGER.debug("{}", log);
+			read();
+			if (LOGGER.isDebugEnabled()) {
+				try {
+
+					if (sent.isUsed() || received.isUsed() || sendBufferErrors.isUsed()
+							|| receiveBufferErrors.isUsed()) {
+						String eol = StringUtil.lineSeparator();
+						String head = "   " + tag;
+						StringBuilder log = new StringBuilder();
+						log.append(tag).append("network statistic:").append(eol);
+						log.append(head).append(sent).append(eol);
+						log.append(head).append(received).append(eol);
+						log.append(head).append(sendBufferErrors).append(eol);
+						log.append(head).append(receiveBufferErrors).append(eol);
+						log.append(head).append(inErrors).append(eol);
+						log.append(head).append(inChecksumErrors).append(eol);
+						log.append(head).append(noPorts);
+						LOGGER.debug("{}", log);
+					}
+				} catch (Throwable e) {
+					LOGGER.error("{}", tag, e);
 				}
-			} catch (Throwable e) {
-				LOGGER.error("{}", tag, e);
 			}
+			transferCounter();
 		}
 	}
 
-	private void read(boolean start) {
+	private void read() {
 
-		try (BufferedReader reader = new BufferedReader(new FileReader(SNMP))) {
-			String head = null;
-			String values = null;
+		try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
 			String line;
+			parser.start();
 			while ((line = reader.readLine()) != null) {
-				if (line.startsWith("Udp: ")) {
-					head = line;
-					values = reader.readLine();
+				if (parser.parse(line.trim())) {
 					break;
 				}
 			}
-			if (head != null) {
-				String[] headFields = head.split(" ");
-				String[] valueFields = values.split(" ");
+		} catch (FileNotFoundException e) {
+			LOGGER.warn("{} missing!", file.getAbsolutePath(), e);
+		} catch (IOException e) {
+			LOGGER.warn("{} error!", file.getAbsolutePath(), e);
+		}
+	}
+
+	/**
+	 * Get file to read network statistic.
+	 * 
+	 * @param ipv6 {@code true} for IPv6, {@code false} for IPv4
+	 * @return file to read network statistic.
+	 * @since 3.1
+	 */
+	private static File getFile(boolean ipv6) {
+		String path = "/proc/net/snmp";
+		if (ipv6) {
+			path += "6";
+		}
+		LOGGER.info("File: {}", path);
+		return new File(path);
+	}
+
+	private interface Parser {
+
+		void start();
+
+		boolean parse(String line);
+	}
+
+	private class SnmpIPv4Parser implements Parser {
+
+		String heads;
+
+		@Override
+		public void start() {
+			heads = null;
+		}
+
+		@Override
+		public boolean parse(String line) {
+			if (heads == null) {
+				if (line.startsWith("Udp: ")) {
+					heads = line;
+				}
+				return false;
+			} else {
+				String[] headFields = heads.split("\\s+");
+				String[] valueFields = line.split("\\s+");
 				for (int index = 1; index < headFields.length; ++index) {
-					SimpleCounterStatistic statistic = get(headFields[index]);
+					SimpleCounterStatistic statistic = getByKey(headFields[index]);
 					if (statistic != null) {
 						try {
 							long current = Long.parseLong(valueFields[index]);
-							if (start) {
-								START[index] = current;
-							} else {
-								current -= START[index];
-								long previous = statistic.getCounter();
-								statistic.increment((int) (current - previous));
-							}
+							statistic.set(current);
+						} catch (NumberFormatException ex) {
+						}
+					}
+				}
+
+				return true;
+			}
+		}
+
+	}
+
+	private class SnmpIPv6Parser implements Parser {
+
+		@Override
+		public void start() {
+		}
+
+		@Override
+		public boolean parse(String line) {
+			if (line.startsWith("Udp6")) {
+				String[] fields = line.split("\\s+");
+				if (fields.length == 2) {
+					String name = fields[0].substring(4);
+					SimpleCounterStatistic statistic = getByKey(name);
+					if (statistic != null) {
+						try {
+							long current = Long.parseLong(fields[1].trim());
+							statistic.set(current);
 						} catch (NumberFormatException ex) {
 						}
 					}
 				}
 			}
-		} catch (FileNotFoundException e) {
-			LOGGER.warn("{} missing!", SNMP.getAbsolutePath(), e);
-		} catch (IOException e) {
-			LOGGER.warn("{} error!", SNMP.getAbsolutePath(), e);
+			return false;
 		}
+
 	}
 }

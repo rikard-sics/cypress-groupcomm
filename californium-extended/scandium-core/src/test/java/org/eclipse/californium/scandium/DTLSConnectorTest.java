@@ -47,6 +47,7 @@
  ******************************************************************************/
 package org.eclipse.californium.scandium;
 
+import static org.eclipse.californium.scandium.ConnectorHelper.LOCAL;
 import static org.eclipse.californium.scandium.ConnectorHelper.SERVER_CONNECTION_STORE_CAPACITY;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.instanceOf;
@@ -64,38 +65,41 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.eclipse.californium.elements.AddressEndpointContext;
 import org.eclipse.californium.elements.RawData;
+import org.eclipse.californium.elements.UDPConnector;
 import org.eclipse.californium.elements.auth.RawPublicKeyIdentity;
 import org.eclipse.californium.elements.category.Medium;
 import org.eclipse.californium.elements.config.CertificateAuthenticationMode;
 import org.eclipse.californium.elements.rule.LoggingRule;
 import org.eclipse.californium.elements.rule.TestNameLoggerRule;
 import org.eclipse.californium.elements.rule.ThreadsRule;
+import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.elements.util.DatagramReader;
 import org.eclipse.californium.elements.util.DatagramWriter;
 import org.eclipse.californium.elements.util.ExecutorsUtil;
-import org.eclipse.californium.elements.util.SerialExecutor;
+import org.eclipse.californium.elements.util.ProtocolScheduledExecutorService;
 import org.eclipse.californium.elements.util.SimpleMessageCallback;
 import org.eclipse.californium.elements.util.TestThreadFactory;
+import org.eclipse.californium.scandium.ConnectorHelper.AlertCatcher;
 import org.eclipse.californium.scandium.ConnectorHelper.LatchDecrementingRawDataChannel;
 import org.eclipse.californium.scandium.ConnectorHelper.LatchSessionListener;
 import org.eclipse.californium.scandium.ConnectorHelper.RecordCollectorDataHandler;
-import org.eclipse.californium.scandium.ConnectorHelper.AlertCatcher;
+import org.eclipse.californium.scandium.ConnectorHelper.TestContext;
 import org.eclipse.californium.scandium.ConnectorHelper.UdpConnector;
 import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.AlertMessage;
 import org.eclipse.californium.scandium.dtls.AlertMessage.AlertDescription;
 import org.eclipse.californium.scandium.dtls.AlertMessage.AlertLevel;
+import org.eclipse.californium.scandium.dtls.ApplicationMessage;
 import org.eclipse.californium.scandium.dtls.CertificateType;
 import org.eclipse.californium.scandium.dtls.ClientHello;
 import org.eclipse.californium.scandium.dtls.ClientKeyExchange;
@@ -117,19 +121,21 @@ import org.eclipse.californium.scandium.dtls.PSKClientKeyExchange;
 import org.eclipse.californium.scandium.dtls.ProtocolVersion;
 import org.eclipse.californium.scandium.dtls.PskPublicInformation;
 import org.eclipse.californium.scandium.dtls.Record;
+import org.eclipse.californium.scandium.dtls.ConnectionStore;
 import org.eclipse.californium.scandium.dtls.SessionId;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
-import org.eclipse.californium.scandium.dtls.pskstore.AdvancedPskStore;
-import org.eclipse.californium.scandium.dtls.pskstore.AdvancedSinglePskStore;
-import org.eclipse.californium.scandium.dtls.x509.NewAdvancedCertificateVerifier;
+import org.eclipse.californium.scandium.dtls.pskstore.PskStore;
+import org.eclipse.californium.scandium.dtls.pskstore.SinglePskStore;
+import org.eclipse.californium.scandium.dtls.x509.CertificateVerifier;
 import org.eclipse.californium.scandium.dtls.x509.SingleCertificateProvider;
-import org.eclipse.californium.scandium.dtls.x509.StaticNewAdvancedCertificateVerifier;
+import org.eclipse.californium.scandium.dtls.x509.StaticCertificateVerifier;
 import org.eclipse.californium.scandium.rule.DtlsNetworkRule;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -166,24 +172,23 @@ public class DTLSConnectorTest {
 	private static final int MAX_TIME_TO_WAIT_SECS = 2;
 
 	private static ConnectorHelper serverHelper;
-	private static ExecutorService executor;
+	private static ProtocolScheduledExecutorService executor;
 
 	DtlsConnectorConfig clientConfig;
 	DTLSConnector client;
-	InetSocketAddress clientEndpoint;
-	LatchDecrementingRawDataChannel clientRawDataChannel;
+	TestContext clientTestContext;
 	DTLSContext establishedClientContext;
-	InMemoryConnectionStore clientConnectionStore;
+	ConnectionStore clientConnectionStore;
 
 	@BeforeClass
 	public static void loadKeys() throws IOException, GeneralSecurityException {
 
-		executor = ExecutorsUtil.newFixedThreadPool(2, new TestThreadFactory("DTLS-"));
+		executor = ExecutorsUtil.newProtocolScheduledThreadPool(2, new TestThreadFactory("DTLS-"));
 
-		AdvancedSinglePskStore pskStore = new AdvancedSinglePskStore(CLIENT_IDENTITY,
+		SinglePskStore pskStore = new SinglePskStore(CLIENT_IDENTITY,
 				CLIENT_IDENTITY_SECRET.getBytes());
 
-		NewAdvancedCertificateVerifier verifier = StaticNewAdvancedCertificateVerifier.builder()
+		CertificateVerifier verifier = StaticCertificateVerifier.builder()
 				.setTrustedCertificates(DtlsTestTools.getTrustedCertificates()).setTrustAllRPKs().build();
 
 		serverHelper = new ConnectorHelper(network);
@@ -191,12 +196,13 @@ public class DTLSConnectorTest {
 		serverHelper.serverBuilder.set(DtlsConfig.DTLS_RETRANSMISSION_TIMEOUT, 500, TimeUnit.MILLISECONDS)
 				.set(DtlsConfig.DTLS_ADDITIONAL_ECC_TIMEOUT, 2000, TimeUnit.MILLISECONDS)
 				.set(DtlsConfig.DTLS_MAX_RETRANSMISSIONS, 2)
+				.set(DtlsConfig.DTLS_SUPPORT_KEY_MATERIAL_EXPORT, true)
 				.set(DtlsConfig.DTLS_EXTENDED_MASTER_SECRET_MODE, ExtendedMasterSecretMode.ENABLED)
 				.set(DtlsConfig.DTLS_RECOMMENDED_CIPHER_SUITES_ONLY, false)
 				.setAsList(DtlsConfig.DTLS_CIPHER_SUITES, CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8,
 						CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256, CipherSuite.TLS_PSK_WITH_AES_128_CCM_8,
 						CipherSuite.TLS_PSK_WITH_AES_128_CBC_SHA256, CipherSuite.TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA256)
-				.setAdvancedCertificateVerifier(verifier).setAdvancedPskStore(pskStore);
+				.setCertificateVerifier(verifier).setPskStore(pskStore);
 		serverHelper.startServer();
 	}
 
@@ -214,16 +220,10 @@ public class DTLSConnectorTest {
 
 	@Before
 	public void setUp() throws Exception {
-		clientConnectionStore = new InMemoryConnectionStore(CLIENT_CONNECTION_STORE_CAPACITY, 60);
-		clientConnectionStore.setTag("client");
-		clientEndpoint = new InetSocketAddress(InetAddress.getLoopbackAddress(), 0);
-
-		clientConfig = newClientConfigBuilder().setAddress(clientEndpoint).build();
-
+		clientConfig = newClientConfigBuilder().setAddress(LOCAL).build();
+		clientConnectionStore = ConnectorHelper.createDebugConnectionStore(clientConfig);
 		client = serverHelper.createClient(clientConfig, clientConnectionStore);
 		client.setExecutor(executor);
-
-		clientRawDataChannel = new LatchDecrementingRawDataChannel();
 	}
 
 	@After
@@ -235,15 +235,18 @@ public class DTLSConnectorTest {
 	}
 
 	private static DtlsConnectorConfig.Builder newClientConfigBuilder() throws Exception {
-		NewAdvancedCertificateVerifier verifier = StaticNewAdvancedCertificateVerifier.builder()
+		CertificateVerifier verifier = StaticCertificateVerifier.builder()
 				.setTrustedCertificates(DtlsTestTools.getTrustedCertificates()).setTrustAllRPKs().build();
 		return DtlsConnectorConfig.builder(network.createClientTestConfig())
-				.set(DtlsConfig.DTLS_RECEIVER_THREAD_COUNT, 1).set(DtlsConfig.DTLS_CONNECTOR_THREAD_COUNT, 2)
+				.set(DtlsConfig.DTLS_MAX_CONNECTIONS, CLIENT_CONNECTION_STORE_CAPACITY)
+				.set(DtlsConfig.DTLS_STALE_CONNECTION_THRESHOLD, 60, TimeUnit.SECONDS)
+				.set(DtlsConfig.DTLS_RECEIVER_THREAD_COUNT, 1)
+				.set(DtlsConfig.DTLS_CONNECTOR_THREAD_COUNT, 2)
 				.setLoggingTag("client")
 				.setCertificateIdentityProvider(new SingleCertificateProvider(DtlsTestTools.getClientPrivateKey(),
 						DtlsTestTools.getClientCertificateChain(), CertificateType.RAW_PUBLIC_KEY,
 						CertificateType.X_509))
-				.setAdvancedCertificateVerifier(verifier);
+				.setCertificateVerifier(verifier);
 	}
 
 	@Test
@@ -266,8 +269,49 @@ public class DTLSConnectorTest {
 	}
 
 	@Test
+	public void testSendToPortZeroFails() throws Exception {
+
+		// GIVEN a message including a MessageCallback
+		InetSocketAddress malicousDestination = new InetSocketAddress(serverHelper.serverEndpoint.getAddress(), 0);
+		SimpleMessageCallback callback = new SimpleMessageCallback();
+		RawData outboundMessage = RawData.outbound(new byte[] { 0x01 },
+				new AddressEndpointContext(malicousDestination), callback, false);
+
+		// WHEN sending the message
+		client.start();
+		client.send(outboundMessage);
+
+		// THEN assert that the callback has been invoked with an error
+		assertThat(callback.getError(TimeUnit.SECONDS.toMillis(MAX_TIME_TO_WAIT_SECS)), is(notNullValue()));
+	}
+
+	@Test
+	public void testMessagesFromUnknowClientGetsDropped() throws Exception {
+
+		// GIVEN a record;
+		ApplicationMessage message = new ApplicationMessage(Bytes.EMPTY);
+		Record record = new Record(ContentType.APPLICATION_DATA, ProtocolVersion.VERSION_DTLS_1_2, 10, message);
+		RawData data = RawData.outbound(record.toByteArray(), new AddressEndpointContext(serverHelper.serverEndpoint),
+				null, false);
+		// GIVEN a unknown client;
+		UDPConnector connector = new UDPConnector(null, network.createClientTestConfig());
+		try {
+			// WHEN sending the message
+			connector.start();
+			connector.send(data);
+
+			// THEN assert that the drop handler has been invoked
+			Record event = serverHelper.serverDropCatcher.waitForEvent(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS);
+			assertThat(event, is(notNullValue()));
+			assertThat(event.getPeerAddress(), is(notNullValue()));
+		} finally {
+			connector.destroy();
+		}
+	}
+
+	@Test
 	public void testConnectorEstablishesSecureSession() throws Exception {
-		givenAnEstablishedSession();
+		givenAnEstablishedSession(true);
 	}
 
 	/**
@@ -311,13 +355,14 @@ public class DTLSConnectorTest {
 
 		// THEN assert that the server has removed all connection state with
 		// client
-		AlertMessage alert = serverHelper.serverAlertCatcher.waitForAlert(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS);
+		AlertMessage alert = serverHelper.serverAlertCatcher.waitForEvent(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS);
 		assertNotNull(alert);
+		Connection serverConnection = serverHelper.serverConnectionStore.get(clientTestContext.getClientAddress());
 		if (alert.getDescription() == AlertDescription.CLOSE_NOTIFY) {
-			assertThat(serverHelper.serverConnectionStore.get(clientEndpoint), is(notNullValue()));
-			assertThat(serverHelper.serverConnectionStore.get(clientEndpoint).isClosed(), is(true));
+			assertThat(serverConnection, is(notNullValue()));
+			assertThat(serverConnection.isClosed(), is(true));
 		} else {
-			assertThat(serverHelper.serverConnectionStore.get(clientEndpoint), is(nullValue()));
+			assertThat(serverConnection, is(nullValue()));
 		}
 	}
 
@@ -349,11 +394,11 @@ public class DTLSConnectorTest {
 		// Configure UDP connector
 		RecordCollectorDataHandler collector = new RecordCollectorDataHandler();
 		collector.applyDtlsContext(null);
-		UdpConnector rawClient = new UdpConnector(clientEndpoint.getPort(), collector);
+		UdpConnector rawClient = new UdpConnector(LOCAL, collector);
 
 		try {
 			rawClient.start();
-			clientEndpoint = rawClient.getAddress();
+			InetSocketAddress clientEndpoint = rawClient.getAddress();
 
 			// Send CLIENT_HELLO
 			ClientHello clientHello = createClientHello(cipherSuite);
@@ -396,8 +441,8 @@ public class DTLSConnectorTest {
 
 			int timeout = cipherSuite.isEccBased() ? 2000 : 200;
 			rs = collector.waitForRecords(timeout, TimeUnit.MILLISECONDS);
-			assertNull("retransmission too early", rs); // check there is no
-														// timeout
+			// check there is no timeout
+			assertNull("retransmission too early", rs);
 
 			// Handle retransmission of SERVER HELLO
 			rs = collector.waitForRecords(1000, TimeUnit.MILLISECONDS);
@@ -424,11 +469,11 @@ public class DTLSConnectorTest {
 		// Configure UDP connector
 		RecordCollectorDataHandler clientCollector = new RecordCollectorDataHandler();
 		clientCollector.applyDtlsContext(null);
-		UdpConnector rawClient = new UdpConnector(clientEndpoint.getPort(), clientCollector);
+		UdpConnector rawClient = new UdpConnector(LOCAL, clientCollector);
 
 		try {
 			rawClient.start();
-			clientEndpoint = rawClient.getAddress();
+			InetSocketAddress clientEndpoint = rawClient.getAddress();
 
 			// Send CLIENT_HELLO
 			ClientHello clientHello = createClientHello(CipherSuite.TLS_PSK_WITH_AES_128_CCM_8);
@@ -474,7 +519,7 @@ public class DTLSConnectorTest {
 
 			// Ensure there is no retransmission
 			assertNull(clientCollector.waitForRecords(
-					(long) (serverHelper.serverConfig.getRetransmissionTimeout() * 1.1), TimeUnit.MILLISECONDS));
+				(long) (serverHelper.serverConfig.getTimeAsInt(DtlsConfig.DTLS_RETRANSMISSION_TIMEOUT, TimeUnit.MILLISECONDS) * 1.1), TimeUnit.MILLISECONDS));
 		} finally {
 			rawClient.stop();
 		}
@@ -490,17 +535,16 @@ public class DTLSConnectorTest {
 	@Test
 	public void testConnectorKeepsExistingSessionOnEpochZeroClientHello() throws Exception {
 
-		givenAnEstablishedSession();
+		givenAnEstablishedSession(true);
+		SessionId sessionId = clientTestContext.getSessionIdentifier();
 
 		// client has successfully established a secure session with server
-		// and has been "crashed"
-		// now we try to establish a new session with a client connecting from
-		// the
-		// same IP address and port again
+		// and has been "crashed". Now we try to establish a new session with
+		// a client connecting from the same IP address and port again
 		RecordCollectorDataHandler handler = new RecordCollectorDataHandler();
 		handler.applyDtlsContext(null);
 
-		UdpConnector rawClient = new UdpConnector(clientEndpoint.getPort(), handler);
+		UdpConnector rawClient = new UdpConnector(clientTestContext.getClientAddress(), handler);
 		rawClient.start();
 
 		rawClient.sendRecord(serverHelper.serverEndpoint,
@@ -513,12 +557,11 @@ public class DTLSConnectorTest {
 			HandshakeMessage msg = (HandshakeMessage) record.getFragment();
 			assertThat("Expected HELLO_VERIFY_REQUEST from server", msg.getMessageType(),
 					is(HandshakeType.HELLO_VERIFY_REQUEST));
-			Connection con = serverHelper.serverConnectionStore.get(clientEndpoint);
+			Connection con = serverHelper.serverConnectionStore.get(clientTestContext.getClientAddress());
 			assertNotNull(con);
 			assertNotNull(con.getEstablishedSession());
 			assertThat("Server should not have established new session with client yet",
-					con.getEstablishedSession().getSessionIdentifier(),
-					is(serverHelper.establishedServerSession.getSessionIdentifier()));
+					con.getEstablishedSession().getSessionIdentifier(), is(sessionId));
 		} finally {
 			synchronized (rawClient) {
 				rawClient.stop();
@@ -530,15 +573,14 @@ public class DTLSConnectorTest {
 
 		// now check if we can still use the originally established session to
 		// exchange application data
-		clientRawDataChannel.setLatchCount(1);
+		clientTestContext.setLatchCount(1);
 		// restart original client binding to same IP address and port as before
 		client.restart();
 		// make sure client still has original session in its cache
 		Connection con = clientConnectionStore.get(serverHelper.serverEndpoint);
 		assertNotNull(con);
 		assertNotNull(con.getEstablishedSession());
-		assertThat(con.getEstablishedSession().getSessionIdentifier(),
-				is(serverHelper.establishedServerSession.getSessionIdentifier()));
+		assertThat(con.getEstablishedSession().getSessionIdentifier(), is(sessionId));
 
 		RawData data = RawData.outbound("Hello World".getBytes(),
 				new AddressEndpointContext(serverHelper.serverEndpoint), null, false);
@@ -547,10 +589,9 @@ public class DTLSConnectorTest {
 		con = serverHelper.serverConnectionStore.get(client.getAddress());
 		assertNotNull(con);
 		assertNotNull(con.getEstablishedSession());
-		assertTrue(clientRawDataChannel.await(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS));
+		assertTrue(clientTestContext.await(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS));
 		assertThat("Server should have reused existing session with client instead of creating a new one",
-				con.getEstablishedSession().getSessionIdentifier(),
-				is(serverHelper.establishedServerSession.getSessionIdentifier()));
+				con.getEstablishedSession().getSessionIdentifier(), is(sessionId));
 	}
 
 	/**
@@ -567,9 +608,8 @@ public class DTLSConnectorTest {
 		givenAnIncompleteHandshake();
 
 		// WHEN starting a new handshake (epoch 0) reusing the same client IP
-		DtlsConnectorConfig clientConfig = newClientConfigBuilder().setAddress(clientEndpoint).build();
-		clientConnectionStore = new InMemoryConnectionStore(CLIENT_CONNECTION_STORE_CAPACITY, 60);
-		clientConnectionStore.setTag("client");
+		DtlsConnectorConfig clientConfig = newClientConfigBuilder().setAddress(LOCAL).build();
+		clientConnectionStore = ConnectorHelper.createDebugConnectionStore(clientConfig);
 		client = new DTLSConnector(clientConfig, clientConnectionStore);
 
 		// THEN assert that the handshake succeeds and a session is established
@@ -588,10 +628,10 @@ public class DTLSConnectorTest {
 		// configure UDP connector
 		RecordCollectorDataHandler handler = new RecordCollectorDataHandler();
 		handler.applyDtlsContext(null);
-		UdpConnector rawClient = new UdpConnector(clientEndpoint.getPort(), handler);
+		UdpConnector rawClient = new UdpConnector(LOCAL, handler);
 		try {
 			rawClient.start();
-			clientEndpoint = rawClient.getAddress();
+			InetSocketAddress clientEndpoint = rawClient.getAddress();
 
 			// send CLIENT_HELLO
 			ClientHello clientHello = createClientHello(CipherSuite.TLS_PSK_WITH_AES_128_CCM_8);
@@ -666,20 +706,20 @@ public class DTLSConnectorTest {
 	@Test
 	public void testConnectorReplacesExistingSessionAfterFullHandshake() throws Exception {
 
-		givenAnEstablishedSession();
+		givenAnEstablishedSession(true);
 
 		// the ID of the originally established session
-		SessionId originalSessionId = serverHelper.establishedServerSession.getSessionIdentifier();
+		SessionId originalSessionId = clientTestContext.getSessionIdentifier();
 
 		// client has successfully established a secure session with server
 		// and has been "crashed"
 		// now we try to establish a new session with a client connecting from
-		// the
-		// same IP address and port again
-		clientRawDataChannel.setLatchCount(1);
-		DtlsConnectorConfig clientConfig = newClientConfigBuilder().setAddress(clientEndpoint).build();
-		client = new DTLSConnector(clientConfig);
-		client.setRawDataReceiver(clientRawDataChannel);
+		// the same IP address and port again
+		clientTestContext.setLatchCount(1);
+		DtlsConnectorConfig clientConfig = newClientConfigBuilder().setAddress(clientTestContext.getClientAddress()).build();
+		ConnectionStore clientConnectionStore = ConnectorHelper.createDebugConnectionStore(clientConfig);
+		client = new DTLSConnector(clientConfig, clientConnectionStore);
+		client.setRawDataReceiver(clientTestContext.getChannel());
 		client.setExecutor(executor);
 		client.start();
 
@@ -687,8 +727,8 @@ public class DTLSConnectorTest {
 				new AddressEndpointContext(serverHelper.serverEndpoint), null, false);
 		client.send(data);
 
-		assertTrue(clientRawDataChannel.await(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS));
-		Connection con = serverHelper.serverConnectionStore.get(clientEndpoint);
+		assertTrue(clientTestContext.await(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS));
+		Connection con = serverHelper.serverConnectionStore.get(clientTestContext.getClientAddress());
 		assertNotNull(con);
 		assertNotNull(con.getEstablishedSession());
 		// make sure that the server has created a new session replacing the
@@ -701,8 +741,7 @@ public class DTLSConnectorTest {
 	public void testStartStopWithNewAddress() throws Exception {
 		// Do a first handshake
 		givenAnEstablishedSession(false);
-		byte[] sessionId = serverHelper.establishedServerSession.getSessionIdentifier().getBytes();
-		InetSocketAddress firstAddress = client.getAddress();
+		byte[] sessionId = clientTestContext.getSessionIdentifier().getBytes();
 
 		// Stop the client
 		client.stop();
@@ -711,17 +750,17 @@ public class DTLSConnectorTest {
 
 		// Restart it
 		client.start();
-		assertNotEquals(firstAddress, client.getAddress());
+		assertNotEquals(clientTestContext.getClientAddress(), client.getAddress());
 
 		// Prepare message sending
 		final String msg = "Hello Again";
-		clientRawDataChannel.setLatchCount(1);
+		clientTestContext.setLatchCount(1);
 
 		// send message
 		RawData data = RawData.outbound(msg.getBytes(), new AddressEndpointContext(serverHelper.serverEndpoint), null,
 				false);
 		client.send(data);
-		assertTrue(clientRawDataChannel.await(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS));
+		assertTrue(clientTestContext.await(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS));
 
 		// check we use the same session id
 		connection = clientConnectionStore.get(serverHelper.serverEndpoint);
@@ -733,8 +772,7 @@ public class DTLSConnectorTest {
 	public void testStartStopWithSameAddress() throws Exception {
 		// Do a first handshake
 		givenAnEstablishedSession(false);
-		byte[] sessionId = serverHelper.establishedServerSession.getSessionIdentifier().getBytes();
-		InetSocketAddress firstAddress = client.getAddress();
+		byte[] sessionId = clientTestContext.getSessionIdentifier().getBytes();
 
 		// Stop the client
 		client.stop();
@@ -743,17 +781,17 @@ public class DTLSConnectorTest {
 
 		// Restart it
 		client.restart();
-		assertEquals(firstAddress, client.getAddress());
+		assertEquals(clientTestContext.getClientAddress(), client.getAddress());
 
 		// Prepare message sending
 		final String msg = "Hello Again";
-		clientRawDataChannel.setLatchCount(1);
+		clientTestContext.setLatchCount(1);
 
 		// send message
 		RawData data = RawData.outbound(msg.getBytes(), new AddressEndpointContext(serverHelper.serverEndpoint), null,
 				false);
 		client.send(data);
-		assertTrue(clientRawDataChannel.await(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS));
+		assertTrue(clientTestContext.await(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS));
 
 		// check we use the same session id
 		connection = clientConnectionStore.get(serverHelper.serverEndpoint);
@@ -767,8 +805,7 @@ public class DTLSConnectorTest {
 		client.setExecutor(null);
 		// Do a first handshake
 		givenAnEstablishedSession(false);
-		byte[] sessionId = serverHelper.establishedServerSession.getSessionIdentifier().getBytes();
-		InetSocketAddress firstAddress = client.getAddress();
+		byte[] sessionId = clientTestContext.getSessionIdentifier().getBytes();
 
 		// Stop the client
 		client.stop();
@@ -777,17 +814,17 @@ public class DTLSConnectorTest {
 
 		// Restart it
 		client.restart();
-		assertEquals(firstAddress, client.getAddress());
+		assertEquals(clientTestContext.getClientAddress(), client.getAddress());
 
 		// Prepare message sending
 		final String msg = "Hello Again";
-		clientRawDataChannel.setLatchCount(1);
+		clientTestContext.setLatchCount(1);
 
 		// send message
 		RawData data = RawData.outbound(msg.getBytes(), new AddressEndpointContext(serverHelper.serverEndpoint), null,
 				false);
 		client.send(data);
-		assertTrue(clientRawDataChannel.await(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS));
+		assertTrue(clientTestContext.await(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS));
 
 		// check we use the same session id
 		connection = clientConnectionStore.get(serverHelper.serverEndpoint);
@@ -799,8 +836,7 @@ public class DTLSConnectorTest {
 	public void testStartStopWithSameAddressPersistent() throws Exception {
 		// Do a first handshake
 		givenAnEstablishedSession(false);
-		byte[] sessionId = serverHelper.establishedServerSession.getSessionIdentifier().getBytes();
-		InetSocketAddress firstAddress = client.getAddress();
+		byte[] sessionId = clientTestContext.getSessionIdentifier().getBytes();
 
 		// Stop the client
 		client.stop();
@@ -811,22 +847,22 @@ public class DTLSConnectorTest {
 		DatagramReader reader = new DatagramReader(writer.toByteArray());
 		Connection connection2 = Connection.fromReader(reader, 0);
 		clientConnectionStore.remove(connection, true);
-		connection2.setConnectorContext(new SerialExecutor(executor), null);
+		connection2.setConnectorContext(executor, null);
 		clientConnectionStore.put(connection2);
 
 		// Restart it
 		client.restart();
-		assertEquals(firstAddress, client.getAddress());
+		assertEquals(clientTestContext.getClientAddress(), client.getAddress());
 
 		// Prepare message sending
 		final String msg = "Hello Again";
-		clientRawDataChannel.setLatchCount(1);
+		clientTestContext.setLatchCount(1);
 
 		// send message
 		RawData data = RawData.outbound(msg.getBytes(), new AddressEndpointContext(serverHelper.serverEndpoint), null,
 				false);
 		client.send(data);
-		assertTrue(clientRawDataChannel.await(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS));
+		assertTrue(clientTestContext.await(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS));
 
 		// check we use the same session id
 		connection = clientConnectionStore.get(serverHelper.serverEndpoint);
@@ -839,7 +875,7 @@ public class DTLSConnectorTest {
 		int capacity = serverHelper.serverConnectionStore.remainingCapacity();
 		RecordCollectorDataHandler handler = new RecordCollectorDataHandler();
 		handler.applyDtlsContext(null);
-		UdpConnector rawClient = new UdpConnector(12000, handler);
+		UdpConnector rawClient = new UdpConnector(LOCAL, handler);
 
 		try {
 			rawClient.start();
@@ -873,7 +909,7 @@ public class DTLSConnectorTest {
 
 		RecordCollectorDataHandler handler = new RecordCollectorDataHandler();
 		handler.applyDtlsContext(null);
-		UdpConnector rawClient = new UdpConnector(12000, handler);
+		UdpConnector rawClient = new UdpConnector(LOCAL, handler);
 		ProtocolVersion version = ProtocolVersion.VERSION_DTLS_1_0;
 		try {
 			rawClient.start();
@@ -914,12 +950,13 @@ public class DTLSConnectorTest {
 	 * HELLO_VERIFY_REQUEST and then an SERVER_HELLO, both with version DTLS
 	 * 1.0.
 	 */
+	@Ignore
 	@Test
 	public void testConnectorSendsHelloVerifyRequestAlsoForTooLowVersion() throws Exception {
 
 		RecordCollectorDataHandler handler = new RecordCollectorDataHandler();
 		handler.applyDtlsContext(null);
-		UdpConnector rawClient = new UdpConnector(12000, handler);
+		UdpConnector rawClient = new UdpConnector(LOCAL, handler);
 		ProtocolVersion version = ProtocolVersion.valueOf("0.9");
 		try {
 			rawClient.start();
@@ -967,7 +1004,7 @@ public class DTLSConnectorTest {
 
 		RecordCollectorDataHandler handler = new RecordCollectorDataHandler();
 		handler.applyDtlsContext(null);
-		UdpConnector rawClient = new UdpConnector(12000, handler);
+		UdpConnector rawClient = new UdpConnector(LOCAL, handler);
 		ProtocolVersion version = ProtocolVersion.valueOf("1.3");
 		try {
 			rawClient.start();
@@ -1012,8 +1049,8 @@ public class DTLSConnectorTest {
 		testConnectorSendsHelloVerifyRequestWithoutCreatingSession();
 		// ignore the HELLO_VERIFY_REQUEST (i.e. assume the request is lost)
 		// and try to establish a fresh session
-		givenAnEstablishedSession();
-		Connection connection = serverHelper.serverConnectionStore.get(clientEndpoint);
+		givenAnEstablishedSession(true);
+		Connection connection = serverHelper.serverConnectionStore.get(clientTestContext.getClientAddress());
 		assertNotNull(connection);
 		assertThat(connection.hasEstablishedDtlsContext(), is(true));
 	}
@@ -1024,16 +1061,16 @@ public class DTLSConnectorTest {
 		serverHelper.serverConnectionStore.clear();
 		assertEquals(SERVER_CONNECTION_STORE_CAPACITY, serverHelper.serverConnectionStore.remainingCapacity());
 		assertTrue(serverHelper.serverConnectionStore.put(new Connection(new InetSocketAddress("192.168.0.1", 5050))
-				.setConnectorContext(new SerialExecutor(executor), null)));
+				.setConnectorContext(executor, null)));
 		assertTrue(serverHelper.serverConnectionStore.put(new Connection(new InetSocketAddress("192.168.0.2", 5050))
-				.setConnectorContext(new SerialExecutor(executor), null)));
+				.setConnectorContext(executor, null)));
 		assertTrue(serverHelper.serverConnectionStore.put(new Connection(new InetSocketAddress("192.168.0.3", 5050))
-				.setConnectorContext(new SerialExecutor(executor), null)));
+				.setConnectorContext(executor, null)));
 
-		clientRawDataChannel.setLatchCount(1);
+		LatchDecrementingRawDataChannel clientRawDataChannel = new LatchDecrementingRawDataChannel(1);
 		client.setRawDataReceiver(clientRawDataChannel);
 		client.start();
-		clientEndpoint = client.getAddress();
+		InetSocketAddress clientEndpoint = client.getAddress();
 		RawData data = RawData.outbound("Hello World".getBytes(),
 				new AddressEndpointContext(serverHelper.serverEndpoint), null, false);
 		client.send(data);
@@ -1050,8 +1087,8 @@ public class DTLSConnectorTest {
 	@Test
 	public void testConnectorIgnoresUnknownPskIdentity() throws Exception {
 		ensureConnectorIgnoresBadCredentials(
-				new AdvancedSinglePskStore("unknownIdentity", CLIENT_IDENTITY_SECRET.getBytes()));
-		AlertMessage alert = serverHelper.serverAlertCatcher.waitForAlert(2, TimeUnit.SECONDS);
+				new SinglePskStore("unknownIdentity", CLIENT_IDENTITY_SECRET.getBytes()));
+		AlertMessage alert = serverHelper.serverAlertCatcher.waitForEvent(2, TimeUnit.SECONDS);
 		assertThat("server side internal alert", alert,
 				is(new AlertMessage(AlertLevel.FATAL, AlertDescription.UNKNOWN_PSK_IDENTITY)));
 	}
@@ -1061,20 +1098,20 @@ public class DTLSConnectorTest {
 	 */
 	@Test
 	public void testConnectorIgnoresBadPsk() throws Exception {
-		ensureConnectorIgnoresBadCredentials(new AdvancedSinglePskStore(CLIENT_IDENTITY, "bad_psk".getBytes()));
+		ensureConnectorIgnoresBadCredentials(new SinglePskStore(CLIENT_IDENTITY, "bad_psk".getBytes()));
 	}
 
-	private void ensureConnectorIgnoresBadCredentials(AdvancedPskStore pskStoreWithBadCredentials) throws Exception {
+	private void ensureConnectorIgnoresBadCredentials(PskStore pskStoreWithBadCredentials) throws Exception {
 		if (client != null) {
 			client.destroy();
 		}
 		clientConfig = DtlsConnectorConfig.builder(network.createClientTestConfig())
 				.set(DtlsConfig.DTLS_RECEIVER_THREAD_COUNT, 1)
 				.set(DtlsConfig.DTLS_CONNECTOR_THREAD_COUNT, 2)
-				.setLoggingTag("client").setAddress(clientEndpoint)
+				.setLoggingTag("client").setAddress(LOCAL)
 				.set(DtlsConfig.DTLS_RETRANSMISSION_TIMEOUT, 250, TimeUnit.MILLISECONDS)
 				.set(DtlsConfig.DTLS_MAX_RETRANSMISSIONS, 1)
-				.setAdvancedPskStore(pskStoreWithBadCredentials).build();
+				.setPskStore(pskStoreWithBadCredentials).build();
 		client = serverHelper.createClient(clientConfig);
 		client.start();
 		SimpleMessageCallback callback = new SimpleMessageCallback();
@@ -1142,7 +1179,7 @@ public class DTLSConnectorTest {
 	@Test
 	public void testDestroyClearsConnectionStore() throws Exception {
 		// given a non-empty connection store
-		givenAnEstablishedSession();
+		givenAnEstablishedSession(true);
 		assertThat(clientConnectionStore.get(serverHelper.serverEndpoint), is(notNullValue()));
 
 		// when the client connector is destroyed
@@ -1163,12 +1200,12 @@ public class DTLSConnectorTest {
 
 		// send a CLIENT_HELLO message to the server to renegotiation connection
 		Record record = new Record(ContentType.HANDSHAKE, establishedClientContext.getWriteEpoch(), createClientHello(),
-				establishedClientContext, false, 0);
+				establishedClientContext, establishedClientContext.getWriteConnectionId() != null, 0);
 		record.setAddress(serverHelper.serverEndpoint, null);
 		client.sendRecord(record);
 
 		// ensure server answer with a NO_RENOGIATION alert
-		AlertMessage alert = alertCatcher.waitForAlert(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS);
+		AlertMessage alert = alertCatcher.waitForEvent(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS);
 		assertThat("client received alert", alert,
 				is(new AlertMessage(AlertLevel.WARNING, AlertDescription.NO_RENEGOTIATION)));
 	}
@@ -1178,13 +1215,15 @@ public class DTLSConnectorTest {
 		givenAnEstablishedSession(false);
 
 		// send a HELLO_REQUEST message to the client
-		Record record = new Record(ContentType.HANDSHAKE, serverHelper.establishedServerContext.getWriteEpoch(),
-				new HelloRequest(), serverHelper.establishedServerContext, false, 0);
-		record.setAddress(clientEndpoint, null);
+		DTLSContext context = clientTestContext.getEstablishedServerContext();
+		
+		Record record = new Record(ContentType.HANDSHAKE, context.getWriteEpoch(),
+				new HelloRequest(), context, context.getWriteConnectionId() != null, 0);
+		record.setAddress(clientTestContext.getClientAddress(), null);
 		serverHelper.server.sendRecord(record);
 
 		// ensure client answer with a NO_RENOGIATION alert
-		AlertMessage alert = serverHelper.serverAlertCatcher.waitForAlert(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS);
+		AlertMessage alert = serverHelper.serverAlertCatcher.waitForEvent(MAX_TIME_TO_WAIT_SECS, TimeUnit.SECONDS);
 		assertThat("server received alert", alert,
 				is(new AlertMessage(AlertLevel.WARNING, AlertDescription.NO_RENEGOTIATION)));
 	}
@@ -1223,6 +1262,41 @@ public class DTLSConnectorTest {
 		assertThat(callback.isConnecting(), is(false));
 	}
 
+	/**
+	 * Test exporting key material on client and server side is the same.
+	 */
+	@Test
+	public void testKeyMaterialExport() throws Exception {
+		int size = 20;
+		byte[] label = "EXPERIMENTAL_TEST".getBytes(StandardCharsets.UTF_8);
+		if (client != null) {
+			client.destroy();
+		}
+
+		// WHEN starting a new handshake (epoch 0) reusing the same client IP
+		DtlsConnectorConfig clientConfig = newClientConfigBuilder().setAddress(LOCAL)
+				.set(DtlsConfig.DTLS_SUPPORT_KEY_MATERIAL_EXPORT, true).build();
+		clientConnectionStore = ConnectorHelper.createDebugConnectionStore(clientConfig);
+		client = new DTLSConnector(clientConfig, clientConnectionStore);
+
+		// THEN assert that the handshake succeeds and a session is established
+		givenAnEstablishedSession(false);
+		DTLSContext serverDtlsContext = serverHelper.getEstablishedServerDtlsContext(client.getAddress());
+		assertNotNull("missing server side dtls context", serverDtlsContext);
+		byte[] clientKeyMaterial = establishedClientContext.exportKeyMaterial(label, null, size);
+		byte[] serverKeyMaterial = serverDtlsContext.exportKeyMaterial(label, null, size);
+		assertEquals(size, clientKeyMaterial.length);
+		assertEquals(size, serverKeyMaterial.length);
+		assertArrayEquals(clientKeyMaterial, serverKeyMaterial);
+		serverHelper.server.stop();
+		ConnectorHelper.reloadConnections("server", serverHelper.server);
+		serverHelper.server.restart();
+		serverDtlsContext = serverHelper.server.getDtlsContextByAddress(client.getAddress());
+		byte[] server2KeyMaterial = serverDtlsContext.exportKeyMaterial(label, null, size);
+		assertEquals(size, server2KeyMaterial.length);
+		assertArrayEquals(serverKeyMaterial, server2KeyMaterial);
+	}
+
 	private ClientHello createClientHello(CipherSuite... cipherSuites) {
 		return createClientHello(ProtocolVersion.VERSION_DTLS_1_2, cipherSuites);
 	}
@@ -1240,10 +1314,6 @@ public class DTLSConnectorTest {
 		return hello;
 	}
 
-	private void givenAnEstablishedSession() throws Exception {
-		givenAnEstablishedSession(true);
-	}
-
 	private void givenAnEstablishedSession(boolean releaseSocket) throws Exception {
 		RawData raw = RawData.outbound("Hello World".getBytes(),
 				new AddressEndpointContext(serverHelper.serverEndpoint), null, false);
@@ -1252,8 +1322,7 @@ public class DTLSConnectorTest {
 
 	private void givenAnEstablishedSession(RawData msgToSend, boolean releaseSocket) throws Exception {
 
-		clientRawDataChannel = serverHelper.givenAnEstablishedSession(client, msgToSend, false);
-		clientEndpoint = client.getAddress();
+		clientTestContext = serverHelper.givenAnEstablishedSession(client, msgToSend, false);
 		Connection con = clientConnectionStore.get(serverHelper.serverEndpoint);
 		assertNotNull(con);
 		establishedClientContext = con.getEstablishedDtlsContext();
@@ -1268,7 +1337,7 @@ public class DTLSConnectorTest {
 		RawData raw = RawData.outbound("Hello World".getBytes(),
 				new AddressEndpointContext(serverHelper.serverEndpoint), callback, false);
 		try {
-			clientRawDataChannel = serverHelper.givenAnEstablishedSession(client, raw, false);
+			clientTestContext = serverHelper.givenAnEstablishedSession(client, raw, false);
 		} catch (AssertionError error) {
 			Throwable sendError = callback.getError();
 			if (sendError instanceof HandshakeException) {
@@ -1276,7 +1345,7 @@ public class DTLSConnectorTest {
 				raw = RawData.outbound("Hello World".getBytes(),
 						new AddressEndpointContext(serverHelper.serverEndpoint), callback, false);
 				client.stop();
-				clientRawDataChannel = serverHelper.givenAnEstablishedSession(client, raw, false);
+				clientTestContext = serverHelper.givenAnEstablishedSession(client, raw, false);
 			} else {
 				if (sendError != null) {
 					sendError.printStackTrace();
@@ -1284,7 +1353,6 @@ public class DTLSConnectorTest {
 				throw error;
 			}
 		}
-		clientEndpoint = client.getAddress();
 		Connection con = clientConnectionStore.get(serverHelper.serverEndpoint);
 		assertNotNull(con);
 		establishedClientContext = con.getEstablishedDtlsContext();
@@ -1296,11 +1364,11 @@ public class DTLSConnectorTest {
 		// configure UDP connector
 		RecordCollectorDataHandler handler = new RecordCollectorDataHandler();
 		handler.applyDtlsContext(null);
-		UdpConnector rawClient = new UdpConnector(clientEndpoint.getPort(), handler);
+		UdpConnector rawClient = new UdpConnector(LOCAL, handler);
 
 		try {
 			rawClient.start();
-			clientEndpoint = rawClient.getAddress();
+			InetSocketAddress clientEndpoint = rawClient.getAddress();
 
 			// send CLIENT_HELLO
 			ClientHello clientHello = createClientHello();

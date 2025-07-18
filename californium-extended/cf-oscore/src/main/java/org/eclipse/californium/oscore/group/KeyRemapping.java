@@ -17,12 +17,19 @@
 package org.eclipse.californium.oscore.group;
 
 import java.math.BigInteger;
+import java.security.Provider;
+import java.security.Security;
+import java.util.Arrays;
+
+import org.eclipse.californium.cose.AlgorithmID;
 import org.eclipse.californium.cose.CoseException;
 import org.eclipse.californium.cose.KeyKeys;
 import org.eclipse.californium.cose.OneKey;
 import org.eclipse.californium.elements.util.StringUtil;
 
 import net.i2p.crypto.eddsa.EdDSAPublicKey;
+import net.i2p.crypto.eddsa.EdDSASecurityProvider;
+import net.i2p.crypto.eddsa.Utils;
 import net.i2p.crypto.eddsa.math.Field;
 import net.i2p.crypto.eddsa.math.FieldElement;
 import net.i2p.crypto.eddsa.math.bigint.BigIntegerFieldElement;
@@ -55,6 +62,94 @@ public class KeyRemapping {
 			new BigInteger("51042569399160536130206135233146329284152202253034631822681833788666877215207"));
 
 	/**
+	 * Main method running a number of tests on the code.
+	 * 
+	 * @param args command line arguments
+	 * @throws Exception on failure in some of the tests
+	 */
+	public static void main(String args[]) throws Exception {
+		Provider EdDSA = new EdDSASecurityProvider();
+		Security.insertProviderAt(EdDSA, 1);
+
+		// Define test values x and y from RFC7748. Created as field elements to
+		// use for calculations in the field.
+		BigIntegerFieldElement x = new BigIntegerFieldElement(ed25519Field,
+				new BigInteger("15112221349535400772501151409588531511454012693041857206046113283949847762202"));
+		BigIntegerFieldElement y = new BigIntegerFieldElement(ed25519Field,
+				new BigInteger("46316835694926478169428394003475163141307993866256225615783033603165251855960"));
+
+		// Define correctly calculated values of u and v from RFC7748
+		BigIntegerFieldElement u_correct = new BigIntegerFieldElement(ed25519Field, new BigInteger("9"));
+		BigIntegerFieldElement v_correct = new BigIntegerFieldElement(ed25519Field,
+				new BigInteger("14781619447589544791020593568409986887264606134616475288964881837755586237401"));
+
+		// Calculate u and v values
+		FieldElement u = calcCurve25519_u(y);
+		FieldElement v = calcCurve25519_v(x, u);
+
+		// Print calculated values
+		System.out.println("x: " + x);
+		System.out.println("y: " + y);
+
+		System.out.println("v: " + v);
+		System.out.println("u: " + u);
+
+		// Check that calculated u and v values are correct
+		if (Arrays.equals(u.toByteArray(), u_correct.toByteArray())) {
+			System.out.println("u value is correct!");
+		} else {
+			System.out.println("u value is INCORRECT!");
+		}
+		if (Arrays.equals(v.toByteArray(), v_correct.toByteArray())) {
+			System.out.println("v value is correct!");
+		} else {
+			System.out.println("v value is INCORRECT!");
+		}
+
+		/**/
+		System.out.println();
+		System.out.println();
+		/**/
+
+		// Testing starting with a COSE Key
+
+		OneKey myKey = OneKey.generateKey(AlgorithmID.EDDSA);
+		FieldElement y_fromKeyAlt = extractCOSE_y_alt(myKey);
+		FieldElement y_fromKey = extractCOSE_y(myKey);
+
+		System.out.println("y from COSE key (alt): " + y_fromKeyAlt);
+		System.out.println("y from COSE key: " + y_fromKey);
+		System.out.println("COSE key X param_: " + myKey.get(KeyKeys.OKP_X));
+
+		System.out.println("y from COSE key (alt) (bytes): " + Utils.bytesToHex(y_fromKeyAlt.toByteArray()));
+		System.out.println("y from COSE key (bytes): " + Utils.bytesToHex(y_fromKey.toByteArray()));
+
+		// Check that calculating y in both ways give the same result
+		if (Arrays.equals(y_fromKeyAlt.toByteArray(), y_fromKey.toByteArray())) {
+			System.out.println("y from key value is correct!");
+		} else {
+			System.out.println("y from key value is INCORRECT!");
+		}
+
+		/**/
+		System.out.println();
+		System.out.println();
+		/**/
+
+		FieldElement x_fromKey = extractCOSE_x(myKey);
+		System.out.println("x from COSE key: " + x_fromKey);
+
+		FieldElement uuu1 = calcCurve25519_u(y_fromKeyAlt);
+		FieldElement uuu2 = calcCurve25519_u(y_fromKey);
+		// calcCurve25519_v(x_fromKey, uuu1);
+		// calcCurve25519_v(x_fromKey, uuu2);
+		//
+		System.out.println(uuu1);
+		System.out.println(uuu2);
+
+	}
+
+	/**
 	 * Calculate Curve25519 u coordinate from Ed25519 y coordinate
 	 * 
 	 * @param y the Ed25519 y coordinate
@@ -71,6 +166,14 @@ public class KeyRemapping {
 		// 1 - y -> -y + 1
 		FieldElement one_minus_y = (y.negate()).addOne();
 
+		// Check that y is neither -1 (which maps to u = 0 that corresponds to
+		// the neutral group element) nor 1 (for which the mapping is not
+		// defined)
+		if (!one_plus_y.isNonZero() || !one_minus_y.isNonZero()) {
+			System.err.println("Invalid value of y: it cannot be -1 or 1");
+			return null;
+		}
+
 		// invert(1 - y)
 		FieldElement one_minus_y_invert = one_minus_y.invert();
 
@@ -78,7 +181,6 @@ public class KeyRemapping {
 		FieldElement u = one_plus_y.multiply(one_minus_y_invert);
 
 		return u;
-
 	}
 
 	/**
@@ -139,10 +241,8 @@ public class KeyRemapping {
 	 * 
 	 * @param key the COSE key
 	 * @return the y point coordinate
-	 * 
-	 * @throws CoseException if retrieving public key part fails
 	 */
-	static FieldElement extractCOSE_y(OneKey key) throws CoseException {
+	static FieldElement extractCOSE_y(OneKey key) {
 
 		// Retrieve X value from COSE key as byte array
 		byte[] X_value = key.get(KeyKeys.OKP_X).GetByteString();

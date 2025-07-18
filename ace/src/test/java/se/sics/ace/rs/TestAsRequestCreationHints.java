@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -31,13 +31,14 @@
  *******************************************************************************/
 package se.sics.ace.rs;
 
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
+
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Map;
 
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 
 import com.upokecenter.cbor.CBORObject;
 
@@ -52,22 +53,15 @@ import se.sics.ace.Constants;
  *
  */
 public class TestAsRequestCreationHints {
-    
-    /**
-     * Expected exception
-     */
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
-    
+ 
     /**
      * Test creating an AS info with null as AS uri.
      */
     @Test
     public void testNullUri() {
-        this.thrown.expect(IllegalArgumentException.class);
-        this.thrown.expectMessage("Cannot create an AsRequestCreationHints object with null or empty asUri field");
-        @SuppressWarnings("unused")
-        AsRequestCreationHints ai = new AsRequestCreationHints(null, null, false, false);
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                										  () -> new AsRequestCreationHints(null, null, false, false));
+        assertTrue(exception.getMessage().contains("Cannot create an AsRequestCreationHints object with null or empty asUri field"));
     }
     
     /**
@@ -75,10 +69,9 @@ public class TestAsRequestCreationHints {
      */
     @Test
     public void testEmptyUri() {
-        this.thrown.expect(IllegalArgumentException.class);
-        this.thrown.expectMessage("Cannot create an AsRequestCreationHints object with null or empty asUri field");
-        @SuppressWarnings("unused")
-        AsRequestCreationHints ai = new AsRequestCreationHints("", null, false, false);
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> new AsRequestCreationHints("", null, false, false));
+        assertTrue(exception.getMessage().contains("Cannot create an AsRequestCreationHints object with null or empty asUri field"));
     }
     
     /**

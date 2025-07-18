@@ -45,9 +45,9 @@ import org.eclipse.californium.elements.config.CertificateAuthenticationMode;
 import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.config.TcpConfig;
 import org.eclipse.californium.elements.util.CertPathUtil;
-import org.eclipse.californium.elements.util.JceProviderUtil;
-import org.eclipse.californium.elements.util.SslContextUtil;
 import org.eclipse.californium.elements.util.StringUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.netty.channel.Channel;
 import io.netty.handler.ssl.SslHandler;
@@ -60,13 +60,18 @@ import io.netty.util.concurrent.GenericFutureListener;
 public class TlsClientConnector extends TcpClientConnector {
 
 	/**
+	 * @since 3.10
+	 */
+	private static final Logger LOG = LoggerFactory.getLogger(TlsClientConnector.class);
+
+	/**
 	 * Context to be used to for connections.
 	 */
 	private final SSLContext sslContext;
 	/**
 	 * Weak cipher suites, or {@code null}, if no required.
 	 * 
-	 * @see JceProviderUtil#hasStrongEncryption()
+	 * @see TlsContextUtil#getWeakCipherSuites(SSLContext)
 	 * @since 3.0
 	 */
 	private final String[] weakCipherSuites;
@@ -96,8 +101,7 @@ public class TlsClientConnector extends TcpClientConnector {
 		this.handshakeTimeoutMillis = configuration.getTimeAsInt(TcpConfig.TLS_HANDSHAKE_TIMEOUT,
 				TimeUnit.MILLISECONDS);
 		this.verifyServerSubject = configuration.get(TcpConfig.TLS_VERIFY_SERVER_CERTIFICATES_SUBJECT);
-		this.weakCipherSuites = JceProviderUtil.hasStrongEncryption() ? null
-				: SslContextUtil.getWeakCipherSuites(sslContext);
+		this.weakCipherSuites = TlsContextUtil.getWeakCipherSuites(sslContext);
 	}
 
 	/**
@@ -179,11 +183,11 @@ public class TlsClientConnector extends TcpClientConnector {
 	 */
 	private SSLEngine createSllEngine(SocketAddress remoteAddress) {
 		if (remoteAddress instanceof InetSocketAddress) {
-			LOGGER.info("Connection to inet {}", StringUtil.toLog(remoteAddress));
+			LOG.info("Connection to inet {}", StringUtil.toLog(remoteAddress));
 			InetSocketAddress remote = (InetSocketAddress) remoteAddress;
 			return sslContext.createSSLEngine(remote.getAddress().getHostAddress(), remote.getPort());
 		} else {
-			LOGGER.info("Connection to {}", StringUtil.toLog(remoteAddress));
+			LOG.info("Connection to {}", StringUtil.toLog(remoteAddress));
 			return sslContext.createSSLEngine();
 		}
 	}
@@ -220,7 +224,7 @@ public class TlsClientConnector extends TcpClientConnector {
 				literalIp = destination.getHostAddress();
 			}
 			if (hostname == null) {
-				hostname = StringUtil.toHostString(peer);
+				hostname = peer.getHostString();
 			}
 		}
 		if (hostname != null && hostname.equals(literalIp)) {
@@ -229,14 +233,14 @@ public class TlsClientConnector extends TcpClientConnector {
 		if (hostname != null) {
 			if (!CertPathUtil.matchDestination(certificate, hostname)) {
 				String cn = CertPathUtil.getSubjectsCn(certificate);
-				LOGGER.debug("Certificate {} validation failed: destination doesn't match", cn);
+				LOG.debug("Certificate {} validation failed: destination doesn't match", cn);
 				throw new SSLPeerUnverifiedException(
 						"Certificate " + cn + ": Destination '" + hostname + "' doesn't match!");
 			}
 		} else {
 			if (!CertPathUtil.matchLiteralIP(certificate, literalIp)) {
 				String cn = CertPathUtil.getSubjectsCn(certificate);
-				LOGGER.debug("Certificate {} validation failed: literal IP doesn't match", cn);
+				LOG.debug("Certificate {} validation failed: literal IP doesn't match", cn);
 				throw new SSLPeerUnverifiedException(
 						"Certificate " + cn + ": Literal IP " + literalIp + " doesn't match!");
 			}

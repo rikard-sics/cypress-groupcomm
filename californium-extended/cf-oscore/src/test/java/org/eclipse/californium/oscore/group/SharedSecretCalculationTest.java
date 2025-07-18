@@ -24,8 +24,6 @@ import java.security.Provider;
 import java.security.Security;
 import java.util.Arrays;
 
-
-
 import org.eclipse.californium.cose.AlgorithmID;
 import org.eclipse.californium.cose.CoseException;
 import org.eclipse.californium.cose.OneKey;
@@ -69,7 +67,9 @@ public class SharedSecretCalculationTest {
 			StringUtil.hex2ByteArray("edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f"), // q(2^255-19)
 			new BigIntegerLittleEndianEncoding());
 
-	// Use the OSCORE stack factory with the client context DB
+	/**
+	 * Use the OSCORE stack factory
+	 */
 	@BeforeClass
 	public static void setStackFactory() {
 		Provider EdDSA = new EdDSASecurityProvider();

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -33,6 +33,7 @@ package se.sics.ace.interopGroupOSCORE;
 
 import org.eclipse.californium.core.CoapResource;
 import org.eclipse.californium.core.CoapServer;
+import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.core.server.resources.Resource;
@@ -47,6 +48,10 @@ import org.eclipse.californium.core.server.resources.Resource;
  *
  */
 public class SimpleTestServer {
+	
+	static {
+	    CoapConfig.register();
+	}
 	
 	private static int portNumberNoSec = 5690;
 	// private static final int COAP_PORT = NetworkConfig.getStandard().getInt(NetworkConfig.Keys.COAP_PORT);

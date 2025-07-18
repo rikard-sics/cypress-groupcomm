@@ -30,9 +30,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.net.ssl.X509KeyManager;
 import javax.security.auth.x500.X500Principal;
 
+import org.eclipse.californium.elements.util.JceNames;
 import org.eclipse.californium.elements.util.Asn1DerDecoder;
 import org.eclipse.californium.elements.util.CertPathUtil;
 import org.eclipse.californium.elements.util.JceProviderUtil;
+import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.dtls.CertificateIdentityResult;
 import org.eclipse.californium.scandium.dtls.CertificateType;
 import org.eclipse.californium.scandium.dtls.ConnectionId;
@@ -68,15 +70,15 @@ public class KeyManagerCertificateProvider implements CertificateProvider, Confi
 	private static final Map<String, String> BC_SERVER_KEY_TYPES_MAP = new HashMap<>();
 
 	static {
-		BC_SERVER_KEY_TYPES_MAP.put(Asn1DerDecoder.EC, "ECDHE_ECDSA");
-		BC_SERVER_KEY_TYPES_MAP.put(Asn1DerDecoder.RSA, "ECDHE_RSA");
+		BC_SERVER_KEY_TYPES_MAP.put(JceNames.EC, "ECDHE_ECDSA");
+		BC_SERVER_KEY_TYPES_MAP.put(JceNames.RSA, "ECDHE_RSA");
 	}
 
 	/**
 	 * Key types for credentials.
 	 */
-	private static final List<String> ALL_KEY_TYPES = Arrays.asList(Asn1DerDecoder.EC, Asn1DerDecoder.RSA,
-			Asn1DerDecoder.EDDSA, Asn1DerDecoder.ED25519, Asn1DerDecoder.ED448);
+	private static final List<String> ALL_KEY_TYPES = Arrays.asList(JceNames.EC, JceNames.RSA, JceNames.EDDSA,
+			JceNames.ED25519, JceNames.ED448);
 	/**
 	 * Default alias. May be {@code null}.
 	 */
@@ -86,7 +88,7 @@ public class KeyManagerCertificateProvider implements CertificateProvider, Confi
 	 */
 	private final X509KeyManager keyManager;
 	/**
-	 * Instance ID for logging. 
+	 * Instance ID for logging.
 	 */
 	private final int id;
 	/**
@@ -97,6 +99,15 @@ public class KeyManagerCertificateProvider implements CertificateProvider, Confi
 	 * List of supported certificate key algorithms.
 	 */
 	private final List<CertificateKeyAlgorithm> supportedCertificateKeyAlgorithms;
+	/**
+	 * Enable key pairs verification.
+	 * 
+	 * Check, if key-pairs are supported by JCE and the public keys are
+	 * corresponding to the private keys. Enabled by default.
+	 * 
+	 * @since 3.6
+	 */
+	private boolean verifyKeyPairs = true;
 
 	/**
 	 * Create certificate provider based on key manager.
@@ -117,7 +128,8 @@ public class KeyManagerCertificateProvider implements CertificateProvider, Confi
 	 * 
 	 * @param keyManager key manager with certificates and private keys
 	 * @param supportedCertificateTypes list of supported certificate types
-	 *            ordered by preference
+	 *            ordered by preference. Intended to use
+	 *            {@link DtlsConfig#DTLS_CERTIFICATE_TYPES} as input.
 	 * @throws NullPointerException if the key manager is {@code null}
 	 * @throws IllegalArgumentException if list of certificate types is empty or
 	 *             contains unsupported types.
@@ -148,7 +160,8 @@ public class KeyManagerCertificateProvider implements CertificateProvider, Confi
 	 * @param defaultAlias default alias. May be {@code null}.
 	 * @param keyManager key manager with certificates and private keys
 	 * @param supportedCertificateTypes list of supported certificate types
-	 *            ordered by preference
+	 *            ordered by preference. Intended to use
+	 *            {@link DtlsConfig#DTLS_CERTIFICATE_TYPES} as input.
 	 * @throws NullPointerException if the key manager is {@code null}
 	 * @throws IllegalArgumentException if list of certificate types is empty or
 	 *             contains unsupported types.
@@ -189,6 +202,19 @@ public class KeyManagerCertificateProvider implements CertificateProvider, Confi
 		this.supportedCertificateKeyAlgorithms = Collections.unmodifiableList(supportedCertificateKeyAlgorithms);
 	}
 
+	/**
+	 * Enable/Disable the verification of the provided key pairs.
+	 * 
+	 * @param enable {@code true} to enable verification (default),
+	 *            {@code false}, to disable it.
+	 * @return this certificate provider for command chaining.
+	 * @since 3.6
+	 */
+	public KeyManagerCertificateProvider setVerifyKeyPairs(boolean enable) {
+		this.verifyKeyPairs = enable;
+		return this;
+	}
+
 	private void setup(String alias, List<CertificateKeyAlgorithm> supportedCertificateKeyAlgorithms) {
 		X509Certificate[] certificateChain = keyManager.getCertificateChain(alias);
 		if (certificateChain != null && certificateChain.length > 0) {
@@ -223,6 +249,15 @@ public class KeyManagerCertificateProvider implements CertificateProvider, Confi
 	private void setupConfigurationHelperForAlias(CertificateConfigurationHelper helper, String alias) {
 		X509Certificate[] certificateChain = keyManager.getCertificateChain(alias);
 		if (certificateChain != null && certificateChain.length > 0) {
+			try {
+				helper.verifyKeyPair(keyManager.getPrivateKey(alias), certificateChain[0].getPublicKey());
+			} catch (IllegalArgumentException ex) {
+				if (verifyKeyPairs) {
+					throw new IllegalStateException(ex.getMessage());
+				} else {
+					LOGGER.warn("Mismatching key-pair, causing failure when used!", ex);
+				}
+			}
 			if (supportedCertificateTypes.contains(CertificateType.X_509)) {
 				helper.addConfigurationDefaultsFor(Arrays.asList(certificateChain));
 			} else if (supportedCertificateTypes.contains(CertificateType.RAW_PUBLIC_KEY)) {
@@ -262,18 +297,18 @@ public class KeyManagerCertificateProvider implements CertificateProvider, Confi
 		}
 		if (signatureAndHashAlgorithms != null && !signatureAndHashAlgorithms.isEmpty()) {
 			if (keyTypes.isEmpty()) {
-				if (SignatureAndHashAlgorithm.isSupportedAlgorithm(signatureAndHashAlgorithms, Asn1DerDecoder.EC)) {
-					ListUtils.addIfAbsent(keyTypes, Asn1DerDecoder.EC);
+				if (SignatureAndHashAlgorithm.isSupportedAlgorithm(signatureAndHashAlgorithms, JceNames.EC)) {
+					ListUtils.addIfAbsent(keyTypes, JceNames.EC);
 				}
-				if (SignatureAndHashAlgorithm.isSupportedAlgorithm(signatureAndHashAlgorithms, Asn1DerDecoder.RSA)) {
-					ListUtils.addIfAbsent(keyTypes, Asn1DerDecoder.RSA);
+				if (SignatureAndHashAlgorithm.isSupportedAlgorithm(signatureAndHashAlgorithms, JceNames.RSA)) {
+					ListUtils.addIfAbsent(keyTypes, JceNames.RSA);
 				}
 				addEdDsaSupport(keyTypes, signatureAndHashAlgorithms);
-			} else if (keyTypes.contains(Asn1DerDecoder.EC)) {
+			} else if (keyTypes.contains(JceNames.EC)) {
 				addEdDsaSupport(keyTypes, signatureAndHashAlgorithms);
 			}
 		} else if (keyTypes.isEmpty()) {
-			keyTypes.add(Asn1DerDecoder.EC);
+			keyTypes.add(JceNames.EC);
 		}
 
 		LOGGER.debug("[{}]: {} certificate public key types {}", id, role, keyTypes);
@@ -287,20 +322,26 @@ public class KeyManagerCertificateProvider implements CertificateProvider, Confi
 		List<String> aliases = getAliases(client, keyTypes, principals);
 		if (!aliases.isEmpty()) {
 			List<String> matchingServerNames = new ArrayList<>();
-			List<String> matchingSignatures = new ArrayList<>();
+			List<String> matchingNodeSignatures = new ArrayList<>();
+			List<String> matchingChainSignatures = new ArrayList<>();
 			List<String> matchingCurves = new ArrayList<>();
 			// after issuers, check the servernames
 			int index = 1;
 			for (String alias : aliases) {
-				LOGGER.debug("[{}]: Apply select {} - {} of {}", id, alias, index, aliases.size());
+				LOGGER.debug("[{}]: {} apply select {} - {} of {}", id, role, alias, index, aliases.size());
 				X509Certificate[] certificateChain = keyManager.getCertificateChain(alias);
+				X509Certificate nodeCertificate = certificateChain[0];
 				List<X509Certificate> chain = Arrays.asList(certificateChain);
-				if (serverNames != null && matchServerNames(serverNames, certificateChain[0])) {
+				if (serverNames != null && matchServerNames(serverNames, nodeCertificate)) {
 					matchingServerNames.add(alias);
 				}
 				if (signatureAndHashAlgorithms != null
-						&& matchSignatureAndHashAlgorithms(signatureAndHashAlgorithms, chain)) {
-					matchingSignatures.add(alias);
+						&& matchNodeSignatureAndHashAlgorithms(signatureAndHashAlgorithms, nodeCertificate)) {
+					matchingNodeSignatures.add(alias);
+				}
+				if (signatureAndHashAlgorithms != null
+						&& matchChainSignatureAndHashAlgorithms(signatureAndHashAlgorithms, chain)) {
+					matchingChainSignatures.add(alias);
 				}
 				if (curves != null && matchCurves(curves, chain)) {
 					matchingCurves.add(alias);
@@ -308,15 +349,28 @@ public class KeyManagerCertificateProvider implements CertificateProvider, Confi
 				++index;
 			}
 			if (!matchingServerNames.isEmpty()) {
-				LOGGER.debug("[{}]: {} selected by {}", id, matchingServerNames.size(), serverNames);
+				LOGGER.debug("[{}]: {} selected {} by {}", id, role, matchingServerNames.size(), serverNames);
 				aliases.retainAll(matchingServerNames);
 			}
 			if (signatureAndHashAlgorithms != null) {
-				LOGGER.debug("[{}]: {} selected by signature and hash algorithms", id, matchingSignatures.size());
-				aliases.retainAll(matchingSignatures);
+				LOGGER.debug("[{}]: {} selected {} by the node's signature and hash algorithms", id, role,
+						matchingNodeSignatures.size());
+				LOGGER.debug("[{}]: {} selected {} by the chain signature and hash algorithms", id, role,
+						matchingChainSignatures.size());
+				aliases.retainAll(matchingNodeSignatures);
+				if (supportedCertificateTypes.contains(CertificateType.X_509)) {
+					List<String> temp = null;
+					if (supportedCertificateTypes.contains(CertificateType.RAW_PUBLIC_KEY)) {
+						temp = new ArrayList<>(aliases);
+					}
+					aliases.retainAll(matchingChainSignatures);
+					if (aliases.isEmpty() && temp != null) {
+						aliases = temp;
+					}
+				}
 			}
 			if (curves != null) {
-				LOGGER.debug("[{}]: {} selected by curves", id, matchingCurves.size());
+				LOGGER.debug("[{}]: {} selected {} by curves", id, role, matchingCurves.size());
 				aliases.retainAll(matchingCurves);
 			}
 			if (aliases.size() > 0) {
@@ -332,12 +386,14 @@ public class KeyManagerCertificateProvider implements CertificateProvider, Confi
 				X509Certificate[] certificateChain = keyManager.getCertificateChain(id);
 				List<X509Certificate> chain = Arrays.asList(certificateChain);
 				PrivateKey privateKey = keyManager.getPrivateKey(id);
-				return new CertificateIdentityResult(cid, privateKey, chain, id);
+				return new CertificateIdentityResult(cid, privateKey, chain);
+			} else {
+				LOGGER.debug("[{}]: {} no matching credentials left!", id, role);
 			}
 		} else {
 			LOGGER.debug("[{}]: no matching credentials", id);
 		}
-		return new CertificateIdentityResult(cid, null);
+		return new CertificateIdentityResult(cid);
 	}
 
 	@Override
@@ -363,25 +419,25 @@ public class KeyManagerCertificateProvider implements CertificateProvider, Confi
 				alias = keyManager.getClientAliases(keyType, issuers);
 			} else {
 				alias = keyManager.getServerAliases(keyType, issuers);
-				if (alias == null && JceProviderUtil.usesBouncyCastle()) {
-					// replace sun keyTypes as defined in
-					// https://docs.oracle.com/javase/8/docs/technotes/guides/security/StandardNames.html#jssenames
-					// by the ones Bouncy Castle chose to use for the server-side
-					// https://github.com/bcgit/bc-java/issues/1053
-					String bcKeyType = BC_SERVER_KEY_TYPES_MAP.get(keyType);
-					if (bcKeyType != null) {
-						alias = keyManager.getServerAliases(bcKeyType, issuers);
-						if (alias != null) {
-							keyType = bcKeyType;
-						}
+			}
+			if (alias == null && JceProviderUtil.usesBouncyCastle()) {
+				// replace sun keyTypes as defined in
+				// https://docs.oracle.com/javase/8/docs/technotes/guides/security/StandardNames.html#jssenames
+				// by the ones Bouncy Castle chose to use for the server-side
+				// https://github.com/bcgit/bc-java/issues/1053
+				String bcKeyType = BC_SERVER_KEY_TYPES_MAP.get(keyType);
+				if (bcKeyType != null) {
+					alias = keyManager.getServerAliases(bcKeyType, issuers);
+					if (alias != null) {
+						keyType = bcKeyType;
 					}
 				}
 			}
 			if (alias != null) {
-				LOGGER.debug("[{}]: found {} {} keys for {}", id, alias.length, keyType, client ? "client" : "server");
+				LOGGER.debug("[{}]: {} found {} {} keys", id, client ? "client" : "server", alias.length, keyType);
 				ListUtils.addIfAbsent(all, Arrays.asList(alias));
 			} else {
-				LOGGER.debug("[{}]: found no {} keys for {}", id, keyType, client ? "client" : "server");
+				LOGGER.debug("[{}]: {} found no {} keys", id, client ? "client" : "server", keyType);
 			}
 		}
 		return all;
@@ -412,18 +468,27 @@ public class KeyManagerCertificateProvider implements CertificateProvider, Confi
 	 * 
 	 * @param signatureAndHashAlgorithms list of signature and hash algorithms
 	 * @param chain the certificate chain to check
-	 * @return {@code true}, if matching, {@code true}, if not.
+	 * @return {@code true}, if matching, {@code false}, if not.
+	 * @since 3.6
 	 */
-	private boolean matchSignatureAndHashAlgorithms(List<SignatureAndHashAlgorithm> signatureAndHashAlgorithms,
+	private boolean matchChainSignatureAndHashAlgorithms(List<SignatureAndHashAlgorithm> signatureAndHashAlgorithms,
 			List<X509Certificate> chain) {
-		if (SignatureAndHashAlgorithm.getSupportedSignatureAlgorithm(signatureAndHashAlgorithms,
-				chain.get(0).getPublicKey()) == null) {
-			return false;
-		}
-		if (!SignatureAndHashAlgorithm.isSignedWithSupportedAlgorithms(signatureAndHashAlgorithms, chain)) {
-			return false;
-		}
-		return true;
+		return SignatureAndHashAlgorithm.isSignedWithSupportedAlgorithms(signatureAndHashAlgorithms, chain);
+	}
+
+	/**
+	 * Checks, if provided node certificate matches the signature and hash
+	 * algorithms.
+	 * 
+	 * @param signatureAndHashAlgorithms list of signature and hash algorithms
+	 * @param node the node's certificate to check
+	 * @return {@code true}, if matching, {@code false}, if not.
+	 * @since 3.6
+	 */
+	private boolean matchNodeSignatureAndHashAlgorithms(List<SignatureAndHashAlgorithm> signatureAndHashAlgorithms,
+			X509Certificate node) {
+		return SignatureAndHashAlgorithm.getSupportedSignatureAlgorithm(signatureAndHashAlgorithms,
+				node.getPublicKey()) != null;
 	}
 
 	/**
@@ -431,7 +496,7 @@ public class KeyManagerCertificateProvider implements CertificateProvider, Confi
 	 * 
 	 * @param curves list of supported groups (curves)
 	 * @param chain the certificate chain to check
-	 * @return {@code true}, if matching, {@code true}, if not.
+	 * @return {@code true}, if matching, {@code false}, if not.
 	 */
 	private boolean matchCurves(List<SupportedGroup> curves, List<X509Certificate> chain) {
 		for (X509Certificate certificate : chain) {
@@ -487,12 +552,12 @@ public class KeyManagerCertificateProvider implements CertificateProvider, Confi
 	private static void addEdDsaSupport(List<String> publicKeyTypes,
 			List<SignatureAndHashAlgorithm> signatureAndHashAlgorithms) {
 		if (signatureAndHashAlgorithms.contains(SignatureAndHashAlgorithm.INTRINSIC_WITH_ED25519)) {
-			ListUtils.addIfAbsent(publicKeyTypes, Asn1DerDecoder.EDDSA);
-			ListUtils.addIfAbsent(publicKeyTypes, Asn1DerDecoder.ED25519);
+			ListUtils.addIfAbsent(publicKeyTypes, JceNames.EDDSA);
+			ListUtils.addIfAbsent(publicKeyTypes, JceNames.ED25519);
 		}
 		if (signatureAndHashAlgorithms.contains(SignatureAndHashAlgorithm.INTRINSIC_WITH_ED448)) {
-			ListUtils.addIfAbsent(publicKeyTypes, Asn1DerDecoder.EDDSA);
-			ListUtils.addIfAbsent(publicKeyTypes, Asn1DerDecoder.ED448);
+			ListUtils.addIfAbsent(publicKeyTypes, JceNames.EDDSA);
+			ListUtils.addIfAbsent(publicKeyTypes, JceNames.ED448);
 		}
 	}
 

@@ -21,19 +21,21 @@ package org.eclipse.californium.oscore;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Arrays;
 import java.util.List;
+
+import org.eclipse.californium.core.coap.CoAP.Code;
+import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+import org.eclipse.californium.core.coap.Message;
 import org.eclipse.californium.core.coap.Option;
 import org.eclipse.californium.core.coap.OptionNumberRegistry;
 import org.eclipse.californium.core.coap.OptionSet;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.coap.option.StringOption;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import org.eclipse.californium.core.coap.CoAP.Code;
-import org.eclipse.californium.core.coap.CoAP.ResponseCode;
-import org.eclipse.californium.core.coap.Message;
 
 /**
  * 
@@ -83,7 +85,6 @@ public class OptionJuggle {
 		boolean hasProxyScheme = options.hasProxyScheme();
 		boolean hasMaxAge = options.hasMaxAge();
 		boolean hasObserve = options.hasObserve();
-		boolean hasEdhoc = options.hasEdhoc(); // EDHOC
 
 		OptionSet ret = new OptionSet();
 
@@ -124,11 +125,6 @@ public class OptionJuggle {
 			ret.setOscore(oscore);
 		}
 
-		// EDHOC
-		if (hasEdhoc) {
-			ret.setEdhoc(true);
-		}
-
 		return ret;
 	}
 
@@ -149,12 +145,11 @@ public class OptionJuggle {
 			case OptionNumberRegistry.URI_PORT:
 			case OptionNumberRegistry.PROXY_SCHEME:
 			case OptionNumberRegistry.OSCORE:
-			case OptionNumberRegistry.EDHOC: // EDHOC
 				// do not encrypt
 				break;
 			case OptionNumberRegistry.PROXY_URI:
 				// create Uri-Path and Uri-Query
-				String proxyUri = o.getStringValue();
+				String proxyUri = ((StringOption)o).getStringValue();
 				proxyUri = proxyUri.replace("coap://", "");
 				proxyUri = proxyUri.replace("coaps://", "");
 				int i = proxyUri.indexOf('/');
@@ -196,7 +191,7 @@ public class OptionJuggle {
 	 * @return a new optionSet which have had the non-special e options removed
 	 */
 	public static OptionSet discardEOptions(OptionSet optionSet) {
-		LOGGER.info("Removing inner only E options from the outer options");
+		LOGGER.trace("Removing inner only E options from the outer options");
 		OptionSet result = new OptionSet();
 		
 		for (Option opt : optionSet.asSortedList()) {
@@ -296,7 +291,7 @@ public class OptionJuggle {
 		newMessage.setDuplicate(oldMessage.isDuplicate());
 		newMessage.setNanoTimestamp(oldMessage.getNanoTimestamp());
 	}
-
+	
 	/**
 	 * Merges two optionSets and returns the merge. Priority is eOptions
 	 * 
@@ -306,10 +301,10 @@ public class OptionJuggle {
 	 */
 	public static OptionSet merge(OptionSet eOptions, OptionSet uOptions) {
 
-		List<Option> u = uOptions.asSortedList();
+		List<Option> e = eOptions.asSortedList();
 
-		for (Option tmp : u) {
-			if (!eOptions.hasOption(tmp.getNumber())) {
+		for (Option tmp : uOptions.asSortedList()) {
+			if (Collections.binarySearch(e, tmp) < 0) {
 				eOptions.addOption(tmp);
 			}
 		}
@@ -413,7 +408,7 @@ public class OptionJuggle {
 		}
 
 		// TODO: Avoid using BigInteger
-		BigInteger partialIVBi = new BigInteger(partialIV);
+		BigInteger partialIVBi = new BigInteger(1, partialIV);
 		int ret = partialIVBi.intValue();
 
 		return ret;
@@ -441,5 +436,4 @@ public class OptionJuggle {
 		}
 
 	}
-
 }

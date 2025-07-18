@@ -60,6 +60,7 @@ import static org.junit.Assert.fail;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -71,7 +72,6 @@ import java.util.concurrent.TimeUnit;
 
 import org.eclipse.californium.TestTools;
 import org.eclipse.californium.core.Utils;
-import org.eclipse.californium.core.coap.BlockOption;
 import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.CoAP.Code;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
@@ -79,10 +79,13 @@ import org.eclipse.californium.core.coap.CoAP.Type;
 import org.eclipse.californium.core.coap.EmptyMessage;
 import org.eclipse.californium.core.coap.Message;
 import org.eclipse.californium.core.coap.Option;
-import org.eclipse.californium.core.coap.OptionNumberRegistry;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.coap.Token;
+import org.eclipse.californium.core.coap.option.BlockOption;
+import org.eclipse.californium.core.coap.option.OpaqueOption;
+import org.eclipse.californium.core.coap.option.OptionDefinition;
+import org.eclipse.californium.core.coap.option.StandardOptionRegistry;
 import org.eclipse.californium.core.network.serialization.DataParser;
 import org.eclipse.californium.core.network.serialization.DataSerializer;
 import org.eclipse.californium.core.network.serialization.UdpDataParser;
@@ -99,6 +102,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class LockstepEndpoint {
+
 	private static final Logger LOGGER = LoggerFactory.getLogger(LockstepEndpoint.class);
 
 	private static boolean DEFAULT_VERBOSE = false;
@@ -211,6 +215,10 @@ public class LockstepEndpoint {
 				// saveBoth
 				Object[] items = (Object[]) item;
 				return (Integer) items[0];
+			}
+			if (item instanceof MidUsage) {
+				// newMID
+				return ((MidUsage) item).currentMID;
 			}
 			throw new NoSuchElementException("Variable '" + var + "' is no MID (" + item.getClass() + ")");
 		}
@@ -393,6 +401,17 @@ public class LockstepEndpoint {
 		return null;
 	}
 
+	private static class MidUsage {
+
+		Set<Integer> usedMIDs = new HashSet<Integer>();
+		int currentMID;
+
+		private void add(int mid) {
+			usedMIDs.add(mid);
+			currentMID = mid;
+		}
+	}
+
 	public abstract class MessageExpectation implements Action {
 
 		/**
@@ -400,6 +419,10 @@ public class LockstepEndpoint {
 		 */
 		private List<MidExpectation> midExpectations = new LinkedList<MidExpectation>();
 		private List<Expectation<Message>> expectations = new LinkedList<Expectation<Message>>();
+
+		protected void add(Expectation<Message> expectation) {
+			expectations.add(expectation);
+		}
 
 		public MessageExpectation mid(final int mid) {
 			expectations.add(new Expectation<Message>() {
@@ -426,8 +449,8 @@ public class LockstepEndpoint {
 
 		/**
 		 * Check, if the MID stored under var is the same as the MID of the
-		 * message. The MID may be stored either by {@link #storeMID(String)} or
-		 * {@link #storeBoth(String)}.
+		 * message. The MID may be stored either by {@link #storeMID(String)},
+		 * {@link #storeBoth(String)}, or {@link #newMID(String)}.
 		 * 
 		 * Provides a fluent API to chain expectations.
 		 * 
@@ -476,16 +499,15 @@ public class LockstepEndpoint {
 				@Override
 				public void check(final Message response) {
 					final int mid = response.getMID();
-					@SuppressWarnings("unchecked")
-					Set<Integer> usedMIDs = (Set<Integer>) storage.get(var);
-					if (usedMIDs != null && !usedMIDs.isEmpty()) {
-						assertFalse("MID: " + mid + " is not new! " + usedMIDs, usedMIDs.contains(mid));
+					MidUsage usage = (MidUsage) storage.get(var);
+					if (usage == null) {
+						usage = new MidUsage();
 					}
-					if (usedMIDs == null) {
-						usedMIDs = new HashSet<Integer>();
+					if (!usage.usedMIDs.isEmpty()) {
+						assertFalse("MID: " + mid + " is not new! " + usage.usedMIDs, usage.usedMIDs.contains(mid));
 					}
-					usedMIDs.add(mid);
-					storage.put(var, usedMIDs);
+					usage.add(mid);
+					storage.put(var, usage);
 				}
 
 				@Override
@@ -535,8 +557,8 @@ public class LockstepEndpoint {
 
 		/**
 		 * Check, if the token stored under var is the same as the token of the
-		 * message. The token may be stored either by {@link #storeToken(String)} or
-		 * {@link #storeBoth(String)}.
+		 * message. The token may be stored either by
+		 * {@link #storeToken(String)} or {@link #storeBoth(String)}.
 		 * 
 		 * Provides a fluent API to chain expectations.
 		 * 
@@ -572,6 +594,22 @@ public class LockstepEndpoint {
 				@Override
 				public String toString() {
 					return "Expected Size1 option: " + expectedSize;
+				}
+			});
+			return this;
+		}
+
+		public MessageExpectation size2(final int expectedSize) {
+			expectations.add(new Expectation<Message>() {
+
+				@Override
+				public void check(final Message message) {
+					assertThat("Wrong size2", message.getOptions().getSize2(), is(expectedSize));
+				}
+
+				@Override
+				public String toString() {
+					return "Expected Size2 option: " + expectedSize;
 				}
 			});
 			return this;
@@ -623,7 +661,7 @@ public class LockstepEndpoint {
 				}
 
 				public String toString() {
-					BlockOption option = new BlockOption(BlockOption.size2Szx(size), m, num);
+					BlockOption option = StandardOptionRegistry.BLOCK1.create(BlockOption.size2Szx(size), m, num);
 					return "Expected Block1 option: " + option;
 				}
 			});
@@ -643,7 +681,7 @@ public class LockstepEndpoint {
 				}
 
 				public String toString() {
-					BlockOption option = new BlockOption(BlockOption.size2Szx(size), m, num);
+					BlockOption option = StandardOptionRegistry.BLOCK2.create(BlockOption.size2Szx(size), m, num);
 					return "Expected Block2 option: " + option;
 				}
 			});
@@ -684,11 +722,14 @@ public class LockstepEndpoint {
 
 		public MessageExpectation hasEtag(final byte[] etag) {
 
+			final OpaqueOption etagOption = StandardOptionRegistry.ETAG.create(etag);
+
 			expectations.add(new Expectation<Message>() {
 
 				@Override
 				public void check(final Message message) {
-					assertThat(message.getOptions().getETags(), hasItem(etag));
+
+					assertThat(message.getOptions().getETags(), hasItem(etagOption));
 				}
 
 				@Override
@@ -699,32 +740,55 @@ public class LockstepEndpoint {
 			return this;
 		}
 
-		public MessageExpectation noOption(final int... numbers) {
+		public MessageExpectation noOption(final OptionDefinition... definitions) {
 			expectations.add(new Expectation<Message>() {
 
 				public void check(Message message) {
 					List<Option> options = message.getOptions().asSortedList();
-					for (Option option : options) {
-						for (int n : numbers) {
-							if (option.getNumber() == n) {
-								fail("Must not have option number " + n + " but has " + option);
-							}
+					for (OptionDefinition definition : definitions) {
+						int pos = Collections.binarySearch(options, definition);
+						if (pos >= 0) {
+							fail("Must not have option " + definition + " but has " + options.get(pos));
 						}
 					}
 				}
 
 				public String toString() {
 					StringBuilder result = new StringBuilder("Expected no options: [");
-					if (0 < numbers.length) {
-						final int end = numbers.length - 1;
+					if (0 < definitions.length) {
+						final int end = definitions.length - 1;
 						int index = 0;
 						for (; index < end; ++index) {
-							result.append(OptionNumberRegistry.toString(numbers[index])).append(",");
+							result.append(definitions[index]).append(",");
 						}
-						result.append(OptionNumberRegistry.toString(numbers[index]));
+						result.append(definitions[index]);
 					}
 					result.append(']');
 					return result.toString();
+				}
+			});
+			return this;
+		}
+
+		public MessageExpectation option(final Option option) {
+			expectations.add(new Expectation<Message>() {
+
+				public void check(Message message) {
+					List<Option> options = message.getOptions().asSortedList();
+					if (options.contains(option)) {
+						print("Correct option: " + option);
+					} else {
+						int pos = Collections.binarySearch(options, option.getDefinition());
+						if (pos >= 0) {
+							fail("Must have option " + option + ", but has " + options.get(pos).toValueString());
+						} else {
+							fail("Must have option " + option);
+						}
+					}
+				}
+
+				public String toString() {
+					return "Expected option: " + option;
 				}
 			});
 			return this;
@@ -943,8 +1007,14 @@ public class LockstepEndpoint {
 		}
 
 		@Override
-		public RequestExpectation noOption(final int... numbers) {
-			super.noOption(numbers);
+		public RequestExpectation noOption(final OptionDefinition... definitions) {
+			super.noOption(definitions);
+			return this;
+		}
+
+		@Override
+		public RequestExpectation option(final Option option) {
+			super.option(option);
 			return this;
 		}
 
@@ -996,10 +1066,10 @@ public class LockstepEndpoint {
 		}
 
 		public RequestExpectation path(final String path) {
-			expectations.add(new Expectation<Request>() {
+			add(new Expectation<Message>() {
 
-				public void check(Request request) {
-					assertEquals(path, request.getOptions().getUriPathString());
+				public void check(Message message) {
+					assertEquals(path, message.getOptions().getUriPathString());
 					print("Correct URI path: " + path);
 				}
 			});
@@ -1104,25 +1174,21 @@ public class LockstepEndpoint {
 			return this;
 		}
 
+		@Override
 		public ResponseExpectation size2(final int expectedSize) {
-			expectations.add(new Expectation<Response>() {
-
-				@Override
-				public void check(final Response response) {
-					assertThat("Wrong size2", response.getOptions().getSize2(), is(expectedSize));
-				}
-
-				@Override
-				public String toString() {
-					return "Expected Size2 option: " + expectedSize;
-				}
-			});
+			super.size2(expectedSize);
 			return this;
 		}
 
 		@Override
-		public ResponseExpectation noOption(final int... numbers) {
-			super.noOption(numbers);
+		public ResponseExpectation noOption(final OptionDefinition... definitions) {
+			super.noOption(definitions);
+			return this;
+		}
+
+		@Override
+		public ResponseExpectation option(final Option option) {
+			super.option(option);
 			return this;
 		}
 
@@ -1184,7 +1250,8 @@ public class LockstepEndpoint {
 				public void check(final Response response) {
 					assertTrue("Response has no observer", response.getOptions().hasObserve());
 					Object obj = storage.get(var);
-					assertThat("Object stored under " + var + " is not an observe option", obj, is(instanceOf(Integer.class)));
+					assertThat("Object stored under " + var + " is not an observe option", obj,
+							is(instanceOf(Integer.class)));
 					assertThat("Response contains wrong observe option", (Integer) obj,
 							is(response.getOptions().getObserve()));
 				}
@@ -1197,8 +1264,9 @@ public class LockstepEndpoint {
 
 				@Override
 				public void check(final Response response) {
-					assertTrue("Response has no ETag", response.getOptions().getETagCount() > 0);
-					storage.put(var, response.getOptions().getETags().get(0));
+					byte[] etag = response.getOptions().getResponseEtag();
+					assertTrue("Response has no ETag", etag != null);
+					storage.put(var, etag);
 				}
 			});
 			return this;
@@ -1209,11 +1277,11 @@ public class LockstepEndpoint {
 
 				@Override
 				public void check(final Response response) {
-					assertTrue("Response has no ETag", response.getOptions().getETagCount() > 0);
+					byte[] etag = response.getOptions().getResponseEtag();
+					assertTrue("Response has no ETag", etag != null);
 					Object obj = storage.get(var);
 					assertThat("Object stored under " + var + " is not an ETag", obj, is(instanceOf(byte[].class)));
-					assertThat("Response contains wrong ETag", (byte[]) obj,
-							is(response.getOptions().getETags().get(0)));
+					assertThat("Response contains wrong ETag", (byte[]) obj, is(etag));
 				}
 			});
 			return this;
@@ -1458,6 +1526,10 @@ public class LockstepEndpoint {
 			this.mid = mid;
 		}
 
+		protected void add(Property<Message> property) {
+			properties.add(property);
+		}
+
 		public void setProperties(Message message) {
 			message.setType(type);
 			message.setToken(token);
@@ -1465,6 +1537,16 @@ public class LockstepEndpoint {
 			for (Property<Message> property : properties) {
 				property.set(message);
 			}
+		}
+
+		public MessageProperty payload(final String payload) {
+			properties.add(new Property<Message>() {
+
+				public void set(final Message message) {
+					message.setPayload(payload);
+				}
+			});
+			return this;
 		}
 
 		public MessageProperty payload(final String payload, final int from, final int to) {
@@ -1481,7 +1563,7 @@ public class LockstepEndpoint {
 			this.mid = mid;
 			return this;
 		}
-		
+
 		public MessageProperty token(final Token token) {
 			this.token = token;
 			return this;
@@ -1550,6 +1632,16 @@ public class LockstepEndpoint {
 			return this;
 		}
 
+		public MessageProperty otherOption(final Option option) {
+			properties.add(new Property<Message>() {
+
+				public void set(final Message message) {
+					message.getOptions().addOtherOption(option);
+				}
+			});
+			return this;
+		}
+
 		public MessageProperty loadMID(final String var) {
 			properties.add(new Property<Message>() {
 
@@ -1571,6 +1663,20 @@ public class LockstepEndpoint {
 			});
 			return this;
 		}
+
+		public MessageProperty loadETag(final String var) {
+			add(new Property<Message>() {
+
+				public void set(final Message message) {
+					Object obj = storage.get(var);
+					assertThat("Object stored under variable " + var + " is not a byte array", obj,
+							is(instanceOf(byte[].class)));
+					message.getOptions().addETag((byte[]) obj);
+				}
+			});
+			return this;
+		}
+
 	}
 
 	public class EmptyMessageProperty extends MessageProperty {
@@ -1601,8 +1707,6 @@ public class LockstepEndpoint {
 	}
 
 	public class RequestProperty extends MessageProperty {
-
-		private List<Property<Request>> properties = new LinkedList<LockstepEndpoint.Property<Request>>();
 
 		private Code code;
 
@@ -1648,12 +1752,7 @@ public class LockstepEndpoint {
 		}
 
 		public RequestProperty payload(final String payload) {
-			properties.add(new Property<Request>() {
-
-				public void set(Request request) {
-					request.setPayload(payload);
-				}
-			});
+			super.payload(payload);
 			return this;
 		}
 
@@ -1664,33 +1763,23 @@ public class LockstepEndpoint {
 		}
 
 		public RequestProperty path(final String path) {
-			properties.add(new Property<Request>() {
+			add(new Property<Message>() {
 
-				public void set(Request request) {
-					request.getOptions().setUriPath(path);
+				public void set(Message message) {
+					message.getOptions().setUriPath(path);
 				}
 			});
 			return this;
 		}
 
 		public RequestProperty loadETag(final String var) {
-			properties.add(new Property<Request>() {
-
-				public void set(final Request request) {
-					Object obj = storage.get(var);
-					assertThat("Object stored under variable " + var + " is not a byte array", obj,
-							is(instanceOf(byte[].class)));
-					request.getOptions().addETag((byte[]) obj);
-				}
-			});
+			super.loadETag(var);
 			return this;
 		}
 
-		public void setProperties(Request request) {
-			super.setProperties(request);
-			for (Property<Request> property : properties) {
-				property.set(request);
-			}
+		public RequestProperty otherOption(final Option option) {
+			super.otherOption(option);
+			return this;
 		}
 
 		@Override
@@ -1710,8 +1799,6 @@ public class LockstepEndpoint {
 	}
 
 	public class ResponseProperty extends MessageProperty {
-
-		private List<Property<Response>> properties = new LinkedList<LockstepEndpoint.Property<Response>>();
 
 		private ResponseCode code;
 
@@ -1737,7 +1824,7 @@ public class LockstepEndpoint {
 			super.mid(mid);
 			return this;
 		}
-		
+
 		@Override
 		public ResponseProperty token(final Token token) {
 			super.token(token);
@@ -1780,13 +1867,13 @@ public class LockstepEndpoint {
 			return this;
 		}
 
-		public ResponseProperty payload(final String payload) {
-			properties.add(new Property<Response>() {
+		public ResponseProperty otherOption(final Option option) {
+			super.otherOption(option);
+			return this;
+		}
 
-				public void set(Response response) {
-					response.setPayload(payload);
-				}
-			});
+		public ResponseProperty payload(final String payload) {
+			super.payload(payload);
 			return this;
 		}
 
@@ -1796,37 +1883,20 @@ public class LockstepEndpoint {
 			return this;
 		}
 
-		public ResponseProperty path(final String path) {
-			properties.add(new Property<Response>() {
-
-				public void set(Response response) {
-					response.getOptions().setUriPath(path);
-				}
-			});
-			return this;
-		}
-
 		public ResponseProperty loadBoth(final String var) {
-			properties.add(new Property<Response>() {
+			add(new Property<Message>() {
 
-				public void set(Response response) {
+				public void set(Message message) {
 					Object[] pair = (Object[]) storage.get(var);
 					if (pair == null) {
 						throw new NullPointerException(
 								"Did not find MID and token for variable " + var + ". Did you forgot a go()?");
 					}
-					response.setMID((Integer) pair[0]);
-					response.setToken((Token) pair[1]);
+					message.setMID((Integer) pair[0]);
+					message.setToken((Token) pair[1]);
 				}
 			});
 			return this;
-		}
-
-		public void setProperties(Response response) {
-			super.setProperties(response);
-			for (Property<Response> property : properties) {
-				property.set(response);
-			}
 		}
 
 		@Override

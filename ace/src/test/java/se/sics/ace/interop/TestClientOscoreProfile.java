@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -166,13 +166,6 @@ public class TestClientOscoreProfile {
         
         
         // Upload the access token to the Resource Server
-        
-        CBORObject resCBOR = CBORObject.DecodeFromBytes(response.getPayload());
-        CBORObject token = CBORObject.DecodeFromBytes(resCBOR.get(Constants.ACCESS_TOKEN).GetByteString());
-        
-        // response = DTLSProfileRequests.postToken(uriNoSecRS + "/" + pathAuthzinfoEndpoint, token, null);
-        
-        
         Response rsRes = OSCOREProfileRequests.postToken(uriRS + "/" + pathAuthzinfoEndpoint, response, ctxDB, usedRecipientIds);
         
         System.out.println("\nPosted access token to the RS");

@@ -28,9 +28,10 @@ package org.eclipse.californium.core.network.stack;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 
-import org.eclipse.californium.core.coap.BlockOption;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+import org.eclipse.californium.core.coap.option.BlockOption;
 import org.eclipse.californium.core.coap.Message;
+import org.eclipse.californium.core.coap.MessageObserver;
 import org.eclipse.californium.core.coap.MessageObserverAdapter;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.network.Exchange;
@@ -49,13 +50,15 @@ public abstract class BlockwiseStatus {
 
 	protected final Message firstMessage;
 
-	private final RemoveHandler removeHandler;
+	private final MessageObserver removeObserver;
 	private final KeyUri keyUri;
 	private final ByteBuffer buf;
 	private final int contentFormat;
 	private final int maxTcpBertBulkBlocks;
 	private Exchange exchange;
 	private EndpointContext followUpEndpointContext;
+
+	private int messageSize;
 
 	private int currentNum;
 	private int currentSzx;
@@ -73,8 +76,7 @@ public abstract class BlockwiseStatus {
 	 *            TCP/BERT. {@code 1} or less, disable BERT.
 	 * @since 3.0
 	 */
-	protected BlockwiseStatus(KeyUri keyUri, RemoveHandler removeHandler, Exchange exchange, Message first,
-			int maxSize, int maxTcpBertBulkBlocks) {
+	protected BlockwiseStatus(KeyUri keyUri, final RemoveHandler removeHandler, Exchange exchange, Message first, int maxSize, int maxTcpBertBulkBlocks) {
 		if (keyUri == null) {
 			throw new NullPointerException("Key URI must not be null!");
 		}
@@ -88,7 +90,18 @@ public abstract class BlockwiseStatus {
 			throw new IllegalArgumentException("max. size must not be 0!");
 		}
 		this.keyUri = keyUri;
-		this.removeHandler = removeHandler;
+		this.removeObserver = new MessageObserverAdapter() {
+
+			@Override
+			public void onCancel() {
+				removeHandler.remove(BlockwiseStatus.this);
+			}
+
+			@Override
+			protected void failed() {
+				removeHandler.remove(BlockwiseStatus.this);
+			}
+		};
 		this.firstMessage = first;
 		this.firstMessage.setProtectFromOffload();
 		this.exchange = exchange;
@@ -184,7 +197,8 @@ public abstract class BlockwiseStatus {
 	/**
 	 * Gets the current payload size in bytes.
 	 * 
-	 * @return The number of bytes corresponding to the current szx code and BERT.
+	 * @return The number of bytes corresponding to the current szx code and
+	 *         BERT.
 	 */
 	protected final int getCurrentPayloadSize() {
 		int size = getCurrentSize();
@@ -226,7 +240,6 @@ public abstract class BlockwiseStatus {
 
 	/**
 	 * Marks the transfer as complete.
-	 * <p>
 	 * 
 	 * @param complete {@code true} if all blocks have been transferred.
 	 */
@@ -236,7 +249,6 @@ public abstract class BlockwiseStatus {
 
 	/**
 	 * Marks the transfer as complete, if not already completed.
-	 * <p>
 	 * 
 	 * @return {@code true}, if the transfer is completed, {@code false}, if the
 	 *         transfer was already completed.
@@ -256,6 +268,7 @@ public abstract class BlockwiseStatus {
 	 * @since 3.0
 	 */
 	public synchronized void restart() {
+		messageSize = 0;
 		((Buffer) buf).position(0);
 	}
 
@@ -299,15 +312,17 @@ public abstract class BlockwiseStatus {
 	 * Adds a block to the buffer.
 	 *
 	 * @param block The block to add.
+	 * @param messageSize additional message size of this blockwise message.
 	 * @throws BlockwiseTransferException if buffer overflows.
 	 */
-	protected final void addBlock(final byte[] block) throws BlockwiseTransferException {
+	protected final void addBlock(final byte[] block, int messageSize) throws BlockwiseTransferException {
 		if (block != null && block.length > 0) {
 			if (buf.remaining() < block.length) {
 				String msg = String.format("response %d exceeds the left buffer %d", block.length, buf.remaining());
 				throw new BlockwiseTransferException(msg, ResponseCode.REQUEST_ENTITY_TOO_LARGE);
 			}
 			buf.put(block);
+			this.messageSize += messageSize;
 		}
 	}
 
@@ -332,6 +347,7 @@ public abstract class BlockwiseStatus {
 		((Buffer) buf).flip();
 		byte[] body = new byte[buf.remaining()];
 		((Buffer) buf.get(body)).clear();
+		messageSize = 0;
 		return body;
 	}
 
@@ -397,6 +413,8 @@ public abstract class BlockwiseStatus {
 		message.setOptions(firstMessage.getOptions());
 		message.getOptions().removeBlock1();
 		message.getOptions().removeBlock2();
+		message.addMessageSize(messageSize);
+		message.setNanoTimestamp(firstMessage.getNanoTimestamp());
 		if (buf.position() > 0) {
 			if (!message.isIntendedPayload()) {
 				message.setUnintendedPayload();
@@ -426,7 +444,6 @@ public abstract class BlockwiseStatus {
 			throw new IllegalArgumentException("initial message has no destinationcontext!");
 		}
 		// The assembled request will contain the options of the first block
-		message.setDestinationContext(initialMessage.getDestinationContext());
 		message.setType(initialMessage.getType());
 		message.setOptions(initialMessage.getOptions());
 		message.setMaxResourceBodySize(initialMessage.getMaxResourceBodySize());
@@ -453,18 +470,7 @@ public abstract class BlockwiseStatus {
 				}
 			});
 		}
-		message.addMessageObserver(new MessageObserverAdapter() {
-
-			@Override
-			public void onCancel() {
-				removeHandler.remove(BlockwiseStatus.this);
-			}
-
-			@Override
-			protected void failed() {
-				removeHandler.remove(BlockwiseStatus.this);
-			}
-		});
+		message.addMessageObserver(removeObserver);
 	}
 
 	/**

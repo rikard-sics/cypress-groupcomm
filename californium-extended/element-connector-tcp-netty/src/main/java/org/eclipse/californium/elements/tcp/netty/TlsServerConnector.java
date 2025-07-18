@@ -31,9 +31,9 @@ import javax.net.ssl.SSLEngine;
 import org.eclipse.californium.elements.config.CertificateAuthenticationMode;
 import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.config.TcpConfig;
-import org.eclipse.californium.elements.util.JceProviderUtil;
-import org.eclipse.californium.elements.util.SslContextUtil;
 import org.eclipse.californium.elements.util.StringUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.netty.channel.Channel;
 import io.netty.handler.ssl.SslHandler;
@@ -42,6 +42,10 @@ import io.netty.handler.ssl.SslHandler;
  * A TLS server connector that accepts inbound TLS connections.
  */
 public class TlsServerConnector extends TcpServerConnector {
+	/**
+	 * @since 3.10
+	 */
+	private static final Logger LOG = LoggerFactory.getLogger(TlsServerConnector.class);
 
 	/**
 	 * Client authentication mode.
@@ -54,7 +58,7 @@ public class TlsServerConnector extends TcpServerConnector {
 	/**
 	 * Weak cipher suites, or {@code null}, if no required.
 	 * 
-	 * @see JceProviderUtil#hasStrongEncryption()
+	 * @see TlsContextUtil#getWeakCipherSuites(SSLContext)
 	 * @since 3.0
 	 */
 	private final String[] weakCipherSuites;
@@ -78,8 +82,7 @@ public class TlsServerConnector extends TcpServerConnector {
 		this.sslContext = sslContext;
 		this.clientAuthMode = configuration.get(TcpConfig.TLS_CLIENT_AUTHENTICATION_MODE);
 		this.handshakeTimeoutMillis = configuration.get(TcpConfig.TLS_HANDSHAKE_TIMEOUT, TimeUnit.MILLISECONDS);
-		this.weakCipherSuites = JceProviderUtil.hasStrongEncryption() ? null
-				: SslContextUtil.getWeakCipherSuites(sslContext);
+		this.weakCipherSuites = TlsContextUtil.getWeakCipherSuites(sslContext);
 	}
 
 	@Override
@@ -118,11 +121,11 @@ public class TlsServerConnector extends TcpServerConnector {
 	private SSLEngine createSllEngineForChannel(Channel ch) {
 		SocketAddress remoteAddress = ch.remoteAddress();
 		if (remoteAddress instanceof InetSocketAddress) {
-			LOGGER.info("Connection from inet {}", StringUtil.toLog(remoteAddress));
+			LOG.info("Connection from inet {}", StringUtil.toLog(remoteAddress));
 			InetSocketAddress remote = (InetSocketAddress) remoteAddress;
 			return sslContext.createSSLEngine(remote.getAddress().getHostAddress(), remote.getPort());
 		} else {
-			LOGGER.info("Connection from {}", StringUtil.toLog(remoteAddress));
+			LOG.info("Connection from {}", StringUtil.toLog(remoteAddress));
 			return sslContext.createSSLEngine();
 		}
 	}

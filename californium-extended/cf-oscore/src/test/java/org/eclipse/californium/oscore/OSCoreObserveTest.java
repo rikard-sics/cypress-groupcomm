@@ -53,7 +53,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -78,8 +77,6 @@ public class OSCoreObserveTest {
 
 	private Timer timer;
 	private Endpoint serverEndpoint;
-	private static String serverName = TestTools.LOCALHOST_EPHEMERAL.getAddress().getHostAddress();
-	private static String clientName = TestTools.LOCALHOST_EPHEMERAL.getAddress().getHostAddress();
 	
 	private static boolean withOSCORE = true;
 
@@ -216,7 +213,7 @@ public class OSCoreObserveTest {
 	
 		try {
 			OSCoreCtx ctx = new OSCoreCtx(master_secret, true, alg, sid, rid, kdf, 32, master_salt, null, MAX_UNFRAGMENTED_SIZE);
-			dbClient.addContext("coap://" + serverName, ctx);
+			dbClient.addContext(TestTools.getUri(serverEndpoint, ""), ctx);
 		}
 		catch(OSException e) {
 			System.err.println("Failed to set client OSCORE Context information!");
@@ -235,7 +232,7 @@ public class OSCoreObserveTest {
 
 		try {
 			OSCoreCtx ctx_B = new OSCoreCtx(master_secret, false, alg, sid, rid, kdf, 32, master_salt, null, MAX_UNFRAGMENTED_SIZE);
-			dbServer.addContext("coap://" + clientName, ctx_B);
+			dbServer.addContext(ctx_B);
 		}
 		catch (OSException e) {
 			System.err.println("Failed to set server OSCORE Context information!");

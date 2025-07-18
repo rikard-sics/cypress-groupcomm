@@ -47,7 +47,7 @@ import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.elements.util.DatagramWriter;
 import org.eclipse.californium.elements.util.NoPublicAPI;
 import org.eclipse.californium.elements.util.StringUtil;
-import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
+import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.dtls.AlertMessage.AlertDescription;
 import org.eclipse.californium.scandium.dtls.AlertMessage.AlertLevel;
 import org.slf4j.Logger;
@@ -68,7 +68,7 @@ import org.slf4j.LoggerFactory;
  * Scandium offers also the possibility to stop the retransmission with
  * receiving the first response message instead of the complete flight. That is
  * currently configurable using
- * {@link DtlsConnectorConfig#useEarlyStopRetransmission()}. Only for the flight
+ * {@link DtlsConfig#DTLS_USE_EARLY_STOP_RETRANSMISSION}. Only for the flight
  * before the very last flight of a handshake, it must be ensured, that the
  * retransmission is only stopped, after that very last flight is received
  * completely. Though the very last flight in DTLS 1.2 is always a flight with
@@ -191,7 +191,16 @@ public class DTLSFlight {
 	 * Indicates, whether this flight needs retransmission. The very last flight
 	 * (not every flight needs retransmission, e.g. Alert).
 	 */
-	private boolean retransmissionNeeded = false;
+	private boolean retransmissionNeeded;
+
+	/**
+	 * Indicates, whether this flight includes a {@link Finished} message, or
+	 * not.
+	 * 
+	 * @see #addDtlsMessage(int, DTLSMessage)
+	 * @since 3.9
+	 */
+	private boolean finishedIncluded;
 
 	/**
 	 * Indicates, that the first handshake message of the response is received.
@@ -238,6 +247,9 @@ public class DTLSFlight {
 	/**
 	 * Adds a dtls message to this flight.
 	 * 
+	 * Sets {@link #finishedIncluded} to {@code true}, if provided message is a
+	 * {@link Finished} message.
+	 * 
 	 * @param epoch the epoch of the dtls message.
 	 * @param messageToAdd the dtls message to add.
 	 * @since 2.4
@@ -245,6 +257,9 @@ public class DTLSFlight {
 	public void addDtlsMessage(int epoch, DTLSMessage messageToAdd) {
 		if (messageToAdd == null) {
 			throw new NullPointerException("message must not be null!");
+		}
+		if (messageToAdd instanceof Finished) {
+			finishedIncluded = true;
 		}
 		dtlsMessages.add(new EpochMessage(epoch, messageToAdd));
 	}
@@ -285,9 +300,9 @@ public class DTLSFlight {
 	 * @param epochMessage dtls message and epoch
 	 * @throws HandshakeException if the message could not be encrypted using
 	 *             the session's current security parameters
-	 * @since 2.4
+	 * @since 4.0 (changed scope to private)
 	 */
-	protected final void wrapMessage(EpochMessage epochMessage) throws HandshakeException {
+	private final void wrapMessage(EpochMessage epochMessage) throws HandshakeException {
 
 		try {
 			DTLSMessage message = epochMessage.message;
@@ -328,7 +343,7 @@ public class DTLSFlight {
 
 		if (epochMessage.epoch > 0) {
 			ConnectionId connectionId = context.getWriteConnectionId();
-			if (connectionId != null && !connectionId.isEmpty()) {
+			if (Bytes.hasBytes(connectionId)) {
 				useCid = true;
 				// reduce fragment length by connection id
 				maxPayloadLength -= connectionId.length();
@@ -661,7 +676,7 @@ public class DTLSFlight {
 
 	/**
 	 * Signal, that the first handshake message of the response is received. If
-	 * {@link DtlsConnectorConfig#useEarlyStopRetransmission()} is configured,
+	 * {@link DtlsConfig#DTLS_USE_EARLY_STOP_RETRANSMISSION} is configured,
 	 * this stops sending retransmissions but keep a scheduled timeout task.
 	 */
 	public void setResponseStarted() {
@@ -701,6 +716,18 @@ public class DTLSFlight {
 	 */
 	public boolean isResponseCompleted() {
 		return responseCompleted;
+	}
+
+	/**
+	 * Check, if this flight includes a {@link Finished} message.
+	 * 
+	 * @return {@code true}, if {@link Finished} message is included,
+	 *         {@code false}, otherwise.
+	 * @see #addDtlsMessage(int, DTLSMessage)
+	 * @since 3.9
+	 */
+	public boolean isFinishedIncluded() {
+		return finishedIncluded;
 	}
 
 	/**

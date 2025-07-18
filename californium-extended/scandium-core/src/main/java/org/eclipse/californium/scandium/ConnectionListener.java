@@ -19,7 +19,7 @@ import org.eclipse.californium.scandium.dtls.Connection;
 
 /**
  * Listener for Connections life cycle.
- * 
+ * <p>
  * The callbacks are execution within the serial execution of the provided
  * connection. Therefore it's important to not block, otherwise the performance
  * will be downgraded. Though access to the connection must generally be done
@@ -58,6 +58,12 @@ public interface ConnectionListener {
 
 	/**
 	 * Callback, when connection gets removed from the connection store.
+	 * <p>
+	 * <b>Note:</b> since 3.0, the {@link Connection} is now always cleaned up
+	 * before it is used in this callback. {@link Connection#getPeerAddress()},
+	 * {@link Connection#getOngoingHandshake()}, and
+	 * {@link Connection#getDtlsContext()} (including the other variants) will
+	 * return {@code null}.
 	 * 
 	 * @param connection connection, which gets removed from the connection
 	 *            store
@@ -81,7 +87,7 @@ public interface ConnectionListener {
 	 * Callback, when the record could not be decrypted caused by an error.
 	 * 
 	 * @param connection connection
-	 * @return {@code true}, when maximum number of records is reached and the
+	 * @return {@code true}, when maximum number of MAC errors is reached and the
 	 *         connection is to be closed, {@code false}, otherwise.
 	 * @since 3.0
 	 */

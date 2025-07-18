@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -48,8 +48,8 @@ import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.CertificateType;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
-import org.eclipse.californium.scandium.dtls.pskstore.AdvancedSinglePskStore;
-import org.eclipse.californium.scandium.dtls.x509.AsyncNewAdvancedCertificateVerifier;
+import org.eclipse.californium.scandium.dtls.pskstore.SinglePskStore;
+import org.eclipse.californium.scandium.dtls.x509.AsyncCertificateVerifier;
 import org.eclipse.californium.scandium.dtls.x509.SingleCertificateProvider;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -65,6 +65,7 @@ import org.eclipse.californium.elements.auth.RawPublicKeyIdentity;
 import org.eclipse.californium.elements.config.Configuration;
 
 import se.sics.ace.Constants;
+import se.sics.ace.GroupcommParameters;
 import se.sics.ace.ReferenceToken;
 import se.sics.ace.Util;
 import se.sics.ace.as.Token;
@@ -201,8 +202,8 @@ public class TestCoAPClientGroupOSCORE {
         DtlsConnectorConfig.Builder builder = new DtlsConnectorConfig.Builder(dtlsConfig);
         builder.setAddress(new InetSocketAddress(0));
 
-        AdvancedSinglePskStore pskStore = new AdvancedSinglePskStore("clientA", key128);
-        builder.setAdvancedPskStore(pskStore);
+		SinglePskStore pskStore = new SinglePskStore("clientA", key128);
+		builder.setPskStore(pskStore);
 
         CBORObject rpkData = CBORObject.NewMap();
         rpkData = Util.buildRpkData(KeyKeys.EC2_P256.AsInt32(), cX_ECDSA, cY_ECDSA, cD_ECDSA);
@@ -216,11 +217,11 @@ public class TestCoAPClientGroupOSCORE {
         ArrayList<CertificateType> certTypes = new ArrayList<CertificateType>();
         certTypes.add(CertificateType.RAW_PUBLIC_KEY);
         certTypes.add(CertificateType.X_509);
-        AsyncNewAdvancedCertificateVerifier verifier = new AsyncNewAdvancedCertificateVerifier(
+		AsyncCertificateVerifier verifier = new AsyncCertificateVerifier(
                                                             new X509Certificate[0],
                                                             new RawPublicKeyIdentity[0],
                                                             certTypes);
-        builder.setAdvancedCertificateVerifier(verifier);
+        builder.setCertificateVerifier(verifier);
         
         DTLSConnector dtlsConnector = new DTLSConnector(builder.build());
         Builder ceb = new Builder();
@@ -256,8 +257,8 @@ public class TestCoAPClientGroupOSCORE {
     @Test
     public void testGroupOSCORESingleRoleREFToken() throws Exception { 
         
-    	String gid = new String("feedca570000");
-        String gid2 = new String("feedca570001");
+    	String groupName = new String("feedca570000");
+        String groupName2 = new String("feedca570001");
     	
         Configuration dtlsConfig = Configuration.getStandard();
         dtlsConfig.set(DtlsConfig.DTLS_CIPHER_SUITES, Arrays.asList(CipherSuite.TLS_PSK_WITH_AES_128_CCM_8, CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8));
@@ -265,8 +266,8 @@ public class TestCoAPClientGroupOSCORE {
         DtlsConnectorConfig.Builder builder = new DtlsConnectorConfig.Builder(dtlsConfig);
         builder.setAddress(new InetSocketAddress(0));
 
-        AdvancedSinglePskStore pskStore = new AdvancedSinglePskStore("clientF", key128);
-        builder.setAdvancedPskStore(pskStore);
+		SinglePskStore pskStore = new SinglePskStore("clientF", key128);
+		builder.setPskStore(pskStore);
 
         CBORObject rpkData = CBORObject.NewMap();
         rpkData = Util.buildRpkData(KeyKeys.EC2_P256.AsInt32(), cX_ECDSA, cY_ECDSA, cD_ECDSA);
@@ -280,11 +281,11 @@ public class TestCoAPClientGroupOSCORE {
         ArrayList<CertificateType> certTypes = new ArrayList<CertificateType>();
         certTypes.add(CertificateType.RAW_PUBLIC_KEY);
         certTypes.add(CertificateType.X_509);
-        AsyncNewAdvancedCertificateVerifier verifier = new AsyncNewAdvancedCertificateVerifier(
+		AsyncCertificateVerifier verifier = new AsyncCertificateVerifier(
                                                             new X509Certificate[0],
                                                             new RawPublicKeyIdentity[0],
                                                             certTypes);
-        builder.setAdvancedCertificateVerifier(verifier);
+        builder.setCertificateVerifier(verifier);
         
         DTLSConnector dtlsConnector = new DTLSConnector(builder.build());
         Builder ceb = new Builder();
@@ -303,10 +304,10 @@ public class TestCoAPClientGroupOSCORE {
         
         CBORObject cborArrayScope = CBORObject.NewArray();
         CBORObject cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
     	int myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
     	cborArrayEntry.Add(myRoles);
     	
         cborArrayScope.Add(cborArrayEntry);
@@ -333,10 +334,10 @@ public class TestCoAPClientGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_MONITOR);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_MONITOR);
     	cborArrayEntry.Add(myRoles);
     	        
         cborArrayScope.Add(cborArrayEntry);
@@ -362,10 +363,10 @@ public class TestCoAPClientGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid2);
+        cborArrayEntry.Add(groupName2);
         
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
     	cborArrayEntry.Add(myRoles);
     	
         byteStringScope = cborArrayScope.EncodeToBytes();
@@ -391,10 +392,10 @@ public class TestCoAPClientGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
     	        
         cborArrayScope.Add(cborArrayEntry);
@@ -421,7 +422,7 @@ public class TestCoAPClientGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
     	myRoles = 0;
     	myRoles = Util.addGroupOSCORERole(myRoles, (short)10);
@@ -456,8 +457,8 @@ public class TestCoAPClientGroupOSCORE {
     @Test
     public void testGroupOSCOREMultipleRolesREFToken() throws Exception { 
         
-    	String gid = new String("feedca570000");
-        String gid2 = new String("feedca570001");
+    	String groupName = new String("feedca570000");
+        String groupName2 = new String("feedca570001");
     	
         Configuration dtlsConfig = Configuration.getStandard();
         dtlsConfig.set(DtlsConfig.DTLS_CIPHER_SUITES, Arrays.asList(CipherSuite.TLS_PSK_WITH_AES_128_CCM_8, CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8));
@@ -465,8 +466,8 @@ public class TestCoAPClientGroupOSCORE {
         DtlsConnectorConfig.Builder builder = new DtlsConnectorConfig.Builder(dtlsConfig);
         builder.setAddress(new InetSocketAddress(0));
 
-        AdvancedSinglePskStore pskStore = new AdvancedSinglePskStore("clientF", key128);
-        builder.setAdvancedPskStore(pskStore);
+        SinglePskStore pskStore = new SinglePskStore("clientF", key128);
+		builder.setPskStore(pskStore);
 
         CBORObject rpkData = CBORObject.NewMap();
         rpkData = Util.buildRpkData(KeyKeys.EC2_P256.AsInt32(), cX_ECDSA, cY_ECDSA, cD_ECDSA);
@@ -480,11 +481,11 @@ public class TestCoAPClientGroupOSCORE {
         ArrayList<CertificateType> certTypes = new ArrayList<CertificateType>();
         certTypes.add(CertificateType.RAW_PUBLIC_KEY);
         certTypes.add(CertificateType.X_509);
-        AsyncNewAdvancedCertificateVerifier verifier = new AsyncNewAdvancedCertificateVerifier(
+		AsyncCertificateVerifier verifier = new AsyncCertificateVerifier(
                                                             new X509Certificate[0],
                                                             new RawPublicKeyIdentity[0],
                                                             certTypes);
-        builder.setAdvancedCertificateVerifier(verifier);
+        builder.setCertificateVerifier(verifier);
         
         DTLSConnector dtlsConnector = new DTLSConnector(builder.build());
         Builder ceb = new Builder();
@@ -505,11 +506,11 @@ public class TestCoAPClientGroupOSCORE {
         
         CBORObject cborArrayScope = CBORObject.NewArray();
         CBORObject cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
     	int myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
     	
     	cborArrayScope.Add(cborArrayEntry);
@@ -536,11 +537,11 @@ public class TestCoAPClientGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid2);
+        cborArrayEntry.Add(groupName2);
         
         myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_MONITOR);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_MONITOR);
     	cborArrayEntry.Add(myRoles);
     	
     	cborArrayScope.Add(cborArrayEntry);
@@ -567,11 +568,11 @@ public class TestCoAPClientGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
     	
         myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
     	
     	cborArrayScope.Add(cborArrayEntry);
@@ -602,10 +603,10 @@ public class TestCoAPClientGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
         int expectedRoles = 0;
-        expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_REQUESTER);
+        expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
     	cborArrayEntry.Add(expectedRoles);
     	
         cborArrayScope.Add(cborArrayEntry);
@@ -625,7 +626,7 @@ public class TestCoAPClientGroupOSCORE {
     @Test
     public void testGroupOSCOREAltClientREFToken() throws Exception { 
         
-    	String gid = new String("feedca570000");
+    	String groupName = new String("feedca570000");
     	
         Configuration dtlsConfig = Configuration.getStandard();
         dtlsConfig.set(DtlsConfig.DTLS_CIPHER_SUITES, Arrays.asList(CipherSuite.TLS_PSK_WITH_AES_128_CCM_8, CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8));
@@ -633,8 +634,8 @@ public class TestCoAPClientGroupOSCORE {
         DtlsConnectorConfig.Builder builder = new DtlsConnectorConfig.Builder(dtlsConfig);
         builder.setAddress(new InetSocketAddress(0));
 
-        AdvancedSinglePskStore pskStore = new AdvancedSinglePskStore("clientG", key128);
-        builder.setAdvancedPskStore(pskStore);
+		SinglePskStore pskStore = new SinglePskStore("clientG", key128);
+		builder.setPskStore(pskStore);
 
         CBORObject rpkData = CBORObject.NewMap();
         rpkData = Util.buildRpkData(KeyKeys.EC2_P256.AsInt32(), cX_ECDSA, cY_ECDSA, cD_ECDSA);
@@ -648,11 +649,11 @@ public class TestCoAPClientGroupOSCORE {
         ArrayList<CertificateType> certTypes = new ArrayList<CertificateType>();
         certTypes.add(CertificateType.RAW_PUBLIC_KEY);
         certTypes.add(CertificateType.X_509);
-        AsyncNewAdvancedCertificateVerifier verifier = new AsyncNewAdvancedCertificateVerifier(
+		AsyncCertificateVerifier verifier = new AsyncCertificateVerifier(
                                                             new X509Certificate[0],
                                                             new RawPublicKeyIdentity[0],
                                                             certTypes);
-        builder.setAdvancedCertificateVerifier(verifier);
+        builder.setCertificateVerifier(verifier);
         
         DTLSConnector dtlsConnector = new DTLSConnector(builder.build());
         Builder ceb = new Builder();
@@ -672,10 +673,10 @@ public class TestCoAPClientGroupOSCORE {
         
         CBORObject cborArrayScope = CBORObject.NewArray();
         CBORObject cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
     	int myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
         
         cborArrayScope.Add(cborArrayEntry);
@@ -701,11 +702,11 @@ public class TestCoAPClientGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
         myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
     	
     	cborArrayScope.Add(cborArrayEntry);
@@ -735,16 +736,638 @@ public class TestCoAPClientGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(groupName);
         
         int expectedRoles = 0;
-        expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_REQUESTER);
+        expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
     	cborArrayEntry.Add(expectedRoles);
     	
         cborArrayScope.Add(cborArrayEntry);
     	byteStringScope = cborArrayScope.EncodeToBytes();
     	Assert.assertArrayEquals(receivedScope, byteStringScope);
             	
+    }
+    
+
+    /**
+     * Test CoapToken using PSK, for asking permissions as an
+     * Administrator "admin1" of an OSCORE group, using a REF token.
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void testGroupOSCOREAdmin1REFToken() throws Exception {
+        
+    	String groupName = new String("feedca570000");
+        String groupName2 = new String("feedca570001");
+        String complexPattern = "^[J-Z][0-9][-a-z0-9]*$";
+        int myPermissions = 0;
+        byte[] byteStringScope = null;
+    	
+        Configuration dtlsConfig = Configuration.getStandard();
+        dtlsConfig.set(DtlsConfig.DTLS_CIPHER_SUITES, Arrays.asList(CipherSuite.TLS_PSK_WITH_AES_128_CCM_8, CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8));
+        
+        DtlsConnectorConfig.Builder builder = new DtlsConnectorConfig.Builder(dtlsConfig);
+        builder.setAddress(new InetSocketAddress(0));
+
+		SinglePskStore pskStore = new SinglePskStore("admin1", key128);
+		builder.setPskStore(pskStore);
+
+        CBORObject rpkData = CBORObject.NewMap();
+        rpkData = Util.buildRpkData(KeyKeys.EC2_P256.AsInt32(), cX_ECDSA, cY_ECDSA, cD_ECDSA);
+        cRPK = new OneKey(rpkData);
+        String keyId = new RawPublicKeyIdentity(cRPK.AsPublicKey()).getName();
+        cRPK.add(KeyKeys.KeyId, CBORObject.FromObject(keyId.getBytes(Constants.charset)));
+
+        builder.setCertificateIdentityProvider(
+                new SingleCertificateProvider(cRPK.AsPrivateKey(), cRPK.AsPublicKey()));
+
+        ArrayList<CertificateType> certTypes = new ArrayList<CertificateType>();
+        certTypes.add(CertificateType.RAW_PUBLIC_KEY);
+        certTypes.add(CertificateType.X_509);
+		AsyncCertificateVerifier verifier = new AsyncCertificateVerifier(
+                                                            new X509Certificate[0],
+                                                            new RawPublicKeyIdentity[0],
+                                                            certTypes);
+        builder.setCertificateVerifier(verifier);
+        
+        DTLSConnector dtlsConnector = new DTLSConnector(builder.build());
+        Builder ceb = new Builder();
+        ceb.setConnector(dtlsConnector);
+        ceb.setConfiguration(Configuration.getStandard());
+        CoapEndpoint e = ceb.build();
+        CoapClient client = new CoapClient("coaps://localhost/token");
+        client.setEndpoint(e);
+        dtlsConnector.start();
+    	
+        
+        Map<Short, CBORObject> params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        // The scope is a CBOR Array encoded as a CBOR byte string
+        
+        CBORObject cborArrayScope = CBORObject.NewArray();
+        CBORObject cborArrayEntry = CBORObject.NewArray();
+        
+    	// The Administrator "admin1" can have all permission on the group with group name "feedca57000000"
+        
+    	// Toid is the literal pattern "feedca570000"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with two stored patterns: the literal pattern "feedca57000000"; the wildcard pattern
+        cborArrayEntry.Add(groupName);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        CoapResponse response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+                							Constants.APPLICATION_ACE_CBOR);    
+        CBORObject res = CBORObject.DecodeFromBytes(response.getPayload());
+        
+        Map<Short, CBORObject> map = Constants.getParams(res);
+        
+        assert(map.containsKey(Constants.ACCESS_TOKEN));
+        assert(!map.containsKey(Constants.PROFILE)); //Profile is implicit
+        assert(map.containsKey(Constants.CNF));
+        assert(!map.containsKey(Constants.SCOPE)); // The originally requested scope is implicitly confirmed
+
+        
+        // Toid is the literal pattern "feedca570000"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with two stored patterns: the literal pattern "feedca57000000"; the wildcard pattern
+        
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+                							Constants.APPLICATION_ACE_CBOR);    
+        res = CBORObject.DecodeFromBytes(response.getPayload());
+        
+        map = Constants.getParams(res);
+        
+        assert(map.containsKey(Constants.ACCESS_TOKEN));
+        assert(!map.containsKey(Constants.PROFILE)); //Profile is implicit
+        assert(map.containsKey(Constants.CNF));
+        assert(!map.containsKey(Constants.SCOPE)); // The originally requested scope is implicitly confirmed
+        
+        
+    	// Toid is the literal pattern "P1ab13"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with two stored patterns: the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add("P1ab13");
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+                							Constants.APPLICATION_ACE_CBOR);    
+        res = CBORObject.DecodeFromBytes(response.getPayload());
+        
+        map = Constants.getParams(res);
+        
+        assert(map.containsKey(Constants.ACCESS_TOKEN));
+        assert(!map.containsKey(Constants.PROFILE)); //Profile is implicit
+        assert(map.containsKey(Constants.CNF));
+        assert(!map.containsKey(Constants.SCOPE)); // The originally requested scope is implicitly confirmed
+        
+        
+    	// Toid is the literal pattern "P1ab13"; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with two stored patterns: the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add("P1ab13");
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+                							Constants.APPLICATION_ACE_CBOR);    
+        res = CBORObject.DecodeFromBytes(response.getPayload());
+        
+        map = Constants.getParams(res);
+        
+        assert(map.containsKey(Constants.ACCESS_TOKEN));
+        assert(!map.containsKey(Constants.PROFILE)); //Profile is implicit
+        assert(map.containsKey(Constants.CNF));
+        assert(map.containsKey(Constants.SCOPE)); // The originally requested scope is is not fully granted, so the granted one is specified
+        
+        
+    	// Toid is the literal pattern "feedca570001"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with the stored wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName2);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+                							Constants.APPLICATION_ACE_CBOR);    
+        res = CBORObject.DecodeFromBytes(response.getPayload());
+        
+        map = Constants.getParams(res);
+        
+        assert(map.containsKey(Constants.ACCESS_TOKEN));
+        assert(!map.containsKey(Constants.PROFILE)); //Profile is implicit
+        assert(map.containsKey(Constants.CNF));
+        assert(!map.containsKey(Constants.SCOPE)); // The originally requested scope is implicitly confirmed
+    
+        
+    	// Toid is the literal pattern "feedca570001"; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with the stored wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName2);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+                							Constants.APPLICATION_ACE_CBOR);    
+        res = CBORObject.DecodeFromBytes(response.getPayload());
+        
+        map = Constants.getParams(res);
+        
+        assert(map.containsKey(Constants.ACCESS_TOKEN));
+        assert(!map.containsKey(Constants.PROFILE)); //Profile is implicit
+        assert(map.containsKey(Constants.CNF));
+        assert(map.containsKey(Constants.SCOPE)); // The originally requested scope is is not fully granted, so the granted one is specified
+    	
+        
+    	// Toid is the wildcard pattern; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with the stored wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(CBORObject.True);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+                							Constants.APPLICATION_ACE_CBOR);    
+        res = CBORObject.DecodeFromBytes(response.getPayload());
+        
+        map = Constants.getParams(res);
+        
+        assert(map.containsKey(Constants.ACCESS_TOKEN));
+        assert(!map.containsKey(Constants.PROFILE)); //Profile is implicit
+        assert(map.containsKey(Constants.CNF));
+        assert(!map.containsKey(Constants.SCOPE)); // The originally requested scope is implicitly confirmed
+        
+        
+    	// Toid is the wildcard pattern; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with the stored wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(CBORObject.True);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+                							Constants.APPLICATION_ACE_CBOR);    
+        res = CBORObject.DecodeFromBytes(response.getPayload());
+        
+        map = Constants.getParams(res);
+        
+        assert(map.containsKey(Constants.ACCESS_TOKEN));
+        assert(!map.containsKey(Constants.PROFILE)); //Profile is implicit
+        assert(map.containsKey(Constants.CNF));
+        assert(map.containsKey(Constants.SCOPE)); // The originally requested scope is is not fully granted, so the granted one is specified
+        
+        
+    	// Toid is the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with two stored patterns: the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        CBORObject toid = CBORObject.FromObjectAndTag(complexPattern, 21065);
+    	cborArrayEntry.Add(toid);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+                							Constants.APPLICATION_ACE_CBOR);    
+        res = CBORObject.DecodeFromBytes(response.getPayload());
+        
+        map = Constants.getParams(res);
+        
+        assert(map.containsKey(Constants.ACCESS_TOKEN));
+        assert(!map.containsKey(Constants.PROFILE)); //Profile is implicit
+        assert(map.containsKey(Constants.CNF));
+        assert(!map.containsKey(Constants.SCOPE)); // The originally requested scope is implicitly confirmed
+        
+        
+    	// Toid is the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with two stored patterns: the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        toid = CBORObject.FromObjectAndTag(complexPattern, 21065);
+    	cborArrayEntry.Add(toid);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+                							Constants.APPLICATION_ACE_CBOR);    
+        res = CBORObject.DecodeFromBytes(response.getPayload());
+        
+        map = Constants.getParams(res);
+        
+        assert(map.containsKey(Constants.ACCESS_TOKEN));
+        assert(!map.containsKey(Constants.PROFILE)); //Profile is implicit
+        assert(map.containsKey(Constants.CNF));
+        assert(map.containsKey(Constants.SCOPE)); // The originally requested scope is is not fully granted, so the granted one is specified
+        
+        
+    	// Toid is the complex (iregexp) pattern "^[A-M][0-9][-a-z0-9]*$"; Tperm expresses permissions that cannot be obtained
+    	// The Toid does not match with the stored complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$", but it matches with the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+    	toid = CBORObject.FromObjectAndTag("^[A-M][0-9][-a-z0-9]*$", 21065);
+    	cborArrayEntry.Add(toid);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+                							Constants.APPLICATION_ACE_CBOR);    
+        res = CBORObject.DecodeFromBytes(response.getPayload());
+        
+        map = Constants.getParams(res);
+        
+        assert(map.containsKey(Constants.ACCESS_TOKEN));
+        assert(!map.containsKey(Constants.PROFILE)); //Profile is implicit
+        assert(map.containsKey(Constants.CNF));
+        assert(map.containsKey(Constants.SCOPE)); // The originally requested scope is is not fully granted, so the granted one is specified
+
+    }
+    
+    
+    /**
+     * Test CoapToken using PSK, for asking permissions as an
+     * Administrator "admin2" of an OSCORE group, using a REF token.
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void testGroupOSCOREAdmin2REFToken() throws Exception { 
+        
+    	String groupName = new String("feedca570000");
+        String groupName2 = new String("feedca570001");
+        int myPermissions = 0;
+        byte[] byteStringScope = null;
+    	
+        Configuration dtlsConfig = Configuration.getStandard();
+        dtlsConfig.set(DtlsConfig.DTLS_CIPHER_SUITES, Arrays.asList(CipherSuite.TLS_PSK_WITH_AES_128_CCM_8, CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8));
+        
+        DtlsConnectorConfig.Builder builder = new DtlsConnectorConfig.Builder(dtlsConfig);
+        builder.setAddress(new InetSocketAddress(0));
+
+		SinglePskStore pskStore = new SinglePskStore("admin2", key128);
+		builder.setPskStore(pskStore);
+
+        CBORObject rpkData = CBORObject.NewMap();
+        rpkData = Util.buildRpkData(KeyKeys.EC2_P256.AsInt32(), cX_ECDSA, cY_ECDSA, cD_ECDSA);
+        cRPK = new OneKey(rpkData);
+        String keyId = new RawPublicKeyIdentity(cRPK.AsPublicKey()).getName();
+        cRPK.add(KeyKeys.KeyId, CBORObject.FromObject(keyId.getBytes(Constants.charset)));
+
+        builder.setCertificateIdentityProvider(
+                new SingleCertificateProvider(cRPK.AsPrivateKey(), cRPK.AsPublicKey()));
+
+        ArrayList<CertificateType> certTypes = new ArrayList<CertificateType>();
+        certTypes.add(CertificateType.RAW_PUBLIC_KEY);
+        certTypes.add(CertificateType.X_509);
+		AsyncCertificateVerifier verifier = new AsyncCertificateVerifier(
+                                                            new X509Certificate[0],
+                                                            new RawPublicKeyIdentity[0],
+                                                            certTypes);
+        builder.setCertificateVerifier(verifier);
+        
+        DTLSConnector dtlsConnector = new DTLSConnector(builder.build());
+        Builder ceb = new Builder();
+        ceb.setConnector(dtlsConnector);
+        ceb.setConfiguration(Configuration.getStandard());
+        CoapEndpoint e = ceb.build();
+        CoapClient client = new CoapClient("coaps://localhost/token");
+        client.setEndpoint(e);
+        dtlsConnector.start();
+    	
+        
+        Map<Short, CBORObject> params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        // The scope is a CBOR Array encoded as a CBOR byte string
+        
+        CBORObject cborArrayScope = CBORObject.NewArray();
+        CBORObject cborArrayEntry = CBORObject.NewArray();
+        
+    	// The Administrator "admin2" can have the permission LIST, READ, and DELETE on the group with group name "feedca57000000"
+    	
+    	// Toid is the literal pattern "feedca570000"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with two stored patterns: the literal pattern "feedca57000000"; the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        CoapResponse response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+				Constants.APPLICATION_ACE_CBOR);    
+        CBORObject res = CBORObject.DecodeFromBytes(response.getPayload());
+
+        Map<Short, CBORObject> map = Constants.getParams(res);
+        
+        assert(map.containsKey(Constants.ACCESS_TOKEN));
+        assert(!map.containsKey(Constants.PROFILE)); //Profile is implicit
+        assert(map.containsKey(Constants.CNF));
+        assert(!map.containsKey(Constants.SCOPE)); // The originally requested scope is implicitly confirmed
+
+        
+    	// Toid is the literal pattern "feedca570000"; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with two stored patterns: the literal pattern "feedca57000000"; the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+    	
+        response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+				Constants.APPLICATION_ACE_CBOR);    
+        res = CBORObject.DecodeFromBytes(response.getPayload());
+
+        map = Constants.getParams(res);
+        
+        assert(map.containsKey(Constants.ACCESS_TOKEN));
+        assert(!map.containsKey(Constants.PROFILE)); //Profile is implicit
+        assert(map.containsKey(Constants.CNF));
+        assert(map.containsKey(Constants.SCOPE)); // The originally requested scope is is not fully granted, so the granted one is specified
+        
+        
+    	// Toid is the literal pattern "feedca570001"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with stored wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName2);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+				Constants.APPLICATION_ACE_CBOR);    
+        res = CBORObject.DecodeFromBytes(response.getPayload());
+
+        map = Constants.getParams(res);
+        
+        assert(map.containsKey(Constants.ACCESS_TOKEN));
+        assert(!map.containsKey(Constants.PROFILE)); //Profile is implicit
+        assert(map.containsKey(Constants.CNF));
+        assert(!map.containsKey(Constants.SCOPE)); // The originally requested scope is implicitly confirmed
+        
+        
+    	// Toid is the literal pattern "feedca570001"; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with stored wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName2);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+				Constants.APPLICATION_ACE_CBOR);    
+        res = CBORObject.DecodeFromBytes(response.getPayload());
+
+        map = Constants.getParams(res);
+        
+        assert(map.containsKey(Constants.ACCESS_TOKEN));
+        assert(!map.containsKey(Constants.PROFILE)); //Profile is implicit
+        assert(map.containsKey(Constants.CNF));
+        assert(map.containsKey(Constants.SCOPE)); // The originally requested scope is is not fully granted, so the granted one is specified
+        
     }
     
     
@@ -768,9 +1391,9 @@ public class TestCoAPClientGroupOSCORE {
         ArrayList<CertificateType> certTypes = new ArrayList<CertificateType>();
         certTypes.add(CertificateType.RAW_PUBLIC_KEY);
         certTypes.add(CertificateType.X_509);
-        AsyncNewAdvancedCertificateVerifier verifier = new AsyncNewAdvancedCertificateVerifier(new X509Certificate[0],
+		AsyncCertificateVerifier verifier = new AsyncCertificateVerifier(new X509Certificate[0],
                 new RawPublicKeyIdentity[0], certTypes);
-        builder.setAdvancedCertificateVerifier(verifier);
+        builder.setCertificateVerifier(verifier);
 
         DTLSConnector dtlsConnector = new DTLSConnector(builder.build());
 

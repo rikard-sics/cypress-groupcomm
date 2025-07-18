@@ -46,7 +46,7 @@ import org.eclipse.californium.cose.OneKey;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.californium.elements.MapBasedEndpointContext;
 import org.eclipse.californium.elements.rule.TestNameLoggerRule;
-import org.eclipse.californium.elements.util.Base64;
+
 import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.oscore.HashMapCtxDB;
@@ -60,25 +60,19 @@ import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.upokecenter.cbor.CBORObject;
 
 /**
- * Performs tests of the following cases that an application may send a
- * Group OSCORE request:
+ * Performs tests of the following cases that an application may send a Group
+ * OSCORE request:
  * 
- * - Unicast Group mode request
- * - Unicast Pairwise mode request
- * - Multicast Group mode request
- * - Multicast Pairwise mode request
+ * - Unicast Group mode request - Unicast Pairwise mode request - Multicast
+ * Group mode request - Multicast Pairwise mode request
  * 
  * 
  */
 public class GroupModesTest {
-
-	private static final Logger LOGGER = LoggerFactory.getLogger(GroupModesTest.class);
 
 	/**
 	 * File name for network configuration.
@@ -100,22 +94,22 @@ public class GroupModesTest {
 
 	};
 
-	// Use IPv4
-	private static boolean ipv4 = true;
-	private static final boolean LOOPBACK = false;
-
 	/**
-	 * Time to wait for replies to the multicast request
+	 * Define CoAP network rule for JUnit tests
 	 */
-	private static final int HANDLER_TIMEOUT = 1000;
-
 	@ClassRule
 	public static CoapNetworkRule network = new CoapNetworkRule(CoapNetworkRule.Mode.DIRECT,
 			CoapNetworkRule.Mode.NATIVE);
 
+	/**
+	 * Define thread cleanup rule for JUnit tests
+	 */
 	@ClassRule
 	public static CoapThreadsRule cleanup = new CoapThreadsRule();
 
+	/**
+	 * Test name logging rule
+	 */
 	@Rule
 	public TestNameLoggerRule name = new TestNameLoggerRule();
 
@@ -163,19 +157,27 @@ public class GroupModesTest {
 	private static String unicastUri;
 	private static CoapServer server;
 
+	/**
+	 * Set up before each test
+	 * 
+	 * @throws IOException on setup failure
+	 */
 	@Before
-	public void init() throws IOException, InterruptedException, OSException, CoseException {
+	public void init() throws IOException {
 		EndpointManager.clear();
 		dbClient.purge();
 		dbServer.purge();
 
-		gmPublicKey = Base64.decode(gmPublicKeyString);
+		gmPublicKey = StringUtil.base64ToByteArray(gmPublicKeyString);
 
 		OSCoreCoapStackFactory.useAsDefault(null); // TODO: Better way?
 		clientEndpoint = createClientEndpoint();
 		createServer();
 	}
 
+	/**
+	 * Shut down the server after a test is finished
+	 */
 	@After
 	public void shutdownServer() {
 		server.destroy();
@@ -208,7 +210,6 @@ public class GroupModesTest {
 
 		// sends a multicast request
 		CoapResponse response = client.advanced(request);
-
 
 		assertNotNull("Client received no response", response);
 		System.out.println("client received response");
@@ -358,12 +359,10 @@ public class GroupModesTest {
 		GroupCtx commonCtx = new GroupCtx(master_secret, master_salt, alg, kdf, context_id, algCountersign,
 				gmPublicKey);
 
-		OneKey clientFullKey = new OneKey(
-				CBORObject.DecodeFromBytes(Base64.decode(clientKeyString)));
+		OneKey clientFullKey = new OneKey(CBORObject.DecodeFromBytes(StringUtil.base64ToByteArray(clientKeyString)));
 		commonCtx.addSenderCtx(sid, clientFullKey);
 
-		OneKey serverPublicKey = new OneKey(
-				CBORObject.DecodeFromBytes(Base64.decode(serverKeyString))).PublicKey();
+		OneKey serverPublicKey = new OneKey(CBORObject.DecodeFromBytes(StringUtil.base64ToByteArray(serverKeyString))).PublicKey();
 		commonCtx.addRecipientCtx(rid1, REPLAY_WINDOW, serverPublicKey);
 		commonCtx.addRecipientCtx(rid2, REPLAY_WINDOW, null);
 
@@ -392,12 +391,10 @@ public class GroupModesTest {
 		GroupCtx commonCtx = new GroupCtx(master_secret, master_salt, alg, kdf, context_id, algCountersign,
 				gmPublicKey);
 
-		OneKey serverFullKey = new OneKey(
-				CBORObject.DecodeFromBytes(Base64.decode(serverKeyString)));
+		OneKey serverFullKey = new OneKey(CBORObject.DecodeFromBytes(StringUtil.base64ToByteArray(serverKeyString)));
 		commonCtx.addSenderCtx(sid, serverFullKey);
 
-		OneKey clientPublicKey = new OneKey(
-				CBORObject.DecodeFromBytes(Base64.decode(clientKeyString))).PublicKey();
+		OneKey clientPublicKey = new OneKey(CBORObject.DecodeFromBytes(StringUtil.base64ToByteArray(clientKeyString))).PublicKey();
 		commonCtx.addRecipientCtx(rid, REPLAY_WINDOW, clientPublicKey);
 
 		commonCtx.setResponsesIncludePartialIV(responsePartialIV);
@@ -408,13 +405,8 @@ public class GroupModesTest {
 
 	/**
 	 * Creates server with resources to test Group OSCORE functionality
-	 * 
-	 * @throws InterruptedException if resource update task fails
-	 * @throws OSException on test failure
-	 * @throws CoseException on test failure
 	 */
-	public static void createServer()
-			throws InterruptedException, OSException, CoseException {
+	public static void createServer() {
 
 		// Create server
 		CoapEndpoint.Builder builder = new CoapEndpoint.Builder();

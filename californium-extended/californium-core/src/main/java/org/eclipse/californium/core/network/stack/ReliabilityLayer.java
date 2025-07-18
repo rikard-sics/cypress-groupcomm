@@ -62,8 +62,10 @@ import org.slf4j.LoggerFactory;
  */
 public class ReliabilityLayer extends AbstractLayer {
 
-	/** The logger. */
-	protected final static Logger LOGGER = LoggerFactory.getLogger(ReliabilityLayer.class);
+	/**
+	 * The logger.
+	 */
+	private final static Logger LOGGER = LoggerFactory.getLogger(ReliabilityLayer.class);
 
 	protected final ReliabilityLayerParameters defaultReliabilityLayerParameters;
 
@@ -227,20 +229,31 @@ public class ReliabilityLayer extends AbstractLayer {
 	public void receiveRequest(Exchange exchange, Request request) {
 
 		if (request.isDuplicate()) {
-			long send = exchange.getSendNanoTimestamp();
-			if (send == 0 || (send - request.getNanoTimestamp()) > 0) {
-				// received before response was sent
-				int count = counter.incrementAndGet();
-				LOGGER.debug("{}: {} duplicate request {}, server sent response delayed, ignore request", count,
-						exchange, request);
-				return;
+			Response previousResponse = exchange.getCurrentResponse();
+			Request previousRequest = exchange.getCurrentRequest();
+			if (previousResponse != null) {
+				if (previousResponse.getSendError() == null) {
+					long send = exchange.getSendNanoTimestamp();
+					if (send == 0 || (send - request.getNanoTimestamp()) > 0) {
+						// received before response was sent
+						int count = counter.incrementAndGet();
+						LOGGER.debug("{}: {} duplicate request {}, server sent response delayed, ignore request", count,
+								exchange, request);
+						return;
+					}
+				} else {
+					previousResponse.setSendError(null);
+				}
 			}
 
 			// Request is a duplicate, so resend ACK, RST or response
 			exchange.retransmitResponse();
-			Request previousRequest = exchange.getCurrentRequest();
-			Response previousResponse = exchange.getCurrentResponse();
 			if (previousResponse != null) {
+				EndpointContext sourceContext = request.getSourceContext();
+				if (!previousResponse.getEffectiveDestinationContext().getPeerAddress()
+						.equals(sourceContext.getPeerAddress())) {
+					previousResponse.setEffectiveDestinationContext(sourceContext);
+				}
 				Type type = previousResponse.getType();
 				if (type == Type.NON || type == Type.CON) {
 					if (request.acknowledge()) {

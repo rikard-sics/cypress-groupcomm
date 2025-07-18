@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019 RISE SICS and others.
+ * Copyright (c) 2023 RISE SICS and others.
  * 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
@@ -17,7 +17,6 @@
  ******************************************************************************/
 package org.eclipse.californium.oscore.group.interop;
 
-
 import java.util.Random;
 import org.eclipse.californium.core.CoapClient;
 import org.eclipse.californium.core.CoapHandler;
@@ -27,6 +26,10 @@ import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.coap.CoAP.Code;
 
+/**
+ * Client for CoAP observations using unicast requests
+ *
+ */
 public class UnicastObserveClient {
 
 	private static int serverPort = 5683;

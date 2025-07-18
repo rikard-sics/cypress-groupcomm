@@ -16,11 +16,11 @@
 #
 # usage: docker build . -t <tag> service/Dockerfile
 
-FROM docker.io/openjdk:11-jre-slim
+FROM eclipse-temurin:17-jre-focal
 
 RUN mkdir /opt/app
 COPY ./service/build ./CaliforniumReceivetest3.properties /opt/app/
-COPY ./target/cf-extplugtest-server-3.1.0-SNAPSHOT.jar /opt/app/cf-extplugtest-server.jar
+COPY ./target/cf-extplugtest-server-4.0.0-SNAPSHOT.jar /opt/app/cf-extplugtest-server.jar
 
 #EXPOSE 5683/udp
 #EXPOSE 5683/tcp
@@ -35,4 +35,4 @@ EXPOSE 5884/tcp
 EXPOSE 8080/tcp
 
 WORKDIR /opt/app
-CMD ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75", "-jar", "./cf-extplugtest-server.jar", "--no-plugtest", "--no-tcp", "--benchmark", "--k8s-dtls-cluster", ":5784;:5884;5884", "--k8s-monitor", ":8080", "--k8s-restore", ":5884"]
+CMD ["java", "-XX:+UseZGC", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=80", "-jar", "./cf-extplugtest-server.jar", "--no-loopback", "--no-tcp", "--no-plugtest", "--benchmark", "--diagnose", "--k8s-dtls-cluster", ":5784;:5884;5884", "--k8s-monitor", ":8080", "--k8s-restore", ":5884"]

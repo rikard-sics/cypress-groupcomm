@@ -78,13 +78,14 @@ public class CoapOSExceptionHandler {
 					
 					return error;
 				} else {
-					LOGGER.error(ErrorDescriptions.CANNOT_CREATE_ERROR_MESS + ": " + ErrorDescriptions.ERROR_MESS_NULL);
+					LOGGER.error("{} {}", ErrorDescriptions.CANNOT_CREATE_ERROR_MESS,
+							ErrorDescriptions.ERROR_MESS_NULL);
 				}
 			} else {
-				LOGGER.error(ErrorDescriptions.CANNOT_CREATE_ERROR_MESS + ": " + ErrorDescriptions.TYPE_NULL);
+				LOGGER.error("{} {}", ErrorDescriptions.CANNOT_CREATE_ERROR_MESS, ErrorDescriptions.TYPE_NULL);
 			}
 		} else {
-			LOGGER.error(ErrorDescriptions.CANNOT_CREATE_ERROR_MESS + ": " + ErrorDescriptions.REQUEST_NULL);
+			LOGGER.error("{} {}", ErrorDescriptions.CANNOT_CREATE_ERROR_MESS, ErrorDescriptions.REQUEST_NULL);
 		}
 		return null;
 	}

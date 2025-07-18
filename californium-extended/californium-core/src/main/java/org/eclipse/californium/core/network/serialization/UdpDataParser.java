@@ -22,21 +22,66 @@
  ******************************************************************************/
 package org.eclipse.californium.core.network.serialization;
 
+import static org.eclipse.californium.core.coap.CoAP.MessageFormat.CODE_BITS;
+import static org.eclipse.californium.core.coap.CoAP.MessageFormat.MESSAGE_ID_BITS;
+import static org.eclipse.californium.core.coap.CoAP.MessageFormat.TOKEN_LENGTH_BITS;
+import static org.eclipse.californium.core.coap.CoAP.MessageFormat.TYPE_BITS;
+import static org.eclipse.californium.core.coap.CoAP.MessageFormat.VERSION_BITS;
+
 import org.eclipse.californium.core.coap.CoAP;
+import org.eclipse.californium.core.coap.CoAP.Type;
 import org.eclipse.californium.core.coap.CoAPMessageFormatException;
+import org.eclipse.californium.core.coap.Message;
 import org.eclipse.californium.core.coap.MessageFormatException;
 import org.eclipse.californium.core.coap.OptionSet;
 import org.eclipse.californium.core.coap.Token;
+import org.eclipse.californium.core.coap.option.BlockOption;
+import org.eclipse.californium.core.coap.option.OptionRegistry;
+import org.eclipse.californium.core.coap.option.StandardOptionRegistry;
 import org.eclipse.californium.elements.util.DatagramReader;
-
-import static org.eclipse.californium.core.coap.CoAP.MessageFormat.*;
-
-import org.eclipse.californium.core.coap.BlockOption;
 
 /**
  * A parser for messages encoded following the standard CoAP encoding.
  */
-public final class UdpDataParser extends DataParser {
+public class UdpDataParser extends DataParser {
+
+	private final boolean strictEmptyMessageFormat;
+
+	/**
+	 * Create UDP data parser.
+	 * 
+	 * @since 3.8 Use {@link StandardOptionRegistry#getDefaultOptionRegistry()}
+	 *        as default option registry.
+	 */
+	public UdpDataParser() {
+		this(false, StandardOptionRegistry.getDefaultOptionRegistry());
+	}
+
+	/**
+	 * Create UDP data parser with support for critical custom options and
+	 * provided strictness for empty message format.
+	 * 
+	 * <a href="https://datatracker.ietf.org/doc/html/rfc7252#section-4.1"
+	 * target="_blank">RFC7252, Section 4.1</a> defines:
+	 * 
+	 * <pre>
+	 * An Empty message has the Code field set to 0.00.  The Token Length
+	 * field MUST be set to 0 and bytes of data MUST NOT be present after
+	 * the Message ID field.  If there are any bytes, they MUST be processed
+	 * as a message format error.
+	 * </pre>
+	 * 
+	 * @param strictEmptyMessageFormat {@code true}, to process messages with
+	 *            code {@code 0} strictly according RFC7252, 4.1.,
+	 *            {@code false}, to relax the MUST in a not compliant way!
+	 * @param optionRegistry option registry. {@code null} to use
+	 *            {@link StandardOptionRegistry#getDefaultOptionRegistry()}
+	 * @since 3.8
+	 */
+	public UdpDataParser(boolean strictEmptyMessageFormat, OptionRegistry optionRegistry) {
+		super(optionRegistry);
+		this.strictEmptyMessageFormat = strictEmptyMessageFormat;
+	}
 
 	@Override
 	protected MessageHeader parseHeader(final DatagramReader reader) {
@@ -46,7 +91,9 @@ public final class UdpDataParser extends DataParser {
 		}
 		int version = reader.read(VERSION_BITS);
 		assertCorrectVersion(version);
-		int type = reader.read(TYPE_BITS);
+		int typeValue = reader.read(TYPE_BITS);
+		Type type = CoAP.Type.valueOf(typeValue);
+		boolean confirmable = type == CoAP.Type.CON;
 		int tokenLength = reader.read(TOKEN_LENGTH_BITS);
 		if (tokenLength > 8) {
 			// must be treated as a message format error according to CoAP spec
@@ -55,18 +102,28 @@ public final class UdpDataParser extends DataParser {
 		}
 		int code = reader.read(CODE_BITS);
 		int mid = reader.read(MESSAGE_ID_BITS);
+		if (strictEmptyMessageFormat) {
+			if (code == 0) {
+				if (reader.bytesAvailable()) {
+					throw new CoAPMessageFormatException("UDP malformed Empty Message!", null, mid, code, confirmable);
+				}
+			} else if (type == Type.RST) {
+				throw new CoAPMessageFormatException("UDP malformed RST Message!", null, mid, code, confirmable);
+			}
+		}
 		if (!reader.bytesAvailable(tokenLength)) {
 			throw new CoAPMessageFormatException("UDP Message too short for token! " + (reader.bitsLeft() / Byte.SIZE)
-					+ " must be at least " + tokenLength + " bytes!", null, mid, code, CoAP.Type.CON.value == type);
+					+ " must be at least " + tokenLength + " bytes!", null, mid, code, confirmable);
 		}
 		Token token = Token.fromProvider(reader.readBytes(tokenLength));
 
-		return new MessageHeader(version, CoAP.Type.valueOf(type), token, code, mid, 0);
+		return new MessageHeader(version, type, token, code, mid, 0);
 	}
 
 	@Override
-	protected void assertValidOptions(OptionSet options) {
-		assertValidUdpOptions(options);
+	protected void assertValidOptions(Message message) {
+		super.assertValidOptions(message);
+		assertValidUdpOptions(message);
 	}
 
 	private void assertCorrectVersion(int version) {
@@ -78,11 +135,12 @@ public final class UdpDataParser extends DataParser {
 	/**
 	 * Assert, if options are supported for the UDP protocol flavor.
 	 * 
-	 * @param options option set to validate.
+	 * @param message message of option set to validate.
 	 * @throws IllegalArgumentException if one block option uses BERT.
-	 * @since 3.0
+	 * @since 4.0 (changed parameter to Message)
 	 */
-	public static void assertValidUdpOptions(OptionSet options) {
+	public static void assertValidUdpOptions(Message message) {
+		OptionSet options = message.getOptions();
 		BlockOption block = options.getBlock1();
 		if (block != null && block.isBERT()) {
 			throw new IllegalArgumentException("Block1 BERT used for UDP!");

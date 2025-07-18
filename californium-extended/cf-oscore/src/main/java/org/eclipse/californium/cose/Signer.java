@@ -7,8 +7,11 @@ package org.eclipse.californium.cose;
 
 import com.upokecenter.cbor.CBORObject;
 import com.upokecenter.cbor.CBORType;
+
 import java.util.ArrayList;
 import java.util.List;
+
+import org.junit.Assert;
 
 /**
  * The Signer class is used to implement the COSE_Signer object.
@@ -183,7 +186,7 @@ public class Signer extends Attribute {
             if(objProtected.size() == 0) rgbProtected = new byte[0];
             else rgbProtected = objProtected.EncodeToBytes();
         }
-        
+
         CBORObject obj = CBORObject.NewArray();
         obj.Add(contextString);
         obj.Add(rgbBodyProtected);
@@ -195,6 +198,8 @@ public class Signer extends Attribute {
         
         rgbSignature = SignCommon.computeSignature(alg, obj.EncodeToBytes(), cnKey);   
         
+		Assert.assertNotNull("rgbBodyProtected is null!", rgbBodyProtected);
+
         ProcessCounterSignatures();
     }
     
@@ -249,7 +254,7 @@ public class Signer extends Attribute {
                 addAttribute(HeaderKeys.CounterSignature, list, Attribute.UNPROTECTED);
             }
         }
-        
+
         if (counterSign1 != null) {
             counterSign1.sign(rgbProtected, rgbSignature);
             addAttribute(HeaderKeys.CounterSignature0, counterSign1.EncodeToCBORObject(), Attribute.UNPROTECTED);

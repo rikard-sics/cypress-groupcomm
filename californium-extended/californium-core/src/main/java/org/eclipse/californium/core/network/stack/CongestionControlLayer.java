@@ -27,6 +27,7 @@ import java.net.InetSocketAddress;
 import java.util.Queue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
 
 import org.eclipse.californium.core.coap.CoAP.Type;
 import org.eclipse.californium.core.config.CoapConfig;
@@ -44,8 +45,12 @@ import org.eclipse.californium.core.network.stack.congestioncontrol.CongestionSt
 import org.eclipse.californium.core.network.stack.congestioncontrol.LinuxRto;
 import org.eclipse.californium.core.network.stack.congestioncontrol.PeakhopperRto;
 import org.eclipse.californium.core.observe.ObserveRelation;
+import org.eclipse.californium.elements.EndpointIdentityResolver;
 import org.eclipse.californium.elements.config.Configuration;
-import org.eclipse.californium.elements.util.LeastRecentlyUsedCache;
+import org.eclipse.californium.elements.util.CounterStatisticManager;
+import org.eclipse.californium.elements.util.LeastRecentlyUpdatedCache;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The optional Congestion Control (CC) Layer for the Californium CoAP
@@ -116,6 +121,13 @@ import org.eclipse.californium.elements.util.LeastRecentlyUsedCache;
  */
 public abstract class CongestionControlLayer extends ReliabilityLayer {
 
+	/**
+	 * LOGGER.
+	 * 
+	 * @since 3.10
+	 */
+	private static final Logger LOGGER = LoggerFactory.getLogger(CongestionControlLayer.class);
+
 	// An upper limit for the queue size of confirmables
 	// and non-confirmables (separate queues)
 	private final static int EXCHANGELIMIT = 50;
@@ -124,7 +136,7 @@ public abstract class CongestionControlLayer extends ReliabilityLayer {
 	private final static int MAX_RTO = 60000;
 
 	/** The map of remote endpoints */
-	private LeastRecentlyUsedCache<InetSocketAddress, RemoteEndpoint> remoteEndpoints;
+	private LeastRecentlyUpdatedCache<Object, RemoteEndpoint> remoteEndpoints;
 
 	/** The configuration */
 	protected final Configuration config;
@@ -134,13 +146,21 @@ public abstract class CongestionControlLayer extends ReliabilityLayer {
 	 */
 	protected final String tag;
 
+	/**
+	 * Use inet-address for congestion control.
+	 * 
+	 * @see CoapConfig#CONGESTION_CONTROL_USE_INET_ADDRESS
+	 * @since 3.8
+	 */
+	private final boolean useInetSocketAddress;
+
 	// In CoAP, dithering is applied to the initial RTO of a transmission;
 	// set to true to apply dithering
 	private boolean appliesDithering;
 	/**
 	 * Statistic logger for congestion.
 	 */
-	private CongestionStatisticLogger statistic;
+	private volatile CongestionStatisticLogger statistic;
 
 	/**
 	 * Constructs a new congestion control layer.
@@ -153,25 +173,36 @@ public abstract class CongestionControlLayer extends ReliabilityLayer {
 		super(config);
 		this.tag = tag;
 		this.config = config;
-		this.remoteEndpoints = new LeastRecentlyUsedCache<>(config.get(CoapConfig.MAX_ACTIVE_PEERS),
-				config.get(CoapConfig.MAX_PEER_INACTIVITY_PERIOD, TimeUnit.SECONDS));
-		this.remoteEndpoints.setEvictingOnReadAccess(false);
+		this.remoteEndpoints = new LeastRecentlyUpdatedCache<>(config.get(CoapConfig.MAX_ACTIVE_PEERS),
+				config.get(CoapConfig.MAX_PEER_INACTIVITY_PERIOD, TimeUnit.SECONDS), TimeUnit.SECONDS);
+		this.remoteEndpoints.setHideStaleValues(true);
+		this.useInetSocketAddress = config.get(CoapConfig.CONGESTION_CONTROL_USE_INET_ADDRESS);
 		setDithering(false);
 	}
 
-	@Override
-	public void start() {
-		statistic = new CongestionStatisticLogger(tag, 5000, TimeUnit.MILLISECONDS, executor);
-		statistic.start();
+	/**
+	 * Enable statistic logger for congestion control.
+	 * 
+	 * @return statistic logger
+	 * @since 4.0.0
+	 */
+	public CounterStatisticManager enableStatistic() {
+		CongestionStatisticLogger statistic = this.statistic;
+		if (statistic == null) {
+			this.statistic = new CongestionStatisticLogger(tag);
+		}
+		return this.statistic;
 	}
 
-	@Override
-	public void destroy() {
+	/**
+	 * Disable statistic logger for congestion control.
+	 * 
+	 * @since 4.0.0
+	 */
+	public void disableStatistic() {
 		CongestionStatisticLogger statistic = this.statistic;
 		if (statistic != null) {
-			if (statistic.stop()) {
-				statistic.dump();
-			}
+			statistic.dump();
 			this.statistic = null;
 		}
 	}
@@ -179,10 +210,13 @@ public abstract class CongestionControlLayer extends ReliabilityLayer {
 	/**
 	 * Create new, algorithm specific remote endpoint.
 	 * 
-	 * @param remoteSocketAddress peer to create the endpoint for.
+	 * @param peersIdentity peer's identity. Usually that's the peer's
+	 *            {@link InetSocketAddress}.
 	 * @return create endpoint.
+	 * @see EndpointIdentityResolver
+	 * @since 3.8 (exchanged InetSocketAddress to Object)
 	 */
-	protected abstract RemoteEndpoint createRemoteEndpoint(InetSocketAddress remoteSocketAddress);
+	protected abstract RemoteEndpoint createRemoteEndpoint(Object peersIdentity);
 
 	/**
 	 * Get remote endpoint.
@@ -191,23 +225,28 @@ public abstract class CongestionControlLayer extends ReliabilityLayer {
 	 * 
 	 * @param exchange to get the endpoint for
 	 * @return endpoint for exchange.
-	 * @see #createRemoteEndpoint(InetSocketAddress)
+	 * @see #createRemoteEndpoint(Object)
+	 * @see #useInetSocketAddress
 	 */
 	protected RemoteEndpoint getRemoteEndpoint(Exchange exchange) {
-		Message message;
-		if (exchange.isOfLocalOrigin()) {
-			message = exchange.getCurrentRequest();
+		Object peersIdentity;
+		if (useInetSocketAddress) {
+			peersIdentity = exchange.getRemoteSocketAddress();
 		} else {
-			message = exchange.getCurrentResponse();
+			peersIdentity = exchange.getPeersIdentity();
 		}
-		InetSocketAddress remoteSocketAddress = message.getDestinationContext().getPeerAddress();
-		synchronized (remoteEndpoints) {
-			RemoteEndpoint remoteEndpoint = remoteEndpoints.get(remoteSocketAddress);
+		remoteEndpoints.removeExpiredEntries(32);
+		WriteLock lock = remoteEndpoints.writeLock();
+		lock.lock();
+		try {
+			RemoteEndpoint remoteEndpoint = remoteEndpoints.update(peersIdentity);
 			if (remoteEndpoint == null) {
-				remoteEndpoint = createRemoteEndpoint(remoteSocketAddress);
-				remoteEndpoints.put(remoteSocketAddress, remoteEndpoint);
+				remoteEndpoint = createRemoteEndpoint(peersIdentity);
+				remoteEndpoints.put(peersIdentity, remoteEndpoint);
 			}
 			return remoteEndpoint;
+		} finally {
+			lock.unlock();
 		}
 	}
 
@@ -260,14 +299,16 @@ public abstract class CongestionControlLayer extends ReliabilityLayer {
 	 *         response is postponed and put into a queue.
 	 */
 	private boolean processResponse(RemoteEndpoint endpoint, Exchange exchange, Response response) {
-		Type messageType = response.getType();
+
+		exchange.setCurrentResponse(response);
 		if (!response.isNotification()) {
-			if (messageType == Type.CON) {
+			if (response.isConfirmable()) {
 				return checkNSTART(endpoint, exchange);
 			} else {
 				return true;
 			}
 		}
+
 		// Check, if there's space in the notifies queue
 		int size;
 		boolean start = false;
@@ -304,16 +345,16 @@ public abstract class CongestionControlLayer extends ReliabilityLayer {
 	private boolean checkNSTART(RemoteEndpoint endpoint, Exchange exchange) {
 		boolean send = false;
 		boolean queued = false;
-		Type type;
+		Message message;
 		String messageType;
 		Queue<Exchange> queue;
 		if (exchange.isOfLocalOrigin()) {
 			messageType = "req.-";
-			type = exchange.getCurrentRequest().getType();
+			message = exchange.getCurrentRequest();
 			queue = endpoint.getRequestQueue();
 		} else {
 			messageType = "resp.-";
-			type = exchange.getCurrentResponse().getType();
+			message = exchange.getCurrentResponse();
 			queue = endpoint.getResponseQueue();
 		}
 		int size;
@@ -331,26 +372,20 @@ public abstract class CongestionControlLayer extends ReliabilityLayer {
 			}
 		}
 		if (send) {
-			Message message;
-			if (exchange.isOfLocalOrigin()) {
-				// it's a request
-				message = exchange.getCurrentRequest();
-			} else {
-				// it's a response
-				message = exchange.getCurrentResponse();
-			}
 			message.addMessageObserver(new TimeoutTask(endpoint, exchange));
-			LOGGER.trace("{}send {}{}", tag, messageType, type);
+			LOGGER.trace("{}send {}{}", tag, messageType, message.getType());
+			CongestionStatisticLogger statistic = this.statistic;
 			if (statistic != null) {
 				statistic.sendRequest();
 			}
 			return true;
 		} else if (queued) {
+			CongestionStatisticLogger statistic = this.statistic;
 			if (statistic != null) {
 				statistic.queueRequest();
 			}
 		} else {
-			LOGGER.debug("{}drop {}{}, queue full {}", tag, messageType, type, size);
+			LOGGER.debug("{}drop {}{}, queue full {}", tag, messageType, message.getType(), size);
 		}
 		return false;
 	}
@@ -410,7 +445,10 @@ public abstract class CongestionControlLayer extends ReliabilityLayer {
 			}
 		}
 		if (nextExchange != null) {
-			statistic.dequeueRequest();
+			CongestionStatisticLogger statistic = this.statistic;
+			if (statistic != null) {
+				statistic.dequeueRequest();
+			}
 			final Exchange exchange = nextExchange;
 			Type type;
 			String messageType;
@@ -463,6 +501,7 @@ public abstract class CongestionControlLayer extends ReliabilityLayer {
 		// process ReliabilityLayer
 		prepareRequest(exchange, request);
 		RemoteEndpoint endpoint = getRemoteEndpoint(exchange);
+		exchange.setCurrentRequest(request);
 		if (checkNSTART(endpoint, exchange)) {
 			endpoint.checkAging();
 			LOGGER.debug("{}send request", tag);
@@ -532,6 +571,7 @@ public abstract class CongestionControlLayer extends ReliabilityLayer {
 		LOGGER.debug("{}receive response", tag);
 		if (processResponse(exchange, response)) {
 			processRttMeasurement(exchange);
+			CongestionStatisticLogger statistic = this.statistic;
 			if (statistic != null) {
 				statistic.receiveResponse(response);
 			}

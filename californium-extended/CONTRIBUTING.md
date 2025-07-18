@@ -11,6 +11,8 @@ Here is a (non-exclusive, non-prioritized) list of things you might be able to h
 * features (both ideas and code are welcome)
 * test cases
 
+There are a couple of [enhancement issues](https://github.com/eclipse-californium/californium/issues?q=is%3Aissue+label%3Ahibernate), which have been closed for longer inactivity. Maybe, if you like to help and spend some time, you will be welcome.
+
 In order to get you started as fast as possible we need to go through some organizational issues first, though.
 
 ## Eclipse Contributor Agreement
@@ -34,7 +36,7 @@ https://www.eclipse.org/projects/handbook/#resources-commit
 1. Consider to start with creating an issue on GitHub to discuss your plans and get the proper startup information.
 1. Ensure, your plans will work with java 1.7
 1. Fork the repository on GitHub
-1. Create a new branch for your changes based on the master branch.
+1. Create a new branch for your changes based on the main branch.
    Please note: work based on other branches without prior discussion in an issue, may be in vain.
 1. If you use the eclipse IDE, please import our prefer formatter `eclipse-formatter-profile.xml` from the californium parent-folder and apply it to your changes (only :-) ).
 1. Make your changes 

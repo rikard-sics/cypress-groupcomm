@@ -35,12 +35,15 @@ import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.scandium.config.DtlsClusterConnectorConfig;
 import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
+import org.eclipse.californium.scandium.config.DtlsConfig.DtlsRole;
 import org.eclipse.californium.scandium.dtls.Connection;
 import org.eclipse.californium.scandium.dtls.DTLSContext;
+import org.eclipse.californium.scandium.dtls.HandshakeException;
 import org.eclipse.californium.scandium.dtls.Handshaker;
 import org.eclipse.californium.scandium.dtls.NodeConnectionIdGenerator;
-import org.eclipse.californium.scandium.dtls.ResumptionSupportingConnectionStore;
-import org.eclipse.californium.scandium.dtls.pskstore.AdvancedSinglePskStore;
+import org.eclipse.californium.scandium.dtls.ConnectionStore;
+import org.eclipse.californium.scandium.dtls.SessionAdapter;
+import org.eclipse.californium.scandium.dtls.pskstore.SinglePskStore;
 import org.eclipse.californium.scandium.util.SecretUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -129,11 +132,11 @@ public class DtlsManagedClusterConnector extends DtlsClusterConnector {
 	 *             {@link NodeConnectionIdGenerator}.
 	 */
 	protected DtlsManagedClusterConnector(DtlsConnectorConfig configuration,
-			DtlsClusterConnectorConfig clusterConfiguration, ResumptionSupportingConnectionStore connectionStore) {
+			DtlsClusterConnectorConfig clusterConfiguration, ConnectionStore connectionStore) {
 		super(configuration, clusterConfiguration, connectionStore, false);
 		String identity = clusterConfiguration.getSecureIdentity();
-		Integer mgmtReceiveBuffer = addConditionally(config.getSocketReceiveBufferSize(), MAX_DATAGRAM_OFFSET);
-		Integer mgmtSendBuffer = addConditionally(config.getSocketSendBufferSize(), MAX_DATAGRAM_OFFSET);
+		Integer mgmtReceiveBuffer = addConditionally(config.get(DtlsConfig.DTLS_RECEIVE_BUFFER_SIZE), MAX_DATAGRAM_OFFSET);
+		Integer mgmtSendBuffer = addConditionally(config.get(DtlsConfig.DTLS_SEND_BUFFER_SIZE), MAX_DATAGRAM_OFFSET);
 		if (identity != null) {
 			SecretKey secretkey = clusterConfiguration.getSecretKey();
 			String tag = configuration.getLoggingTag();
@@ -152,8 +155,9 @@ public class DtlsManagedClusterConnector extends DtlsClusterConnector {
 					.set(DtlsConfig.DTLS_RECEIVER_THREAD_COUNT, 0)
 					.set(DtlsConfig.DTLS_RECEIVE_BUFFER_SIZE, mgmtReceiveBuffer)
 					.set(DtlsConfig.DTLS_SEND_BUFFER_SIZE, mgmtSendBuffer)
+					.set(DtlsConfig.DTLS_ROLE, DtlsRole.BOTH)
 					.setAddress(clusterConfiguration.getAddress())
-					.setAdvancedPskStore(new AdvancedSinglePskStore(identity, secretkey))
+					.setPskStore(new SinglePskStore(identity, secretkey))
 					.setConnectionListener(new ConnectionListener() {
 
 						@Override
@@ -474,13 +478,15 @@ public class DtlsManagedClusterConnector extends DtlsClusterConnector {
 
 		public ClusterManagementDtlsConnector(DtlsConnectorConfig configuration) {
 			super(configuration);
-		}
+			addSessionListener(new SessionAdapter() {
 
-		@Override
-		protected void onInitializeHandshaker(final Handshaker handshaker) {
-			if (useClusterMac) {
-				handshaker.setGenerateClusterMacKeys(useClusterMac);
-			}
+				@Override
+				public void handshakeStarted(Handshaker handshaker) throws HandshakeException {
+					if (useClusterMac) {
+						handshaker.setGenerateClusterMacKeys(useClusterMac);
+					}
+				}
+			});
 		}
 
 		@Override
@@ -488,7 +494,7 @@ public class DtlsManagedClusterConnector extends DtlsClusterConnector {
 			if (isRunning()) {
 				return;
 			}
-			super.init(bindAddress, clusterInternalSocket, config.getMaxTransmissionUnit());
+			super.init(bindAddress, clusterInternalSocket, null);
 		}
 
 		@Override

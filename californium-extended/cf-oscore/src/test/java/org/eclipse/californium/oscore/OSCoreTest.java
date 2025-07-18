@@ -29,12 +29,11 @@ import java.util.ArrayList;
 
 import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.MediaTypeRegistry;
-import org.eclipse.californium.core.coap.Option;
-import org.eclipse.californium.core.coap.OptionNumberRegistry;
 import org.eclipse.californium.core.coap.OptionSet;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.coap.Token;
+import org.eclipse.californium.core.coap.option.StandardOptionRegistry;
 import org.eclipse.californium.core.network.RandomTokenGenerator;
 import org.eclipse.californium.core.network.TokenGenerator;
 import org.eclipse.californium.core.network.TokenGenerator.Scope;
@@ -51,6 +50,8 @@ import org.junit.Test;
  *
  */
 public class OSCoreTest {
+
+	private final static int MAX_UNFRAGMENTED_SIZE = 4096;
 
 	private OSCoreCtxDB dbClient;
 	private OSCoreCtxDB dbServer;
@@ -89,12 +90,12 @@ public class OSCoreTest {
 			assertTrue(false);
 		}
 		try {
-			int seq = dbClient.getSeqByToken(token);
+			int seq = clientCtx.getSenderSeq();
 			dbClientToServer();
 			ObjectSecurityLayer.prepareReceive(dbServer, request, serverCtx);
 			Response response = sendResponse("it is thursday, citizen", serverCtx, token);
 			dbServerToClient(token, seq);
-			ObjectSecurityLayer.prepareReceive(dbClient, response);
+			ObjectSecurityLayer.prepareReceive(dbClient, response, seq);
 		} catch (OSException e) {
 			e.printStackTrace();
 		}
@@ -245,72 +246,6 @@ public class OSCoreTest {
 	}
 
 	@Test
-	public void testSeqByToken() {
-		Token token = generateToken();
-		Integer inputSeq = 7;
-		try {
-			dbClient.addSeqByToken(token, inputSeq);
-		} catch (NullPointerException e) {
-			assertTrue(false);
-		}
-		Integer outputSeq = dbClient.getSeqByToken(token);
-
-		assertTrue(outputSeq.compareTo(inputSeq) == 0);
-	}
-
-	@Test
-	public void testSeqByNullToken() {
-		try {
-			dbClient.addSeqByToken(null, 3);
-		} catch (Exception e) {
-			assertTrue(e.getMessage().equals(ErrorDescriptions.TOKEN_NULL));
-		}
-	}
-
-	@Test
-	public void testSeqByTokenInvalidSeq() {
-		Token token = generateToken();
-		try {
-			dbClient.addSeqByToken(token, -2);
-		} catch (NullPointerException e) {
-			assertTrue(e.getMessage().equals(ErrorDescriptions.SEQ_NBR_INVALID));
-		}
-	}
-
-	@Test
-	public void testSeqByTokenRemove() {
-		Token token = generateToken();
-		Integer inputSeq = 7;
-		try {
-			dbClient.addSeqByToken(token, inputSeq);
-		} catch (NullPointerException e) {
-			assertTrue(false);
-		}
-
-		dbClient.removeSeqByToken(token);
-		try {
-			dbClient.getSeqByToken(token);
-		} catch (Exception e) {
-			assertFalse(e instanceof NullPointerException);
-		}
-	}
-
-	@Test
-	public void testSeqByTokenUpdate() {
-		Token token = generateToken();
-		Integer inputSeq = 7;
-		Integer updateSeq = 42;
-		try {
-			dbClient.addSeqByToken(token, inputSeq);
-			dbClient.updateSeqByToken(token, updateSeq);
-		} catch (Exception e) {
-			assertTrue(false);
-		}
-
-		assertTrue(dbClient.getSeqByToken(token) == updateSeq);
-	}
-
-	@Test
 	public void testEncryptedNoOptionsNoPayload() {
 		Request request = Request.newGet().setURI("coap://localhost:5683");
 		try {
@@ -331,7 +266,7 @@ public class OSCoreTest {
 	public void testEncryptDecryptOptions() throws OSException {
 		Request request = Request.newGet().setURI("coap://localhost:5683");
 		request.getOptions().setLocationPath("/test/path");
-		request.getOptions().addOption(new Option(OptionNumberRegistry.OSCORE, Bytes.EMPTY));
+		request.getOptions().addOption(StandardOptionRegistry.OSCORE.create(Bytes.EMPTY));
 		assertEquals(2, request.getOptions().getLocationPathCount());
 		try {
 			request = ObjectSecurityLayer.prepareSend(dbClient, request);
@@ -391,9 +326,9 @@ public class OSCoreTest {
 			e.printStackTrace();
 			assertTrue(false);
 		}
-		assertTrue("seq no:s incorrect", assertCtxState(clientCtx, 2, -1));
+		assertTrue("seq no:s incorrect", assertCtxState(clientCtx, 2, 0));
 
-		Integer sentSeq = dbClient.getSeqByToken(tokReq1);
+		Integer sentSeq = clientCtx.getSenderSeq();
 
 		dbClientToServer();
 
@@ -405,8 +340,8 @@ public class OSCoreTest {
 
 			dbServerToClient(tokReq1, sentSeq);
 
-			ObjectSecurityLayer.prepareReceive(dbClient, response1);
-			assertTrue("seq no:s incorrect", assertCtxState(clientCtx, 2, -1));
+			ObjectSecurityLayer.prepareReceive(dbClient, response1, sentSeq);
+			assertTrue("seq no:s incorrect", assertCtxState(clientCtx, 2, 0));
 
 		} catch (OSException e) {
 			e.printStackTrace();
@@ -427,7 +362,7 @@ public class OSCoreTest {
 		byte[] sid = new byte[] { 0x01 };
 
 		serverCtx = new OSCoreCtx(key, false, AlgorithmID.AES_CCM_16_64_128, sid, rid, AlgorithmID.HKDF_HMAC_SHA_256,
-				replayWindowSize, null, null, 4096);
+				replayWindowSize, null, null, MAX_UNFRAGMENTED_SIZE);
 
 		int lastSeq = 100;
 		for (int seq = 0; seq < lastSeq; seq++) {
@@ -435,7 +370,7 @@ public class OSCoreTest {
 		}
 
 		assertEquals("Failed test case with replay window size: " + replayWindowSize, lastSeq - replayWindowSize,
-				serverCtx.getInternalReceiverSeq());
+				serverCtx.getLowestRecipientSeq());
 	}
 
 	/**
@@ -464,9 +399,7 @@ public class OSCoreTest {
 		request.setMID(99);
 		Token t1 = generateToken();
 		request.setToken(t1);
-		dbClient.addSeqByToken(t1, 0);
 		Token t2 = generateToken();
-		dbClient.addSeqByToken(t2, 0);
 		request2.setToken(t2);
 		try {
 			// sending seq 0
@@ -493,11 +426,11 @@ public class OSCoreTest {
 		Response response1 = null;
 		Response response2 = null;
 		try {
-			serverCtx.setReceiverSeq(0);
+			serverCtx.setRecipientSeq(0);
 			response1 = sendResponse("response", serverCtx, t1);
 			response1.setType(CoAP.Type.ACK);
 			response1.setMID(34);
-			serverCtx.setReceiverSeq(0);
+			serverCtx.setRecipientSeq(0);
 			response2 = sendResponse("response", serverCtx, t1);
 			response2.setType(CoAP.Type.ACK);
 			response2.setMID(34);
@@ -508,9 +441,8 @@ public class OSCoreTest {
 		try {
 			dbClient.addContext(t1, clientCtx);
 			dbClient.getContext("coap://localhost:5683").setSenderSeq(0);
-			dbClient.addSeqByToken(t1, 0);
-			ObjectSecurityLayer.prepareReceive(dbClient, response1);
-			ObjectSecurityLayer.prepareReceive(dbClient, response2);
+			ObjectSecurityLayer.prepareReceive(dbClient, response1, 0);
+			ObjectSecurityLayer.prepareReceive(dbClient, response2, 0);
 			fail("invalid token not detected!");
 		} catch (OSException e) {
 			assertEquals(ErrorDescriptions.TOKEN_INVALID, e.getMessage());
@@ -574,8 +506,7 @@ public class OSCoreTest {
 		Request request = Request.newPost().setURI(uri);
 		request.setToken(token);
 		db.addContext(token, ctx);
-		request.getOptions().addOption(new Option(OptionNumberRegistry.OSCORE, Bytes.EMPTY));
-		db.addSeqByToken(token, ctx.getSenderSeq());
+		request.getOptions().addOption(StandardOptionRegistry.OSCORE.create(Bytes.EMPTY));
 		return ObjectSecurityLayer.prepareSend(db, request);
 	}
 
@@ -583,7 +514,7 @@ public class OSCoreTest {
 		boolean equal = true;
 		if (ctx.getSenderSeq() != send)
 			equal = false;
-		if (ctx.getReceiverSeq() != receive)
+		if (ctx.getLowestRecipientSeq() != receive)
 			equal = false;
 		return equal;
 	}
@@ -597,10 +528,9 @@ public class OSCoreTest {
 		dbClient.purge();
 		dbClient.addContext(uriId, clientCtx);
 		dbClient.addContext(token, clientCtx);
-		dbClient.addSeqByToken(token, seq);
 	}
 
-	private static Response sendResponse(String responsePayload, OSCoreCtx tid, Token token) throws OSException {
+	private Response sendResponse(String responsePayload, OSCoreCtx tid, Token token) throws OSException {
 
 		Response response = null;
 
@@ -611,10 +541,10 @@ public class OSCoreTest {
 			response.setPayload(responsePayload);
 			response.getOptions().setContentFormat(MediaTypeRegistry.TEXT_PLAIN);
 		}
-		response.getOptions().addOption(new Option(OptionNumberRegistry.OSCORE, Bytes.EMPTY));
+		response.getOptions().addOption(StandardOptionRegistry.OSCORE.create(Bytes.EMPTY));
 		response.setToken(token);
 
-		return ObjectSecurityLayer.prepareSend(null, response, tid, false, false, null);
+		return ObjectSecurityLayer.prepareSend(null, response, tid, false, false, clientCtx.getSenderSeq(), null);
 	}
 
 	public Token generateToken() {

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -46,8 +46,8 @@ import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.CertificateType;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
-import org.eclipse.californium.scandium.dtls.pskstore.AdvancedSinglePskStore;
-import org.eclipse.californium.scandium.dtls.x509.AsyncNewAdvancedCertificateVerifier;
+import org.eclipse.californium.scandium.dtls.pskstore.SinglePskStore;
+import org.eclipse.californium.scandium.dtls.x509.AsyncCertificateVerifier;
 import org.eclipse.californium.scandium.dtls.x509.SingleCertificateProvider;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -199,8 +199,8 @@ public class TestDtlsClient2AS {
         
         DtlsConnectorConfig.Builder builder = new DtlsConnectorConfig.Builder(dtlsConfig);
 
-        AdvancedSinglePskStore pskStore = new AdvancedSinglePskStore("clientA", key128);
-        builder.setAdvancedPskStore(pskStore);
+        SinglePskStore pskStore = new SinglePskStore("clientA", key128);
+        builder.setPskStore(pskStore);
 
         CBORObject rpkData = CBORObject.NewMap();
         rpkData = Util.buildRpkData(KeyKeys.EC2_P256.AsInt32(), cX_ECDSA, cY_ECDSA, cD_ECDSA);
@@ -214,11 +214,11 @@ public class TestDtlsClient2AS {
         ArrayList<CertificateType> certTypes = new ArrayList<CertificateType>();
         certTypes.add(CertificateType.RAW_PUBLIC_KEY);
         certTypes.add(CertificateType.X_509);
-        AsyncNewAdvancedCertificateVerifier verifier = new AsyncNewAdvancedCertificateVerifier(
+        AsyncCertificateVerifier verifier = new AsyncCertificateVerifier(
                                                             new X509Certificate[0],
                                                             new RawPublicKeyIdentity[0],
                                                             certTypes);
-        builder.setAdvancedCertificateVerifier(verifier);
+        builder.setCertificateVerifier(verifier);
         
         DTLSConnector dtlsConnector = new DTLSConnector(builder.build());
         CoapEndpoint.Builder ceb = new CoapEndpoint.Builder();
@@ -264,8 +264,8 @@ public class TestDtlsClient2AS {
         
         DtlsConnectorConfig.Builder builder = new DtlsConnectorConfig.Builder(dtlsConfig);
 
-        AdvancedSinglePskStore pskStore = new AdvancedSinglePskStore("clientA", key128);
-        builder.setAdvancedPskStore(pskStore);
+        SinglePskStore pskStore = new SinglePskStore("clientA", key128);
+        builder.setPskStore(pskStore);
         
         CBORObject rpkData = CBORObject.NewMap();
         rpkData = Util.buildRpkData(KeyKeys.EC2_P256.AsInt32(), cX_ECDSA, cY_ECDSA, cD_ECDSA);
@@ -279,11 +279,11 @@ public class TestDtlsClient2AS {
         ArrayList<CertificateType> certTypes = new ArrayList<CertificateType>();
         certTypes.add(CertificateType.RAW_PUBLIC_KEY);
         certTypes.add(CertificateType.X_509);
-        AsyncNewAdvancedCertificateVerifier verifier = new AsyncNewAdvancedCertificateVerifier(
+        AsyncCertificateVerifier verifier = new AsyncCertificateVerifier(
                                                             new X509Certificate[0],
                                                             new RawPublicKeyIdentity[0],
                                                             certTypes);
-        builder.setAdvancedCertificateVerifier(verifier);
+        builder.setCertificateVerifier(verifier);
 
         DTLSConnector dtlsConnector = new DTLSConnector(builder.build());
         CoapEndpoint.Builder ceb = new CoapEndpoint.Builder();
@@ -315,11 +315,7 @@ public class TestDtlsClient2AS {
         Assert.assertEquals(true, map.get(Constants.CNF).get(Constants.COSE_KEY).ContainsKey(KeyKeys.Octet_K.AsCBOR()));
         assert(map.containsKey(Constants.SCOPE));
         assert(map.get(Constants.SCOPE).AsString().equals("r_temp rw_config"));
-        
-        // Store the 'kid' of the symmetric PoP key for later check
-        byte[] kid = map.get(Constants.CNF).get(Constants.COSE_KEY).get(KeyKeys.KeyId.AsCBOR()).GetByteString();
-        
-        
+
         // Ask for a new Token for updating access rights, with a different 'scope'
         
         params = new HashMap<>();
@@ -340,15 +336,6 @@ public class TestDtlsClient2AS {
         assert(map.containsKey(Constants.ACCESS_TOKEN));
         assert(!map.containsKey(Constants.PROFILE)); //Profile is implicit
         assert(!map.containsKey(Constants.CNF)); // The 'cnf' parameter must not be present here
-        
-        /*
-        assert(map.get(Constants.CNF).ContainsKey(Constants.COSE_KEY));
-        Assert.assertEquals(2, map.get(Constants.CNF).get(Constants.COSE_KEY).size());
-        Assert.assertEquals(true, map.get(Constants.CNF).get(Constants.COSE_KEY).ContainsKey(KeyKeys.KeyId.AsCBOR()));
-        Assert.assertEquals(true, map.get(Constants.CNF).get(Constants.COSE_KEY).ContainsKey(KeyKeys.KeyType.AsCBOR()));
-        Assert.assertEquals(KeyKeys.KeyType_Octet, map.get(Constants.CNF).get(Constants.COSE_KEY).get(KeyKeys.KeyType.AsCBOR()));
-        Assert.assertArrayEquals(kid, map.get(Constants.CNF).get(Constants.COSE_KEY).get(KeyKeys.KeyId.AsCBOR()).GetByteString());
-        */
         
         assert(map.containsKey(Constants.SCOPE));
         assert(map.get(Constants.SCOPE).AsString().equals("r_temp rw_config rw_light"));
@@ -376,9 +363,9 @@ public class TestDtlsClient2AS {
         ArrayList<CertificateType> certTypes = new ArrayList<CertificateType>();
         certTypes.add(CertificateType.RAW_PUBLIC_KEY);
         certTypes.add(CertificateType.X_509);
-        AsyncNewAdvancedCertificateVerifier verifier = new AsyncNewAdvancedCertificateVerifier(new X509Certificate[0],
+        AsyncCertificateVerifier verifier = new AsyncCertificateVerifier(new X509Certificate[0],
                 new RawPublicKeyIdentity[0], certTypes);
-        builder.setAdvancedCertificateVerifier(verifier);
+        builder.setCertificateVerifier(verifier);
 
         DTLSConnector dtlsConnector = new DTLSConnector(builder.build());
 
@@ -407,4 +394,3 @@ public class TestDtlsClient2AS {
         
     }
 }
-

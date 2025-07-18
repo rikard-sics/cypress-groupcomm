@@ -45,6 +45,7 @@ import org.eclipse.californium.core.coap.CoAP.ResponseCode;
 import org.eclipse.californium.core.coap.CoAP.Type;
 import org.eclipse.californium.core.coap.MediaTypeRegistry;
 import org.eclipse.californium.core.coap.Request;
+import org.eclipse.californium.core.coap.option.StringOption;
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.network.Endpoint;
 import org.eclipse.californium.core.server.resources.CoapExchange;
@@ -144,25 +145,25 @@ public class ClientAsynchronousTest {
 		// Observe the resource
 		CoapObserveRelation obs1 = client.observe(handler);
 
-		assertTrue("missing notifications", handler.waitOnLoadCalls(1, 2000, TimeUnit.MILLISECONDS));
+		assertTrue("missing first notification", handler.waitOnLoadCalls(1, 2000, TimeUnit.MILLISECONDS));
 
 		LOGGER.info("changed 1");
 		resource.setContent(CONTENT_1 + " - 1");
 		resource.changed();
 
-		assertTrue("missing notifications", handler.waitOnLoadCalls(2, 2000, TimeUnit.MILLISECONDS));
+		assertTrue("missing second notification", handler.waitOnLoadCalls(2, 2000, TimeUnit.MILLISECONDS));
 
 		LOGGER.info("changed 2");
 		resource.setContent(CONTENT_1 + " - 2");
 		resource.changed();
 
-		assertTrue("missing notifications", handler.waitOnLoadCalls(3, 2000, TimeUnit.MILLISECONDS));
+		assertTrue("missing third notification", handler.waitOnLoadCalls(3, 2000, TimeUnit.MILLISECONDS));
 
 		LOGGER.info("changed 3");
 		resource.setContent(CONTENT_1 + " - 3");
 		resource.changed();
 
-		assertTrue("missing notifications", handler.waitOnLoadCalls(4, 2000, TimeUnit.MILLISECONDS));
+		assertTrue("missing fourth notification", handler.waitOnLoadCalls(4, 2000, TimeUnit.MILLISECONDS));
 		obs1.reactiveCancel();
 		resource.changed();
 		Thread.sleep(50);
@@ -266,10 +267,10 @@ public class ClientAsynchronousTest {
 
 		@Override
 		public void handleGET(CoapExchange exchange) {
-			List<String> queries = exchange.getRequestOptions().getUriQuery();
+			List<StringOption> queries = exchange.getRequestOptions().getUriQuery();
 			String c = content;
-			for (String q : queries) {
-				if (QUERY_UPPER_CASE.equals(q)) {
+			for (StringOption q : queries) {
+				if (QUERY_UPPER_CASE.equals(q.getStringValue())) {
 					c = content.toUpperCase();
 				}
 			}

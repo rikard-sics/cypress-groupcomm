@@ -59,14 +59,97 @@ import org.slf4j.LoggerFactory;
  * provide application specific values.</li>
  * </ul>
  * <p>
+ * 
+ * Example parts of "Californium3.properties":
+ * 
+ * <pre>
+ * <code>
+ * # Californium CoAP Properties file for client
+ * # Tue Oct 19 10:21:43 CEST 2021
+ * #
+ * # Random factor for initial CoAP acknowledge timeout.
+ * # Default: 1.5
+ * COAP.ACK_INIT_RANDOM=1.5
+ * # Initial CoAP acknowledge timeout.
+ * # Default: 2[s]
+ * COAP.ACK_TIMEOUT=2[s]
+ * # Scale factor for CoAP acknowledge backoff-timeout.
+ * # Default: 2.0
+ * COAP.ACK_TIMEOUT_SCALE=2.0
+ * # Enable automatic failover on "entity too large" response.
+ * # Default: true
+ * COAP.BLOCKWISE_ENTITY_TOO_LARGE_AUTO_FAILOVER=true
+ * ...
+ * </code>
+ * </pre>
+ * 
+ * If an application uses the properties file, an user may adapt the values
+ * according the specific requirements by editing this file.
+ * <p>
+ * If you want to implement an application, you need to decide which modules you
+ * want to use. Currently the following modules are available:
+ * 
+ * <dl>
+ * <dt>UdpConfig</dt>
+ * <dd>Configuration options for plain UDP communication</dd>
+ * <dt>TcpConfig</dt>
+ * <dd>Configuration options for TCP and TLS communication</dd>
+ * <dt>DtlsConfig</dt>
+ * <dd>Configuration options for DTLS communication</dd>
+ * <dt>CoapConfig</dt>
+ * <dd>Configuration options for CoAP processing</dd>
+ * <dt>Proxy2Config</dt>
+ * <dd>Configuration options for CoAP proxy processing</dd>
+ * </dl>
+ * 
+ * Register the required modules ahead using
+ * 
+ * <pre>
+ * <code>
+ *   ...
+ *   static {
+ *      DtlsConfig.register();
+ *      CoapConfig.register();
+ *   }
+ *   ...
+ *   public static void main(String[] args) {
+ *      Configuration.getStandard();
+ *      ...
+ *   }
+ * </code>
+ * </pre>
+ * 
+ * You will need to add the modules also to your maven {@code pom.xml} in order
+ * to use them. Please refer to that specific {@code ???fConfig.xml} to see,
+ * which values are supported.
+ * <p>
+ * The configuration may be changed via the API.
+ * 
+ * <pre>
+ * <code>
+ * Configuration config = Configuration.getStandard()
+ *    .set(CoapConfig.PREFERRED_BLOCK_SIZE, 1_024)
+ *    .set(CoapConfig.EXCHANGE_LIFETIME, 2, TimeUnit.MINUTES)
+ *    .set(CoapConfig.MAX_RESOURCE_BODY_SIZE, 1_000_000);
+ * </code>
+ * </pre>
+ * <p>
+ * 
+ * <b>Note:</b> an application, which uses this API, doesn't allow a end user to
+ * configure these value using the properties file. If the application doesn't
+ * support to use a properties file at all, the end user must use the mechanism
+ * defined by that application.
+ * <p>
  * In order to simplify the consumption by Californium itself, the data-model is
  * kept (mostly) simple and usually already defines the defaults. That prevents
- * to apply several different defaults when accessing them. If custom logic is
- * required, please consider to {@link #setTransient(DocumentedDefinition)} such
- * a value and replace it by a custom definition (with different name na
- * detailed documentation!) It's then the responsibility of that custom code to
- * determine the value for the original Californium configuration value and set
- * that before passing the Configuration to Californium's functions.
+ * to apply several different defaults when accessing them.
+ * <p>
+ * If custom logic is required for properties files, please consider to
+ * {@link #setTransient(DocumentedDefinition)} such a value and replace it by a
+ * custom definition (with different name and detailed documentation!). It's
+ * then the responsibility of that custom code to determine the value for the
+ * original Californium configuration value and set that before passing the
+ * configuration to Californium's functions.
  * 
  * <pre>
  * <code>
@@ -89,7 +172,6 @@ import org.slf4j.LoggerFactory;
  * </code>
  * </pre>
  * 
- * 
  * <p>
  * If both, the file-based provider and the setter-API, provides values for one
  * configuration topic, the value of the setter has precedence over the one from
@@ -99,10 +181,10 @@ import org.slf4j.LoggerFactory;
  * parameter, consider to mark the value as transient.
  * <p>
  * Depending on the environment, the configuration is stored and loaded from
- * properties files. When missing, Californium will generated this properties
- * file. If file access is not possible, there are variants, which are marked as
- * "WithoutFile" or variants, which use a {@link InputStream} to read the
- * properties. Please use such a variant, e.g.
+ * properties files. When that file does not exist, Californium generates a
+ * properties file. If file access is not possible, there are variants, which
+ * are marked as "WithoutFile" or variants, which use a {@link InputStream} to
+ * read the properties. Please use such a variant, e.g.
  * {@link #createStandardWithoutFile()}, if you want Californium to stop
  * generating a properties file. In order to still use the properties file to
  * provide specific values, such a file may be generate on a system, where files
@@ -118,16 +200,38 @@ import org.slf4j.LoggerFactory;
  * In order to use this {@link Configuration} with modules (sets of
  * {@link DocumentedDefinition}),
  * {@link #addDefaultModule(ModuleDefinitionsProvider)} is used to register a
- * {@link ModuleDefinitionsProvider} for such a module. When creating a new
- * {@link Configuration}, all registered {@link ModuleDefinitionsProvider} are
- * called and will fill the map of {@link DocumentedDefinition}s and values. In
- * order to ensure, that the modules are register in a early stage, a
- * application should call e.g. {@link SystemConfig#register()} of the used
- * modules at the begin. See {@link SystemConfig} as example.
+ * {@link ModuleDefinitionsProvider}. When creating a new {@link Configuration},
+ * all registered {@link ModuleDefinitionsProvider} are applied and will fill
+ * the map of {@link DocumentedDefinition}s and values. In order to ensure, that
+ * the modules are register in a early stage, a application should call e.g.
+ * {@link SystemConfig#register()} of the used modules at the begin. See
+ * {@link SystemConfig} as example.
+ * 
  * <p>
  * Alternatively
  * {@link Configuration#Configuration(ModuleDefinitionsProvider...)} may be used
  * to provide the set of modules the {@link Configuration} is based of.
+ * <p>
+ * In some case an application may adapt the default definitions by providing an
+ * {@link DefinitionsProvider} to
+ * {@link #createFromStream(InputStream, DefinitionsProvider)} or
+ * {@link #createWithFile(File, String, DefinitionsProvider)}.
+ * 
+ * <pre>
+ * <code>
+ * private static DefinitionsProvider DEFAULTS = new DefinitionsProvider() {
+ * 
+ * 		&#064;Override
+ * 		public void applyDefinitions(Configuration config) {
+ * 			config.set(CoapConfig.MAX_ACTIVE_PEERS, 100);
+ * 			config.set(CoapConfig.PROTOCOL_STAGE_THREAD_COUNT, 2);
+ * 			config.set(DtlsConfig.DTLS_RECEIVER_THREAD_COUNT, 1);
+ * 		}
+ * };
+ * 
+ * Configuration config = Configuration.createWithFile(new File("My3.properties"), "My properties", DEFAULTS);
+ * </code>
+ * </pre>
  * <p>
  * Especially if Californium is used with a set of applications instead of a
  * single one, ensure, that it's either clear, which file is used by which
@@ -157,8 +261,8 @@ import org.slf4j.LoggerFactory;
  * that the resulting configuration is proper, neither general nor for specific
  * conditions. If a minimum value is too high for your use-case, please create
  * an issue in the
- * <a href="https://github.com/eclipse/californium" target="_blank">Californium
- * github repository</a>.
+ * <a href="https://github.com/eclipse-californium/californium" target=
+ * "_blank">Californium github repository</a>.
  * 
  * @see SystemConfig
  * @see TcpConfig
@@ -190,6 +294,22 @@ public final class Configuration {
 
 		/**
 		 * Apply definitions.
+		 * 
+		 * <pre>
+		 * <code>
+		 * private static DefinitionsProvider DEFAULTS = new DefinitionsProvider() {
+		 * 
+		 * 		&#064;Override
+		 * 		public void applyDefinitions(Configuration config) {
+		 * 			config.set(CoapConfig.MAX_ACTIVE_PEERS, 100);
+		 * 			config.set(CoapConfig.PROTOCOL_STAGE_THREAD_COUNT, 2);
+		 * 			config.set(DtlsConfig.DTLS_RECEIVER_THREAD_COUNT, 1);
+		 * 		}
+		 * };
+		 * 
+		 * Configuration config = Configuration.createWithFile(new File("My3.properties"), "My properties", DEFAULTS);
+		 * </code>
+		 * </pre>
 		 * 
 		 * Use {@link Configuration#set(BasicDefinition, Object)},
 		 * {@link Configuration#set(TimeDefinition, int, TimeUnit)} or
@@ -249,6 +369,12 @@ public final class Configuration {
 	 * The transient property names.
 	 */
 	private final Set<String> transientValues = new HashSet<>();
+	/**
+	 * The deprecated property names.
+	 * 
+	 * @since 3.5
+	 */
+	private final Map<String, String> deprecatedValues = new HashMap<>();
 
 	/**
 	 * Add definitions provider for module.
@@ -313,7 +439,17 @@ public final class Configuration {
 	 * {@link Configuration#createStandardFromStream(InputStream)} is called
 	 * before!
 	 * 
+	 * <pre>
+	 * <code>
+	 * CoapConfig.register();
+	 * DtlsConfig.register();
+	 * ...
+	 * Configuration.getStandard();
+	 * </code>
+	 * </pre>
+	 * 
 	 * @return the standard configuration
+	 * @throws IllegalStateException if configuration has no definitions.
 	 * @see #addDefaultModule(ModuleDefinitionsProvider)
 	 */
 	public static Configuration getStandard() {
@@ -337,7 +473,17 @@ public final class Configuration {
 	 * Creates the standard configuration without reading it or writing it to a
 	 * file.
 	 *
-	 * Apply all {@link ModuleDefinitionsProvider} of registered modules.
+	 * Applies all {@link ModuleDefinitionsProvider} of registered modules. A
+	 * previous standard configuration will be replaced by this.
+	 * 
+	 * <pre>
+	 * <code>
+	 * CoapConfig.register();
+	 * DtlsConfig.register();
+	 * ...
+	 * Configuration.createStandardWithoutFile();
+	 * </code>
+	 * </pre>
 	 * 
 	 * @return the standard configuration
 	 * @see #addDefaultModule(ModuleDefinitionsProvider)
@@ -353,11 +499,22 @@ public final class Configuration {
 	 *
 	 * Support environments without file access.
 	 * 
-	 * Apply all {@link ModuleDefinitionsProvider} of registered modules.
+	 * Applies all {@link ModuleDefinitionsProvider} of registered modules. A
+	 * previous standard configuration will be replaced by this.
+	 * 
+	 * <pre>
+	 * <code>
+	 * CoapConfig.register();
+	 * DtlsConfig.register();
+	 * ...
+	 * Configuration.createStandardFromStream(in);
+	 * </code>
+	 * </pre>
 	 * 
 	 * @param inStream input stream to read properties.
 	 * @return the standard configuration
 	 * @throws NullPointerException if the in stream is {@code null}.
+	 * @throws IllegalStateException if configuration has no definitions.
 	 * @see #addDefaultModule(ModuleDefinitionsProvider)
 	 */
 	public static Configuration createStandardFromStream(InputStream inStream) {
@@ -370,12 +527,21 @@ public final class Configuration {
 	 *
 	 * Support environments without file access.
 	 * 
-	 * Apply all {@link ModuleDefinitionsProvider} of registered modules.
+	 * Applies all {@link ModuleDefinitionsProvider} of registered modules.
+	 * 
+	 * <pre>
+	 * <code>
+	 * CoapConfig.register();
+	 * ...
+	 * Configuration.createStandardWithoutFile();
+	 * </code>
+	 * </pre>
 	 * 
 	 * @param inStream input stream to read properties.
 	 * @param customProvider custom definitions handler. May be {@code null}.
 	 * @return the configuration
 	 * @throws NullPointerException if the in stream is {@code null}.
+	 * @throws IllegalStateException if configuration has no definitions.
 	 * @see #addDefaultModule(ModuleDefinitionsProvider)
 	 */
 	public static Configuration createFromStream(InputStream inStream, DefinitionsProvider customProvider) {
@@ -396,15 +562,26 @@ public final class Configuration {
 	 * If the provided file exists, the configuration reads the properties from
 	 * this file. Otherwise it creates the file.
 	 * 
-	 * Apply all {@link ModuleDefinitionsProvider} of registered modules.
+	 * Applies all {@link ModuleDefinitionsProvider} of registered modules. A
+	 * previous standard configuration will be replaced by this.
 	 *
 	 * For Android, please use
 	 * {@link Configuration#createStandardWithoutFile()}, or
 	 * {@link Configuration#createStandardFromStream(InputStream)}.
 	 * 
+	 * <pre>
+	 * <code>
+	 * CoapConfig.register();
+	 * DtlsConfig.register();
+	 * ...
+	 * Configuration.createStandardWithFile(file);
+	 * </code>
+	 * </pre>
+	 * 
 	 * @param file the configuration file
 	 * @return the standard configuration
 	 * @throws NullPointerException if the file is {@code null}.
+	 * @throws IllegalStateException if configuration has no definitions.
 	 * @see #addDefaultModule(ModuleDefinitionsProvider)
 	 */
 	public static Configuration createStandardWithFile(File file) {
@@ -418,17 +595,27 @@ public final class Configuration {
 	 * If the provided file exists, the configuration reads the properties from
 	 * this file. Otherwise it creates the file with the provided header.
 	 * 
-	 * Apply all {@link ModuleDefinitionsProvider} of registered modules.
+	 * Applies all {@link ModuleDefinitionsProvider} of registered modules.
 	 * 
 	 * For Android, please use {@link Configuration#Configuration()}, and load
 	 * the values using {@link Configuration#load(InputStream)} or adjust the in
 	 * your code.
+	 * 
+	 * <pre>
+	 * <code>
+	 * CoapConfig.register();
+	 * DtlsConfig.register();
+	 * ...
+	 * Configuration.createWithFile(...);
+	 * </code>
+	 * </pre>
 	 * 
 	 * @param file the configuration file
 	 * @param header The header to write to the top of the file.
 	 * @param customProvider custom definitions handler. May be {@code null}.
 	 * @return the configuration
 	 * @throws NullPointerException if the file or header is {@code null}.
+	 * @throws IllegalStateException if configuration has no definitions.
 	 * @see #addDefaultModule(ModuleDefinitionsProvider)
 	 */
 	public static Configuration createWithFile(File file, String header, DefinitionsProvider customProvider) {
@@ -534,6 +721,7 @@ public final class Configuration {
 	 * 
 	 * @param file the file
 	 * @throws NullPointerException if the file is {@code null}.
+	 * @throws IllegalStateException if configuration has no definitions.
 	 * @see #addDefaultModule(ModuleDefinitionsProvider)
 	 * @see #Configuration(ModuleDefinitionsProvider...)
 	 * @see #set(BasicDefinition, Object)
@@ -567,6 +755,7 @@ public final class Configuration {
 	 * @throws NullPointerException if the inStream is {@code null}.
 	 * @throws IOException if an error occurred when reading from the input
 	 *             stream
+	 * @throws IllegalStateException if configuration has no definitions.
 	 * @see #addDefaultModule(ModuleDefinitionsProvider)
 	 * @see #Configuration(ModuleDefinitionsProvider...)
 	 * @see #set(BasicDefinition, Object)
@@ -592,11 +781,12 @@ public final class Configuration {
 	 * Unknown, transient or invalid values are ignored and the
 	 * {@link DocumentedDefinition#getDefaultValue()} will be used instead.
 	 * 
-	 * Applies conversion defined by that {@link DocumentedDefinition}s to
-	 * the textual values.
+	 * Applies conversion defined by that {@link DocumentedDefinition}s to the
+	 * textual values.
 	 * 
 	 * @param properties properties to convert and add
 	 * @throws NullPointerException if properties is {@code null}.
+	 * @throws IllegalStateException if configuration has no definitions.
 	 * @see #addDefaultModule(ModuleDefinitionsProvider)
 	 * @see #Configuration(ModuleDefinitionsProvider...)
 	 * @see #set(BasicDefinition, Object)
@@ -608,15 +798,16 @@ public final class Configuration {
 		if (properties == null) {
 			throw new NullPointerException("properties must not be null!");
 		}
+		if (definitions.isEmpty()) {
+			throw new IllegalStateException("Configuration contains no definitions!");
+		}
 		for (Object k : properties.keySet()) {
 			if (k instanceof String) {
 				String key = (String) k;
 				DocumentedDefinition<?> definition = definitions.get(key);
 				if (definition == null) {
 					LOGGER.warn("Ignore {}, no configuration definition available!", key);
-				} else if (transientValues.contains(key)) {
-					LOGGER.info("Ignore {}, definition set transient!", key);
-				} else {
+				} else if (useLoad(key)) {
 					String text = properties.getProperty(key);
 					Object value = loadValue(definition, text);
 					values.put(key, value);
@@ -641,6 +832,7 @@ public final class Configuration {
 	 * 
 	 * @param dictionary dictionary to convert and add
 	 * @throws NullPointerException if dictionary is {@code null}.
+	 * @throws IllegalStateException if configuration has no definitions.
 	 * @see #addDefaultModule(ModuleDefinitionsProvider)
 	 * @see #Configuration(ModuleDefinitionsProvider...)
 	 * @see #set(BasicDefinition, Object)
@@ -652,15 +844,16 @@ public final class Configuration {
 		if (dictionary == null) {
 			throw new NullPointerException("dictionary must not be null!");
 		}
+		if (definitions.isEmpty()) {
+			throw new IllegalStateException("Configuration contains no definitions!");
+		}
 		for (Enumeration<String> allKeys = dictionary.keys(); allKeys.hasMoreElements();) {
 			String key = allKeys.nextElement();
 			Object value = dictionary.get(key);
 			DocumentedDefinition<?> definition = definitions.get(key);
 			if (definition == null) {
 				LOGGER.warn("Ignore {}, no configuration definition available!", key);
-			} else if (transientValues.contains(key)) {
-				LOGGER.info("Ignore {}, definition set transient!", key);
-			} else {
+			} else if (useLoad(key)) {
 				if (value instanceof String) {
 					String text = (String) value;
 					value = loadValue(definition, text);
@@ -677,6 +870,37 @@ public final class Configuration {
 				}
 				values.put(key, value);
 			}
+		}
+	}
+
+	/**
+	 * Check, if value is to be loaded.
+	 * 
+	 * Transient values are not loaded. For both, transient and deprecated
+	 * values, a warning message is written to the logging.
+	 * 
+	 * @param key key to check
+	 * @return {@code true}, to load the value, {@code false}, to ignore it.
+	 * @see #setTransient(DocumentedDefinition)
+	 * @see #setDeprecated(DocumentedDefinition, DocumentedDefinition)
+	 * @since 3.5
+	 */
+	private boolean useLoad(String key) {
+		if (transientValues.contains(key)) {
+			LOGGER.warn("Ignore {}, definition set transient!", key);
+			return false;
+		} else {
+			if (deprecatedValues.containsKey(key)) {
+				String replace = deprecatedValues.get(key);
+				if (replace != null) {
+					LOGGER.warn("Deprecated {}, please replace it by {}!", key, replace);
+				} else {
+					LOGGER.warn("Deprecated {}, please remove it!", key);
+				}
+			} else {
+				LOGGER.debug("Load {}", key);
+			}
+			return true;
 		}
 	}
 
@@ -711,6 +935,7 @@ public final class Configuration {
 	 *
 	 * @param file The file to write to.
 	 * @throws NullPointerException if the file is {@code null}.
+	 * @throws IllegalStateException if configuration has no definitions.
 	 */
 	public void store(final File file) {
 		store(file, DEFAULT_HEADER);
@@ -724,6 +949,7 @@ public final class Configuration {
 	 * @param file The file to write to.
 	 * @param header The header to write to the top of the file.
 	 * @throws NullPointerException if the file or header is {@code null}.
+	 * @throws IllegalStateException if configuration has no definitions.
 	 */
 	public void store(File file, String header) {
 		if (file == null) {
@@ -745,6 +971,7 @@ public final class Configuration {
 	 * @param resourceName resource name of store for logging, if available. May
 	 *            be {@code null}, if not.
 	 * @throws NullPointerException if out stream or header is {@code null}
+	 * @throws IllegalStateException if configuration has no definitions.
 	 */
 	public void store(OutputStream out, String header, String resourceName) {
 		if (out == null) {
@@ -756,12 +983,15 @@ public final class Configuration {
 		if (resourceName != null) {
 			LOGGER.info("writing properties to {}", resourceName);
 		}
+		if (values.isEmpty()) {
+			throw new IllegalStateException("Configuration contains no values!");
+		}
 		try {
 			Set<String> modules = this.modules.keySet();
 			List<String> generalKeys = new ArrayList<>();
 			List<String> moduleKeys = new ArrayList<>();
 			for (String key : values.keySet()) {
-				if (transientValues.contains(key)) {
+				if (transientValues.contains(key) || deprecatedValues.containsKey(key)) {
 					continue;
 				}
 				boolean add = true;
@@ -876,6 +1106,52 @@ public final class Configuration {
 	}
 
 	/**
+	 * Set definition deprecated.
+	 * 
+	 * Deprecate definitions are continued to be loaded, but are not longer
+	 * saved. Clears already set values in order to check, if the value is still
+	 * loaded from file or stream.
+	 * 
+	 * @param <T> value type of definition
+	 * @param deprecatedDefinition definition to set deprecated
+	 * @param newDefinition definition which replace the deprecated defintion.
+	 *            May be {@code null}.
+	 * @return the configuration for chaining
+	 * @throws NullPointerException if the definition is {@code null}
+	 * @since 3.5
+	 */
+	public <T> Configuration setDeprecated(DocumentedDefinition<T> deprecatedDefinition,
+			DocumentedDefinition<T> newDefinition) {
+		if (deprecatedDefinition == null) {
+			throw new NullPointerException("Deprecated definition must not be null!");
+		}
+		String replace = newDefinition == null ? null : newDefinition.getKey();
+		deprecatedValues.put(deprecatedDefinition.getKey(), replace);
+		setInternal(deprecatedDefinition, null, null);
+		return this;
+	}
+
+	/**
+	 * Check, if definitions is already available.
+	 * 
+	 * Definitions are automatically added by their first use with one of the
+	 * getter or setter. This checks, if the definition has been added before
+	 * calling this method.
+	 * 
+	 * @param <T> value type
+	 * @param definition definition to check
+	 * @return {@code true}, if available, {@code false}, if not.
+	 * @throws NullPointerException if definition is {@code null}
+	 * @since 3.11
+	 */
+	public <T> boolean hasDefinition(DocumentedDefinition<T> definition) {
+		if (definition == null) {
+			throw new NullPointerException("definition must not be null");
+		}
+		return definitions.get(definition.getKey()) != null;
+	}
+
+	/**
 	 * Associates the specified textual value with the specified definition.
 	 * 
 	 * @param <T> value type
@@ -933,8 +1209,7 @@ public final class Configuration {
 	 *             available for the key of the provided definition or the
 	 *             values doesn't match the constraints of the definition.
 	 */
-	public <T> Configuration setAsList(BasicListDefinition<T> definition,
-			@SuppressWarnings("unchecked") T... values) {
+	public <T> Configuration setAsList(BasicListDefinition<T> definition, @SuppressWarnings("unchecked") T... values) {
 		if (values == null) {
 			throw new NullPointerException("Values must not be null!");
 		}

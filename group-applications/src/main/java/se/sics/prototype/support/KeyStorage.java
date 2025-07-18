@@ -96,6 +96,10 @@ public class KeyStorage {
 				new byte[] { (byte) 0x79, (byte) 0x5f, (byte) 0x96, (byte) 0x36, (byte) 0xb2, (byte) 0xc0, (byte) 0x47,
 						(byte) 0x10, (byte) 0x88, (byte) 0x09, (byte) 0x58, (byte) 0x76, (byte) 0x95, (byte) 0xc0,
 						(byte) 0x0c, (byte) 0x74 });
+		memberAsKeys.put("admin1",
+				new byte[] { (byte) 0xf6, (byte) 0x2e, (byte) 0xf1, (byte) 0xa5, (byte) 0x89, (byte) 0xe8, (byte) 0xd4,
+						(byte) 0x52, (byte) 0x37, (byte) 0xf0, (byte) 0xe9, (byte) 0x8c, (byte) 0xb4, (byte) 0x58,
+						(byte) 0x0c, (byte) 0x74 });
 	}
 
 	/**
@@ -114,6 +118,7 @@ public class KeyStorage {
 		aceSenderIds.put("Server5", new byte[] { (byte) 0xA9 });
 		aceSenderIds.put("Server6", new byte[] { (byte) 0xAA });
 		aceSenderIds.put("Adversary", new byte[] { (byte) 0x99 });
+		aceSenderIds.put("admin1", new byte[] { (byte) 0x11 });
 	}
 
 	/**

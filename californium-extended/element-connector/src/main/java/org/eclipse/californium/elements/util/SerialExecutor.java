@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
  * 
  * Serialize job execution before passing the jobs to a provided executor.
  */
-public class SerialExecutor extends AbstractExecutorService {
+public class SerialExecutor extends AbstractExecutorService implements CheckedExecutor {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(SerialExecutor.class);
 
@@ -90,24 +90,47 @@ public class SerialExecutor extends AbstractExecutorService {
 	 * 
 	 * @param executor target executor. If {@code null}, the executor is
 	 *            shutdown.
+	 * @throws IllegalArgumentException if the executor is also a
+	 *             {@link SerialExecutor}
 	 */
 	public SerialExecutor(final Executor executor) {
 		if (executor == null) {
 			shutdown = true;
+		} else if (executor instanceof SerialExecutor) {
+			throw new IllegalArgumentException("Sequences of SerialExecutors are not supported!");
 		}
 		this.executor = executor;
 	}
 
 	@Override
-	public void execute(final Runnable command) {
+	public void execute(Runnable command) {
+		execute(command, false);
+	}
+
+	/**
+	 * Execute a command.
+	 * 
+	 * @param command the command to execute.
+	 * @param force {@code true} to execute command even on shutdown.
+	 * @throws RejectedExecutionException if this task cannot be accepted for
+	 *             execution
+	 * @throws NullPointerException if command is null
+	 * @since 4.0
+	 */
+	public void execute(Runnable command, boolean force) {
 		lock.lock();
 		try {
 			if (shutdown) {
-				throw new RejectedExecutionException("SerialExecutor already shutdown!");
-			}
-			tasks.offer(command);
-			if (currentlyExecutedJob == null) {
-				scheduleNextJob();
+				if (force) {
+					command.run();
+				} else {
+					throw new RejectedExecutionException("SerialExecutor already shutdown!");
+				}
+			} else {
+				tasks.offer(command);
+				if (currentlyExecutedJob == null) {
+					scheduleNextJob();
+				}
 			}
 		} finally {
 			lock.unlock();
@@ -115,12 +138,11 @@ public class SerialExecutor extends AbstractExecutorService {
 	}
 
 	/**
-	 * Assert, that the current thread executes the
-	 * {@link #currentlyExecutedJob}.
+	 * {@inheritDoc}
 	 * 
-	 * @throws ConcurrentModificationException if current thread doesn't execute
-	 *             the {@link #currentlyExecutedJob}.
+	 * {@link #currentlyExecutedJob} is used for the current job.
 	 */
+	@Override
 	public void assertOwner() {
 		final Thread me = Thread.currentThread();
 		if (owner.get() != me) {
@@ -134,11 +156,11 @@ public class SerialExecutor extends AbstractExecutorService {
 	}
 
 	/**
-	 * Check, if current thread executes the {@link #currentlyExecutedJob}.
+	 * {@inheritDoc}
 	 * 
-	 * @return {@code true}, if current thread executes the
-	 *         {@link #currentlyExecutedJob}, {@code false}, otherwise.
+	 * {@link #currentlyExecutedJob} is used for the current job.
 	 */
+	@Override
 	public boolean checkOwner() {
 		return owner.get() == Thread.currentThread();
 	}
@@ -211,7 +233,7 @@ public class SerialExecutor extends AbstractExecutorService {
 	}
 
 	/**
-	 * Shutdown this executor and add all pending task from {@link #tasks} to
+	 * Shutdown this executor and add all pending jobs from {@link #tasks} to
 	 * the provided collection.
 	 * 
 	 * @param jobs collection to add pending jobs.
@@ -275,44 +297,48 @@ public class SerialExecutor extends AbstractExecutorService {
 			currentlyExecutedJob = tasks.poll();
 			if (currentlyExecutedJob != null) {
 				final Runnable command = currentlyExecutedJob;
-				executor.execute(new Runnable() {
-
-					@Override
-					public void run() {
-						try {
-							try {
-								setOwner();
-								ExecutionListener current = listener.get();
-								try {
-									if (current != null) {
-										current.beforeExecution();
-									}
-									command.run();
-								} catch (Throwable t) {
-									LOGGER.error("unexpected error occurred:", t);
-								} finally {
-									try {
-										if (current != null) {
-											current.afterExecution();
-										}
-									} catch (Throwable t) {
-										LOGGER.error("unexpected error occurred:", t);
-									}
-									clearOwner();
-								}
-							} finally {
-								scheduleNextJob();
-							}
-						} catch (RejectedExecutionException ex) {
-							LOGGER.debug("shutdown?", ex);
-						}
-					}
-				});
+				executor.execute(() -> run(command));
 			} else if (shutdown) {
 				terminated.signalAll();
 			}
 		} finally {
 			lock.unlock();
+		}
+	}
+
+	/**
+	 * Execute command.
+	 * 
+	 * @param command the command
+	 * @since 4.0
+	 */
+	private void run(final Runnable command) {
+		try {
+			setOwner();
+			ExecutionListener current = listener.get();
+			try {
+				if (current != null) {
+					current.beforeExecution();
+				}
+				command.run();
+			} catch (Throwable t) {
+				LOGGER.error("unexpected error occurred:", t);
+			} finally {
+				try {
+					if (current != null) {
+						current.afterExecution();
+					}
+				} catch (Throwable t) {
+					LOGGER.error("unexpected error occurred after execution:", t);
+				}
+				clearOwner();
+			}
+		} finally {
+			try {
+				scheduleNextJob();
+			} catch (RejectedExecutionException ex) {
+				LOGGER.debug("shutdown?", ex);
+			}
 		}
 	}
 
@@ -332,7 +358,8 @@ public class SerialExecutor extends AbstractExecutorService {
 	/**
 	 * Execution listener.
 	 * 
-	 * Called before and after executing a task.
+	 * Called before and after executing a task. The calling thread is the same
+	 * as the the one executing the job.
 	 * 
 	 * @since 2.4
 	 */

@@ -350,5 +350,80 @@
 				}
 			]
 		}
-	}
+	},
+	"3.3.0": [
+		{
+			"extension": "revapi.differences",
+			"configuration": {
+				"ignore": true,
+				"differences": [
+					{
+						"code": "java.annotation.added",
+						"old": "field org.eclipse.californium.scandium.dtls.cipher.CipherSuite.TLS_ECDHE_PSK_WITH_AES_256_GCM_SHA378",
+						"new": "field org.eclipse.californium.scandium.dtls.cipher.CipherSuite.TLS_ECDHE_PSK_WITH_AES_256_GCM_SHA378",
+						"annotation": "@org.eclipse.californium.elements.util.PublicAPITypo(fixedName = \"TLS_ECDHE_PSK_WITH_AES_256_GCM_SHA384\")",
+						"justification": "Annotation is used to announce an API change in the future."
+					},
+					{
+						"code": "java.annotation.added",
+						"old": "field org.eclipse.californium.scandium.dtls.cipher.CipherSuite.TLS_PSK_WITH_AES_256_GCM_SHA378",
+						"new": "field org.eclipse.californium.scandium.dtls.cipher.CipherSuite.TLS_PSK_WITH_AES_256_GCM_SHA378",
+						"annotation": "@org.eclipse.californium.elements.util.PublicAPITypo(fixedName = \"TLS_PSK_WITH_AES_256_GCM_SHA384\")",
+						"justification": "Annotation is used to announce an API change in the future."
+					},
+					{
+						"code": "java.class.nowFinal",
+						"old": "class org.eclipse.californium.scandium.dtls.cipher.AeadBlockCipher",
+						"new": "class org.eclipse.californium.scandium.dtls.cipher.AeadBlockCipher",
+						"justification": "class has only static methods"
+					}
+				]
+			}
+		}
+	],
+	"3.6.0": [
+		{
+			"extension": "revapi.differences",
+			"configuration": {
+				"ignore": true,
+				"differences": [
+					{
+						"code": "java.method.addedToInterface",
+						"new": "method boolean org.eclipse.californium.scandium.DatagramFilter::onReceiving(org.eclipse.californium.scandium.dtls.Record, org.eclipse.californium.scandium.dtls.Connection)",
+						"justification": "Work In Progress, 3.5,0 was an emergency release for CVE-2022-21449"
+					},
+					{
+						"code": "java.method.addedToInterface",
+						"new": "method boolean org.eclipse.californium.scandium.DatagramFilter::onMacError(org.eclipse.californium.scandium.dtls.Record, org.eclipse.californium.scandium.dtls.Connection)",
+						"justification": "Work In Progress, 3.5,0 was an emergency release for CVE-2022-21449"					
+					}
+				]
+			}
+		}
+	],
+	"3.7.0": [
+		{
+			"extension": "revapi.differences",
+			"configuration": {
+				"ignore": true,
+				"differences": [
+					{
+						"code": "java.method.removed",
+						"old": "method boolean org.eclipse.californium.scandium.DTLSConnector::executeHandshakeResult(java.util.concurrent.Executor, org.eclipse.californium.scandium.dtls.Connection, java.lang.Runnable)",
+						"justification": "Not part of the public API"
+					},
+					{
+						"code": "java.method.removed",
+						"old": "method boolean org.eclipse.californium.scandium.DTLSConnector::executeInbound(java.util.concurrent.Executor, java.net.InetSocketAddress, java.lang.Runnable)",
+						"justification": "Not part of the public API"
+					},
+					{
+						"code": "java.method.removed",
+						"old": "method boolean org.eclipse.californium.scandium.DTLSConnector::executeOutbound(java.util.concurrent.Executor, java.net.InetSocketAddress, java.lang.Runnable)",
+						"justification": "Not part of the public API"
+					}
+				]
+			}
+		}
+	]
 }

@@ -126,20 +126,20 @@ public class GroupOSCOREInteropServerMcastBW {
 	private final static AlgorithmID algCountersign = AlgorithmID.ECDSA_256;
 
 	// test vector OSCORE draft Appendix C.1.2
-	private final static byte[] master_secret = InteropParametersNew.RIKARD_MASTER_SECRET_ECDSA;
-	private final static byte[] master_salt = InteropParametersNew.RIKARD_MASTER_SALT_ECDSA;
+	private final static byte[] master_secret = InteropParametersOld.RIKARD_MASTER_SECRET_ECDSA;
+	private final static byte[] master_salt = InteropParametersOld.RIKARD_MASTER_SALT_ECDSA;
 
 	private static final int REPLAY_WINDOW = 32;
 
 	// Public and private keys for group members
 
-	private static byte[] sid = InteropParametersNew.RIKARD_ENTITY_1_KID_ECDSA;
+	private static byte[] sid = InteropParametersOld.RIKARD_ENTITY_1_KID_ECDSA;
 	private static OneKey sid_private_key;
 
-	private final static byte[] rid1 = InteropParametersNew.RIKARD_ENTITY_3_KID_ECDSA;
+	private final static byte[] rid1 = InteropParametersOld.RIKARD_ENTITY_3_KID_ECDSA;
 	private static OneKey rid1_public_key;
 
-	private final static byte[] group_identifier = InteropParametersNew.RIKARD_GROUP_ID_ECDSA;
+	private final static byte[] group_identifier = InteropParametersOld.RIKARD_GROUP_ID_ECDSA;
 
 	private final static int MAX_UNFRAGMENTED_SIZE = 4096;
 
@@ -154,6 +154,12 @@ public class GroupOSCOREInteropServerMcastBW {
 	// Use IPv4 or IPv6 (IPv6 doesn't work currently)
 	static boolean ipv4 = true;
 
+	/**
+	 * Main method
+	 * 
+	 * @param args command line arguments
+	 * @throws Exception on failure
+	 */
 	public static void main(String[] args) throws Exception {
 
 		// Disable replay detection
@@ -164,17 +170,17 @@ public class GroupOSCOREInteropServerMcastBW {
 		Security.insertProviderAt(EdDSA, 1);
 
 		// Set sender & receiver keys for countersignatures
-		sid_private_key = OneKeyDecoder.parseDiagnostic(InteropParametersNew.RIKARD_ENTITY_1_KEY_ECDSA);
-		rid1_public_key = OneKeyDecoder.parseDiagnostic(InteropParametersNew.RIKARD_ENTITY_3_KEY_ECDSA);
+		sid_private_key = OneKeyDecoder.parseDiagnostic(InteropParametersOld.RIKARD_ENTITY_1_KEY_ECDSA);
+		rid1_public_key = OneKeyDecoder.parseDiagnostic(InteropParametersOld.RIKARD_ENTITY_3_KEY_ECDSA);
 
 		// Check command line arguments (flag to use different sid and sid key)
 		if (args.length != 0) {
-			sid = InteropParametersNew.RIKARD_ENTITY_2_KID_ECDSA;
+			sid = InteropParametersOld.RIKARD_ENTITY_2_KID_ECDSA;
 			int unicastPort2 = 3683;
 			System.out.println("Starting with alternative port for unicast: " + unicastPort2);
 			unicastPort = unicastPort2;
 			System.out.println("Starting with alternative sid " + Utils.toHexString(sid));
-			sid_private_key = OneKeyDecoder.parseDiagnostic(InteropParametersNew.RIKARD_ENTITY_2_KEY_ECDSA);
+			sid_private_key = OneKeyDecoder.parseDiagnostic(InteropParametersOld.RIKARD_ENTITY_2_KEY_ECDSA);
 		} else {
 			System.out.println("Starting with sid " + Utils.toHexString(sid));
 		}
@@ -191,7 +197,8 @@ public class GroupOSCOREInteropServerMcastBW {
 		GroupRecipientCtx recipientCtx;
 		if (useOSCORE) {
 
-			GroupCtx commonCtx = new GroupCtx(master_secret, master_salt, alg, kdf, group_identifier, algCountersign, null);
+			GroupCtx commonCtx = new GroupCtx(master_secret, master_salt, alg, kdf, group_identifier, algCountersign,
+					null);
 
 			commonCtx.addSenderCtx(sid, sid_private_key);
 
@@ -234,8 +241,7 @@ public class GroupOSCOREInteropServerMcastBW {
 				// set response timeout (indirect) to 10s
 				.set(CoapConfig.EXCHANGE_LIFETIME, 10 * 1000L, TimeUnit.MILLISECONDS)
 				.set(CoapConfig.MAX_MESSAGE_SIZE, DEFAULT_BLOCK_SIZE)
-				.set(CoapConfig.PREFERRED_BLOCK_SIZE, DEFAULT_BLOCK_SIZE)
-				.set(CoapConfig.RESPONSE_MATCHING, mode);
+				.set(CoapConfig.PREFERRED_BLOCK_SIZE, DEFAULT_BLOCK_SIZE).set(CoapConfig.RESPONSE_MATCHING, mode);
 
 		CoapServer server = new CoapServer(config);
 
@@ -430,6 +436,7 @@ public class GroupOSCOREInteropServerMcastBW {
 	 * Add an OSCORE Context to the DB (OSCORE RFC C.2.2.)
 	 */
 	static OSCoreCtx oscoreCtx;
+
 	private static void addOSCOREContext() {
 		byte[] master_secret = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
 				0x0f, 0x10 };

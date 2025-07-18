@@ -77,7 +77,10 @@ public class TcpServerConnector implements Connector {
 		TCP_THREAD_GROUP.setDaemon(false);
 	}
 
-	protected final Logger LOGGER = LoggerFactory.getLogger(getClass());
+	/**
+	 * The logger.
+	 */
+	private final Logger LOGGER = LoggerFactory.getLogger(getClass());
 
 	private final int numberOfThreads;
 	private final int connectionIdleTimeoutSeconds;

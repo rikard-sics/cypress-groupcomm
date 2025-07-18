@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -55,7 +55,7 @@ import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.CertificateType;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
-import org.eclipse.californium.scandium.dtls.x509.AsyncNewAdvancedCertificateVerifier;
+import org.eclipse.californium.scandium.dtls.x509.AsyncCertificateVerifier;
 import org.eclipse.californium.scandium.dtls.x509.SingleCertificateProvider;
 
 import com.upokecenter.cbor.CBORObject;
@@ -94,6 +94,9 @@ import se.sics.ace.rs.AuthzInfo;
  */
 public class DtlspRSTestServer {
 
+	static {
+	    DtlsConfig.register();
+	}
 
     /**
      * Definition of the Hello-World Resource
@@ -244,16 +247,16 @@ public class DtlspRSTestServer {
                       new InetSocketAddress(CoAP.DEFAULT_COAP_SECURE_PORT));
 
         DtlspPskStore psk = new DtlspPskStore(ai);
-        config.setAdvancedPskStore(psk);
+		config.setPskStore(psk);
         config.setCertificateIdentityProvider(
                 new SingleCertificateProvider(asymmetric.AsPrivateKey(), asymmetric.AsPublicKey()));
 
         ArrayList<CertificateType> certTypes = new ArrayList<CertificateType>();
         certTypes.add(CertificateType.RAW_PUBLIC_KEY);
-        AsyncNewAdvancedCertificateVerifier verifier = new AsyncNewAdvancedCertificateVerifier(new X509Certificate[0],
+        AsyncCertificateVerifier verifier = new AsyncCertificateVerifier(new X509Certificate[0],
                 																			   new RawPublicKeyIdentity[0],
                 																			   certTypes);
-        config.setAdvancedCertificateVerifier(verifier);
+        config.setCertificateVerifier(verifier);
 
         DTLSConnector connector = new DTLSConnector(config.build());
         CoapEndpoint cep = new CoapEndpoint.Builder().setConnector(connector)

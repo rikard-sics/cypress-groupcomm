@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -48,6 +48,7 @@ import org.eclipse.californium.cose.OneKey;
 import se.sics.ace.COSEparams;
 import se.sics.ace.Constants;
 import se.sics.ace.DBHelper;
+import se.sics.ace.GroupcommParameters;
 import se.sics.ace.Util;
 import se.sics.ace.as.AccessTokenFactory;
 import se.sics.ace.coap.as.CoapDBConnector;
@@ -80,6 +81,10 @@ public class PlugtestASGroupOSCORE
     private static byte[] key128_client_D = {0x51, 0x52, 0x53, 0x04, 0x05, 0x06, 0x07, 0x08,
     										 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10};
     */
+
+    // For group admin tests (admin1 is an Administrator of OSCORE groups)
+    private static byte[] key128_admin1 = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+			 							   0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x13};
     
     // For group joining tests (rs2, rs3 and rs4 are Group Managers)
     private static byte[] key128_client_F = {0x61, 0x62, 0x63, 0x04, 0x05, 0x06, 0x07, 0x08,
@@ -180,6 +185,13 @@ public class PlugtestASGroupOSCORE
         keyData.Add(KeyKeys.Octet_K.AsCBOR(), CBORObject.FromObject(key128_client_G));
         OneKey authPsk_clientG = new OneKey(keyData);
         
+        // This client "admin1" is an Administrator of OSCORE groups
+        keyData = CBORObject.NewMap();
+        keyData.Add(KeyKeys.KeyType.AsCBOR(), KeyKeys.KeyType_Octet);
+        keyData.Add(KeyKeys.Octet_K.AsCBOR(), CBORObject.FromObject(key128_admin1));
+        OneKey authPsk_admin1 = new OneKey(keyData);
+        
+        
         // Setup PSKs for RSs
         keyData = CBORObject.NewMap();
         keyData.Add(KeyKeys.KeyType.AsCBOR(), KeyKeys.KeyType_Octet);
@@ -236,6 +248,13 @@ public class PlugtestASGroupOSCORE
 
         
     	final String groupName = "feedca570000";
+        String complexPattern = "^[J-Z][0-9][-a-z0-9]*$";
+        String[] prefixes = {GroupcommParameters.GROUP_OSCORE_AS_SCOPE_WILDCARD_PREFIX + ":",
+        		             GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_",
+        		             GroupcommParameters.GROUP_OSCORE_AS_SCOPE_COMPLEX_PREFIX + ":" + "21065" + ":" +
+        		                                                                        complexPattern.length() + ":" + complexPattern + "_"};
+        String[] permissions = GroupcommParameters.GROUP_OSCORE_ADMIN_PERMISSIONS;
+        
         
         //Setup RS entries
         Set<String> profiles = new HashSet<>();
@@ -265,7 +284,43 @@ public class PlugtestASGroupOSCORE
         profiles.clear();
         profiles.add("coap_dtls");
         scopes.clear();
-        scopes.add(groupName + "_requester_responder_monitor");
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX +
+        		   ":" + groupName.length() +
+        		   ":" + groupName + "_requester_responder_monitor");
+        
+        // Add identifiers of scope for admin scope entries
+        
+        // One permission
+        for (int i = 0; i < prefixes.length; i++) {
+        	scopes.add(prefixes[i] + permissions[0]);
+        }
+        // Two permissions
+        for (int i = 0; i < prefixes.length; i++) {
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[2]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[3]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[4]);
+        }
+        // Three permissions
+        for (int i = 0; i < prefixes.length; i++) {
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[2]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[3]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[4]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[2] + "_" + permissions[3]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[2] + "_" + permissions[4]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[3] + "_" + permissions[4]);
+        }
+        // Four permissions
+        for (int i = 0; i < prefixes.length; i++) {
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[2] + "_" + permissions[3]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[2] + "_" + permissions[4]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[2] + "_" + permissions[3] + "_" + permissions[4]);
+        }
+        // Five permissions
+        for (int i = 0; i < prefixes.length; i++) {
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[2] + "_" + permissions[3] + "_" + permissions[4]);
+        }
+        
         auds.clear();
         auds.add("aud2");
         keyTypes.clear();
@@ -285,7 +340,9 @@ public class PlugtestASGroupOSCORE
         profiles.clear();
         profiles.add("coap_dtls");
         scopes.clear();
-        scopes.add(groupName + "_requester_responder_monitor");
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX +
+     		   ":" + groupName.length() +
+     		   ":" + groupName + "_requester_responder_monitor");        
         auds.clear();
         auds.add("aud3");
         keyTypes.clear();
@@ -306,7 +363,9 @@ public class PlugtestASGroupOSCORE
         profiles.clear();
         profiles.add("coap_dtls");
         scopes.clear();
-        scopes.add(groupName + "_requester_responder_monitor");
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX +
+      		   ":" + groupName.length() +
+      		   ":" + groupName + "_requester_responder_monitor");
         auds.clear();
         auds.add("aud4");
         keyTypes.clear();
@@ -346,6 +405,13 @@ public class PlugtestASGroupOSCORE
         keyTypes.add("PSK");        
         db.addClient("clientG", profiles, null, null, keyTypes, authPsk_clientG, null);
         
+        // Add an further client "admin1" as an Administrator of an OSCORE group
+        profiles.clear();
+        profiles.add("coap_dtls");
+        keyTypes.clear();
+        keyTypes.add("PSK");        
+        db.addClient("admin1", profiles, null, null, keyTypes, authPsk_admin1, null);
+        
         
         KissTime time = new KissTime();
         String cti = Base64.getEncoder().encodeToString(new byte[]{0x00});
@@ -382,19 +448,55 @@ public class PlugtestASGroupOSCORE
         // Add also client "clientG" as a joining node of an OSCORE group.
         pdp.addTokenAccess("clientG");
         
+        // Add also client "admin1" as an Administrator of OSCORE groups.
+        pdp.addTokenAccess("admin1");
+        
         
         pdp.addAccess("clientA", "rs1", "r_temp");
         pdp.addAccess("clientA", "rs1", "rw_config");
         
         // Specify access right also for client "clientF" as a joining node of an OSCORE group.
         // On this Group Manager, this client is allowed to be requester, responder, requester+responder or monitor.
-        pdp.addAccess("clientF", "rs2", groupName + "_requester_monitor_responder");
+        pdp.addAccess("clientF", "rs2",
+           GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX +
+           ":" + groupName.length() +
+           ":" + groupName + "_requester_monitor_responder");
+
         // On this Group Manager, this client is allowed to be requester or monitor.
-        pdp.addAccess("clientF", "rs3", groupName + "_requester_monitor");
+        pdp.addAccess("clientF", "rs3",
+           GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX +
+           ":" + groupName.length() +
+           ":" + groupName + "_requester_monitor");
         
         // Specify access right also for client "clientG" as a joining node of an OSCORE group.
         // On this Group Manager, this client is allowed to be requester.
-        pdp.addAccess("clientG", "rs2", groupName + "_requester");
+        pdp.addAccess("clientG", "rs2",
+           GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX +
+           ":" + groupName.length() +
+           ":" + groupName + "_requester");
+        
+        // Specify admin permissions for client "admin1" as an Administrator of OSCORE groups.
+        // This Administrator is allowed to perform all the possible operations on this particular group. 
+        pdp.addAccess("admin1", "rs2",
+           GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX +
+     	   ":" + groupName.length() +
+     	   ":" + groupName + "_list_create_read_write_delete");
+        
+        // Specify admin permissions for client "admin1" as an Administrator of OSCORE groups.
+        // This Administrator is allowed to perform the "list" and "read" operations on a group with any name.
+        pdp.addAccess("admin1", "rs2",
+           GroupcommParameters.GROUP_OSCORE_AS_SCOPE_WILDCARD_PREFIX +
+     	   ":" + "list_read");
+        
+        // Specify admin permissions for client "admin1" as an Administrator of OSCORE groups.
+        // This Administrator is allowed to perform the "list", "read" and "delete" operations
+        // on a group with any name that matches with the regular expression "^[J-Z][0-9][-a-z0-9]*$".
+        pdp.addAccess("admin1", "rs2",
+           GroupcommParameters.GROUP_OSCORE_AS_SCOPE_COMPLEX_PREFIX +
+     	   ":" + "21065" +
+           ":" + complexPattern.length() +
+           ":" + complexPattern + "_list_read_delete");
+        
         
         // Add the resource servers rs2 and rs3 and their OSCORE Group Manager
         // audience to the table OSCOREGroupManagersTable in the PDP

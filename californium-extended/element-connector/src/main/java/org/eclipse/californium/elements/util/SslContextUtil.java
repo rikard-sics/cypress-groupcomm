@@ -32,16 +32,18 @@ import java.net.Socket;
 import java.net.URL;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
-import java.security.Principal;
 import java.security.KeyStore.Entry;
 import java.security.KeyStore.PrivateKeyEntry;
+import java.security.Principal;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.Security;
 import java.security.cert.CertPath;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateExpiredException;
 import java.security.cert.CertificateFactory;
+import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -65,6 +67,8 @@ import javax.net.ssl.X509ExtendedKeyManager;
 import javax.net.ssl.X509ExtendedTrustManager;
 import javax.net.ssl.X509KeyManager;
 import javax.net.ssl.X509TrustManager;
+import javax.security.auth.DestroyFailedException;
+import javax.security.auth.Destroyable;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -93,12 +97,34 @@ import org.slf4j.LoggerFactory;
  * ".jks" to "JKS"
  * ".bks" to "BKS"
  * ".p12" to "PKCS12"
- * ".pem" to "PEM" (simple key store, experimental!)
+ * ".pem" to "CRT/PEM" (custom reader)
+ * ".crt" to "CRT/PEM" (custom reader)
  * "*" to system default
  * </pre>
  * 
- * PEM: Read private keys (PKCS8 and PKCS12 (EC only)), public key (x509), and
- * certificates (x509).
+ * CRT/PEM Custom Reader: Read private keys (PKCS8 and PKCS12 (EC only)), public
+ * key (x509), and certificates (x509). These credentials are stored in the PEM
+ * format, which is base64 encoded. The sections of the file contains a
+ * description of the encoded credential. If a general load function is used,
+ * {@link Credentials} are returned with the loaded data filled in.
+ * 
+ * Example:
+ * 
+ * <pre>
+ * -----BEGIN EC PRIVATE KEY-----
+ * MHcCAQEEIBw7lyMR21FDpCecT0bNr4oKBuYw1VdNnCB5xSS4dQrcoAoGCCqGSM49
+ * AwEHoUQDQgAETY8Y02TZuaRUQvXnguxg6EPN7wR5vzxthmDk+6vvf6oJgBylWIU2
+ * E3khCBkZM9Um7JCA9/kcbNezwJDzyQAnIw==
+ * -----END EC PRIVATE KEY-----
+ * </pre>
+ *
+ * You may use
+ * <a href="https://lapo.it/asn1js" target="_blank">lapo.it/asn1js</a> to decode
+ * the content. Please ensure, that you only provide test- or demo-credentials.
+ * 
+ * If that example file is loaded with {@link #loadCredentials(String)} the
+ * returned {@link Credentials} contains a private key, and here, also the
+ * corresponding public key.
  * 
  * The utility provides also a configurable input stream factory of URI schemes.
  * Currently only {@link #CLASSPATH_SCHEME} is pre-configured to load key stores
@@ -116,7 +142,10 @@ import org.slf4j.LoggerFactory;
  */
 public class SslContextUtil {
 
-	public static final Logger LOGGER = LoggerFactory.getLogger(SslContextUtil.class);
+	/**
+	 * The logger.
+	 */
+	private static final Logger LOGGER = LoggerFactory.getLogger(SslContextUtil.class);
 
 	/**
 	 * Scheme for key store URI. Used to load the key stores from classpath.
@@ -403,10 +432,12 @@ public class SslContextUtil {
 		KeyStoreType configuration = getKeyStoreTypeFromUri(keyStoreUri);
 		if (configuration.simpleStore != null) {
 			Credentials credentials = loadSimpleKeyStore(keyStoreUri, configuration);
-			if (credentials.trusts == null) {
-				throw new IllegalArgumentException("no trusted x509 certificates found in '" + keyStoreUri + "'!");
+			if (credentials.trusts != null) {
+				return credentials.trusts;
+			} else if (credentials.chain != null) {
+				return credentials.chain;
 			}
-			return credentials.trusts;
+			throw new IllegalArgumentException("no trusted x509 certificates found in '" + keyStoreUri + "'!");
 		}
 
 		KeyStore ks = loadKeyStore(keyStoreUri, storePassword, configuration);
@@ -460,19 +491,6 @@ public class SslContextUtil {
 		KeyStoreType configuration = getKeyStoreTypeFromUri(keyStoreUri);
 		if (configuration.simpleStore != null) {
 			Credentials credentials = loadSimpleKeyStore(keyStoreUri, configuration);
-			if (credentials.getTrustedCertificates() != null) {
-				// only certificate loaded
-				try {
-					CertificateFactory factory = CertificateFactory.getInstance("X.509");
-					CertPath certPath = factory.generateCertPath(Arrays.asList(credentials.getTrustedCertificates()));
-					List<? extends Certificate> path = certPath.getCertificates();
-					X509Certificate[] x509Certificates = path.toArray(new X509Certificate[path.size()]);
-					credentials = new Credentials(null, null, x509Certificates);
-					throw new IncompleteCredentialsException(credentials, "credentials missing! No private key found!");
-				} catch (GeneralSecurityException ex) {
-					LOGGER.warn("Load PEM {}:", keyStoreUri, ex);
-				}
-			}
 			if (credentials.publicKey == null && credentials.privateKey == null) {
 				throw new IllegalArgumentException("credentials missing! No keys found!");
 			} else if (credentials.privateKey == null) {
@@ -641,8 +659,9 @@ public class SslContextUtil {
 	 * Input stream factory: {@link #CLASSPATH_SCHEME} to classpath loader.
 	 * 
 	 * Clear previous configuration. Custom entry must be added again using
-	 * {@link #configure(String, InputStreamFactory)}, and
-	 * {@link #configure(String, KeyStoreType)}.
+	 * {@link #configure(String, InputStreamFactory)},
+	 * {@link #configure(String, KeyStoreType)}, and
+	 * {@link #configureAlias(String, String)}.
 	 */
 	public static void configureDefaults() {
 		KEY_STORE_TYPES.clear();
@@ -692,6 +711,44 @@ public class SslContextUtil {
 			throw new NullPointerException("key store type must not be null!");
 		}
 		return KEY_STORE_TYPES.put(ending.toLowerCase(), type);
+	}
+
+	/**
+	 * Add alias for ending.
+	 * 
+	 * Use the same {@link KeyStoreType} for the alias as for the ending.
+	 * 
+	 * @param alias new alias
+	 * @param ending already configured ending
+	 * @return previous key store type, or {@code null}, if no key store type
+	 *         was configured before
+	 * @throws NullPointerException if alias of ending is {@code null}.
+	 * @throws IllegalArgumentException if alias and ending are equal, or alias
+	 *             or ending doesn't start with "." and isn't
+	 *             {@link #DEFAULT_ENDING}.
+	 * @since 3.6
+	 */
+	public static KeyStoreType configureAlias(String alias, String ending) {
+		if (alias == null) {
+			throw new NullPointerException("alias must not be null!");
+		}
+		if (ending == null) {
+			throw new NullPointerException("ending must not be null!");
+		}
+		if (ending.equals(alias)) {
+			throw new IllegalArgumentException("alias must differ from ending!");
+		}
+		if (!ending.equals(DEFAULT_ENDING) && !ending.startsWith(".")) {
+			throw new IllegalArgumentException("ending must start with \".\"!");
+		}
+		if (!alias.equals(DEFAULT_ENDING) && !ending.startsWith(".")) {
+			throw new IllegalArgumentException("alias must start with \".\"!");
+		}
+		KeyStoreType type = KEY_STORE_TYPES.get(ending);
+		if (type == null) {
+			throw new IllegalArgumentException("ending must already be configured!");
+		}
+		return KEY_STORE_TYPES.put(alias, type);
 	}
 
 	/**
@@ -906,14 +963,26 @@ public class SslContextUtil {
 	 * @since 3.0 (changed scope to public)
 	 */
 	public static Credentials loadPemCredentials(InputStream inputStream) throws GeneralSecurityException, IOException {
-		PemReader reader = new PemReader(inputStream);
+		return loadPemCredentials(new PemReader(inputStream));
+	}
+
+	/**
+	 * Load credentials in PEM format
+	 * 
+	 * @param pemReader PEM reader
+	 * @return credentials
+	 * @throws GeneralSecurityException if credentials could not be read
+	 * @throws IOException if key store could not be read
+	 * @since 3.12
+	 */
+	public static Credentials loadPemCredentials(PemReader pemReader) throws GeneralSecurityException, IOException {
 		try {
 			String tag;
 			Asn1DerDecoder.Keys keys = new Asn1DerDecoder.Keys();
 			List<Certificate> certificatesList = new ArrayList<>();
 			CertificateFactory factory = CertificateFactory.getInstance("X.509");
-			while ((tag = reader.readNextBegin()) != null) {
-				byte[] decode = reader.readToEnd();
+			while ((tag = pemReader.readNextBegin()) != null) {
+				byte[] decode = pemReader.readToEnd();
 				if (decode != null) {
 					if (tag.contains("CERTIFICATE")) {
 						certificatesList.add(factory.generateCertificate(new ByteArrayInputStream(decode)));
@@ -930,19 +999,35 @@ public class SslContextUtil {
 						}
 						keys.setPublicKey(read);
 					} else {
-						LOGGER.warn("{} not supported!", tag);
+						LOGGER.warn("{} not supported, ignored!", tag);
 					}
 				}
 			}
 			if (keys.getPrivateKey() == null && keys.getPublicKey() == null) {
-				List<Certificate> unique = new ArrayList<>();
-				for (Certificate certificate : certificatesList) {
-					if (!unique.contains(certificate)) {
-						unique.add(certificate);
+				if (!certificatesList.isEmpty()) {
+					List<Certificate> unique = new ArrayList<>();
+					for (Certificate certificate : certificatesList) {
+						if (!unique.contains(certificate)) {
+							unique.add(certificate);
+						}
 					}
+					if (unique.size() == certificatesList.size()) {
+						// try, if certificates form a chain
+						try {
+							CertPath certPath = factory.generateCertPath(certificatesList);
+							List<? extends Certificate> path = certPath.getCertificates();
+							X509Certificate[] x509Certificates = path.toArray(new X509Certificate[path.size()]);
+							// OK, return certificate chain
+							return new Credentials(null, null, x509Certificates);
+						} catch (GeneralSecurityException ex) {
+						}
+					}
+					Certificate[] certificates = unique.toArray(new Certificate[unique.size()]);
+					return new Credentials(certificates);
+				} else {
+					// no certificates
+					return new Credentials(null);
 				}
-				Certificate[] certificates = unique.toArray(new Certificate[unique.size()]);
-				return new Credentials(certificates);
 			} else {
 				CertPath certPath = factory.generateCertPath(certificatesList);
 				List<? extends Certificate> path = certPath.getCertificates();
@@ -950,7 +1035,7 @@ public class SslContextUtil {
 				return new Credentials(keys.getPrivateKey(), keys.getPublicKey(), x509Certificates);
 			}
 		} finally {
-			reader.close();
+			pemReader.close();
 		}
 	}
 
@@ -1272,10 +1357,19 @@ public class SslContextUtil {
 	}
 
 	/**
-	 * Credentials. Pair of private key and public key or certificate trust
-	 * chain. Or trusted certificates.
+	 * Credentials.
+	 * 
+	 * Pair of private key and public key or certificate chain. Or set of
+	 * trusted certificates.
 	 */
-	public static class Credentials {
+	public static class Credentials implements Destroyable {
+
+		/**
+		 * Indicates, that this instance has been {@link #destroy()}ed.
+		 * 
+		 * @since 3.12
+		 */
+		private volatile boolean destroyed;
 
 		/**
 		 * Private key.
@@ -1325,7 +1419,8 @@ public class SslContextUtil {
 		/**
 		 * Create credentials.
 		 * 
-		 * @param trusts certificate trusts
+		 * @param trusts certificate trusts, {@code null} for no trusted
+		 *            certificates.
 		 */
 		public Credentials(Certificate[] trusts) {
 			this.privateKey = null;
@@ -1337,7 +1432,7 @@ public class SslContextUtil {
 		/**
 		 * Get private key.
 		 * 
-		 * @return private key
+		 * @return private key. May be {@code null}, if not available.
 		 */
 		public PrivateKey getPrivateKey() {
 			return privateKey;
@@ -1346,7 +1441,7 @@ public class SslContextUtil {
 		/**
 		 * Get public key.
 		 * 
-		 * @return public key
+		 * @return public key. May be {@code null}, if not available.
 		 */
 		public PublicKey getPublicKey() {
 			return publicKey;
@@ -1355,7 +1450,8 @@ public class SslContextUtil {
 		/**
 		 * Get certificate trust chain.
 		 * 
-		 * @return certificate trust chain
+		 * @return certificate trust chain. May be {@code null}, if not
+		 *         available.
 		 */
 		public X509Certificate[] getCertificateChain() {
 			return chain;
@@ -1364,7 +1460,8 @@ public class SslContextUtil {
 		/**
 		 * Get certificate trust chain as list.
 		 * 
-		 * @return certificate trust chain as list
+		 * @return certificate trust chain as list. May be {@code null}, if not
+		 *         available.
 		 * @since 3.0
 		 */
 		public List<X509Certificate> getCertificateChainAsList() {
@@ -1372,12 +1469,103 @@ public class SslContextUtil {
 		}
 
 		/**
+		 * Check, if certificate trust chain is available.
+		 * 
+		 * @return {@code true}, if certificate trust chain is available,
+		 *         {@code false}, if not.
+		 * @since 4.0
+		 */
+		public boolean hasCertificateChain() {
+			return chain != null;
+		}
+
+		/**
 		 * Get trusted certificates.
 		 * 
-		 * @return trusted certificates
+		 * @return trusted certificates. May be {@code null}, if not available.
 		 */
 		public Certificate[] getTrustedCertificates() {
 			return trusts;
+		}
+
+		/**
+		 * Check, if trusted certificates are available.
+		 * 
+		 * @return {@code true}, if trusted certificates are available,
+		 *         {@code false}, if not.
+		 * @since 4.0
+		 */
+		public boolean hasTrustedCertificates() {
+			return trusts != null;
+		}
+
+		/**
+		 * Checks, if the node certificate is expired.
+		 * 
+		 * @return {@code true} expired, {@code false} not expired.
+		 * @since 3.10
+		 */
+		public boolean isExpired() {
+			if (chain != null && chain.length > 0) {
+				try {
+					chain[0].checkValidity();
+				} catch (CertificateExpiredException ex) {
+					LOGGER.debug("{} is expired!", chain[0].getSubjectX500Principal(), ex);
+					return true;
+				} catch (CertificateNotYetValidException ex) {
+					LOGGER.debug("{} is not valid yet!", chain[0].getSubjectX500Principal(), ex);
+				}
+			}
+			return false;
+		}
+
+		/**
+		 * {@inheritDoc}
+		 * 
+		 * Text indicating the available components.
+		 * 
+		 * @since 3.12
+		 */
+		public String toString() {
+			if (privateKey != null) {
+				if (chain != null) {
+					return "private key + certificate chain";
+				} else if (publicKey != null) {
+					return "private key + public key";
+				} else {
+					return "private key";
+				}
+			} else if (chain != null) {
+				return "certificate chain";
+			} else if (publicKey != null) {
+				return "public key";
+			} else if (trusts != null) {
+				return "trusted certificates";
+			}
+			return "no credentials";
+		}
+
+		/**
+		 * {@inheritDoc}
+		 * 
+		 * @since 3.12
+		 */
+		@Override
+		public void destroy() throws DestroyFailedException {
+			if (privateKey instanceof Destroyable) {
+				((Destroyable) privateKey).destroy();
+			}
+			destroyed = true;
+		}
+
+		/**
+		 * {@inheritDoc}
+		 * 
+		 * @since 3.12
+		 */
+		@Override
+		public boolean isDestroyed() {
+			return destroyed || (privateKey == null && trusts == null && publicKey == null);
 		}
 	}
 

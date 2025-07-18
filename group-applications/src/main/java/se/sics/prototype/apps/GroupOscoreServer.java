@@ -136,7 +136,7 @@ public class GroupOscoreServer {
 		if (useOSCORE) {
 			ctx = derivedCtx;
 
-			// Add recipient contexts for the 2 clients
+			// Add credentials for the 2 clients
 			byte[] sidClient1 = KeyStorage.clientIds.get("Client1").getBytes();
 			MultiKey keyClient1 = new MultiKey(KeyStorage.memberCcs.get("Client1"));
 			ctx.addRecipientCtxCcs(sidClient1, replayWindow, keyClient1);

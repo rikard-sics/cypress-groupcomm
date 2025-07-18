@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2020 RISE SICS and others.
+ * Copyright (c) 2023 RISE SICS and others.
  * 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
@@ -50,6 +50,7 @@ import org.eclipse.californium.oscore.group.GroupRecipientCtx;
 import org.eclipse.californium.oscore.group.GroupSenderCtx;
 import org.eclipse.californium.oscore.group.OneKeyDecoder;
 import org.eclipse.californium.oscore.group.SharedSecretCalculation;
+import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Rule;
@@ -67,6 +68,9 @@ import net.i2p.crypto.eddsa.Utils;
  */
 public class GroupInteropRikardEddsaTests {
 
+	/**
+	 * Test name logging rule
+	 */
 	@Rule
 	public TestNameLoggerRule name = new TestNameLoggerRule();
 
@@ -147,7 +151,7 @@ public class GroupInteropRikardEddsaTests {
 	}
 
 	@Test
-	public void testContextsAlgCountersign() throws OSException {
+	public void testContextsAlgCountersign() {
 		// Check that the contexts use the correct countersignature algorithms
 
 		assertEquals(AlgorithmID.EDDSA, senderCtxEddsa.getAlgSign());
@@ -156,7 +160,7 @@ public class GroupInteropRikardEddsaTests {
 	}
 
 	@Test
-	public void testSenderKeys() throws OSException {
+	public void testSenderKeys() {
 
 		System.out.println("Sender key: " + Utils.bytesToHex(senderCtxEddsa.getSenderKey()));
 
@@ -166,7 +170,7 @@ public class GroupInteropRikardEddsaTests {
 	}
 
 	@Test
-	public void testRecipientKeys() throws OSException {
+	public void testRecipientKeys() {
 
 		System.out.println("Recipient 1 key: " + Utils.bytesToHex(recipient1CtxEddsa.getRecipientKey()));
 		System.out.println("Recipient 2 key: " + Utils.bytesToHex(recipient2CtxEddsa.getRecipientKey()));
@@ -182,7 +186,7 @@ public class GroupInteropRikardEddsaTests {
 
 	@Test
 	@Ignore // FIXME
-	public void testPairwiseRecipientKeys() throws OSException {
+	public void testPairwiseRecipientKeys() {
 
 		byte[] recipient1EddsaPairwiseKey = recipient1CtxEddsa.getPairwiseRecipientKey();
 		byte[] recipient2EddsaPairwiseKey = recipient2CtxEddsa.getPairwiseRecipientKey();
@@ -202,7 +206,7 @@ public class GroupInteropRikardEddsaTests {
 
 	@Test
 	@Ignore // FIXME
-	public void testPairwiseSenderKeys() throws OSException {
+	public void testPairwiseSenderKeys() {
 		byte[] senderEddsaPairwiseKey1 = senderCtxEddsa.getPairwiseSenderKey(rid1);
 		byte[] senderEddsaPairwiseKey2 = senderCtxEddsa.getPairwiseSenderKey(rid2);
 
@@ -246,20 +250,18 @@ public class GroupInteropRikardEddsaTests {
 
 		db.purge();
 
-		int seq = 1;
-
 		// --- Try decryption ---
 		String destinationUri = "coap://127.0.0.1/test";
 
-		GroupCtx groupCtxRikard = new GroupCtx(master_secret, master_salt, alg, kdf, context_id, AlgorithmID.EDDSA, null);
+		GroupCtx groupCtxRikard = new GroupCtx(master_secret, master_salt, alg, kdf, context_id, AlgorithmID.EDDSA,
+				null);
 		// Dummy values for pretend sender
 		OneKey senderFullKey = OneKeyDecoder.parseDiagnostic(recipient2PublicKeyEddsa);
 		groupCtxRikard.addSenderCtx(new byte[] { 0x11, 0x22 }, senderFullKey);
 
 		groupCtxRikard.addRecipientCtx(sid, REPLAY_WINDOW, OneKeyDecoder.parseDiagnostic(senderFullKeyEddsa));
 		db.addContext(destinationUri, groupCtxRikard);
-		GroupRecipientCtx recipientCtx = (GroupRecipientCtx) db.getContext(sid,
-				context_id);
+		GroupRecipientCtx recipientCtx = (GroupRecipientCtx) db.getContext(sid, context_id);
 
 		// Create request message from raw byte array
 		String requestString = "58-02-FF-FF-11-84-AF-72-82-CE-23-BA-96-39-01-02-DD-11-0A-FF-42-41-71-AB-DF-18-40-50-29-79-42-02-2C-7A-85-E1-75-17-24-6B-31-DB-B1-0C-50-78-73-0E-9D-08-57-E3-EA-0A-63-0F-AF-D1-B2-24-23-64-7E-C0-9A-5D-60-C7-4F-1A-45-B2-95-DB-10-D5-56-9D-6D-A0-9F-44-3E-79-2D-6A-72-BF-BC-72-E3-2C-0D";
@@ -276,8 +278,9 @@ public class GroupInteropRikardEddsaTests {
 
 		// Set up some state information simulating an incoming request
 		OSCoreCtxDB db = new HashMapCtxDB();
-		recipientCtx.setReceiverSeq(seq - 1);
+		// FIXME: //recipientCtx.setReceiverSeq(seq - 1);
 		db.addContext(recipientCtx);
+		Assert.assertNotNull(r);
 		r.setSourceContext(new UdpEndpointContext(new InetSocketAddress(0)));
 
 		System.out.println("Common IV: " + Utils.bytesToHex(recipientCtx.getCommonIV()));
@@ -304,8 +307,7 @@ public class GroupInteropRikardEddsaTests {
 		request.setURI(groupEddsa);
 		request.setToken(
 				new byte[] { 0x11, (byte) 0x84, (byte) 0xAF, 0x72, (byte) 0x82, (byte) 0xCE, 0x23, (byte) 0xBA });
-		
-		
+
 		// encrypt
 		Request encrypted = RequestEncryptor.encrypt(db, request);
 
@@ -338,10 +340,9 @@ public class GroupInteropRikardEddsaTests {
 	 * Derives OSCORE context information for tests
 	 *
 	 * @throws OSException on failure to create the contexts
-	 * @throws CoseException on failure to create the contexts
 	 */
 	@BeforeClass
-	public static void deriveContexts() throws OSException, CoseException {
+	public static void deriveContexts() throws OSException {
 
 		// Create context using EdDSA
 
@@ -349,7 +350,8 @@ public class GroupInteropRikardEddsaTests {
 		Provider EdDSA = new EdDSASecurityProvider();
 		Security.insertProviderAt(EdDSA, 1);
 
-		GroupCtx groupCtxEddsa = new GroupCtx(master_secret, master_salt, alg, kdf, context_id, AlgorithmID.EDDSA, null);
+		GroupCtx groupCtxEddsa = new GroupCtx(master_secret, master_salt, alg, kdf, context_id, AlgorithmID.EDDSA,
+				null);
 
 		OneKey senderFullKey = OneKeyDecoder.parseDiagnostic(senderFullKeyEddsa);
 		groupCtxEddsa.addSenderCtx(sid, senderFullKey);

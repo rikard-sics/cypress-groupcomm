@@ -48,6 +48,8 @@ package org.eclipse.californium.scandium.dtls;
 
 import java.security.GeneralSecurityException;
 import java.security.Principal;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 
 import javax.crypto.SecretKey;
@@ -60,8 +62,12 @@ import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.elements.util.DatagramReader;
 import org.eclipse.californium.elements.util.DatagramWriter;
 import org.eclipse.californium.elements.util.SerializationUtil;
+import org.eclipse.californium.elements.util.SerializationUtil.SupportedVersions;
+import org.eclipse.californium.elements.util.SerializationUtil.SupportedVersionsMatcher;
 import org.eclipse.californium.scandium.auth.PrincipalSerializer;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
+import org.eclipse.californium.scandium.dtls.cipher.PseudoRandomFunction;
+import org.eclipse.californium.scandium.dtls.cipher.RandomManager;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite.KeyExchangeAlgorithm;
 import org.eclipse.californium.scandium.dtls.cipher.PseudoRandomFunction.Label;
 import org.eclipse.californium.scandium.dtls.cipher.XECDHECryptography.SupportedGroup;
@@ -73,7 +79,7 @@ import org.eclipse.californium.scandium.util.ServerNames;
 
 /**
  * Represents a DTLS session between two peers.
- * 
+ * <p>
  * Keeps track of the negotiated parameter.
  */
 public final class DTLSSession implements Destroyable {
@@ -85,10 +91,15 @@ public final class DTLSSession implements Destroyable {
 	 * An arbitrary byte sequence chosen by the server to identify this session.
 	 */
 	private SessionId sessionIdentifier = SessionId.emptySessionId();
+	/**
+	 * An alternative transient ID, if the {@link DTLSSession#sessionIdentifier}
+	 * is empty by intention.
+	 */
+	private Bytes hostInternalIdentifier;
 
 	/**
 	 * Protocol version.
-	 * 
+	 * <p>
 	 * Only {@link ProtocolVersion#VERSION_DTLS_1_2} is supported.
 	 * 
 	 * @since 3.0
@@ -141,12 +152,24 @@ public final class DTLSSession implements Destroyable {
 
 	/**
 	 * Use extended master secret.
-	 * 
+	 * <p>
 	 * See <a href="https://tools.ietf.org/html/rfc7627" target="_blank">RFC 7627</a>.
 	 * 
 	 * @since 3.0
 	 */
 	private boolean extendedMasterSecret;
+	/**
+	 * Use secure renegotiation.
+	 * <p>
+	 * Californium doesn't support renegotiation at all, but RFC5746 requests to
+	 * update to a minimal version of RFC 5746.
+	 * <p>
+	 * See <a href="https://tools.ietf.org/html/rfc5746" target="_blank">RFC
+	 * 5746</a> for additional details.
+	 * 
+	 * @since 3.8
+	 */
+	private boolean secureRenegotiation;
 
 	/**
 	 * The 48-byte master secret shared by client and server to derive key
@@ -203,7 +226,7 @@ public final class DTLSSession implements Destroyable {
 
 	/**
 	 * Sets session.
-	 * 
+	 * <p>
 	 * Sets all fields of this session from the values of the provided session.
 	 * 
 	 * @param session session to set
@@ -220,6 +243,7 @@ public final class DTLSSession implements Destroyable {
 		signatureAndHashAlgorithm = session.getSignatureAndHashAlgorithm();
 		ecGroup = session.getEcGroup();
 		extendedMasterSecret = session.useExtendedMasterSecret();
+		secureRenegotiation = session.useSecureRengotiation();
 		sendCertificateType = session.sendCertificateType();
 		receiveCertificateType = session.receiveCertificateType();
 		recordSizeLimit = session.getRecordSizeLimit();
@@ -232,6 +256,7 @@ public final class DTLSSession implements Destroyable {
 		SecretUtil.destroy(masterSecret);
 		masterSecret = null;
 		extendedMasterSecret = false;
+		secureRenegotiation = false;
 		cipherSuite = CipherSuite.TLS_NULL_WITH_NULL_NULL;
 		compressionMethod = CompressionMethod.NULL;
 		signatureAndHashAlgorithm = null;
@@ -249,7 +274,7 @@ public final class DTLSSession implements Destroyable {
 	/**
 	 * Gets this session's identifier.
 	 * 
-	 * @return the identifier or {@code null} if this session does not have an
+	 * @return the identifier. May be empty, if this session does not have an
 	 *         identifier (yet).
 	 */
 	public SessionId getSessionIdentifier() {
@@ -258,7 +283,7 @@ public final class DTLSSession implements Destroyable {
 
 	/**
 	 * Sets the session identifier.
-	 * 
+	 * <p>
 	 * Resets the {@link #masterSecret}, if the session identifier is changed.
 	 * 
 	 * @param sessionIdentifier new session identifier
@@ -276,6 +301,7 @@ public final class DTLSSession implements Destroyable {
 			SecretUtil.destroy(this.masterSecret);
 			this.masterSecret = null;
 			this.sessionIdentifier = sessionIdentifier;
+			this.hostInternalIdentifier = null;
 		} else {
 			throw new IllegalArgumentException("no new session identifier?");
 		}
@@ -283,7 +309,7 @@ public final class DTLSSession implements Destroyable {
 
 	/**
 	 * Gets protocol version.
-	 * 
+	 * <p>
 	 * Only {@link ProtocolVersion#VERSION_DTLS_1_2} is supported.
 	 * 
 	 * @return protocol version.
@@ -295,7 +321,7 @@ public final class DTLSSession implements Destroyable {
 
 	/**
 	 * Sets protocol version.
-	 * 
+	 * <p>
 	 * Only {@link ProtocolVersion#VERSION_DTLS_1_2} is supported.
 	 * 
 	 * @param protocolVersion protocol version
@@ -405,18 +431,30 @@ public final class DTLSSession implements Destroyable {
 	 * @param attributes attributes to add the entries
 	 */
 	public void addEndpointContext(MapBasedEndpointContext.Attributes attributes) {
-		Bytes id = sessionIdentifier.isEmpty() ? new Bytes(("TIME:" + Long.toString(creationTime)).getBytes())
-				: sessionIdentifier;
+		Bytes id = sessionIdentifier;
+		if (id.isEmpty()) {
+			if (hostInternalIdentifier == null) {
+				byte[] tag = ("TIME:" + Long.toString(creationTime)).getBytes();
+				int fill = 24 - tag.length;
+				if (fill > 0) {
+					tag = Bytes.concatenate(tag, Bytes.createBytes(RandomManager.currentSecureRandom(), fill));
+				}
+				hostInternalIdentifier= new Bytes(tag);
+			}
+			id = hostInternalIdentifier;
+		}
 		attributes.add(DtlsEndpointContext.KEY_SESSION_ID, id);
 		attributes.add(DtlsEndpointContext.KEY_CIPHER, cipherSuite.name());
 		if (extendedMasterSecret) {
 			attributes.add(DtlsEndpointContext.KEY_EXTENDED_MASTER_SECRET, Boolean.TRUE);
 		}
+		if (secureRenegotiation) {
+			attributes.add(DtlsEndpointContext.KEY_SECURE_RENEGOTIATION, Boolean.TRUE);
+		}
 	}
 
 	/**
 	 * Gets the cipher suite to be used for this session.
-	 * <p>
 	 * 
 	 * @return the cipher suite to be used
 	 */
@@ -425,16 +463,35 @@ public final class DTLSSession implements Destroyable {
 	}
 
 	/**
+	 * Gets the cipher suites to be used for resumption.
+	 * 
+	 * @return the cipher suites for resumption
+	 * @since 3.13
+	 */
+	public List<CipherSuite> getCipherSuitesForResumption() {
+		if (secureRenegotiation) {
+			return Arrays.asList(cipherSuite, CipherSuite.TLS_EMPTY_RENEGOTIATION_INFO_SCSV);
+		} else {
+			return Arrays.asList(cipherSuite);
+		}
+	}
+
+	/**
 	 * Sets the cipher suite to be used for this session.
-	 * <p>
 	 * 
 	 * @param cipherSuite the cipher suite to be used
-	 * @throws IllegalArgumentException if the given cipher suite is
-	 *             {@code null} or {@link CipherSuite#TLS_NULL_WITH_NULL_NULL}
+	 * @throws NullPointerException if the given cipher suite is {@code null}
+	 * @throws IllegalArgumentException if the given cipher suite is not
+	 *             {@link CipherSuite#isValidForNegotiation()}
+	 * @since 3.5 throws NullPointerException and uses
+	 *        {@link CipherSuite#isValidForNegotiation()}
 	 */
 	void setCipherSuite(CipherSuite cipherSuite) {
-		if (cipherSuite == null || CipherSuite.TLS_NULL_WITH_NULL_NULL == cipherSuite) {
-			throw new IllegalArgumentException("Negotiated cipher suite must not be null");
+		if (cipherSuite == null) {
+			throw new NullPointerException("Negotiated cipher suite must not be null!");
+		}
+		if (!cipherSuite.isValidForNegotiation()) {
+			throw new IllegalArgumentException("Negotiated cipher suite must be valid for negotiation!");
 		} else {
 			this.cipherSuite = cipherSuite;
 		}
@@ -480,7 +537,7 @@ public final class DTLSSession implements Destroyable {
 
 	/**
 	 * Set use extended master secret.
-	 * 
+	 * <p>
 	 * See <a href="https://tools.ietf.org/html/rfc7627" target="_blank">RFC 7627</a>.
 	 * 
 	 * @param enable {@code true}, to enable the use of the extended master
@@ -494,7 +551,7 @@ public final class DTLSSession implements Destroyable {
 
 	/**
 	 * Gets use extended master secret.
-	 * 
+	 * <p>
 	 * See <a href="https://tools.ietf.org/html/rfc7627" target="_blank">RFC 7627</a>.
 	 * 
 	 * @return {@code true}, to enable the use of the extended master secret,
@@ -503,6 +560,40 @@ public final class DTLSSession implements Destroyable {
 	 */
 	public boolean useExtendedMasterSecret() {
 		return extendedMasterSecret;
+	}
+
+	/**
+	 * Sets secure renegotiation usage.
+	 * <p>
+	 * Californium doesn't support renegotiation at all, but RFC5746 requests to
+	 * update to a minimal version of RFC 5746.
+	 * <p>
+	 * See <a href="https://tools.ietf.org/html/rfc5746" target="_blank">RFC
+	 * 5746</a> for additional details.
+	 * 
+	 * @param used {@code true}, if secure renegotiation is used, {@code false},
+	 *            otherwise.
+	 * @since 3.8
+	 */
+	public void setSecureRengotiation(boolean used) {
+		secureRenegotiation = used;
+	}
+
+	/**
+	 * Gets use secure renegotiation.
+	 * <p>
+	 * Californium doesn't support renegotiation at all, but RFC5746 requests to
+	 * update to a minimal version of RFC 5746.
+	 * <p>
+	 * See <a href="https://tools.ietf.org/html/rfc5746" target="_blank">RFC
+	 * 5746</a> for additional details.
+	 * 
+	 * @return {@code true}, if secure renegotiation is used,
+	 *         {@code false}, otherwise.
+	 * @since 3.8
+	 */
+	public boolean useSecureRengotiation() {
+		return secureRenegotiation;
 	}
 
 	/**
@@ -517,7 +608,7 @@ public final class DTLSSession implements Destroyable {
 
 	/**
 	 * Sets the master secret to be use on session resumptions.
-	 * 
+	 * <p>
 	 * Once the master secret has been set, it cannot be changed without
 	 * changing the session id ahead. If the session id is empty, the session
 	 * doesn't support resumption and therefore the master secret is not set.
@@ -553,6 +644,26 @@ public final class DTLSSession implements Destroyable {
 		} else {
 			throw new IllegalStateException("master secret already available!");
 		}
+	}
+
+	/**
+	 * Calculate the pseudo random function for exporter as defined in
+	 * <a href="https://tools.ietf.org/html/rfc5246#section-5" target=
+	 * "_blank">RFC 5246</a> and
+	 * <a href="https://tools.ietf.org/html/rfc5705#section-4" target=
+	 * "_blank">RFC 5705</a> using the negotiated {@link #cipherSuite} and
+	 * {@link #masterSecret}.
+	 * 
+	 * @param label label to use
+	 * @param seed seed to use
+	 * @param length length of the key.
+	 * @return calculated pseudo random for exporter
+	 * @throws IllegalArgumentException if label is not allowed for exporter
+	 * @since 3.10
+	 */
+	byte[] exportKeyMaterial(byte[] label, byte[] seed, int length) {
+		return PseudoRandomFunction.doExporterPRF(cipherSuite.getThreadLocalPseudoRandomFunctionMac(), masterSecret, label,
+				seed, length);
 	}
 
 	/**
@@ -640,7 +751,7 @@ public final class DTLSSession implements Destroyable {
 
 	/**
 	 * Gets effective fragment limit.
-	 * 
+	 * <p>
 	 * Either {@link #recordSizeLimit}, if received, or
 	 * {@link #maxFragmentLength}.
 	 * 
@@ -695,7 +806,7 @@ public final class DTLSSession implements Destroyable {
 	}
 
 	/**
-	 * Gets the negotiated ec-group to be used for the ECDHE key exchange
+	 * Gets the negotiated ec-group to be used for the ECDHE key exchange.
 	 * message.
 	 * 
 	 * @return negotiated ec-group
@@ -706,7 +817,7 @@ public final class DTLSSession implements Destroyable {
 	}
 
 	/**
-	 * Sets the negotiated ec-group to be used for the ECDHE key exchange
+	 * Sets the negotiated ec-group to be used for the ECDHE key exchange.
 	 * 
 	 * @param ecGroup negotiated ec-group
 	 * @since 3.0
@@ -740,7 +851,7 @@ public final class DTLSSession implements Destroyable {
 
 	@Override
 	public int hashCode() {
-		return sessionIdentifier == null ? (int) creationTime : sessionIdentifier.hashCode();
+		return sessionIdentifier.isEmpty() ? (int) creationTime : sessionIdentifier.hashCode();
 	}
 
 	@Override
@@ -766,6 +877,9 @@ public final class DTLSSession implements Destroyable {
 			return false;
 		}
 		if (extendedMasterSecret != other.extendedMasterSecret) {
+			return false;
+		}
+		if (secureRenegotiation != other.secureRenegotiation) {
 			return false;
 		}
 		if (peerSupportsSni != other.peerSupportsSni) {
@@ -804,13 +918,29 @@ public final class DTLSSession implements Destroyable {
 	/**
 	 * Version number for serialization.
 	 */
-	private static final int VERSION = 2;
+	private static final int VERSION = 3;
+
+	/**
+	 * Version number for serialization before introducing
+	 * {@link #secureRenegotiation}.
+	 * 
+	 * @since 3.8
+	 */
+	private static final int VERSION_DEPRECATED = 2;
+
+	/**
+	 * Supported versions for {@link #fromReader(DatagramReader)}.
+	 * 
+	 * @since 3.8
+	 */
+	private static final SupportedVersions VERSIONS = new SupportedVersions(VERSION,
+			VERSION_DEPRECATED);
 
 	/**
 	 * Write dtls session state.
-	 * 
-	 * Note: the stream will contain not encrypted critical credentials. It is
-	 * required to protect this data before exporting it.
+	 * <p>
+	 * <b>Note:</b> the stream will contain not encrypted critical credentials.
+	 * It is required to protect this data before exporting it.
 	 * 
 	 * @param writer writer for dtls session state
 	 * @since 3.0
@@ -835,6 +965,7 @@ public final class DTLSSession implements Destroyable {
 		writer.write(compressionMethod.getCode(), Byte.SIZE);
 		writer.write(sendCertificateType.getCode(), Byte.SIZE);
 		writer.write(receiveCertificateType.getCode(), Byte.SIZE);
+		writer.write(secureRenegotiation ? 1 : 0, Byte.SIZE);
 		writer.write(extendedMasterSecret ? 1 : 0, Byte.SIZE);
 		SecretSerializationUtil.write(writer, masterSecret);
 		if (signatureAndHashAlgorithm == null) {
@@ -869,10 +1000,11 @@ public final class DTLSSession implements Destroyable {
 	 * @since 3.0
 	 */
 	public static DTLSSession fromReader(DatagramReader reader) {
-		int length = SerializationUtil.readStartItem(reader, VERSION, Short.SIZE);
+		SupportedVersionsMatcher matcher = VERSIONS.matcher();
+		int length = SerializationUtil.readStartItem(reader, matcher, Short.SIZE);
 		if (0 < length) {
 			DatagramReader rangeReader = reader.createRangeReader(length);
-			return new DTLSSession(rangeReader);
+			return new DTLSSession(matcher.getReadVersion(), rangeReader);
 		} else {
 			return null;
 		}
@@ -881,12 +1013,13 @@ public final class DTLSSession implements Destroyable {
 	/**
 	 * Create instance from reader.
 	 * 
+	 * @param version version of serialized data.
 	 * @param reader reader with dtls session state.
 	 * @throws IllegalArgumentException if version differs or the data is
 	 *             erroneous
-	 * @since 3.0
+	 * @since 3.8 (added version to support new field secure renegotiation)
 	 */
-	private DTLSSession(DatagramReader reader) {
+	private DTLSSession(int version, DatagramReader reader) {
 		creationTime = reader.readLong(Long.SIZE);
 		if (reader.readNextByte() == 1) {
 			serverNames = ServerNames.newInstance();
@@ -929,6 +1062,9 @@ public final class DTLSSession implements Destroyable {
 		receiveCertificateType = CertificateType.getTypeFromCode(code);
 		if (receiveCertificateType == null) {
 			throw new IllegalArgumentException("unknown send certificate type 0x" + Integer.toHexString(code) + "!");
+		}
+		if (version > VERSION_DEPRECATED) {
+			secureRenegotiation = (reader.read(Byte.SIZE) == 1);
 		}
 		extendedMasterSecret = (reader.read(Byte.SIZE) == 1);
 		masterSecret = SecretSerializationUtil.readSecretKey(reader);

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -55,9 +55,9 @@ package se.sics.ace.oscore;
 		public static final short cred_fmt = 8; // Major type 0 (unsigned integer) or 1 (negative integer)
 		
 		/**
-		 *  'sign_enc_alg' - Group OSCORE Signature Encryption Algorithm value 
+		 *  'gp_enc_alg' - Group OSCORE Group Encryption Algorithm value 
 		 */
-		public static final short sign_enc_alg = 9; // Major type 0 (unsigned integer) or 1 (negative integer) or 3 (text string)
+		public static final short gp_enc_alg = 9; // Major type 0 (unsigned integer) or 1 (negative integer) or 3 (text string)
 		
 		/**
 		 * 'sign_alg' - Group OSCORE Signature Algorithm value
@@ -88,9 +88,24 @@ package se.sics.ace.oscore;
 		public static final short ecdh_params = 13; // Major type 4 (array)
 		
 		/**
+		 *  'det_senderId' - OSCORE Sender ID assigned to the Deterministic Client of an OSCORE group
+		 */
+		// Assume that "det_senderId" is registered with label 14 in the
+		// "OSCORE Security Context Parameters" Registry defined in RFC9203
+		public static final short det_senderId = 14; // Major type 2 (byte string)
+		
+		/**
+		 *  'det_hash_alg' - Hash algorithm to use in an OSCORE group when producing a Deterministic Request
+		 */
+		// Assume that "det_hash_alg" is registered with label 15 in the
+		// "OSCORE Security Context Parameters" Registry defined in RFC9203
+		public static final short det_hash_alg = 15; // Major type 0 (unsigned integer) or 1 (negative integer)
+		
+		/**
 	     * The string values for the OSCORE Security Context Object parameter abbreviations (use for debugging)
 	     */
 	    public static final String[] CONTEXT_PARAMETER = {"id", "version", "ms", "hkdf", "alg", "salt", "contextId",
-	    		"group_senderId, cred_fmt", "sign_enc_alg", "sign_alg", "sign_params", "ecdh_alg", "ecdh_params"};
+	    		"group_senderId, cred_fmt", "gp_enc_alg", "sign_alg", "sign_params", "ecdh_alg", "ecdh_params",
+	    		"det_senderId", "det_hash_alg"};
 	 
  }

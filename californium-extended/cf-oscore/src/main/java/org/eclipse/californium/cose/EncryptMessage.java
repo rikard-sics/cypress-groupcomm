@@ -148,3 +148,4 @@ public class EncryptMessage extends EncryptCommon {
         return obj;
     }
 }
+

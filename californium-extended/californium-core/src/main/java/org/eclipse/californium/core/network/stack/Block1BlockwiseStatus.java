@@ -17,8 +17,8 @@
  ******************************************************************************/
 package org.eclipse.californium.core.network.stack;
 
-import org.eclipse.californium.core.coap.BlockOption;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+import org.eclipse.californium.core.coap.option.BlockOption;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.network.Exchange;
@@ -31,6 +31,13 @@ import org.slf4j.LoggerFactory;
 public final class Block1BlockwiseStatus extends BlockwiseStatus {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(Block1BlockwiseStatus.class);
+
+	/**
+	 * Current pending block wise request.
+	 * 
+	 * @since 3.8
+	 */
+	private Request current;
 
 	/**
 	 * Create block1wise status.
@@ -47,6 +54,7 @@ public final class Block1BlockwiseStatus extends BlockwiseStatus {
 	private Block1BlockwiseStatus(KeyUri keyUri, RemoveHandler removeHandler, Exchange exchange, Request request,
 			int maxSize, int maxTcpBertBulkBlocks) {
 		super(keyUri, removeHandler, exchange, request, maxSize, maxTcpBertBulkBlocks);
+		current = request;
 	}
 
 	/**
@@ -66,7 +74,7 @@ public final class Block1BlockwiseStatus extends BlockwiseStatus {
 		Block1BlockwiseStatus status = new Block1BlockwiseStatus(keyUri, removeHandler, exchange, request,
 				request.getPayloadSize(), maxTcpBertBulkBlocks);
 		try {
-			status.addBlock(request.getPayload());
+			status.addBlock(request.getPayload(), request.getMessageSize());
 			status.flipBlocksBuffer();
 		} catch (BlockwiseTransferException ex) {
 			LOGGER.warn("buffer overflow on start", ex);
@@ -124,7 +132,7 @@ public final class Block1BlockwiseStatus extends BlockwiseStatus {
 					"request block1 offset " + offset + " doesn't match the current position " + from + "!",
 					ResponseCode.REQUEST_ENTITY_INCOMPLETE);
 		}
-		addBlock(requestBlock.getPayload());
+		addBlock(requestBlock.getPayload(), requestBlock.getMessageSize());
 		if (block1.isM()) {
 			setCurrentSzx(block1.getSzx());
 			int size = block1.getSize();
@@ -189,6 +197,7 @@ public final class Block1BlockwiseStatus extends BlockwiseStatus {
 		block.getOptions().setBlock1(blockSzx, m, num);
 
 		setComplete(!m);
+		current = block;
 		return block;
 	}
 
@@ -214,13 +223,15 @@ public final class Block1BlockwiseStatus extends BlockwiseStatus {
 	}
 
 	/**
-	 * Checks whether a response has the same token as the request that
-	 * initiated the block1 transfer that this is the tracker for.
+	 * Checks whether a response has the same token as the current request of
+	 * this tracker.
 	 * 
 	 * @param response The response to check.
 	 * @return {@code true} if the tokens match.
+	 * @since 3.8 use the current request instead of the initial request to
+	 *        support blockwise transfer with changing tokens.
 	 */
-	public boolean hasMatchingToken(final Response response) {
-		return response.getToken().equals(firstMessage.getToken());
+	public synchronized boolean hasMatchingToken(final Response response) {
+		return response.getToken().equals(current.getToken());
 	}
 }

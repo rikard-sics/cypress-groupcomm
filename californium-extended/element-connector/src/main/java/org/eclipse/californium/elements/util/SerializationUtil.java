@@ -21,9 +21,12 @@ import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+
+import javax.crypto.CipherInputStream;
 
 import org.eclipse.californium.elements.Definition;
 import org.eclipse.californium.elements.Definitions;
@@ -466,8 +469,14 @@ public class SerializationUtil {
 	/**
 	 * Read nanotime synchronization mark.
 	 * 
+	 * The delta considers different uptimes of hosts, e.g. because the one host
+	 * runs for a week, the other for a day. It also uses the
+	 * {@link System#currentTimeMillis()} in order to include the past calendar
+	 * time between writing and reading.
+	 * 
 	 * @param reader reader to read
-	 * @return delta in nanoseconds for nanotime synchronization.
+	 * @return delta in nanoseconds for nanotime synchronization. Considers
+	 *         different uptimes and past calendar time.
 	 * @throws IllegalArgumentException if version doesn't match or the read
 	 *             length exceeds the available bytes.
 	 * @see SerializationUtil#writeNanotimeSynchronizationMark(DatagramWriter)
@@ -494,13 +503,59 @@ public class SerializationUtil {
 	 * 
 	 * @param in stream to skip items.
 	 * @param numBits number of bits of the item length.
+	 * @throws IllegalArgumentException if stream isn't a valid stream of items
 	 */
 	public static void skipItems(InputStream in, int numBits) {
 		DataStreamReader reader = new DataStreamReader(in);
+		skipItems(reader, numBits);
+	}
+
+	/**
+	 * Skip items until "no item" is read and return the number.
+	 * 
+	 * @param reader stream reader to skip items.
+	 * @param numBits number of bits of the item length.
+	 * @return number of skipped items.
+	 * @throws IllegalArgumentException if stream isn't a valid stream of items
+	 * @since 3.3.1
+	 */
+	public static int skipItems(DataStreamReader reader, int numBits) {
+		int count = 0;
 		while ((reader.readNextByte() & 0xff) != NO_VERSION) {
 			int len = reader.read(numBits);
-			reader.skip(len);
+			skipBits(reader, len * Byte.SIZE);
+			++count;
 		}
+		return count;
+	}
+
+	/**
+	 * Skip bits.
+	 * 
+	 * If not enough bits are available without blocking, try to read a byte.
+	 * That seems to be required for {@link CipherInputStream}.
+	 * 
+	 * @param reader reader to skip bits.
+	 * @param numBits number of bits to be skipped
+	 * @return number of actual skipped bits
+	 * @throws IllegalArgumentException if not enough bits are available
+	 * @since 3.3.1
+	 */
+	public static long skipBits(DataStreamReader reader, long numBits) {
+		long bits = numBits;
+		while (bits > 0) {
+			long skipped = reader.skip(bits);
+			if (skipped <= 0) {
+				// CipherInputStream seems to require that
+				// readNextByte fails with IllegalArgumentException
+				// at the End Of Stream
+				reader.readNextByte();
+				bits -= Byte.SIZE;
+			} else {
+				bits -= skipped;
+			}
+		}
+		return numBits - bits;
 	}
 
 	/**

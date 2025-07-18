@@ -26,18 +26,57 @@
  ******************************************************************************/
 package org.eclipse.californium.core.network.serialization;
 
-import org.eclipse.californium.core.coap.*;
+import static org.eclipse.californium.core.coap.CoAP.MessageFormat.PAYLOAD_MARKER;
+
+import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+import org.eclipse.californium.core.coap.CoAPMessageFormatException;
+import org.eclipse.californium.core.coap.CoAPOptionException;
+import org.eclipse.californium.core.coap.EmptyMessage;
+import org.eclipse.californium.core.coap.Message;
+import org.eclipse.californium.core.coap.MessageFormatException;
+import org.eclipse.californium.core.coap.Option;
+import org.eclipse.californium.core.coap.OptionNumberRegistry;
+import org.eclipse.californium.core.coap.OptionSet;
+import org.eclipse.californium.core.coap.Request;
+import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.coap.option.OptionDefinition;
+import org.eclipse.californium.core.coap.option.OptionRegistry;
+import org.eclipse.californium.core.coap.option.StandardOptionRegistry;
 import org.eclipse.californium.elements.RawData;
 import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.elements.util.DatagramReader;
-
-import static org.eclipse.californium.core.coap.CoAP.MessageFormat.PAYLOAD_MARKER;
 
 /**
  * A base class for parsing CoAP messages from a byte array.
  */
 public abstract class DataParser {
+
+	protected final OptionRegistry optionRegistry;
+
+	/**
+	 * Create data parser.
+	 * 
+	 * @since 3.8 Use {@link StandardOptionRegistry#getDefaultOptionRegistry()}
+	 *        as default option registry.
+	 */
+	protected DataParser() {
+		optionRegistry = StandardOptionRegistry.getDefaultOptionRegistry();
+	}
+
+	/**
+	 * Create data parser with provided option registry.
+	 * 
+	 * @param optionRegistry option registry. {@code null} to use
+	 *            {@link StandardOptionRegistry#getDefaultOptionRegistry()}
+	 * @since 3.8
+	 */
+	protected DataParser(OptionRegistry optionRegistry) {
+		if (optionRegistry == null) {
+			optionRegistry = StandardOptionRegistry.getDefaultOptionRegistry();
+		}
+		this.optionRegistry = optionRegistry;
+	}
 
 	/**
 	 * Parses and converts a incoming raw message into CoAP Message.
@@ -72,7 +111,8 @@ public abstract class DataParser {
 	 * 
 	 * @param msg the byte array to parse.
 	 * @return the message.
-	 * @throws MessageFormatException if the array cannot be parsed into a message.
+	 * @throws MessageFormatException if the array cannot be parsed into a
+	 *             message.
 	 */
 	public final Message parseMessage(final byte[] msg) {
 
@@ -100,7 +140,8 @@ public abstract class DataParser {
 			/** use message to add CoAP message specific information */
 			errorMsg = e.getMessage();
 		}
-		throw new CoAPMessageFormatException(errorMsg, header.getToken(), header.getMID(), header.getCode(), CoAP.Type.CON == header.getType());
+		throw new CoAPMessageFormatException(errorMsg, header.getToken(), header.getMID(), header.getCode(),
+				CoAP.Type.CON == header.getType());
 	}
 
 	/**
@@ -125,8 +166,8 @@ public abstract class DataParser {
 	/**
 	 * Parses a byte array into a CoAP message header.
 	 * <p>
-	 * Subclasses need to override this method according to the concrete type of message
-	 * encoding to support.
+	 * Subclasses need to override this method according to the concrete type of
+	 * message encoding to support.
 	 * 
 	 * @param reader for reading the byte array to parse.
 	 * @return the message header the array has been parsed into.
@@ -137,13 +178,18 @@ public abstract class DataParser {
 	/**
 	 * Assert, if options are supported for the specific protocol flavor.
 	 * 
-	 * @param options option set to validate.
+	 * @param message message of option set to validate.
 	 * @throws IllegalArgumentException if at least one option is not valid for
 	 *             the specific flavor.
-	 * @since 3.0
+	 * @since 4.0 (changed parameter to Message)
 	 */
-	protected void assertValidOptions(OptionSet options) {
-		// empty default implementation
+	protected void assertValidOptions(Message message) {
+		if (CoAP.isResponse(message.getRawCode())) {
+			int count = message.getOptions().getETagCount();
+			if (count > 1) {
+				throw new IllegalArgumentException("Multiple ETAGs (" + count + ") in response!");
+			}
+		}
 	}
 
 	/**
@@ -164,8 +210,10 @@ public abstract class DataParser {
 		if (message == null) {
 			throw new NullPointerException("message must not be null!");
 		}
+		int code = message.getRawCode();
 		int currentOptionNumber = 0;
 		byte nextByte = 0;
+		OptionSet optionSet = message.getOptions();
 
 		while (reader.bytesAvailable()) {
 			nextByte = reader.readNextByte();
@@ -183,21 +231,9 @@ public abstract class DataParser {
 
 				// read option
 				if (reader.bytesAvailable(optionLength)) {
-					Option option = new Option(currentOptionNumber);
-					option.setValue(reader.readBytes(optionLength));
-
-					if (currentOptionNumber == OptionNumberRegistry.CONTENT_FORMAT) {
-						// OptionSet.setContentFormat(int) API weird => cleanup
-						// on 3.0
-						int format = option.getIntegerValue();
-						message.getOptions().setContentFormat(format);
-						if (!message.getOptions().hasContentFormat()) {
-							throw new IllegalArgumentException("Content Format option must be between 0 and "
-									+ MediaTypeRegistry.MAX_TYPE + " (2 bytes) inclusive");
-						}
-					} else {
-						// add option to message
-						message.getOptions().addOption(option);
+					Option option = createOption(code, currentOptionNumber, reader, optionLength);
+					if (option != null) {
+						optionSet.addOption(option);
 					}
 				} else {
 					String msg = String.format(
@@ -205,13 +241,16 @@ public abstract class DataParser {
 							optionLength);
 					throw new IllegalArgumentException(msg);
 				}
+			} catch (CoAPOptionException ex) {
+				throw new CoAPMessageFormatException(ex.getMessage(), message.getToken(), message.getMID(),
+						message.getRawCode(), message.isConfirmable(), ex.getErrorCode());
 			} catch (IllegalArgumentException ex) {
 				throw new CoAPMessageFormatException(ex.getMessage(), message.getToken(), message.getMID(),
 						message.getRawCode(), message.isConfirmable());
 			}
 		}
 		try {
-			assertValidOptions(message.getOptions());
+			assertValidOptions(message);
 		} catch (IllegalArgumentException ex) {
 			throw new CoAPMessageFormatException(ex.getMessage(), message.getToken(), message.getMID(),
 					message.getRawCode(), message.isConfirmable(), ResponseCode.BAD_REQUEST);
@@ -232,6 +271,43 @@ public abstract class DataParser {
 			}
 		} else {
 			message.setPayload(Bytes.EMPTY);
+		}
+	}
+
+	/**
+	 * Creates option.
+	 * <p>
+	 * Enables custom implementation to override this method in order to ignore,
+	 * fix malformed options, or provide details for an custom error response.
+	 * <p>
+	 * <b>Note:</b> only malformed CON-requests are responded with an error
+	 * message. Malformed CON-responses are always rejected and malformed
+	 * NON-messages are always ignored.
+	 * 
+	 * @param code message code
+	 * @param optionNumber option number
+	 * @param reader datagram reader to read the option value
+	 * @param length length of the option value
+	 * @return create option, or {@code null}, to ignore this option. Please
+	 *         take care, if you ignore malformed critical options, the outcome
+	 *         will be undefined!
+	 * @throws CoAPOptionException details for a custom error response, if the
+	 *             option is malformed.
+	 * @throws IllegalArgumentException if the option is a critical custom
+	 *             option or the value doesn't match the option's specification.
+	 * @throws NullPointerException if provided value is {@code null}
+	 * @see Message#getRawCode()
+	 * @see Option#getNumber()
+	 * @since 4.0 (changed parameter {@code byte[] value} to DatagramReader and length)
+	 */
+	public Option createOption(int code, int optionNumber, DatagramReader reader, int length) {
+		OptionDefinition definition = optionRegistry.getDefinitionByNumber(code, optionNumber);
+		if (definition != null) {
+			return definition.create(reader, length);
+		} else if (OptionNumberRegistry.isCritical(optionNumber)) {
+			throw new IllegalArgumentException("Unknown critical option " + optionNumber + " is not supported!");
+		} else {
+			return null;
 		}
 	}
 

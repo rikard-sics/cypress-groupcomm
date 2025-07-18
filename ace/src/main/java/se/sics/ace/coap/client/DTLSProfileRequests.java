@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -55,8 +55,8 @@ import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.CertificateType;
 import org.eclipse.californium.scandium.dtls.PskPublicInformation;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
-import org.eclipse.californium.scandium.dtls.pskstore.AdvancedMultiPskStore;
-import org.eclipse.californium.scandium.dtls.x509.AsyncNewAdvancedCertificateVerifier;
+import org.eclipse.californium.scandium.dtls.pskstore.MultiPskStore;
+import org.eclipse.californium.scandium.dtls.x509.AsyncCertificateVerifier;
 import org.eclipse.californium.scandium.dtls.x509.SingleCertificateProvider;
 
 import com.upokecenter.cbor.CBORObject;
@@ -126,9 +126,9 @@ public class DTLSProfileRequests {
             String keyId = new String(
                     key.get(KeyKeys.KeyId).GetByteString(),
                     Constants.charset);
-            AdvancedMultiPskStore pskStore = new AdvancedMultiPskStore();
+            MultiPskStore pskStore = new MultiPskStore();
             pskStore.setKey(keyId, key.get(KeyKeys.Octet_K).GetByteString());
-            builder.setAdvancedPskStore(pskStore);
+            builder.setPskStore(pskStore);
         } else if (type.equals(KeyKeys.KeyType_EC2) || type.equals(KeyKeys.KeyType_OKP)){
             try {
                 builder.setCertificateIdentityProvider(
@@ -156,9 +156,7 @@ public class DTLSProfileRequests {
             throw new AceException(e.getMessage());
         }
         try {
-            return client.post(
-                    payload.EncodeToBytes(), 
-                    Constants.APPLICATION_ACE_CBOR);
+            return client.post(payload.EncodeToBytes(), Constants.APPLICATION_ACE_CBOR);
         } catch (ConnectorException | IOException e) {
             LOGGER.severe("DTLSConnector error: " + e.getMessage());
             throw new AceException(e.getMessage());
@@ -180,6 +178,25 @@ public class DTLSProfileRequests {
      * @throws AceException 
      */
     public static CoapResponse postToken(String rsAddr, CBORObject payload, OneKey key) throws AceException {
+    	return postToken(rsAddr, payload, Constants.APPLICATION_CWT, key);
+    }
+    
+    /**
+     * Sends a POST request to the /authz-info endpoint of the RS to submit an
+     * access token.
+     * 
+     * @param rsAddr  the full address of the /authz-info endpoint
+     *  (including scheme and hostname, and port if not default)
+     * @param contentFormat  the CoAP content format to use for this message
+     * @param payload  the token received from the getToken() method
+     * @param key  an asymmetric key-pair to use with DTLS in a raw-public 
+     *  key handshake
+     * 
+     * @return  the response 
+     *
+     * @throws AceException 
+     */
+    public static CoapResponse postToken(String rsAddr, CBORObject payload, int contentFormat, OneKey key) throws AceException {
         if (payload == null) {
             throw new AceException(
                     "Payload cannot be null when POSTing to authz-info");
@@ -205,9 +222,9 @@ public class DTLSProfileRequests {
 
             ArrayList<CertificateType> certTypes = new ArrayList<CertificateType>();
             certTypes.add(CertificateType.RAW_PUBLIC_KEY);
-            AsyncNewAdvancedCertificateVerifier verifier = new AsyncNewAdvancedCertificateVerifier(
+            AsyncCertificateVerifier verifier = new AsyncCertificateVerifier(
                     new X509Certificate[0], new RawPublicKeyIdentity[0], certTypes);
-            builder.setAdvancedCertificateVerifier(verifier);
+            builder.setCertificateVerifier(verifier);
 
             c = new DTLSConnector(builder.build());
         } else {
@@ -226,9 +243,7 @@ public class DTLSProfileRequests {
                LOGGER.finest("Sending request payload: " + payload);
         CoapResponse r = null;
         try {
-            r = client.post(
-                    payload.EncodeToBytes(), 
-                    Constants.APPLICATION_ACE_CBOR);
+            r = client.post(payload.EncodeToBytes(), contentFormat);
         } catch (ConnectorException | IOException ex) {
             LOGGER.severe("DTLSConnector error: " + ex.getMessage());
             throw new AceException(ex.getMessage());
@@ -244,14 +259,31 @@ public class DTLSProfileRequests {
      * @param rsAddr  the full address of the /authz-info endpoint
      *  (including scheme and hostname, and port if not default)
      * @param payload  the token received from the getToken() method
-     * @param key  an asymmetric key-pair to use with DTLS in a raw-public 
-     *  key handshake
+     * @param c  the CoAP client posting the access token
      * 
      * @return  the response 
      *
      * @throws AceException 
      */
     public static CoapResponse postTokenUpdate(String rsAddr, CBORObject payload, CoapClient c) throws AceException {
+    	return postTokenUpdate(rsAddr, payload, Constants.APPLICATION_CWT, c);
+    }
+    
+    /**
+     * Sends a POST request to the /authz-info endpoint of the RS to submit an
+     * access token for updating access rights.
+     * 
+     * @param rsAddr  the full address of the /authz-info endpoint
+     *  (including scheme and hostname, and port if not default)
+     * @param payload  the token received from the getToken() method
+     * @param contentFormat  the CoAP content format to use for this message
+     * @param c  the CoAP client posting the access token
+     * 
+     * @return  the response 
+     *
+     * @throws AceException 
+     */
+    public static CoapResponse postTokenUpdate(String rsAddr, CBORObject payload, int contentFormat, CoapClient c) throws AceException {
         if (payload == null) {
             throw new AceException(
                     "Payload cannot be null when POSTing to authz-info");
@@ -261,7 +293,7 @@ public class DTLSProfileRequests {
         c.setURI(rsAddr);
         CoapResponse tokenPostResp = null;
         try {
-        	tokenPostResp = c.post(payload.EncodeToBytes(), Constants.APPLICATION_ACE_CBOR);
+        	tokenPostResp = c.post(payload.EncodeToBytes(), contentFormat);
         } catch (ConnectorException | IOException ex) {
             LOGGER.severe("DTLSConnector error: " + ex.getMessage());
             throw new AceException(ex.getMessage());
@@ -306,7 +338,7 @@ public class DTLSProfileRequests {
             = new DtlsConnectorConfig.Builder(dtlsConfig).setAddress(
                     new InetSocketAddress(0));
         
-        AdvancedMultiPskStore store = new AdvancedMultiPskStore();
+        MultiPskStore store = new MultiPskStore();
         
         LOGGER.finest("Adding key for: " + serverAddress.toString());
         
@@ -315,7 +347,7 @@ public class DTLSProfileRequests {
         PskPublicInformation pskInfo = new PskPublicInformation(identityStr, identityBytes);
         store.addKnownPeer(serverAddress, pskInfo, key.get(KeyKeys.Octet_K).GetByteString());
                 
-        builder.setAdvancedPskStore(store);
+        builder.setPskStore(store);
         Connector c = new DTLSConnector(builder.build());
         CoapEndpoint e = new CoapEndpoint.Builder().setConnector(c)
                 .setConfiguration(Configuration.getStandard()).build();
@@ -364,7 +396,7 @@ public class DTLSProfileRequests {
             = new DtlsConnectorConfig.Builder(dtlsConfig).setAddress(
                 new InetSocketAddress(0));
         
-        AdvancedMultiPskStore store = new AdvancedMultiPskStore();
+        MultiPskStore store = new MultiPskStore();
 
         LOGGER.finest("Adding key for: " + serverAddress.toString());
         
@@ -373,7 +405,7 @@ public class DTLSProfileRequests {
         PskPublicInformation pskInfo = new PskPublicInformation(identityStr, identityBytes);
         store.addKnownPeer(serverAddress, pskInfo, key.get(KeyKeys.Octet_K).GetByteString());
         
-        builder.setAdvancedPskStore(store);
+        builder.setPskStore(store);
         Connector c = new DTLSConnector(builder.build());
         CoapEndpoint e = new CoapEndpoint.Builder().
                 setConfiguration(Configuration.getStandard()).setConnector(c).build();
@@ -409,10 +441,10 @@ public class DTLSProfileRequests {
 
             RawPublicKeyIdentity[] identities = new RawPublicKeyIdentity[1];
             identities[0] = new RawPublicKeyIdentity(rsPublicKey.AsPublicKey());
-            AsyncNewAdvancedCertificateVerifier verifier = new AsyncNewAdvancedCertificateVerifier(
+            AsyncCertificateVerifier verifier = new AsyncCertificateVerifier(
                     new X509Certificate[0], identities, null);
 
-            builder.setAdvancedCertificateVerifier(verifier);
+            builder.setCertificateVerifier(verifier);
         }
         
         Connector c = new DTLSConnector(builder.build());

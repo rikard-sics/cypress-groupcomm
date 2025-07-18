@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -40,9 +40,7 @@ import java.util.Set;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 
 import com.upokecenter.cbor.CBORObject;
 
@@ -53,8 +51,8 @@ import org.eclipse.californium.cose.MessageTag;
 import org.eclipse.californium.cose.OneKey;
 import se.sics.ace.AceException;
 import se.sics.ace.COSEparams;
-import se.sics.ace.Constants;
 import se.sics.ace.DBHelper;
+import se.sics.ace.GroupcommParameters;
 import se.sics.ace.Util;
 import se.sics.ace.as.AccessTokenFactory;
 import se.sics.ace.as.PDP;
@@ -165,15 +163,59 @@ public class TestGroupOSCOREJoinPDP {
         db.addRS("testRS2", profiles, scopes, auds, keyTypes, tokenTypes, cose, expiration, null, null, publicKey);
         db.addRS("testRS3", profiles, scopes, auds, keyTypes, tokenTypes, cose, expiration, null, null, publicKey);
         
+        
         // Add a further resource server "rs4" acting as OSCORE Group Manager
         profiles.clear();
         profiles.add("coap_dtls");
         scopes.clear();
-        scopes.add("feedca570000_requester");
-        scopes.add("feedca570000_responder");
-        scopes.add("feedca570000_monitor");
-        scopes.add("feedca570000_requester_responder");
-        scopes.add("feedca570000_requester_monitor");
+        String groupName = "feedca570000";
+        
+        // Add identifiers of scope for user scope entries
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_requester");
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_responder");
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_monitor");
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_requester_responder");
+        scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_requester_monitor");
+        
+        // Add identifiers of scope for admin scope entries
+        String complexPattern = "^[J-Z][0-9][-a-z0-9]*$";
+        String[] prefixes = {GroupcommParameters.GROUP_OSCORE_AS_SCOPE_WILDCARD_PREFIX + ":",
+        		             GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName.length() + ":" + groupName + "_",
+        		             GroupcommParameters.GROUP_OSCORE_AS_SCOPE_COMPLEX_PREFIX + ":" + "21065" + ":" +
+        		                                                                        complexPattern.length() + ":" + complexPattern + "_"};
+        String[] permissions = GroupcommParameters.GROUP_OSCORE_ADMIN_PERMISSIONS;
+        // One permission
+        for (int i = 0; i < prefixes.length; i++) {
+        	scopes.add(prefixes[i] + permissions[0]);
+        }
+        // Two permissions
+        for (int i = 0; i < prefixes.length; i++) {
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[2]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[3]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[4]);
+        }
+        // Three permissions
+        for (int i = 0; i < prefixes.length; i++) {
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[2]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[3]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[4]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[2] + "_" + permissions[3]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[2] + "_" + permissions[4]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[3] + "_" + permissions[4]);
+        }
+        // Four permissions
+        for (int i = 0; i < prefixes.length; i++) {
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[2] + "_" + permissions[3]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[2] + "_" + permissions[4]);
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[2] + "_" + permissions[3] + "_" + permissions[4]);
+        }
+        // Five permissions
+        for (int i = 0; i < prefixes.length; i++) {
+        	scopes.add(prefixes[i] + permissions[0] + "_" + permissions[1] + "_" + permissions[2] + "_" + permissions[3] + "_" + permissions[4]);
+        }
+
+
         auds.clear();
         auds.add("aud4");
         keyTypes.clear();
@@ -218,6 +260,20 @@ public class TestGroupOSCOREJoinPDP {
         keyTypes.add("PSK");        
         db.addClient("clientH", profiles, null, null, keyTypes, skey, null);
         
+        // Add an further client "admin1" as an Administrator of an OSCORE group
+        profiles.clear();
+        profiles.add("coap_dtls");
+        keyTypes.clear();
+        keyTypes.add("PSK");        
+        db.addClient("admin1", profiles, null, null, keyTypes, skey, null);
+        
+        // Add an further client "admin2" as an Administrator of an OSCORE group
+        profiles.clear();
+        profiles.add("coap_dtls");
+        keyTypes.clear();
+        keyTypes.add("PSK");        
+        db.addClient("admin2", profiles, null, null, keyTypes, skey, null);
+        
        pdp =  new GroupOSCOREJoinPDP(db);
        
        //Initialize data in PDP
@@ -240,6 +296,10 @@ public class TestGroupOSCOREJoinPDP {
        pdp.addTokenAccess("clientG");
        // Add also client "clientH" as a joining node of an OSCORE group.
        pdp.addTokenAccess("clientH");
+       // Add also client "admin1" as an Administrator of an OSCORE group.
+       pdp.addTokenAccess("admin1");
+       // Add also client "admin2" as an Administrator of an OSCORE group.
+       pdp.addTokenAccess("admin2");
 
        pdp.addAccess("clientA", "rs1", "r_temp");
        pdp.addAccess("clientA", "rs2", "r_light");
@@ -255,13 +315,56 @@ public class TestGroupOSCOREJoinPDP {
        pdp.addAccess("clientG", "rs2", "r_light");
        
        // Specify access right also for client "clientG" as a joining node of an OSCORE group.
-       // On this Group Manager, this client is allowed to be
+       // On this group, this client is allowed to be
        // requester, responder, requester+responder, or monitor.
-       pdp.addAccess("clientG", "rs4", "feedca570000_requester_monitor_responder");
+       pdp.addAccess("clientG", "rs4",
+          GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX +
+          ":" + groupName.length() +
+          ":" + groupName + "_requester_monitor_responder");
        
-       // Specify access right also for client "clientG" as a joining node of an OSCORE group.
-       // This client is allowed to be requester.
-       pdp.addAccess("clientH", "rs4", "feedca570000_monitor");
+       // Specify access right also for client "clientH" as a joining node of an OSCORE group.
+       // On this group, this client is allowed to be monitor.
+       pdp.addAccess("clientH", "rs4",
+          GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX +
+    	  ":" + groupName.length() +
+    	  ":" + groupName + "_monitor");
+       
+       
+       // Specify admin permissions for client "admin1" as an Administrator of an OSCORE group.
+       // This Administrator is allowed to perform all the possible operations on this particular group. 
+       pdp.addAccess("admin1", "rs4",
+          GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX +
+    	  ":" + groupName.length() +
+    	  ":" + groupName + "_list_create_read_write_delete");
+       
+       // Specify admin permissions for client "admin1" as an Administrator of an OSCORE group.
+       // This Administrator is allowed to perform the "list" and "read" operations on a group with any name.
+       pdp.addAccess("admin1", "rs4",
+          GroupcommParameters.GROUP_OSCORE_AS_SCOPE_WILDCARD_PREFIX +
+    	  ":" + "list_read");
+       
+       // Specify admin permissions for client "admin1" as an Administrator of an OSCORE group.
+       // This Administrator is allowed to perform the "list", "read" and "delete" operations
+       // on a group with any name that matches with the regular expression "^[J-Z][0-9][-a-z0-9]*$".
+       pdp.addAccess("admin1", "rs4",
+          GroupcommParameters.GROUP_OSCORE_AS_SCOPE_COMPLEX_PREFIX +
+    	  ":" + "21065" +
+          ":" + complexPattern.length() +
+          ":" + complexPattern + "_list_read_delete");
+       
+       // Specify admin permissions for client "admin2" as an Administrator of an OSCORE group.
+       // This Administrator is allowed to perform all the possible operations on this particular group. 
+       pdp.addAccess("admin2", "rs4",
+          GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX +
+    	  ":" + groupName.length() +
+    	  ":" + groupName + "_list_read_delete");
+       
+       // Specify admin permissions for client "admin2" as an Administrator of an OSCORE group.
+       // This Administrator is allowed to perform the "list" and "read" operations on a group with any name.
+       pdp.addAccess("admin2", "rs4",
+          GroupcommParameters.GROUP_OSCORE_AS_SCOPE_WILDCARD_PREFIX +
+    	  ":" + "list_read");
+       
        
        // Add the resource server rs4 and its OSCORE Group Manager
        // audience to the table OSCOREGroupManagersTable in the PDP
@@ -279,12 +382,6 @@ public class TestGroupOSCOREJoinPDP {
         pdp.close();
         DBHelper.tearDownDB();
     }
-    
-    /**
-     * 
-     */
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
 
     /**
      * Test the basic example configuration with different access queries
@@ -318,6 +415,8 @@ public class TestGroupOSCOREJoinPDP {
     	
     	assert(pdp.canAccessToken("clientG"));
     	assert(pdp.canAccessToken("clientH"));
+    	assert(pdp.canAccessToken("admin1"));
+    	assert(pdp.canAccessToken("admin2"));
     	
     	Set<String> aud1 = Collections.singleton("rs1");
     	Set<String> aud2 = Collections.singleton("rs2");
@@ -325,8 +424,9 @@ public class TestGroupOSCOREJoinPDP {
     	assert(pdp.canAccess("clientG", aud1, "r_temp")==null);
     	assert(pdp.canAccess("clientG", aud2, "r_light").equals("r_light"));
     	
-    	String gid = new String("feedca570000");
-    	String gid2 = new String("feedca570001");
+    	String groupName = new String("feedca570000");
+    	String groupName2 = new String("feedca570001");
+    	String complexPattern = "^[J-Z][0-9][-a-z0-9]*$";
     	
     	// Tests for joining with a single role
     	// The scope is a CBOR Array encoded as a CBOR byte string
@@ -334,10 +434,10 @@ public class TestGroupOSCOREJoinPDP {
     	// The requested role is allowed in the specified group
     	CBORObject cborArrayScope = CBORObject.NewArray();
     	CBORObject cborArrayEntry = CBORObject.NewArray();
-    	cborArrayEntry.Add(gid);
+    	cborArrayEntry.Add(groupName);
     	
     	int myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
     	cborArrayEntry.Add(myRoles);
     	
     	cborArrayScope.Add(cborArrayEntry);
@@ -347,10 +447,10 @@ public class TestGroupOSCOREJoinPDP {
     	// The requested role is allowed in the specified group
     	cborArrayScope = CBORObject.NewArray();
     	cborArrayEntry = CBORObject.NewArray();
-    	cborArrayEntry.Add(gid);
+    	cborArrayEntry.Add(groupName);
     	
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_MONITOR);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_MONITOR);
     	cborArrayEntry.Add(myRoles);
     	
     	cborArrayScope.Add(cborArrayEntry);
@@ -360,10 +460,10 @@ public class TestGroupOSCOREJoinPDP {
     	// The requested role is allowed in the specified group
     	cborArrayScope = CBORObject.NewArray();
     	cborArrayEntry = CBORObject.NewArray();
-    	cborArrayEntry.Add(gid);
+    	cborArrayEntry.Add(groupName);
     	
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_MONITOR);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_MONITOR);
     	cborArrayEntry.Add(myRoles);
     	
     	cborArrayScope.Add(cborArrayEntry);
@@ -373,10 +473,10 @@ public class TestGroupOSCOREJoinPDP {
     	// Access to the specified group is not allowed
     	cborArrayScope = CBORObject.NewArray();
     	cborArrayEntry = CBORObject.NewArray();
-    	cborArrayEntry.Add(gid2);
+    	cborArrayEntry.Add(groupName2);
     	
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_MONITOR);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_MONITOR);
     	cborArrayEntry.Add(myRoles);
     	
     	cborArrayScope.Add(cborArrayEntry);
@@ -386,10 +486,10 @@ public class TestGroupOSCOREJoinPDP {
     	// The requested role is not allowed in the specified group
     	cborArrayScope = CBORObject.NewArray();
     	cborArrayEntry = CBORObject.NewArray();
-    	cborArrayEntry.Add(gid);
+    	cborArrayEntry.Add(groupName);
     	
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
     	cborArrayEntry.Add(myRoles);
     		
     	cborArrayScope.Add(cborArrayEntry);
@@ -399,7 +499,7 @@ public class TestGroupOSCOREJoinPDP {
     	// The requested role is not allowed in the specified group
     	cborArrayScope = CBORObject.NewArray();
     	cborArrayEntry = CBORObject.NewArray();
-    	cborArrayEntry.Add(gid);
+    	cborArrayEntry.Add(groupName);
     	
     	myRoles = 0;
     	myRoles = Util.addGroupOSCORERole(myRoles, (short)10);
@@ -416,40 +516,27 @@ public class TestGroupOSCOREJoinPDP {
     	// Both requested roles are allowed in the specified group
     	cborArrayScope = CBORObject.NewArray();
     	cborArrayEntry = CBORObject.NewArray();
-    	cborArrayEntry.Add(gid);
+    	cborArrayEntry.Add(groupName);
     	
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
     	
     	cborArrayScope.Add(cborArrayEntry);
     	byteStringScope = cborArrayScope.EncodeToBytes();
     	
-    	byte[] bysteStringScope2;
-    	cborArrayScope = CBORObject.NewArray();
-    	cborArrayEntry = CBORObject.NewArray();
-    	cborArrayEntry.Add(gid);
-    	
-    	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
-    	cborArrayEntry.Add(myRoles);
-    	
-    	cborArrayScope.Add(cborArrayEntry);
-    	bysteStringScope2 = cborArrayScope.EncodeToBytes();
-    	
-    	assert(Arrays.equals((byte[])pdp.canAccess("clientG", aud4, byteStringScope), byteStringScope) ||
-    	       Arrays.equals((byte[])pdp.canAccess("clientG", aud4, byteStringScope), bysteStringScope2));
+    	assert(Arrays.equals((byte[])pdp.canAccess("clientG", aud4, byteStringScope), byteStringScope));
+
     	
     	// Access to the specified group is not allowed
     	cborArrayScope = CBORObject.NewArray();
     	cborArrayEntry = CBORObject.NewArray();
-    	cborArrayEntry.Add(gid2);
+    	cborArrayEntry.Add(groupName2);
     	
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
     	
     	cborArrayScope.Add(cborArrayEntry);
@@ -461,11 +548,11 @@ public class TestGroupOSCOREJoinPDP {
     	// Only one role out of the two requested ones is allowed in the specified group
     	cborArrayScope = CBORObject.NewArray();
     	cborArrayEntry = CBORObject.NewArray();
-    	cborArrayEntry.Add(gid);
+    	cborArrayEntry.Add(groupName);
     	
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_MONITOR);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_MONITOR);
     	cborArrayEntry.Add(myRoles);
     	    	
     	cborArrayScope.Add(cborArrayEntry);
@@ -473,33 +560,399 @@ public class TestGroupOSCOREJoinPDP {
     	
     	cborArrayScope = CBORObject.NewArray();
     	cborArrayEntry = CBORObject.NewArray();
-    	cborArrayEntry.Add(gid);
+    	cborArrayEntry.Add(groupName);
     	
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_MONITOR);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_MONITOR);
     	cborArrayEntry.Add(myRoles);
     	
     	cborArrayScope.Add(cborArrayEntry);
-    	bysteStringScope2 = cborArrayScope.EncodeToBytes();
+    	byte[] byteStringScope2 = cborArrayScope.EncodeToBytes();
     	
-    	assert(Arrays.equals((byte[])pdp.canAccess("clientH", aud4, byteStringScope), bysteStringScope2));
+    	assert(Arrays.equals((byte[])pdp.canAccess("clientH", aud4, byteStringScope), byteStringScope2));
     	
     	
     	// None of the requested ones is allowed in the specified group
     	cborArrayScope = CBORObject.NewArray();
     	cborArrayEntry = CBORObject.NewArray();
-    	cborArrayEntry.Add(gid);
+    	cborArrayEntry.Add(groupName);
     	
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
-    	
     	
     	cborArrayScope.Add(cborArrayEntry);
     	byteStringScope = cborArrayScope.EncodeToBytes();
     	    	
     	assert(pdp.canAccess("clientH", aud4, byteStringScope)==null);
+    	
+    	
+    	// Tests for obtaining an access token as group Administrator
+    	
+    	// The Administrator "admin1" can have all permission on the group with group name "feedca57000000"
+    	
+    	// Toid is the literal pattern "feedca570000"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with two stored patterns: the literal pattern "feedca57000000"; the wildcard pattern
+    	cborArrayScope = CBORObject.NewArray();
+    	cborArrayEntry = CBORObject.NewArray();
+    	cborArrayEntry.Add(groupName);
+    	
+    	int myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE);
+    	cborArrayEntry.Add(myPermissions);
+    	
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+		
+    	assert(Arrays.equals((byte[])pdp.canAccess("admin1", aud4, byteStringScope), byteStringScope));
+
+    	
+    	// Toid is the literal pattern "feedca570000"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with two stored patterns: the literal pattern "feedca57000000"; the wildcard pattern
+    	cborArrayScope = CBORObject.NewArray();
+    	cborArrayEntry = CBORObject.NewArray();
+    	cborArrayEntry.Add(groupName);
+    	
+    	myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+    	
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+
+    	assert(Arrays.equals((byte[])pdp.canAccess("admin1", aud4, byteStringScope), byteStringScope));
+    	
+    	
+    	// Toid is the literal pattern "P1ab13"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with two stored patterns: the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; the wildcard pattern
+    	cborArrayScope = CBORObject.NewArray();
+    	cborArrayEntry = CBORObject.NewArray();
+    	cborArrayEntry.Add("P1ab13");
+    	
+    	myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+    	
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+
+    	assert(Arrays.equals((byte[])pdp.canAccess("admin1", aud4, byteStringScope), byteStringScope));
+    	
+    	
+    	// Toid is the literal pattern "P1ab13"; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with two stored patterns: the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; the wildcard pattern
+    	cborArrayScope = CBORObject.NewArray();
+    	cborArrayEntry = CBORObject.NewArray();
+    	cborArrayEntry.Add("P1ab13");
+    	
+    	myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+    	
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	
+    	cborArrayScope = CBORObject.NewArray();
+    	cborArrayEntry = CBORObject.NewArray();
+    	cborArrayEntry.Add("P1ab13");
+    	
+    	myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+    	
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope2 = cborArrayScope.EncodeToBytes();
+
+    	assert(Arrays.equals((byte[])pdp.canAccess("admin1", aud4, byteStringScope), byteStringScope2));
+    	
+    	
+    	// Toid is the literal pattern "feedca570001"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with the stored wildcard pattern
+    	cborArrayScope = CBORObject.NewArray();
+    	cborArrayEntry = CBORObject.NewArray();
+    	cborArrayEntry.Add(groupName2);
+    	
+    	myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	cborArrayEntry.Add(myPermissions);
+    	
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+		    	
+    	assert(Arrays.equals((byte[])pdp.canAccess("admin1", aud4, byteStringScope), byteStringScope));
+    	
+    	
+    	// Toid is the literal pattern "feedca570001"; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with the stored wildcard pattern
+    	cborArrayScope = CBORObject.NewArray();
+    	cborArrayEntry = CBORObject.NewArray();
+    	cborArrayEntry.Add(groupName2);
+    	
+    	myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE);
+    	cborArrayEntry.Add(myPermissions);
+    	
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	
+    	myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	
+    	cborArrayScope = CBORObject.NewArray();
+    	cborArrayEntry = CBORObject.NewArray();
+    	cborArrayEntry.Add(groupName2);
+    	cborArrayEntry.Add(myPermissions);
+    	
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope2 = cborArrayScope.EncodeToBytes();
+		    	
+    	assert(Arrays.equals((byte[])pdp.canAccess("admin1", aud4, byteStringScope), byteStringScope2));
+    
+    	
+    	// Toid is the wildcard pattern; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with the stored wildcard pattern
+    	cborArrayScope = CBORObject.NewArray();
+    	cborArrayEntry = CBORObject.NewArray();
+    	cborArrayEntry.Add(CBORObject.True);
+    	
+    	myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	cborArrayEntry.Add(myPermissions);
+		    	
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	    	
+    	assert(Arrays.equals((byte[])pdp.canAccess("admin1", aud4, byteStringScope), byteStringScope));
+    
+    	
+    	// Toid is the wildcard pattern; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with the stored wildcard pattern
+    	cborArrayScope = CBORObject.NewArray();
+    	cborArrayEntry = CBORObject.NewArray();
+    	cborArrayEntry.Add(CBORObject.True);
+    	
+    	myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	cborArrayEntry.Add(myPermissions);
+		    	
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	
+    	
+    	cborArrayScope = CBORObject.NewArray();
+    	cborArrayEntry = CBORObject.NewArray();
+    	cborArrayEntry.Add(CBORObject.True);
+    	
+    	myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	cborArrayEntry.Add(myPermissions);
+		    	
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope2 = cborArrayScope.EncodeToBytes();
+    	    	
+    	assert(Arrays.equals((byte[])pdp.canAccess("admin1", aud4, byteStringScope), byteStringScope2));
+    	
+    	
+    	// Toid is the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with two stored patterns: the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; the wildcard pattern
+    	cborArrayScope = CBORObject.NewArray();
+    	cborArrayEntry = CBORObject.NewArray();
+    	CBORObject toid = CBORObject.FromObjectAndTag(complexPattern, 21065);
+    	cborArrayEntry.Add(toid);
+    	
+    	myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+		    	
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	
+    	assert(Arrays.equals((byte[])pdp.canAccess("admin1", aud4, byteStringScope), byteStringScope));
+    	
+    	
+    	// Toid is the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with two stored patterns: the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; the wildcard pattern
+    	cborArrayScope = CBORObject.NewArray();
+    	cborArrayEntry = CBORObject.NewArray();
+    	toid = CBORObject.FromObjectAndTag(complexPattern, 21065);
+    	cborArrayEntry.Add(toid);
+    	
+    	myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+		    	
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	
+    	cborArrayScope = CBORObject.NewArray();
+    	cborArrayEntry = CBORObject.NewArray();
+    	toid = CBORObject.FromObjectAndTag(complexPattern, 21065);
+    	cborArrayEntry.Add(toid);
+    	
+    	myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+		    	
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope2 = cborArrayScope.EncodeToBytes();
+    	
+    	assert(Arrays.equals((byte[])pdp.canAccess("admin1", aud4, byteStringScope), byteStringScope2));
+    
+    	
+    	// Toid is the complex (iregexp) pattern "^[A-M][0-9][-a-z0-9]*$"; Tperm expresses permissions that cannot be obtained
+    	// The Toid does not matche with the stored complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$", but it matches with the wildcard pattern
+    	cborArrayScope = CBORObject.NewArray();
+    	cborArrayEntry = CBORObject.NewArray();
+    	toid = CBORObject.FromObjectAndTag("^[A-M][0-9][-a-z0-9]*$", 21065);
+    	cborArrayEntry.Add(toid);
+    	
+    	myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+		    	
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	
+    	cborArrayScope = CBORObject.NewArray();
+    	cborArrayEntry = CBORObject.NewArray();
+    	toid = CBORObject.FromObjectAndTag("^[A-M][0-9][-a-z0-9]*$", 21065);
+    	cborArrayEntry.Add(toid);
+    	
+    	myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	cborArrayEntry.Add(myPermissions);
+		    	
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope2 = cborArrayScope.EncodeToBytes();
+    	
+    	assert(Arrays.equals((byte[])pdp.canAccess("admin1", aud4, byteStringScope), byteStringScope2));
+
+
+    	// The Administrator "admin2" can have the permission LIST, READ, and DELETE on the group with group name "feedca57000000"
+    	
+    	// Toid is the literal pattern "feedca570000"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with two stored patterns: the literal pattern "feedca57000000"; the wildcard pattern
+    	cborArrayScope = CBORObject.NewArray();
+    	cborArrayEntry = CBORObject.NewArray();
+    	cborArrayEntry.Add(groupName);
+    	
+    	myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+    	
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+		
+    	assert(Arrays.equals((byte[])pdp.canAccess("admin2", aud4, byteStringScope), byteStringScope));
+    	
+    	// Toid is the literal pattern "feedca570000"; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with two stored patterns: the literal pattern "feedca57000000"; the wildcard pattern
+    	cborArrayScope = CBORObject.NewArray();
+    	cborArrayEntry = CBORObject.NewArray();
+    	cborArrayEntry.Add(groupName);
+    	
+    	myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+    	
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+		
+    	cborArrayScope = CBORObject.NewArray();
+    	cborArrayEntry = CBORObject.NewArray();
+    	cborArrayEntry.Add(groupName);
+    	
+    	myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+    	
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope2 = cborArrayScope.EncodeToBytes();
+    	
+    	assert(Arrays.equals((byte[])pdp.canAccess("admin2", aud4, byteStringScope), byteStringScope2));
+    	
+    	// Toid is the literal pattern "feedca570001"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with stored wildcard pattern
+    	cborArrayScope = CBORObject.NewArray();
+    	cborArrayEntry = CBORObject.NewArray();
+    	cborArrayEntry.Add(groupName2);
+    	
+    	myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	cborArrayEntry.Add(myPermissions);
+    	
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+		
+    	assert(Arrays.equals((byte[])pdp.canAccess("admin2", aud4, byteStringScope), byteStringScope));
+    	
+    	// Toid is the literal pattern "feedca570001"; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with stored wildcard pattern
+    	cborArrayScope = CBORObject.NewArray();
+    	cborArrayEntry = CBORObject.NewArray();
+    	cborArrayEntry.Add(groupName2);
+    	
+    	myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+    	
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+		
+    	cborArrayScope = CBORObject.NewArray();
+    	cborArrayEntry = CBORObject.NewArray();
+    	cborArrayEntry.Add(groupName2);
+    	
+    	myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	cborArrayEntry.Add(myPermissions);
+    	
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope2 = cborArrayScope.EncodeToBytes();
+    	
+    	assert(Arrays.equals((byte[])pdp.canAccess("admin2", aud4, byteStringScope), byteStringScope2));
     	
     }
     

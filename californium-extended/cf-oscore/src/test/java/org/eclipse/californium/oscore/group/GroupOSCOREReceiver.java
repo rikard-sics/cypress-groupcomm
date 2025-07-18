@@ -23,11 +23,11 @@ import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.security.Provider;
 import java.security.Security;
 import java.util.Random;
 
-import org.eclipse.californium.core.CoapResource;
 import org.eclipse.californium.core.CoapServer;
 import org.eclipse.californium.core.Utils;
 import org.eclipse.californium.core.coap.CoAP;
@@ -47,6 +47,8 @@ import org.eclipse.californium.elements.util.NetworkInterfacesUtil;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.californium.oscore.OSCoreCoapStackFactory;
+import org.eclipse.californium.oscore.OSCoreCtx;
+import org.eclipse.californium.oscore.OSCoreResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -112,8 +114,8 @@ public class GroupOSCOREReceiver {
 	// Group OSCORE specific values for the countersignature (EdDSA)
 	private final static AlgorithmID algCountersign = AlgorithmID.EDDSA;
 
-	// Encryption algorithm for when using signatures
-	private final static AlgorithmID algSignEnc = AlgorithmID.AES_CCM_16_64_128;
+	// Encryption algorithm for when using Group mode
+	private final static AlgorithmID algGroupEnc = AlgorithmID.AES_CCM_16_64_128;
 
 	// Algorithm for key agreement
 	private final static AlgorithmID algKeyAgreement = AlgorithmID.ECDH_SS_HKDF_256;
@@ -149,6 +151,12 @@ public class GroupOSCOREReceiver {
 
 	private static Random random;
 
+	/**
+	 * Main method
+	 * 
+	 * @param args command line arguments
+	 * @throws Exception on setup or message processing failure
+	 */
 	public static void main(String[] args) throws Exception {
 		// Install cryptographic providers
 		Provider EdDSA = new EdDSASecurityProvider();
@@ -178,14 +186,16 @@ public class GroupOSCOREReceiver {
 
 			byte[] gmPublicKey = gm_public_key_bytes;
 			GroupCtx commonCtx = new GroupCtx(master_secret, master_salt, alg, kdf, group_identifier, algCountersign,
-					algSignEnc, algKeyAgreement, gmPublicKey);
+					algGroupEnc, algKeyAgreement, gmPublicKey);
 
 			commonCtx.addSenderCtxCcs(sid, sid_private_key);
 
 			commonCtx.addRecipientCtxCcs(rid1, REPLAY_WINDOW, rid1_public_key);
 
-			commonCtx.setResponsesIncludePartialIV(true);
+			commonCtx.setResponsesIncludePartialIV(false);
+			commonCtx.setPairwiseModeResponses(true);
 
+			OSCoreCtx.DISABLE_REPLAY_CHECKS = false;
 			db.addContext(uriLocal, commonCtx);
 
 			OSCoreCoapStackFactory.useAsDefault(db);
@@ -218,14 +228,14 @@ public class GroupOSCOREReceiver {
 		server.start();
 	}
 
-	private static class HelloWorldResource extends CoapResource {
+	private static class HelloWorldResource extends OSCoreResource {
 
 		private int id;
 		private int count = 0;
 
 		private HelloWorldResource() {
 			// set resource identifier
-			super("helloWorld"); // Changed
+			super("helloWorld", true); // Changed
 
 			// set display name
 			getAttributes().setTitle("Hello-World Resource");
@@ -260,7 +270,9 @@ public class GroupOSCOREReceiver {
 			// receiver ID
 			if (isConfirmable || replyToNonConfirmable) {
 				Response r = Response.createResponse(exchange.advanced().getRequest(), ResponseCode.CONTENT);
-				r.setPayload(exchange.getRequestText().toUpperCase() + ". ID: " + id);
+				// r.setPayload(exchange.getRequestText().toUpperCase() + ". ID:
+				// " + id);
+				r.setPayload("Hello World!");
 				r.getOptions().setContentFormat(MediaTypeRegistry.TEXT_PLAIN);
 				if (isConfirmable) {
 					r.setType(Type.ACK);
@@ -292,14 +304,19 @@ public class GroupOSCOREReceiver {
 	 * @param multicastPort
 	 * @param config
 	 */
-	private static void createEndpoints(CoapServer server, int unicastPort, int multicastPort, Configuration config) {
+	private static void createEndpoints(CoapServer server, int unicastPort, int multicastPort, Configuration config)
+			throws SocketException {
 		// UDPConnector udpConnector = new UDPConnector(new
 		// InetSocketAddress(unicastPort));
 		// udpConnector.setReuseAddress(true);
 		// CoapEndpoint coapEndpoint = new
 		// CoapEndpoint.Builder().setConfiguration(config).setConnector(udpConnector).build();
 
+
+		// NetworkInterface networkInterface =
+		// NetworkInterfacesUtil.getMulticastInterface().getByName("wlp3s0");
 		NetworkInterface networkInterface = NetworkInterfacesUtil.getMulticastInterface();
+
 		if (networkInterface == null) {
 			LOGGER.warn("No multicast network-interface found!");
 			throw new Error("No multicast network-interface found!");

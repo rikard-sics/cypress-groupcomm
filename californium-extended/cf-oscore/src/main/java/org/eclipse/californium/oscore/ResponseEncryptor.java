@@ -21,10 +21,12 @@ package org.eclipse.californium.oscore;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.eclipse.californium.core.coap.BlockOption;
 import org.eclipse.californium.core.coap.OptionSet;
 import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+import org.eclipse.californium.core.coap.option.BlockOption;
 import org.eclipse.californium.cose.Encrypt0Message;
+import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.oscore.group.GroupSenderCtx;
 
 /**
@@ -43,8 +45,12 @@ public class ResponseEncryptor extends Encryptor {
 	 * @param db the context DB
 	 * @param response the response
 	 * @param ctx the OSCore context
-	 * @param newPartialIV boolean to indicate whether to use a new partial IV or not
-	 * @param outerBlockwise boolean to indicate whether the block-wise options should be encrypted or not
+	 * @param newPartialIV boolean to indicate whether to use a new partial IV
+	 *            or not
+	 * @param outerBlockwise boolean to indicate whether the block-wise options
+	 *            should be encrypted or not
+	 * @param requestSequenceNr sequence number (Partial IV) from the request
+	 *            (if encrypting a response)
 	 * @param requestOption the OSCORE option of the corresponding request
 	 * 
 	 * @return the response with the encrypted OSCore option
@@ -52,7 +58,7 @@ public class ResponseEncryptor extends Encryptor {
 	 * @throws OSException when encryption fails
 	 */
 	public static Response encrypt(OSCoreCtxDB db, Response response, OSCoreCtx ctx, boolean newPartialIV,
-			boolean outerBlockwise, byte[] requestOption) throws OSException {
+			boolean outerBlockwise, int requestSequenceNr, byte[] requestOption) throws OSException {
 
 		/*
 		 * For a Group OSCORE context, get the specific Sender Context
@@ -74,6 +80,13 @@ public class ResponseEncryptor extends Encryptor {
 		// Perform context re-derivation procedure if ongoing
 		try {
 			ctx = ContextRederivation.outgoingResponse(db, ctx);
+			newPartialIV |= ctx.getResponsesIncludePartialIV();
+
+			// Ensure that the first response in the procedure is a 4.01
+			if (ctx.getContextRederivationPhase() == ContextRederivation.PHASE.SERVER_PHASE_2) {
+				response = OptionJuggle.setRealCodeResponse(response, ResponseCode.UNAUTHORIZED);
+				response.setPayload(Bytes.EMPTY);
+			}
 		} catch (OSException e) {
 			LOGGER.error(ErrorDescriptions.CONTEXT_REGENERATION_FAILED);
 			throw new OSException(ErrorDescriptions.CONTEXT_REGENERATION_FAILED);
@@ -93,7 +106,8 @@ public class ResponseEncryptor extends Encryptor {
 
 		byte[] confidential = OSSerializer.serializeConfidentialData(options, response.getPayload(), realCode);
 		Encrypt0Message enc = prepareCOSEStructure(confidential);
-		byte[] cipherText = encryptAndEncode(enc, ctx, response, newPartialIV, requestOption);
+		byte[] cipherText = encryptAndEncode(enc, ctx, response, newPartialIV, requestSequenceNr, requestOption);
+
 		compression(ctx, cipherText, response, newPartialIV);
 
 		options = response.getOptions();

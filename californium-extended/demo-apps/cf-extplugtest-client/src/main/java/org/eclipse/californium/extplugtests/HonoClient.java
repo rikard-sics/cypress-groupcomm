@@ -43,6 +43,7 @@ import org.eclipse.californium.core.coap.EndpointContextTracer;
 import org.eclipse.californium.core.coap.MediaTypeRegistry;
 import org.eclipse.californium.core.coap.MessageObserverAdapter;
 import org.eclipse.californium.core.coap.Request;
+import org.eclipse.californium.core.coap.option.StringOption;
 import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.californium.elements.config.Configuration;
@@ -101,8 +102,8 @@ public class HonoClient {
 			config.set(TcpConfig.TCP_CONNECTION_IDLE_TIMEOUT, 12, TimeUnit.HOURS);
 			config.set(TcpConfig.TCP_CONNECT_TIMEOUT, 30, TimeUnit.SECONDS);
 			config.set(TcpConfig.TLS_HANDSHAKE_TIMEOUT, 30, TimeUnit.SECONDS);
-			config.set(TcpConfig.TCP_WORKER_THREADS, 2);
-			config.set(DtlsConfig.DTLS_RECEIVER_THREAD_COUNT, 2);
+			config.set(TcpConfig.TCP_WORKER_THREADS, 1);
+			config.set(DtlsConfig.DTLS_RECEIVER_THREAD_COUNT, 1);
 			config.set(DtlsConfig.DTLS_MAX_CONNECTIONS, 10);
 			config.set(DtlsConfig.DTLS_MAX_RETRANSMISSIONS, 2);
 			config.set(DtlsConfig.DTLS_AUTO_HANDSHAKE_TIMEOUT, null, TimeUnit.SECONDS);
@@ -110,9 +111,9 @@ public class HonoClient {
 			config.set(DtlsConfig.DTLS_RECEIVE_BUFFER_SIZE, 8192);
 			config.set(DtlsConfig.DTLS_SEND_BUFFER_SIZE, 8192);
 			config.set(DtlsConfig.DTLS_VERIFY_SERVER_CERTIFICATES_SUBJECT, false);
-			config.set(UdpConfig.UDP_RECEIVER_THREAD_COUNT, 2);
-			config.set(UdpConfig.UDP_SENDER_THREAD_COUNT, 2);
-			config.set(CoapConfig.PROTOCOL_STAGE_THREAD_COUNT, 2);
+			config.set(UdpConfig.UDP_RECEIVER_THREAD_COUNT, 1);
+			config.set(UdpConfig.UDP_SENDER_THREAD_COUNT, 1);
+			config.set(CoapConfig.PROTOCOL_STAGE_THREAD_COUNT, 1);
 		}
 	};
 
@@ -378,7 +379,7 @@ public class HonoClient {
 					out.write(download, 8, download.length - 8);
 					out.close();
 				}
-				List<String> location = coapResponse.getOptions().getLocationPath();
+				List<StringOption> location = coapResponse.getOptions().getLocationPath();
 				if (location.size() == 2 || location.size() == 4) {
 					System.out.println("cmd: " + cmd + ", " + location);
 					final Request cmdResponse = new Request(request.getCode());
@@ -415,10 +416,10 @@ public class HonoClient {
 
 	private static String getCommand(CoapResponse coapResponse) {
 		String cmd = null;
-		List<String> queries = coapResponse.getOptions().getLocationQuery();
-		for (String query : queries) {
-			if (query.startsWith("hono-command=")) {
-				cmd = query.substring("hono-command=".length());
+		List<StringOption> queries = coapResponse.getOptions().getLocationQuery();
+		for (StringOption query : queries) {
+			if (query.getStringValue().startsWith("hono-command=")) {
+				cmd = query.getStringValue().substring("hono-command=".length());
 				break;
 			}
 		}

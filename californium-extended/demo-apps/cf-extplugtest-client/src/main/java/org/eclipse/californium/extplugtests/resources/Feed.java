@@ -40,6 +40,7 @@ import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.MessageObserverAdapter;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.coap.UriQueryParameter;
 import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.elements.util.FilteredLogger;
 import org.slf4j.Logger;
@@ -54,7 +55,7 @@ public class Feed extends CoapResource {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(Feed.class);
 
-	private static final FilteredLogger ERROR_FILTER = new FilteredLogger(LOGGER, 3, TimeUnit.SECONDS.toNanos(10));
+	private static final FilteredLogger ERROR_FILTER = new FilteredLogger(LOGGER.getName(), 3, TimeUnit.SECONDS.toNanos(10));
 
 	/**
 	 * Resource name.
@@ -68,6 +69,12 @@ public class Feed extends CoapResource {
 	 * URI query parameter to specify ack and separate response.
 	 */
 	private static final String URI_QUERY_OPTION_ACK = "ack";
+	/**
+	 * Supported query parameter.
+	 * 
+	 * @since 3.2
+	 */
+	private static final List<String> SUPPORTED = Arrays.asList(URI_QUERY_OPTION_RESPONSE_LENGTH, URI_QUERY_OPTION_ACK);
 	/**
 	 * Default interval for notifies in milliseconds.
 	 */
@@ -109,9 +116,13 @@ public class Feed extends CoapResource {
 	 */
 	private final int intervalMax;
 	/**
+	 * 
+	 */
+	private final CountDownLatch counterDone;
+	/**
 	 * Counter for finished gets/notifies.
 	 */
-	private final CountDownLatch counter;
+	private final AtomicLong counter;
 	/**
 	 * Counter for gets/notifies, which are not reported to complete nor fail.
 	 */
@@ -144,12 +155,13 @@ public class Feed extends CoapResource {
 	private final AtomicBoolean stop;
 
 	public Feed(CoAP.Type type, int id, int maxResourceSize, int intervalMin, int intervalMax,
-			ScheduledExecutorService executorService, CountDownLatch counter, AtomicLong timeouts, AtomicBoolean stop) {
+			ScheduledExecutorService executorService, CountDownLatch counterDone, AtomicLong counter, AtomicLong timeouts, AtomicBoolean stop) {
 		super(RESOURCE_NAME + "-" + type);
 		this.id = id;
 		this.maxResourceSize = maxResourceSize;
 		this.intervalMin = intervalMin;
 		this.intervalMax = intervalMax;
+		this.counterDone = counterDone;
 		this.counter = counter;
 		this.timeouts = timeouts;
 		this.executorService = executorService;
@@ -163,7 +175,7 @@ public class Feed extends CoapResource {
 
 	@Override
 	public void handleGET(CoapExchange exchange) {
-		if (stop.get() && counter.getCount() > 0) {
+		if (stop.get()) {
 			return;
 		}
 		// get request to read out details
@@ -175,35 +187,15 @@ public class Feed extends CoapResource {
 			return;
 		}
 
-		List<String> uriQuery = request.getOptions().getUriQuery();
 		boolean ack = false;
 		int length = 0;
-		for (String query : uriQuery) {
-			String message = null;
-			if (query.startsWith(URI_QUERY_OPTION_RESPONSE_LENGTH + "=")) {
-				String rlen = query.substring(URI_QUERY_OPTION_RESPONSE_LENGTH.length() + 1);
-				try {
-					length = Integer.parseInt(rlen);
-					if (length < 0) {
-						message = "URI-query-option " + query + " is negative number!";
-					} else if (length > maxResourceSize && maxResourceSize > 0) {
-						message = "URI-query-option " + query + " is too large (max. " + maxResourceSize + ")!";
-					}
-				} catch (NumberFormatException ex) {
-					message = "URI-query-option " + query + " is no number!";
-				}
-			} else if (query.startsWith(URI_QUERY_OPTION_ACK)) {
-				ack = true;
-			} else {
-				message = "URI-query-option " + query + " is not supported!";
-			}
-			if (message != null) {
-				Response response = Response.createResponse(request, BAD_OPTION);
-				response.setPayload(message);
-				response.addMessageObserver(new SendErrorObserver(response));
-				exchange.respond(response);
-				return;
-			}
+		try {
+			UriQueryParameter helper = request.getOptions().getUriQueryParameter(SUPPORTED);
+			ack = helper.hasParameter(URI_QUERY_OPTION_ACK);
+			length = helper.getArgumentAsInteger(URI_QUERY_OPTION_RESPONSE_LENGTH, 0, 0, maxResourceSize);
+		} catch (IllegalArgumentException ex) {
+			exchange.respond(BAD_OPTION, ex.getMessage());
+			return;
 		}
 
 		long count = started.incrementAndGet();
@@ -262,7 +254,9 @@ public class Feed extends CoapResource {
 			response.addMessageObserver(new MessageCompletionObserver(timeout, interval));
 			response.addMessageObserver(new SendErrorObserver(response));
 			exchange.respond(response);
-			counter.countDown();
+			if (counter.decrementAndGet() <= 0) {
+				counterDone.countDown();
+			}
 		} catch (RejectedExecutionException ex) {
 			LOGGER.debug("client[{}] stopped execution.", id);
 			return;
@@ -323,7 +317,7 @@ public class Feed extends CoapResource {
 		@Override
 		public void run() {
 			// timeout
-			if (completed.compareAndSet(false, true) && !stop.get() && counter.getCount() > 0) {
+			if (completed.compareAndSet(false, true) && !stop.get() && counter.get() > 0) {
 				try {
 					if (interval < 0) {
 						LOGGER.info("client[{}] response didn't complete in time, next change in {} ms, {} observer.",
@@ -343,7 +337,7 @@ public class Feed extends CoapResource {
 			if (timeoutJob != null) {
 				timeoutJob.cancel(false);
 			}
-			if (!stop.get() && counter.getCount() > 0) {
+			if (!stop.get() && counter.get() > 0) {
 				try {
 					int time = failure ? Math.max(1000, -interval) : -interval;
 					if (0 < time) {

@@ -21,6 +21,7 @@ package org.eclipse.californium.oscore;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Arrays;
 
 import org.eclipse.californium.core.Utils;
 import org.eclipse.californium.core.coap.CoAP;
@@ -32,9 +33,11 @@ import org.eclipse.californium.cose.Attribute;
 import org.eclipse.californium.cose.CoseException;
 import org.eclipse.californium.cose.CounterSign1;
 import org.eclipse.californium.cose.Encrypt0Message;
+import org.eclipse.californium.cose.EncryptCommon;
 import org.eclipse.californium.cose.HeaderKeys;
+import org.eclipse.californium.oscore.ContextRederivation.PHASE;
 import org.eclipse.californium.cose.OneKey;
-import org.eclipse.californium.elements.util.Bytes;
+import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.oscore.group.GroupSenderCtx;
 import org.eclipse.californium.oscore.group.OptionEncoder;
 import org.slf4j.Logger;
@@ -57,7 +60,7 @@ public abstract class Encryptor {
 
 	protected static byte[] encryptAndEncode(Encrypt0Message enc, OSCoreCtx ctx, Message message,
 			boolean newPartialIV) throws OSException {
-		return encryptAndEncode(enc, ctx, message, newPartialIV, null);
+		return encryptAndEncode(enc, ctx, message, newPartialIV, null, null);
 	}
 	/**
 	 * Encrypt the COSE message using the OSCore context.
@@ -66,6 +69,8 @@ public abstract class Encryptor {
 	 * @param ctx the OSCore context
 	 * @param message the message
 	 * @param newPartialIV if response contains partialIV
+	 * @param requestSequenceNr the sequence number (Partial IV) from the
+	 *            request (when encrypting a response or null otherwise)
 	 * @param correspondingReqOption the OSCORE option of the corresponding request
 	 *
 	 * @return the COSE message
@@ -73,11 +78,33 @@ public abstract class Encryptor {
 	 * @throws OSException if encryption or encoding fails
 	 */
 	protected static byte[] encryptAndEncode(Encrypt0Message enc, OSCoreCtx ctx, Message message, boolean newPartialIV,
-			byte[] correspondingReqOption)
+			Integer requestSequenceNr, byte[] correspondingReqOption)
 			throws OSException {
 		boolean isRequest = message instanceof Request;
 
 		AlgorithmID encryptionAlg = ctx.getAlg();
+
+		// Adjust nonce/IV and Common IV lengths depending on algorithm used
+		boolean groupModeMessage = false;
+		boolean pairwiseResponse = ctx.isGroupContext() && ((GroupSenderCtx) ctx).getPairwiseModeResponses()
+				&& !isRequest;
+		boolean pairwiseRequest = ctx.isGroupContext()
+				&& OptionEncoder.getPairwiseMode(message.getOptions().getOscore()) && isRequest;
+		groupModeMessage = ctx.isGroupContext() && !pairwiseResponse && !pairwiseRequest;
+		int nonceLength = ctx.getIVLength();
+		byte[] commonIV = ctx.getCommonIV();
+
+		// Set appropriate nonce length
+		if (ctx.isGroupContext() && groupModeMessage) {
+			int algGroupEncIvLen = EncryptCommon.getIvLength(((GroupSenderCtx) ctx).getAlgGroupEnc());
+			nonceLength = algGroupEncIvLen;
+			commonIV = Arrays.copyOfRange(ctx.getCommonIV(), 0, nonceLength);
+		} else if (ctx.isGroupContext() && !groupModeMessage) {
+			int algIvLen = EncryptCommon.getIvLength(((GroupSenderCtx) ctx).getAlg());
+			nonceLength = algIvLen;
+			commonIV = Arrays.copyOfRange(ctx.getCommonIV(), 0, nonceLength);
+		}
+		System.out.println("Encryption nonce length: " + nonceLength);
 
 		try {
 			byte[] key = ctx.getSenderKey();
@@ -88,8 +115,8 @@ public abstract class Encryptor {
 
 			if (isRequest) {
 				partialIV = OSSerializer.processPartialIV(ctx.getSenderSeq());
-				nonce = OSSerializer.nonceGeneration(partialIV, ctx.getSenderId(), ctx.getCommonIV(),
-						ctx.getIVLength());
+				nonce = OSSerializer.nonceGeneration(partialIV, ctx.getSenderId(), commonIV,
+						nonceLength);
 				aad = OSSerializer.serializeAAD(CoAP.VERSION, ctx.getAlg(), ctx.getSenderSeq(), ctx.getSenderId(), message.getOptions());
 				enc.addAttribute(HeaderKeys.PARTIAL_IV, CBORObject.FromObject(partialIV), Attribute.UNPROTECTED);
 				enc.addAttribute(HeaderKeys.KID, CBORObject.FromObject(ctx.getSenderId()), Attribute.UNPROTECTED);
@@ -104,7 +131,7 @@ public abstract class Encryptor {
 				// TODO: Get recipientId and seqNr from message as below
 				if (ctx.isGroupContext() == false) {
 					recipientId = ctx.getRecipientId();
-					requestSeq = ctx.getReceiverSeq();
+					requestSeq = requestSequenceNr;
 
 				} else if (ctx.isGroupContext()) {
 					// For Group OSCORE use RID and seq from request
@@ -115,13 +142,13 @@ public abstract class Encryptor {
 				if (!newPartialIV) {
 					// use nonce from request
 					partialIV = OSSerializer.processPartialIV(requestSeq);
-					nonce = OSSerializer.nonceGeneration(partialIV, recipientId, ctx.getCommonIV(),
-							ctx.getIVLength());
+					nonce = OSSerializer.nonceGeneration(partialIV, recipientId, commonIV,
+							nonceLength);
 				} else {
 					// response creates its own partialIV
 					partialIV = OSSerializer.processPartialIV(ctx.getSenderSeq());
-					nonce = OSSerializer.nonceGeneration(partialIV, ctx.getSenderId(), ctx.getCommonIV(),
-							ctx.getIVLength());
+					nonce = OSSerializer.nonceGeneration(partialIV, ctx.getSenderId(), commonIV,
+							nonceLength);
 				}
 				aad = OSSerializer.serializeAAD(CoAP.VERSION, ctx.getAlg(), requestSeq, recipientId,
 						message.getOptions());
@@ -129,32 +156,24 @@ public abstract class Encryptor {
 			}
 
 			System.out.println("Encrypting outgoing " + message.getClass().getSimpleName());
-			// System.out.println("Key " + Utils.toHexString(ctx.getSenderKey()));
-			// System.out.println("PartialIV " + Utils.toHexString(partialIV));
-			// System.out.println("Nonce " + Utils.toHexString(nonce));
-			// System.out.println("AAD " + Utils.toHexString(aad));
+			System.out.println("Plaintext " + Utils.toHexString(enc.GetContent()));
+			System.out.println("PartialIV " + Utils.toHexString(partialIV));
+			System.out.println("Nonce " + Utils.toHexString(nonce));
+			System.out.println("Common IV " + Utils.toHexString(ctx.getCommonIV()));
 
 			// Handle Group OSCORE messages
-			boolean groupModeMessage = false;
 			if (ctx.isGroupContext()) {
-
-				boolean pairwiseResponse = ((GroupSenderCtx) ctx).getPairwiseModeResponses() && !isRequest;
-				boolean pairwiseRequest = OptionEncoder.getPairwiseMode(message.getOptions().getOscore()) && isRequest;
-				groupModeMessage = !pairwiseResponse && !pairwiseRequest;
-
-				LOGGER.debug("Encrypting outgoing " + message.getClass().getSimpleName()
-						+ " using Group OSCORE. Pairwise mode: " + !groupModeMessage);
 				System.out.println("Encrypting outgoing " + message.getClass().getSimpleName()
 						+ " using Group OSCORE. Pairwise mode: " + !groupModeMessage);
 
 				// Update external AAD value for Group OSCORE
 				aad = OSSerializer.updateAADForGroup(ctx, aad, message);
 
-				// System.out.println("Encrypting outgoing " + message.getClass().getSimpleName() + " with AAD "
-				// 		+ Utils.toHexString(aad));
+				System.out.println("Encrypting outgoing " + message.getClass().getSimpleName() + " with AAD "
+						+ Utils.toHexString(aad));
 
-				// System.out.println("Encrypting outgoing " + message.getClass().getSimpleName() + " with nonce "
-				// 		+ Utils.toHexString(nonce));
+				System.out.println("Encrypting outgoing " + message.getClass().getSimpleName() + " with nonce "
+						+ Utils.toHexString(nonce));
 
 				// If this is a pairwise response/request use the pairwise key
 				if (pairwiseResponse) {
@@ -165,10 +184,26 @@ public abstract class Encryptor {
 					key = ((GroupSenderCtx) ctx).getPairwiseSenderKey(recipientRID);
 				} else {
 					// If group mode is used prepare adding the signature
-					encryptionAlg = ((GroupSenderCtx) ctx).getAlgSignEnc();
+					encryptionAlg = ((GroupSenderCtx) ctx).getAlgGroupEnc();
 					prepareSignature(enc, ctx, aad, message);
 				}
 
+			}
+
+			System.out.println("AAD " + Utils.toHexString(aad));
+			System.out.println("Sender Key " + Utils.toHexString(ctx.getSenderKey()));
+			System.out.println("Key used " + Utils.toHexString(key));
+
+			// Warning: Using algos without integrity in pairwise mode
+			if (encryptionAlg.getTagSize() == 0 && !groupModeMessage) {
+				LOGGER.warn("Using an algorithm without integrity protection in pairwise mode!");
+			}
+
+			if (ctx.getContextRederivationPhase() == PHASE.SERVER_PHASE_2 && ctx.getNonceHandover() != null) {
+				nonce = ctx.getNonceHandover();
+			} else if (ctx.getContextRederivationPhase() == PHASE.CLIENT_PHASE_1
+					|| ctx.getContextRederivationPhase() == PHASE.INACTIVE) {
+				ctx.setNonceHandover(nonce);
 			}
 
 			enc.setExternal(aad);
@@ -192,7 +227,7 @@ public abstract class Encryptor {
 
 			return enc.getEncryptedContent();
 		} catch (CoseException e) {
-			LOGGER.error("COSE/Crypto exception: " + e.getMessage());
+			LOGGER.error("COSE/Crypto exception: {}", e.getMessage());
 			throw new OSException(e.getMessage());
 		}
 	}
@@ -246,47 +281,30 @@ public abstract class Encryptor {
 		return encodeOSCoreRequest(ctx, false);
 	}
 
+
 	/**
 	 * Encodes the Object-Security value for a Request.
 	 * 
 	 * @param ctx the context
-	 * @param groupModeRequest if this is a Group OSCORE group mode request
+	 * @param groupModeRequest if the request is using group mode
+	 * 
 	 * @return the Object-Security value as byte array
 	 */
 	public static byte[] encodeOSCoreRequest(OSCoreCtx ctx, boolean groupModeRequest) {
-		int firstByte = 0x00;
-		ByteArrayOutputStream bRes = new ByteArrayOutputStream();
-		byte[] partialIV = OSSerializer.processPartialIV(ctx.getSenderSeq());
-		firstByte = firstByte | (partialIV.length & 0x07); //PartialIV length
-		firstByte = firstByte | 0x08; //Set the KID bit
 
-		//If the Context ID should be included for this context, set its bit
+		OscoreOptionEncoder optionEncoder = new OscoreOptionEncoder();
 		if (ctx.getIncludeContextId() || ctx.isGroupContext()) {
-			firstByte = firstByte | 0x10;
+			optionEncoder.setIdContext(ctx.getMessageIdContext());
 		}
 
-		// If this is a group mode request
 		if (groupModeRequest) {
-			firstByte = firstByte | 0x20;
+			optionEncoder.setGroupFlag(true);
 		}
 
-		bRes.write(firstByte);
+		optionEncoder.setPartialIV(ctx.getSenderSeq());
+		optionEncoder.setKid(ctx.getSenderId());
 
-		try {
-			bRes.write(partialIV);
-
-			//Encode the Context ID length and value if to be included
-			if (ctx.getIncludeContextId() || ctx.isGroupContext()) {
-				bRes.write(ctx.getMessageIdContext().length);
-				bRes.write(ctx.getMessageIdContext());
-			}
-
-			//Encode Sender ID (KID)
-			bRes.write(ctx.getSenderId());
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		return bRes.toByteArray();
+		return optionEncoder.getBytes();
 	}
 
 	/**
@@ -298,65 +316,26 @@ public abstract class Encryptor {
 	 * @return the Object-Security value as byte array
 	 */
 	public static byte[] encodeOSCoreResponse(OSCoreCtx ctx, final boolean newPartialIV) {
-		int firstByte = 0x00;
-		ByteArrayOutputStream bRes = new ByteArrayOutputStream();
 
-		//If the Context ID should be included for this context, set its bit
+		OscoreOptionEncoder optionEncoder = new OscoreOptionEncoder();
 		if (ctx.getIncludeContextId()) {
-			firstByte = firstByte | 0x10;
+			optionEncoder.setIdContext(ctx.getMessageIdContext());
 		}
-
-		// If the KID should be included (Group OSCORE), set its bit
-		if (ctx.isGroupContext()) {
-			firstByte = firstByte | 0x08;
-		}
-
-		// If this is a group mode response
-		if (ctx instanceof GroupSenderCtx && ((GroupSenderCtx) ctx).getPairwiseModeResponses() == false) {
-			firstByte = firstByte | 0x20;
-		}
-
 		if (newPartialIV) {
-			byte[] partialIV = OSSerializer.processPartialIV(ctx.getSenderSeq());
-			firstByte = firstByte | (partialIV.length & 0x07);
-
-			bRes.write(firstByte);
-			try {
-				bRes.write(partialIV);
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		} else {
-			bRes.write(firstByte);
+			optionEncoder.setPartialIV(ctx.getSenderSeq());
 		}
 
-		//Encode the Context ID length and value if to be included
-		if (ctx.getIncludeContextId()) {
-			try {
-				bRes.write(ctx.getMessageIdContext().length);
-				bRes.write(ctx.getMessageIdContext());
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+		// If this is a group mode response, set flag bit
+		if (ctx instanceof GroupSenderCtx && ((GroupSenderCtx) ctx).getPairwiseModeResponses() == false) {
+			optionEncoder.setGroupFlag(true);
 		}
-		
-		//For Group OSCORE always include the KID (Sender ID) in responses
+
+		// Always include KID for Group OSCORE (for now)
 		if (ctx.isGroupContext()) {
-			try {
-				bRes.write(ctx.getSenderId());
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+			optionEncoder.setKid(ctx.getSenderId());
 		}
 
-		//If the OSCORE option is length 1 and 0x00, it should be empty
-		//See https://tools.ietf.org/html/draft-ietf-core-object-security-16#section-2
-		byte[] optionBytes = bRes.toByteArray();
-		if (optionBytes.length == 1 && optionBytes[0] == 0x00) {
-			return Bytes.EMPTY;
-		} else {
-			return optionBytes;
-		}
+		return optionEncoder.getBytes();
 	}
 
 	private static void prepareSignature(Encrypt0Message enc, OSCoreCtx ctx, byte[] aad, Message message) {
@@ -406,8 +385,8 @@ public abstract class Encryptor {
 
 		byte[] fullPayload = os.toByteArray();
 
-		// System.out.println("countersignBytes len: " + countersignBytes.length);
-		// System.out.println("ciphertext len: " + ciphertext.length);
+		System.out.println("countersignBytes len: " + countersignBytes.length);
+		System.out.println("ciphertext len: " + ciphertext.length);
 		enc.setEncryptedContent(fullPayload);
 	}
 
@@ -431,23 +410,18 @@ public abstract class Encryptor {
 		info.Add(isRequest);
 		info.Add(keyLength);
 
-		byte[] groupEncryptionKey = ctx.getCommonCtx().getGroupEncryptionKey();
+		System.out.println("Info: " + StringUtil.byteArray2Hex(info.EncodeToBytes()));
+		
+		byte[] signatureEncryptionKey = ctx.getCommonCtx().getSignatureEncryptionKey();
 		byte[] keystream = null;
 		try {
-			keystream = OSCoreCtx.deriveKey(groupEncryptionKey, partialIV, keyLength, digest, info.EncodeToBytes());
+			keystream = OSCoreCtx.deriveKey(signatureEncryptionKey, partialIV, keyLength, digest, info.EncodeToBytes());
 
 		} catch (CoseException e) {
 			System.err.println(e.getMessage());
 		}
-
-		// System.out.println("===");
-		// System.out.println("E Signature keystream: " + Utils.toHexString(keystream));
-		// System.out.println("E groupEncryptionKey: " + Utils.toHexString(groupEncryptionKey));
-		// System.out.println("E partialIV: " + Utils.toHexString(partialIV));
-		// System.out.println("E kid: " + Utils.toHexString(kid));
-		// System.out.println("E IdContext: " + Utils.toHexString(ctx.getIdContext()));
-		// System.out.println("E isRequest: " + isRequest);
-		// System.out.println("===");
+		
+		System.out.println("Partial IV for keystream: " + StringUtil.byteArray2Hex(partialIV));
 
 		// Now actually encrypt the signature
 		byte[] countersignBytes = enc.getUnprotectedAttributes().get(HeaderKeys.CounterSignature0.AsCBOR())
@@ -457,6 +431,17 @@ public abstract class Encryptor {
 		for (int i = 0; i < keystream.length; i++) {
 			encryptedCountersign[i] = (byte) (countersignBytes[i] ^ keystream[i]);
 		}
+		
+		System.out.println("===");
+		System.out.println("E Signature before encryption: " + Utils.toHexString(countersignBytes));
+		System.out.println("E Signature after encryption: " + Utils.toHexString(encryptedCountersign));
+		System.out.println("E Signature keystream: " + Utils.toHexString(keystream));
+		System.out.println("E signatureEncryptionKey: " + Utils.toHexString(signatureEncryptionKey));
+		System.out.println("E partialIV: " + Utils.toHexString(partialIV));
+		System.out.println("E kid: " + Utils.toHexString(kid));
+		System.out.println("E IdContext: " + Utils.toHexString(ctx.getIdContext()));
+		System.out.println("E isRequest: " + isRequest);
+		System.out.println("===");
 
 		// Replace the signature in the Encrypt0 object
 		enc.getUnprotectedAttributes().set(HeaderKeys.CounterSignature0.AsCBOR(),

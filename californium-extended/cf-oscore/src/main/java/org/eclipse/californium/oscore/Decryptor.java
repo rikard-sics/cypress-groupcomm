@@ -30,6 +30,7 @@ import org.eclipse.californium.core.coap.Message;
 import org.eclipse.californium.core.coap.OptionSet;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.cose.Encrypt0Message;
+import org.eclipse.californium.cose.EncryptCommon;
 
 import com.upokecenter.cbor.CBORObject;
 
@@ -38,8 +39,10 @@ import org.eclipse.californium.cose.Attribute;
 import org.eclipse.californium.cose.CoseException;
 import org.eclipse.californium.cose.CounterSign1;
 import org.eclipse.californium.cose.HeaderKeys;
+import org.eclipse.californium.oscore.ContextRederivation.PHASE;
 import org.eclipse.californium.cose.OneKey;
 import org.eclipse.californium.elements.util.Bytes;
+import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.oscore.group.GroupRecipientCtx;
 
 /**
@@ -87,6 +90,21 @@ public abstract class Decryptor {
 		AlgorithmID decryptionAlg = ctx.getAlg();
 		CBORObject piv = enc.findAttribute(HeaderKeys.PARTIAL_IV);
 
+		// Adjust nonce/IV and Common IV lengths depending on algorithm used
+		boolean groupModeMessage = OptionJuggle.getGroupModeBit(message.getOptions().getOscore());
+		int nonceLength = ctx.getIVLength();
+		byte[] commonIV = ctx.getCommonIV();
+		if (ctx.isGroupContext() && groupModeMessage) {
+			int algGroupEncIvLen = EncryptCommon.getIvLength(((GroupRecipientCtx) ctx).getAlgGroupEnc());
+			nonceLength = algGroupEncIvLen;
+			commonIV = Arrays.copyOfRange(ctx.getCommonIV(), 0, nonceLength);
+		} else if (ctx.isGroupContext() && !groupModeMessage) {
+			int algIvLen = EncryptCommon.getIvLength(((GroupRecipientCtx) ctx).getAlg());
+			nonceLength = algIvLen;
+			commonIV = Arrays.copyOfRange(ctx.getCommonIV(), 0, nonceLength);
+		}
+		System.out.println("Decryption nonce length: " + nonceLength);
+
 		if (isRequest) {
 
 			if (piv == null) {
@@ -104,8 +122,8 @@ public abstract class Decryptor {
 					assert ctx instanceof GroupRecipientCtx;
 				}
 
-				nonce = OSSerializer.nonceGeneration(partialIV, ctx.getRecipientId(), ctx.getCommonIV(),
-						ctx.getIVLength());
+				nonce = OSSerializer.nonceGeneration(partialIV, ctx.getRecipientId(), commonIV,
+						nonceLength);
 				aad = OSSerializer.serializeAAD(CoAP.VERSION, ctx.getAlg(), seq, ctx.getRecipientId(), message.getOptions());
 			}
 		} else {
@@ -121,15 +139,15 @@ public abstract class Decryptor {
 				//Use the partialIV that arrived in the original request (response has no partial IV)
 
 				partialIV = ByteBuffer.allocate(INTEGER_BYTES).putInt(seq).array();
-				nonce = OSSerializer.nonceGeneration(partialIV,	ctx.getSenderId(), ctx.getCommonIV(), 
-						ctx.getIVLength());
+				nonce = OSSerializer.nonceGeneration(partialIV, ctx.getSenderId(), commonIV,
+						nonceLength);
 			} else {
 				//Since the response contains a partial IV use it for nonce calculation
 
 				partialIV = piv.GetByteString();
 				partialIV = expandToIntSize(partialIV);
-				nonce = OSSerializer.nonceGeneration(partialIV, ctx.getRecipientId(), ctx.getCommonIV(),
-						ctx.getIVLength());
+				nonce = OSSerializer.nonceGeneration(partialIV, ctx.getRecipientId(), commonIV,
+						nonceLength);
 			}
 
 			//Nonce calculation uses partial IV in response (if present).
@@ -137,18 +155,27 @@ public abstract class Decryptor {
 			aad = OSSerializer.serializeAAD(CoAP.VERSION, ctx.getAlg(), seq, ctx.getSenderId(), message.getOptions());
 		}
 
-		System.out.println("Decrypting incoming " + message.getClass().getSimpleName());
-		// System.out.println("Key " + Utils.toHexString(ctx.getRecipientKey()));
-		// System.out.println("PartialIV " + Utils.toHexString(partialIV));
-		// System.out.println("Nonce " + Utils.toHexString(nonce));
-		// System.out.println("AAD " + Utils.toHexString(aad));
+		// Warning: Using algos without integrity in pairwise mode
+		if (decryptionAlg.getTagSize() == 0 && !groupModeMessage) {
+			LOGGER.warn("Using an algorithm without integrity protection in pairwise mode!");
+		}
 
+		if (ctx.getContextRederivationPhase() == PHASE.SERVER_PHASE_1) {
+			ctx.setNonceHandover(nonce);
+		} else if (ctx.getContextRederivationPhase() == PHASE.CLIENT_PHASE_2 && ctx.getNonceHandover() != null) {
+			nonce = ctx.getNonceHandover();
+		}
+
+		System.out.println("Decrypting incoming " + message.getClass().getSimpleName());
+		System.out.println("PartialIV " + Utils.toHexString(partialIV));
+		System.out.println("Nonce " + Utils.toHexString(nonce));
+		System.out.println("Common IV " + Utils.toHexString(ctx.getCommonIV()));
+		
 		byte[] plaintext = null;
 		byte[] key = ctx.getRecipientKey();
 
 		// Handle Group OSCORE messages
 		CounterSign1 sign = null;
-		boolean groupModeMessage = OptionJuggle.getGroupModeBit(message.getOptions().getOscore());
 		if (ctx.isGroupContext()) {
 			LOGGER.debug("Decrypting incoming " + message.getClass().getSimpleName()
 					+ " using Group OSCORE. Pairwise mode: " + !groupModeMessage);
@@ -158,15 +185,15 @@ public abstract class Decryptor {
 
 			System.out.println("Decrypting incoming " + message.getClass().getSimpleName() + ", using pairwise mode: "
 					+ !groupModeMessage);
-			// System.out.println("Decrypting incoming " + message.getClass().getSimpleName() + " with AAD "
-			// 		+ Utils.toHexString(aad));
+			System.out.println("Decrypting incoming " + message.getClass().getSimpleName() + " with AAD "
+					+ Utils.toHexString(aad));
 
-			// System.out.println("Decrypting incoming " + message.getClass().getSimpleName() + " with nonce "
-			// 		+ Utils.toHexString(nonce));
+			System.out.println("Decrypting incoming " + message.getClass().getSimpleName() + " with nonce "
+					+ Utils.toHexString(nonce));
 
 			// If group mode is used prepare the signature checking
 			if (groupModeMessage) {
-				decryptionAlg = ((GroupRecipientCtx) ctx).getAlgSignEnc();
+				decryptionAlg = ((GroupRecipientCtx) ctx).getAlgGroupEnc();
 				// Decrypt the signature.
 				if (isRequest || piv != null) {
 					byte[] pivFromMessage = enc.findAttribute(HeaderKeys.PARTIAL_IV).GetByteString();
@@ -184,6 +211,10 @@ public abstract class Decryptor {
 			}
 		}
 
+		System.out.println("AAD " + Utils.toHexString(aad));
+		System.out.println("Recipient Key " + Utils.toHexString(ctx.getRecipientKey()));
+		System.out.println("Key used " + Utils.toHexString(key));
+
 		enc.setExternal(aad);
 
 		// Check signature before decrypting
@@ -200,8 +231,9 @@ public abstract class Decryptor {
 			plaintext = enc.decrypt(key);
 
 		} catch (CoseException e) {
-			LOGGER.error(ErrorDescriptions.DECRYPTION_FAILED + " " + e.getMessage());
-			throw new OSException(ErrorDescriptions.DECRYPTION_FAILED + " " + e.getMessage());
+			String details = ErrorDescriptions.DECRYPTION_FAILED + " " + e.getMessage();
+			LOGGER.error(details);
+			throw new OSException(details);
 		}
 
 		return plaintext;
@@ -215,7 +247,7 @@ public abstract class Decryptor {
 	 */
 	private static byte[] expandToIntSize(byte[] partialIV) throws OSException {
 		if (partialIV.length > INTEGER_BYTES) {
-			LOGGER.error("The partial IV is: " + partialIV.length + " long, " + INTEGER_BYTES + " was expected");
+			LOGGER.error("The partial IV is: {} long, {} was expected", partialIV.length, INTEGER_BYTES);
 			throw new OSException("Partial IV too long");
 		} else if (partialIV.length == INTEGER_BYTES) {
 			return partialIV;
@@ -266,77 +298,48 @@ public abstract class Decryptor {
 
 		if (cipherText != null)
 			enc.setEncryptedContent(cipherText);
+
 		return enc;
 	}
 
 	/**
-	 * Decodes the Object-Security value.
+	 * Decodes and checks the Object-Security value.
 	 * 
 	 * @param message the received message
 	 * @param enc the Encrypt0Message object
 	 * @throws OSException if OSCORE option fails to decode
 	 */
 	private static void decodeObjectSecurity(Message message, Encrypt0Message enc) throws OSException {
-		byte[] total = message.getOptions().getOscore();
 
-		/**
-		 * If the OSCORE option value is a zero length byte array
-		 * it represents a byte array of length 1 with a byte 0x00
-		 * See https://tools.ietf.org/html/draft-ietf-core-object-security-16#section-2  
-		 */
-		if (total.length == 0) {
-			total = new byte[] { 0x00 };
-		}
-		
-		byte flagByte = total[0];
+		OscoreOptionDecoder optionDecoder = new OscoreOptionDecoder(message.getOptions().getOscore());
 
-		int n = flagByte & 0x07;
-		int k = flagByte & 0x08;
-		int h = flagByte & 0x10;
+		int n = optionDecoder.getN();
+		int k = optionDecoder.getK();
+		int h = optionDecoder.getH();
 
-		byte[] partialIV = null;
-		byte[] kid = null;
-		byte[] kidContext = null;
-		int index = 1;
+		byte[] partialIV = optionDecoder.getPartialIV();
+		byte[] kid = optionDecoder.getKid();
+		byte[] kidContext = optionDecoder.getIdContext();
 
-		//Parsing Partial IV
-		if (n > 0) {
-			try {
-				partialIV = Arrays.copyOfRange(total, index, index + n);
-				index += n;
-			} catch (Exception e) {
-				LOGGER.error("Partial_IV is missing from message when it is expected.");
-				throw new OSException(ErrorDescriptions.FAILED_TO_DECODE_COSE);
-			}
+		// Check Partial IV
+		if (n > 0 && partialIV == null) {
+			LOGGER.error("Partial_IV is missing from message when it is expected.");
+			throw new OSException(ErrorDescriptions.FAILED_TO_DECODE_COSE);
 		}
 
-		//Parsing KID Context
-		if (h != 0) {
-			int s = total[index];
-
-			kidContext = Arrays.copyOfRange(total, index + 1, index + 1 + s);
-
-			index += s + 1;
-
-			if (s > 0) {
-				LOGGER.info("Received KID Context: " + Utils.toHexString(kidContext));
-			} else {
-				LOGGER.error("Kid context is missing from message when it is expected.");
-				throw new OSException(ErrorDescriptions.FAILED_TO_DECODE_COSE);
-			}
+		// Check KID Context
+		if (h != 0 && kidContext == null) {
+			LOGGER.error("Kid context is missing from message when it is expected.");
+			throw new OSException(ErrorDescriptions.FAILED_TO_DECODE_COSE);
 		}
 
-		//Parsing KID
-		if (k != 0) {
-			kid = Arrays.copyOfRange(total, index, total.length);
-		} else {
-			if (message instanceof Request) {
-				LOGGER.error("Kid is missing from message when it is expected.");
-				throw new OSException(ErrorDescriptions.FAILED_TO_DECODE_COSE);
-			}
+		// Check KID
+		if (k != 0 && kid == null && message instanceof Request) {
+			LOGGER.error("Kid is missing from message when it is expected.");
+			throw new OSException(ErrorDescriptions.FAILED_TO_DECODE_COSE);
 		}
 
-		//Adding parsed data to Encrypt0Message object
+		// Adding parsed data to Encrypt0Message object
 		try {
 			if (partialIV != null) {
 				enc.addAttribute(HeaderKeys.PARTIAL_IV, CBORObject.FromObject(partialIV), Attribute.UNPROTECTED);
@@ -344,10 +347,13 @@ public abstract class Decryptor {
 			if (kid != null) {
 				enc.addAttribute(HeaderKeys.KID, CBORObject.FromObject(kid), Attribute.UNPROTECTED);
 			}
-			//COSE Header parameter for KID Context defined with label 10
-			//https://www.iana.org/assignments/cose/cose.xhtml
+
+			// COSE Header parameter for KID Context defined as 10
+			// https://www.iana.org/assignments/cose/cose.xhtml
+			int kidContextKey = 10;
 			if (kidContext != null) {
-				enc.addAttribute(CBORObject.FromObject(10), CBORObject.FromObject(kidContext), Attribute.UNPROTECTED);
+				enc.addAttribute(CBORObject.FromObject(kidContextKey), CBORObject.FromObject(kidContext),
+						Attribute.UNPROTECTED);
 			}
 		} catch (CoseException e) {
 			LOGGER.error("COSE processing of message failed.");
@@ -382,8 +388,6 @@ public abstract class Decryptor {
 			LOGGER.error(ErrorDescriptions.COUNTERSIGNATURE_CHECK_FAILED);
 			throw new OSException(ErrorDescriptions.COUNTERSIGNATURE_CHECK_FAILED);
 		}
-
-		System.out.println("Countersignature verified as valid");
 
 		return countersignatureValid;
 	}
@@ -450,23 +454,25 @@ public abstract class Decryptor {
 		info.Add(isRequest);
 		info.Add(keyLength);
 
-		byte[] groupEncryptionKey = ctx.getCommonCtx().getGroupEncryptionKey();
+		System.out.println("INFO ARRAY: " + StringUtil.byteArray2Hex(info.EncodeToBytes()));
+
+		byte[] signatureEncryptionKey = ctx.getCommonCtx().getSignatureEncryptionKey();
 		byte[] keystream = null;
 		try {
-			keystream = OSCoreCtx.deriveKey(groupEncryptionKey, partialIV, keyLength, digest, info.EncodeToBytes());
+			keystream = OSCoreCtx.deriveKey(signatureEncryptionKey, partialIV, keyLength, digest, info.EncodeToBytes());
 
 		} catch (CoseException e) {
 			System.err.println(e.getMessage());
 		}
 
-		// System.out.println("===");
-		// System.out.println("D Signature keystream: " + Utils.toHexString(keystream));
-		// System.out.println("D groupEncryptionKey: " + Utils.toHexString(groupEncryptionKey));
-		// System.out.println("D partialIV: " + Utils.toHexString(partialIV));
-		// System.out.println("D kid: " + Utils.toHexString(kid));
-		// System.out.println("D IdContext: " + Utils.toHexString(ctx.getIdContext()));
-		// System.out.println("D isRequest: " + isRequest);
-		// System.out.println("===");
+		System.out.println("===");
+		System.out.println("D Signature keystream: " + Utils.toHexString(keystream));
+		System.out.println("D signatureEncryptionKey: " + Utils.toHexString(signatureEncryptionKey));
+		System.out.println("D partialIV: " + Utils.toHexString(partialIV));
+		System.out.println("D kid: " + Utils.toHexString(kid));
+		System.out.println("D IdContext: " + Utils.toHexString(ctx.getIdContext()));
+		System.out.println("D isRequest: " + isRequest);
+		System.out.println("===");
 
 		// Now actually decrypt the signature
 		byte[] full_payload = null;
@@ -484,6 +490,8 @@ public abstract class Decryptor {
 		for (int i = 0; i < keystream.length; i++) {
 			decryptedCountersign[i] = (byte) (countersignBytes[i] ^ keystream[i]);
 		}
+
+		System.out.println("D Signature bytes: " + Utils.toHexString(decryptedCountersign));
 
 		// Replace the signature in the Encrypt0 object
 		enc.setEncryptedContent(Bytes.concatenate(ciphertext, decryptedCountersign));

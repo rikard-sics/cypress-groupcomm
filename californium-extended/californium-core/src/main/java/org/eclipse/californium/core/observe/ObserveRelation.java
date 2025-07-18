@@ -29,41 +29,122 @@ package org.eclipse.californium.core.observe;
 import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
 
+import org.eclipse.californium.core.coap.CoAP.Type;
+import org.eclipse.californium.core.coap.OptionSet;
+import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.config.CoapConfig;
+import org.eclipse.californium.core.network.Endpoint;
 import org.eclipse.californium.core.network.Exchange;
-import org.eclipse.californium.core.server.resources.Resource;
+import org.eclipse.californium.core.network.KeyToken;
+import org.eclipse.californium.core.server.resources.ObservableResource;
 import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.util.ClockUtil;
-import org.eclipse.californium.elements.util.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The ObserveRelation is a server-side control structure. It represents a
- * relation between a client endpoint and a resource on this server.
+ * The ObserveRelation is a server-side control structure.
+ * <p>
+ * It represents a relation between a client endpoint and a resource on this
+ * server. It holds the initial {@link Exchange} with the {@link Request}, and
+ * it keeps also track of some states, especially a mechanism to probe
+ * frequently the client's interest by using CON notifies. A mechanism to handle
+ * resource changes while such a CON notification is in transit and may be
+ * required to be retransmitted is also implemented her.
+ * </p>
+ * <p>
+ * The observe-relations a stored in two collections, one per client, the
+ * {@link ObservingEndpoint}, and one per resource, the
+ * {@link ObservableResource}. When receiving an observer request, the observe
+ * relation is first put in {@link State#INIT} and is stored in the
+ * {@link ObservingEndpoint}. With the first response, the observe relation gets
+ * either {@link State#ESTABILSHED}, if the response is
+ * {@link Response#isSuccess()}, or the observe relation gets
+ * {@link State#CANCELED}. When it get's established, the observe relation is
+ * also added to the {@link ObservableResource} and with that changes will be
+ * reported by notifies.
+ * </p>
+ * <p>
+ * If a CON notification is send and times out, the endpoint is considered to be
+ * not longer reachable and all established observe-relations are canceled. If
+ * such a CON notification is rejected by a RST message, only this observe
+ * relation is canceled.
+ * </p>
  */
 public class ObserveRelation {
 
 	/** The logger. */
 	private final static Logger LOGGER = LoggerFactory.getLogger(ObserveRelation.class);
 
+	/**
+	 * State of a {@link ObserveRelation}.
+	 * 
+	 * @since 3.6
+	 */
+	public enum State {
+		/**
+		 * No observe relation.
+		 */
+		NONE,
+		/**
+		 * Observe relation initialized.
+		 * 
+		 * Observe request received, response pending.
+		 */
+		INIT,
+		/**
+		 * Observe relation established.
+		 * 
+		 * Observe request received, response/notify sent.
+		 */
+		ESTABILSHED,
+		/**
+		 * Observe relation canceled.
+		 */
+		CANCELED
+	}
+
 	private final long checkIntervalTime;
 	private final int checkIntervalCount;
 
-	private final ObservingEndpoint endpoint;
+	/**
+	 * Observe manager.
+	 * 
+	 * @since 3.6
+	 */
+	private final ObserveManager manager;
 
-	/** The resource that is observed */
-	private final Resource resource;
+	/**
+	 * The resource that is observed.
+	 * 
+	 * @since 3.6 adapted into the new {@link ObservableResource} type
+	 */
+	private final ObservableResource resource;
 
-	/** The exchange that has established the observe relationship */
+	/** The exchange that has initiated the observe relationship */
 	private final Exchange exchange;
+
+	/**
+	 * The request type of the observer request.
+	 * 
+	 * @since 3.6
+	 */
+	private final Type requestType;
+
+	private final InetSocketAddress source;
+
+	/**
+	 * The key token.
+	 * 
+	 * @since 3.6 adapted the type
+	 */
+	private final KeyToken key;
 
 	private Response recentControlNotification;
 	private Response nextControlNotification;
 
-	private final String key;
-
+	private volatile ObservingEndpoint remoteEndpoint;
 	/*
 	 * This value is false at first and must be set to true by the resource if
 	 * it accepts the observe relation (the response code must be successful).
@@ -79,26 +160,52 @@ public class ObserveRelation {
 	/**
 	 * Constructs a new observe relation.
 	 * 
-	 * @param endpoint the observing endpoint
+	 * @param manager the observe manager
 	 * @param resource the observed resource
 	 * @param exchange the exchange that tries to establish the observe relation
+	 * @since 3.6
 	 */
-	public ObserveRelation(ObservingEndpoint endpoint, Resource resource, Exchange exchange) {
-		if (endpoint == null)
-			throw new NullPointerException();
-		if (resource == null)
-			throw new NullPointerException();
-		if (exchange == null)
-			throw new NullPointerException();
-		this.endpoint = endpoint;
+	public ObserveRelation(ObserveManager manager, ObservableResource resource, Exchange exchange) {
+		if (manager == null) {
+			throw new NullPointerException("Observe manager must not be null!");
+		} else if (resource == null) {
+			throw new NullPointerException("Observing resource must not be null!");
+		} else if (exchange == null) {
+			throw new NullPointerException("Exchange must not be null!");
+		}
+		this.manager = manager;
 		this.resource = resource;
 		this.exchange = exchange;
-		Configuration config = exchange.getEndpoint().getConfig();
+		this.requestType = exchange.getRequest().getType();
+		Configuration config = manager.getConfiguration();
+		Endpoint coapEndpoint = exchange.getEndpoint();
+		if (coapEndpoint != null) {
+			config = coapEndpoint.getConfig();
+		}
+		if (config == null) {
+			throw new IllegalArgumentException("Either the ObserveManager or the Exchange must provide a Configuration!");
+		}
 		checkIntervalTime = config.get(CoapConfig.NOTIFICATION_CHECK_INTERVAL_TIME, TimeUnit.NANOSECONDS);
 		checkIntervalCount = config.get(CoapConfig.NOTIFICATION_CHECK_INTERVAL_COUNT);
-
-		this.key = StringUtil.toString(getSource()) + "#" + exchange.getRequest().getTokenString();
+		Request request = exchange.getRequest();
+		this.source = request.getSourceContext().getPeerAddress();
+		this.key = getKeyToken(exchange);
 		LOGGER.debug("Observe-relation, checks every {}ns or {} notifications.", checkIntervalTime, checkIntervalCount);
+	}
+
+	/**
+	 * Set observing endpoint.
+	 * 
+	 * @param endpoint observing endpoint
+	 * @since 3.6
+	 */
+	public void setEndpoint(ObservingEndpoint endpoint) {
+		if (endpoint == null) {
+			throw new NullPointerException("Observing endpoint must not be null!");
+		}
+		this.remoteEndpoint = endpoint;
+		this.remoteEndpoint.addObserveRelation(this);
+		this.exchange.setRelation(this);
 	}
 
 	/**
@@ -114,6 +221,8 @@ public class ObserveRelation {
 	/**
 	 * Sets the established field.
 	 * 
+	 * Adds this relations to the resource
+	 * 
 	 * @throws IllegalStateException if the relation was already canceled.
 	 */
 	public void setEstablished() {
@@ -126,7 +235,7 @@ public class ObserveRelation {
 		}
 		if (fail) {
 			throw new IllegalStateException(
-					String.format("Could not establish observe relation %s with %s, already canceled (%s)!", getKey(),
+					String.format("Could not establish observe relation %s with %s, already canceled (%s)!", getKeyToken(),
 							resource.getURI(), exchange));
 		}
 	}
@@ -140,15 +249,10 @@ public class ObserveRelation {
 		return canceled;
 	}
 
-	/**
-	 * Cleanup relation.
-	 * 
-	 * {@link #cancel()}, if {@link #isEstablished()}.
-	 * 
-	 * @since 3.0
-	 */
-	public void cleanup() {
-		if (isEstablished()) {
+	public void reject() {
+		if (manager != null) {
+			manager.onRejectedNotification(this);
+		} else {
 			cancel();
 		}
 	}
@@ -174,24 +278,7 @@ public class ObserveRelation {
 	 * relation's endpoint.
 	 */
 	public void cancelAll() {
-		endpoint.cancelAll();
-	}
-
-	/**
-	 * Notifies the observing endpoint that the resource has been changed. This
-	 * method makes the resource process the same request again.
-	 */
-	public void notifyObservers() {
-		resource.handleRequest(exchange);
-	}
-
-	/**
-	 * Gets the resource.
-	 *
-	 * @return the resource
-	 */
-	public Resource getResource() {
-		return resource;
+		remoteEndpoint.cancelAll();
 	}
 
 	/**
@@ -209,11 +296,90 @@ public class ObserveRelation {
 	 * @return the source address
 	 */
 	public InetSocketAddress getSource() {
-		return endpoint.getAddress();
+		return source;
 	}
 
 	/**
-	 * Check, if notification is still requested.
+	 * Gets the source address of the observing endpoint.
+	 *
+	 * @return the source address
+	 */
+	public ObservingEndpoint getEndpoint() {
+		return remoteEndpoint;
+	}
+
+	/**
+	 * Get the type of the notifications that will be sent.
+	 * 
+	 * Uses {@link ObservableResource#getObserveType()}, or the request's type,
+	 * if no observe-type is provided. If this results in {@link Type#NON}, then
+	 * {@link #check()} is used, to determine, if the notification is adapted to
+	 * {@link Type#CON} to verify, that the client is still interested.
+	 * 
+	 * @return the type of the notifications
+	 * @since 3.6
+	 */
+	public Type getObserveType() {
+		Type observeType = resource.getObserveType();
+		if (observeType == null) {
+			observeType = requestType;
+		}
+		if (observeType != Type.CON && !check()) {
+			return Type.NON;
+		}
+		return Type.CON;
+	}
+
+	/**
+	 * Process response using this observe relation.
+	 * 
+	 * The first response will {@link #setEstablished()} the relation and
+	 * {@link ObservableResource#addObserveRelation(ObserveRelation)} it. If the
+	 * response {@link Response#isSuccess()}, {@link OptionSet#setObserve(int)}
+	 * is not already provided, and this relation is not {@link #isCanceled()},
+	 * the {@link ObservableResource#getNotificationSequenceNumber()} will be
+	 * provided to {@link OptionSet#setObserve(int)}
+	 * 
+	 * @param response response
+	 * @return current relation state.
+	 * @since 3.11 (behavior change: already provided observe options will not
+	 *        be overwritten).
+	 */
+	public State onResponse(Response response) {
+		boolean canceled = isCanceled();
+		if (canceled) {
+			return State.CANCELED;
+		} else if (isEstablished()) {
+			exchange.retransmitResponse();
+			if (response.isSuccess() && !response.isNotification()) {
+				response.getOptions().setObserve(resource.getNotificationSequenceNumber());
+			}
+			return State.ESTABILSHED;
+		} else {
+			boolean established = false;
+			boolean add = response.isSuccess();
+			if (add) {
+				setEstablished();
+				resource.addObserveRelation(this);
+				established = !isCanceled();
+			}
+			if (established) {
+				if (!response.isNotification()) {
+					response.getOptions().setObserve(resource.getNotificationSequenceNumber());
+				}
+				return State.INIT;
+			} else {
+				if (add) {
+					resource.removeObserveRelation(this);
+				}
+				return State.CANCELED;
+			}
+		}
+	}
+
+	/**
+	 * Check, if notification is sent to test, if it is still requested by the
+	 * client.
 	 * 
 	 * Send notification as CON response in order to challenge the client to
 	 * acknowledge the message.
@@ -253,7 +419,7 @@ public class ObserveRelation {
 	 * Check, if sending the provided notification is postponed.
 	 * 
 	 * Postponed notification are kept and sent after the current notification.
-	 * Calls {@link #send(Response)}, if not postponed.
+	 * Calls {@link #onSend(Response)}, if not postponed.
 	 * 
 	 * @param response notification to check.
 	 * @return {@code true}, if sending the notification is postponed,
@@ -275,7 +441,7 @@ public class ObserveRelation {
 		} else {
 			recentControlNotification = response;
 			nextControlNotification = null;
-			send(response);
+			onSend(response);
 			return false;
 		}
 	}
@@ -283,7 +449,7 @@ public class ObserveRelation {
 	/**
 	 * Get next notification.
 	 * 
-	 * Calls {@link #send(Response)} for next notification.
+	 * Calls {@link #onSend(Response)} for next notification.
 	 * 
 	 * @param response current notification
 	 * @param acknowledged {@code true}, if the current notification was
@@ -296,12 +462,16 @@ public class ObserveRelation {
 	public Response getNextNotification(Response response, boolean acknowledged) {
 		Response next = null;
 		if (recentControlNotification == response) {
+			if (acknowledged) {
+				// reset transmission
+				exchange.resetRelationTransmission(this);
+			}
 			next = nextControlNotification;
 			if (next != null) {
 				// next may be null
 				recentControlNotification = next;
 				nextControlNotification = null;
-				send(next);
+				onSend(next);
 			} else if (acknowledged) {
 				// next may be null
 				recentControlNotification = null;
@@ -312,28 +482,29 @@ public class ObserveRelation {
 	}
 
 	/**
-	 * Send response for this relation.
+	 * On send response for this relation.
 	 * 
 	 * If the response is no notification, {@link #cancel()} the relation
 	 * internally without completing the exchange.
 	 * 
 	 * @param response response to sent.
-	 * @since 3.0
+	 * @since 3.6
 	 */
-	public void send(Response response) {
+	public void onSend(Response response) {
 		if (!response.isNotification()) {
 			cancel(false);
 		}
 	}
 
 	/**
-	 * Get key, identifying this observer relation.
+	 * Get key-token, identifying this observer relation.
 	 * 
 	 * Combination of source-address and token.
 	 * 
 	 * @return identifying key
+	 * @since 3.6
 	 */
-	public String getKey() {
+	public KeyToken getKeyToken() {
 		return this.key;
 	}
 
@@ -348,31 +519,30 @@ public class ObserveRelation {
 	 * @param complete {@code true}, to complete the exchange, {@code false}, to
 	 *            not complete it.
 	 * 
-	 * @throws IllegalStateException if relation wasn't established.
 	 * @since 3.0
 	 */
 	private void cancel(boolean complete) {
-		boolean fail = false;
 		boolean cancel = false;
+		boolean established = false;
 
 		synchronized (this) {
 			if (!canceled) {
-				fail = !established;
-				if (!fail) {
-					canceled = true;
-					established = false;
-					cancel = true;
-				}
+				canceled = true;
+				established = this.established;
+				this.established = false;
+				cancel = true;
 			}
 		}
-		if (fail) {
-			throw new IllegalStateException(String.format("Observe relation %s with %s not established (%s)!", getKey(),
-					resource.getURI(), exchange));
-		}
 		if (cancel) {
-			LOGGER.debug("Canceling observe relation {} with {} ({})", getKey(), resource.getURI(), exchange);
-			resource.removeObserveRelation(this);
-			endpoint.removeObserveRelation(this);
+			LOGGER.debug("Canceling observe relation {} with {} ({})", getKeyToken(), resource.getURI(), exchange);
+			if (established) {
+				resource.removeObserveRelation(this);
+			}
+			if (manager != null) {
+				manager.removeObserveRelation(this);
+			} else {
+				remoteEndpoint.removeObserveRelation(this);
+			}
 			if (complete) {
 				exchange.executeComplete();
 			}
@@ -380,9 +550,53 @@ public class ObserveRelation {
 	}
 
 	/**
+	 * Process response using this observe relation.
+	 * 
+	 * The first response will {@link #setEstablished()} the relation and
+	 * {@link ObservableResource#addObserveRelation(ObserveRelation)} it. If the
+	 * response {@link Response#isSuccess()}, {@link OptionSet#setObserve(int)}
+	 * is not already provided, and this relation is not {@link #isCanceled()},
+	 * the {@link ObservableResource#getNotificationSequenceNumber()} will be
+	 * provided to {@link OptionSet#setObserve(int)}
+	 * 
+	 * @param relation the observe relation, or {@code null}, if not available
+	 * @param response response
+	 * @return current relation state.
+	 * @see #onResponse(Response)
+	 * @since 3.11 (behavior change: already provided observe options will not
+	 *        be overwritten for success responses).
+	 */
+	public static State onResponse(ObserveRelation relation, Response response) {
+		State result = State.NONE;
+		if (relation != null) {
+			result = relation.onResponse(response);
+		}
+		boolean noNotification = result == State.NONE || result == State.CANCELED;
+		if (response.isNotification() && (!response.isSuccess() || noNotification)) {
+			LOGGER.info("Application notification, not longer observing, remove observe-option {}", response);
+			response.getOptions().removeObserve();
+		}
+		return result;
+	}
+
+	/**
+	 * Get key token from exchange.
+	 * 
+	 * @param exchange observe- or cancel-request exchange
+	 * @return key token with remote endpoint and request token.
+	 * @since 3.6
+	 */
+	public static KeyToken getKeyToken(Exchange exchange) {
+		Request request = exchange.getRequest();
+		return new KeyToken(request.getToken(), request.getSourceContext().getPeerAddress());
+	}
+
+	/**
 	 * Returns {@code true}, if the specified response is still in transit. A
 	 * response is in transit, if it has not yet been acknowledged, rejected or
 	 * its current transmission has not yet timed out.
+	 * 
+	 * Since 3.12: in transit check also for not yet canceled.
 	 * 
 	 * @param response notification to check.
 	 * @return {@code true}, if notification is in transit, {@code false},
@@ -393,7 +607,7 @@ public class ObserveRelation {
 		if (response == null || !response.isConfirmable()) {
 			return false;
 		}
-		return !response.isAcknowledged() && !response.isTimedOut() && !response.isRejected();
+		return !response.isAcknowledged() && !response.isTimedOut() && !response.isRejected() && !response.isCanceled();
 	}
 
 }

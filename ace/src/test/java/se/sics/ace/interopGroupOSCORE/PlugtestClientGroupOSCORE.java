@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -31,6 +31,8 @@
  *******************************************************************************/
 package se.sics.ace.interopGroupOSCORE;
 
+import static org.junit.Assert.assertTrue;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.security.PrivateKey;
@@ -42,6 +44,7 @@ import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
@@ -49,6 +52,7 @@ import org.bouncycastle.crypto.InvalidCipherTextException;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.eclipse.californium.core.CoapClient;
 import org.eclipse.californium.core.CoapResponse;
+import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.network.CoapEndpoint.Builder;
 import org.eclipse.californium.elements.auth.RawPublicKeyIdentity;
@@ -59,8 +63,8 @@ import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.CertificateType;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
-import org.eclipse.californium.scandium.dtls.pskstore.AdvancedSinglePskStore;
-import org.eclipse.californium.scandium.dtls.x509.AsyncNewAdvancedCertificateVerifier;
+import org.eclipse.californium.scandium.dtls.pskstore.SinglePskStore;
+import org.eclipse.californium.scandium.dtls.x509.AsyncCertificateVerifier;
 import org.eclipse.californium.scandium.dtls.x509.SingleCertificateProvider;
 import org.junit.Assert;
 
@@ -76,6 +80,8 @@ import net.i2p.crypto.eddsa.EdDSASecurityProvider;
 import se.sics.ace.AceException;
 import se.sics.ace.COSEparams;
 import se.sics.ace.Constants;
+import se.sics.ace.GroupcommParameters;
+import se.sics.ace.GroupcommPolicies;
 import se.sics.ace.ReferenceToken;
 import se.sics.ace.Util;
 import se.sics.ace.as.Token;
@@ -83,6 +89,7 @@ import se.sics.ace.coap.client.DTLSProfileRequests;
 import se.sics.ace.cwt.CWT;
 import se.sics.ace.cwt.CwtCryptoCtx;
 import se.sics.ace.oscore.GroupOSCOREInputMaterialObjectParameters;
+import se.sics.ace.oscore.OSCOREInputMaterialObjectParameters;
 
 /**
  * Test the coap classes.
@@ -94,6 +101,11 @@ import se.sics.ace.oscore.GroupOSCOREInputMaterialObjectParameters;
  */
 public class PlugtestClientGroupOSCORE {
     
+	static {
+	    CoapConfig.register();
+	    DtlsConfig.register();
+	}
+	
 	/* START LIST OF KEYS */
 	
 	// For old tests
@@ -112,6 +124,10 @@ public class PlugtestClientGroupOSCORE {
     private static OneKey clientC_PSK = null;
     private static OneKey clientD_PSK = null;
     */
+    
+    // For group admin tests (admin1 is an Administrator of OSCORE groups)
+    private static byte[] key128_admin1 = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+			 							   0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x13};
     
     // For group joining tests
     private static byte[] key128_client_F = {0x61, 0x62, 0x63, 0x04, 0x05, 0x06, 0x07, 0x08,
@@ -386,11 +402,11 @@ public class PlugtestClientGroupOSCORE {
         switch (testcase) {
         
         /* Client and AS */
-        case 1: // Test CoapToken using PSK        	
+        case 0: // Test CoapToken using PSK        	
         	testCoapToken();
         	break;
         	
-        case 2: // Test CoapToken using PSK, for asking access to an OSCORE group with a single role, using a REF token.
+        case 1: // Test CoapToken using PSK, for asking access to an OSCORE group with a single role, using a REF token.
         	testGroupOSCORESingleRoleREFToken();
         	
         	// === Case 2.1 ===
@@ -410,7 +426,7 @@ public class PlugtestClientGroupOSCORE {
         	
         	break;
         	
-        case 3: // Test CoapToken using PSK, for asking access to an OSCORE group with multiple roles, using a REF token.
+        case 2: // Test CoapToken using PSK, for asking access to an OSCORE group with multiple roles, using a REF token.
         	testGroupOSCOREMultipleRolesREFToken();
         	
         	// === Case 3.1 ===
@@ -424,7 +440,7 @@ public class PlugtestClientGroupOSCORE {
         	
         	break;
         	
-        case 4: // Test CoapToken using PSK, for asking access to an OSCORE group with multiple roles, using a REF token.
+        case 3: // Test CoapToken using PSK, for asking access to an OSCORE group with multiple roles, using a REF token.
         	    // (Alternative version with different client)
         	testGroupOSCOREAltClientREFToken();
         	
@@ -434,6 +450,10 @@ public class PlugtestClientGroupOSCORE {
         	// === Case 4.2 ===
         	// Only one role out of the two requested ones is allowed in the specified group
         	
+        	break;
+        	
+        case 4: // Test CoapToken using PSK, for asking permissions as an Administrator "admin1" of an OSCORE group, using a REF token.
+        	testGroupOSCOREAdmin1REFToken();
         	break;
         	
         case 5: // Test CoapIntrospect using RPK
@@ -482,58 +502,17 @@ public class PlugtestClientGroupOSCORE {
         
     }
     
-    private static void printResponseFromAS(CoapResponse res) throws Exception {
-        if (res != null) {
-        	System.out.println("*** Response from the AS *** ");
-            System.out.print(res.getCode().codeClass + "." + "0" + res.getCode().codeDetail);
-            System.out.println(" " + res.getCode().name());
-
-            if (res.getPayload() != null) {
-            	CBORObject resCBOR = CBORObject.DecodeFromBytes(res.getPayload());
-                Map<Short, CBORObject> map = Constants.getParams(resCBOR);
-                System.out.println(map);
-            }
-        } else {
-        	System.out.println("*** The response from the AS is null!");
-            System.out.print("No response received");
-        }
-    }
-
     private static void printMapPayload(CBORObject obj) throws Exception {
         if (obj != null) {
         	System.out.println("*** Map Payload *** ");
                 System.out.println(obj);
         } else {
-        	System.out.println("*** The payload argument is null!");
+        	System.out.println("The payload argument is null!");
         }
     }
-    
-    private static void printResponseFromRS(CoapResponse res) throws Exception {
-        if (res != null) {
-            System.out.println("*** Response from the RS *** ");
-            System.out.print(res.getCode().codeClass + ".0" + res.getCode().codeDetail);
-            System.out.println(" " + res.getCode().name());
 
-            if (res.getPayload() != null) {
-                
-                if (res.getOptions().getContentFormat() == Constants.APPLICATION_ACE_CBOR ||
-                    res.getOptions().getContentFormat() == Constants.APPLICATION_ACE_GROUPCOMM_CBOR) {
-                    CBORObject resCBOR = CBORObject.DecodeFromBytes(res.getPayload());
-                    System.out.println(resCBOR.toString());
-                }
-                else {
-                    System.out.println(new String(res.getPayload()));
-                }
-            }
-        } else {
-            System.out.println("*** The response from the RS is null!");
-            System.out.print("No response received");
-        }
-    }
-    
-    
     // Start tests with the AS
-    // === Case 1 ===
+    // === Case 0 ===
     /**
      * Test CoapToken using PSK
      * 
@@ -547,8 +526,8 @@ public class PlugtestClientGroupOSCORE {
         DtlsConnectorConfig.Builder builder = new DtlsConnectorConfig.Builder(dtlsConfig);
         builder.setAddress(new InetSocketAddress(0));
 
-        AdvancedSinglePskStore pskStore = new AdvancedSinglePskStore("clientA", key128_client_A);
-        builder.setAdvancedPskStore(pskStore);
+        SinglePskStore pskStore = new SinglePskStore("clientA", key128_client_A);
+        builder.setPskStore(pskStore);
 
         DTLSConnector dtlsConnector = new DTLSConnector(builder.build());
         Builder ceb = new Builder();
@@ -565,11 +544,13 @@ public class PlugtestClientGroupOSCORE {
         
         CoapResponse response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
                 							Constants.APPLICATION_ACE_CBOR);
-        printResponseFromAS(response);
+        
+        System.out.println("*** Response from the AS *** ");
+        Util.printResponsePayloadCBOR(response.advanced());
 
     }
     
-    // === Case 2 ===
+    // === Case 1 ===
     /**
      * Test CoapToken using PSK, for asking access to an
      * OSCORE group with a single role, using a REF token.
@@ -578,8 +559,8 @@ public class PlugtestClientGroupOSCORE {
      */
     public static void testGroupOSCORESingleRoleREFToken() throws Exception { 
         
-    	String gid = groupName;
-        String gid2 = new String("feedca570001");
+    	String gpName = groupName;
+        String gpName2 = new String("feedca570001");
         
         Configuration dtlsConfig = Configuration.getStandard();
         dtlsConfig.set(DtlsConfig.DTLS_CIPHER_SUITES, Arrays.asList(CipherSuite.TLS_PSK_WITH_AES_128_CCM_8));
@@ -587,8 +568,8 @@ public class PlugtestClientGroupOSCORE {
         DtlsConnectorConfig.Builder builder = new DtlsConnectorConfig.Builder(dtlsConfig);
         builder.setAddress(new InetSocketAddress(0));
 
-        AdvancedSinglePskStore pskStore = new AdvancedSinglePskStore("clientF", key128_client_F);
-        builder.setAdvancedPskStore(pskStore);
+        SinglePskStore pskStore = new SinglePskStore("clientF", key128_client_F);
+        builder.setPskStore(pskStore);
 
         DTLSConnector dtlsConnector = new DTLSConnector(builder.build());
         Builder ceb = new Builder();
@@ -608,10 +589,10 @@ public class PlugtestClientGroupOSCORE {
         
         CBORObject cborArrayScope = CBORObject.NewArray();
         CBORObject cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(gpName);
         
     	int myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
     	cborArrayEntry.Add(myRoles);
         
         cborArrayScope.Add(cborArrayEntry);
@@ -622,7 +603,9 @@ public class PlugtestClientGroupOSCORE {
         
         CoapResponse response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
                 							Constants.APPLICATION_ACE_CBOR);
-        printResponseFromAS(response);
+        
+        System.out.println("*** Response from the AS *** ");
+        Util.printResponsePayloadCBOR(response.advanced());
         
         
         // === Case 2.2 ===
@@ -632,10 +615,10 @@ public class PlugtestClientGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(gpName);
         
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_MONITOR);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_MONITOR);
     	cborArrayEntry.Add(myRoles);
         
         cborArrayScope.Add(cborArrayEntry);
@@ -645,7 +628,9 @@ public class PlugtestClientGroupOSCORE {
         
         response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
                 			   Constants.APPLICATION_ACE_CBOR);
-        printResponseFromAS(response);
+
+        System.out.println("*** Response from the AS *** ");
+        Util.printResponsePayloadCBOR(response.advanced());
 
         
         // === Case 2.3 ===
@@ -655,10 +640,10 @@ public class PlugtestClientGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid2);
+        cborArrayEntry.Add(gpName2);
         
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
     	cborArrayEntry.Add(myRoles);
     	
         byteStringScope = cborArrayScope.EncodeToBytes();
@@ -668,7 +653,9 @@ public class PlugtestClientGroupOSCORE {
         
         response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
         					   Constants.APPLICATION_ACE_CBOR);
-        printResponseFromAS(response);
+
+        System.out.println("*** Response from the AS *** ");
+        Util.printResponsePayloadCBOR(response.advanced());
         
         
         // === Case 2.4 ===
@@ -678,10 +665,10 @@ public class PlugtestClientGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(gpName);
         
     	myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
         
         cborArrayScope.Add(cborArrayEntry);
@@ -692,7 +679,9 @@ public class PlugtestClientGroupOSCORE {
         
         response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
                 			   Constants.APPLICATION_ACE_CBOR);
-        printResponseFromAS(response);
+
+        System.out.println("*** Response from the AS *** ");
+        Util.printResponsePayloadCBOR(response.advanced());
 
         
         // === Case 2.5 ===
@@ -702,7 +691,7 @@ public class PlugtestClientGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(gpName);
         
     	myRoles = 0;
     	myRoles = Util.addGroupOSCORERole(myRoles, (short)10);
@@ -716,12 +705,14 @@ public class PlugtestClientGroupOSCORE {
         
         response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
                 			   Constants.APPLICATION_ACE_CBOR);
-        printResponseFromAS(response);
+
+        System.out.println("*** Response from the AS *** ");
+        Util.printResponsePayloadCBOR(response.advanced());
         
     }
     
     
-    // === Case 3 ===
+    // === Case 2 ===
     /**
      * Test CoapToken using PSK, for asking access to an
      * OSCORE group with multiple roles, using a REF token.
@@ -730,8 +721,8 @@ public class PlugtestClientGroupOSCORE {
      */
     public static void testGroupOSCOREMultipleRolesREFToken() throws Exception { 
         
-    	String gid = groupName;
-        String gid2 = new String("feedca570001");
+    	String gpName = groupName;
+        String gpName2 = new String("feedca570001");
     	
         Configuration dtlsConfig = Configuration.getStandard();
         dtlsConfig.set(DtlsConfig.DTLS_CIPHER_SUITES, Arrays.asList(CipherSuite.TLS_PSK_WITH_AES_128_CCM_8));
@@ -739,8 +730,8 @@ public class PlugtestClientGroupOSCORE {
         DtlsConnectorConfig.Builder builder = new DtlsConnectorConfig.Builder(dtlsConfig);
         builder.setAddress(new InetSocketAddress(0));
 
-        AdvancedSinglePskStore pskStore = new AdvancedSinglePskStore("clientF", key128_client_F);
-        builder.setAdvancedPskStore(pskStore);
+        SinglePskStore pskStore = new SinglePskStore("clientF", key128_client_F);
+        builder.setPskStore(pskStore);
 
         DTLSConnector dtlsConnector = new DTLSConnector(builder.build());
         Builder ceb = new Builder();
@@ -761,11 +752,11 @@ public class PlugtestClientGroupOSCORE {
         
         CBORObject cborArrayScope = CBORObject.NewArray();
         CBORObject cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(gpName);
         
     	int myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
     	
     	cborArrayScope.Add(cborArrayEntry);
@@ -777,7 +768,9 @@ public class PlugtestClientGroupOSCORE {
         
         CoapResponse response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
                 							Constants.APPLICATION_ACE_CBOR);
-        printResponseFromAS(response);
+
+        System.out.println("*** Response from the AS *** ");
+        Util.printResponsePayloadCBOR(response.advanced());
         
         
         // === Case 3.2 ===
@@ -787,11 +780,11 @@ public class PlugtestClientGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid2);
+        cborArrayEntry.Add(gpName2);
         
         myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_MONITOR);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_MONITOR);
     	cborArrayEntry.Add(myRoles);
     	
     	cborArrayScope.Add(cborArrayEntry);
@@ -802,7 +795,9 @@ public class PlugtestClientGroupOSCORE {
         
         response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
                 			   Constants.APPLICATION_ACE_CBOR);
-        printResponseFromAS(response);
+
+        System.out.println("*** Response from the AS *** ");
+        Util.printResponsePayloadCBOR(response.advanced());
         
         
         // === Case 3.3 ===
@@ -812,11 +807,11 @@ public class PlugtestClientGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(gpName);
     	
         myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
     	
     	cborArrayScope.Add(cborArrayEntry);
@@ -827,12 +822,14 @@ public class PlugtestClientGroupOSCORE {
         
         response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
                 			   Constants.APPLICATION_ACE_CBOR);
-        printResponseFromAS(response);
+
+        System.out.println("*** Response from the AS *** ");
+        Util.printResponsePayloadCBOR(response.advanced());
                
     }
 
     
-    // === Case 4 ===
+    // === Case 3 ===
     /**
      * Test CoapToken using PSK, for asking access to an
      * OSCORE group with multiple roles, using a REF token.
@@ -842,7 +839,7 @@ public class PlugtestClientGroupOSCORE {
      */
     public static void testGroupOSCOREAltClientREFToken() throws Exception { 
         
-    	String gid = groupName;
+    	String gpName = groupName;
     	
         Configuration dtlsConfig = Configuration.getStandard();
         dtlsConfig.set(DtlsConfig.DTLS_CIPHER_SUITES, Arrays.asList(CipherSuite.TLS_PSK_WITH_AES_128_CCM_8));
@@ -850,8 +847,8 @@ public class PlugtestClientGroupOSCORE {
         DtlsConnectorConfig.Builder builder = new DtlsConnectorConfig.Builder(dtlsConfig);
         builder.setAddress(new InetSocketAddress(0));
 
-        AdvancedSinglePskStore pskStore = new AdvancedSinglePskStore("clientG", key128_client_G);
-        builder.setAdvancedPskStore(pskStore);
+        SinglePskStore pskStore = new SinglePskStore("clientG", key128_client_G);
+        builder.setPskStore(pskStore);
 
         DTLSConnector dtlsConnector = new DTLSConnector(builder.build());
         Builder ceb = new Builder();
@@ -872,10 +869,10 @@ public class PlugtestClientGroupOSCORE {
         
         CBORObject cborArrayScope = CBORObject.NewArray();
         CBORObject cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(gpName);
         
     	int myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
         
         cborArrayScope.Add(cborArrayEntry);
@@ -886,7 +883,9 @@ public class PlugtestClientGroupOSCORE {
         
         CoapResponse response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
                 							Constants.APPLICATION_ACE_CBOR);
-        printResponseFromAS(response);
+
+        System.out.println("*** Response from the AS *** ");
+        Util.printResponsePayloadCBOR(response.advanced());
         
         
         // === Case 4.2 ===
@@ -896,11 +895,11 @@ public class PlugtestClientGroupOSCORE {
         
         cborArrayScope = CBORObject.NewArray();
         cborArrayEntry = CBORObject.NewArray();
-        cborArrayEntry.Add(gid);
+        cborArrayEntry.Add(gpName);
         
         myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayEntry.Add(myRoles);
     	
     	cborArrayScope.Add(cborArrayEntry);
@@ -912,11 +911,366 @@ public class PlugtestClientGroupOSCORE {
         
         response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
                 			   Constants.APPLICATION_ACE_CBOR);
-        printResponseFromAS(response);
+
+        System.out.println("*** Response from the AS *** ");
+        Util.printResponsePayloadCBOR(response.advanced());
             	
     }
     
+    // === Case 4 ===
+    /**
+     * Test CoapToken using PSK, for asking permissions as an
+     * Administrator "admin1" of an OSCORE group, using a REF token.
+     * 
+     * @throws Exception
+     */
+    public static void testGroupOSCOREAdmin1REFToken() throws Exception {
+    	
+    	String groupName = new String("feedca570000");
+        String groupName2 = new String("feedca570001");
+        String complexPattern = "^[J-Z][0-9][-a-z0-9]*$";
+        int myPermissions = 0;
+        byte[] byteStringScope = null;
+    	
+        Configuration dtlsConfig = Configuration.getStandard();
+        dtlsConfig.set(DtlsConfig.DTLS_CIPHER_SUITES, Arrays.asList(CipherSuite.TLS_PSK_WITH_AES_128_CCM_8));
+        
+        DtlsConnectorConfig.Builder builder = new DtlsConnectorConfig.Builder(dtlsConfig);
+        builder.setAddress(new InetSocketAddress(0));
+
+        SinglePskStore pskStore = new SinglePskStore("admin1", key128_admin1);
+        builder.setPskStore(pskStore);
+        
+        DTLSConnector dtlsConnector = new DTLSConnector(builder.build());
+        Builder ceb = new Builder();
+        ceb.setConnector(dtlsConnector);
+        ceb.setConfiguration(Configuration.getStandard());
+        CoapEndpoint e = ceb.build();
+        CoapClient client = new CoapClient(uri + portNumberAS + "/token");
+        client.setEndpoint(e);
+        dtlsConnector.start();
+    	
+        
+        Map<Short, CBORObject> params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        // The scope is a CBOR Array encoded as a CBOR byte string
+        
+        CBORObject cborArrayScope = CBORObject.NewArray();
+        CBORObject cborArrayEntry = CBORObject.NewArray();
+        
+    	// The Administrator "admin1" can have all permission on the group with group name "feedca57000000"
+        
+    	// Toid is the literal pattern "feedca570000"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with two stored patterns: the literal pattern "feedca57000000"; the wildcard pattern
+        cborArrayEntry.Add(groupName);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        CoapResponse response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+                							Constants.APPLICATION_ACE_CBOR);    
+
+        System.out.println("*** Response from the AS *** ");
+        Util.printResponsePayloadCBOR(response.advanced());
+
+        
+        // Toid is the literal pattern "feedca570000"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with two stored patterns: the literal pattern "feedca57000000"; the wildcard pattern
+        
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+                							Constants.APPLICATION_ACE_CBOR);    
+
+        System.out.println("*** Response from the AS *** ");
+        Util.printResponsePayloadCBOR(response.advanced());
+        
+        
+    	// Toid is the literal pattern "P1ab13"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with two stored patterns: the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add("P1ab13");
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+                							Constants.APPLICATION_ACE_CBOR);    
+
+        System.out.println("*** Response from the AS *** ");
+        Util.printResponsePayloadCBOR(response.advanced());
+        
+        
+    	// Toid is the literal pattern "P1ab13"; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with two stored patterns: the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add("P1ab13");
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+                							Constants.APPLICATION_ACE_CBOR);    
+
+        System.out.println("*** Response from the AS *** ");
+        Util.printResponsePayloadCBOR(response.advanced());
+        
+        
+    	// Toid is the literal pattern "feedca570001"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with the stored wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName2);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+                							Constants.APPLICATION_ACE_CBOR);    
+
+        System.out.println("*** Response from the AS *** ");
+        Util.printResponsePayloadCBOR(response.advanced());
     
+        
+    	// Toid is the literal pattern "feedca570001"; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with the stored wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(groupName2);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+                							Constants.APPLICATION_ACE_CBOR);    
+
+        System.out.println("*** Response from the AS *** ");
+        Util.printResponsePayloadCBOR(response.advanced());
+    	
+        
+    	// Toid is the wildcard pattern; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with the stored wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(CBORObject.True);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+        
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+                							Constants.APPLICATION_ACE_CBOR);    
+
+        System.out.println("*** Response from the AS *** ");
+        Util.printResponsePayloadCBOR(response.advanced());
+        
+        
+    	// Toid is the wildcard pattern; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with the stored wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        cborArrayEntry.Add(CBORObject.True);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+                							Constants.APPLICATION_ACE_CBOR);    
+
+        System.out.println("*** Response from the AS *** ");
+        Util.printResponsePayloadCBOR(response.advanced());
+        
+        
+    	// Toid is the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; Tperm expresses permissions that can all be obtained
+    	// The Toid matches with two stored patterns: the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        CBORObject toid = CBORObject.FromObjectAndTag(complexPattern, 21065);
+    	cborArrayEntry.Add(toid);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+                							Constants.APPLICATION_ACE_CBOR);    
+
+        System.out.println("*** Response from the AS *** ");
+        Util.printResponsePayloadCBOR(response.advanced());
+        
+        
+    	// Toid is the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; Tperm expresses permissions that can only partially be obtained
+    	// The Toid matches with two stored patterns: the complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$"; the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+        toid = CBORObject.FromObjectAndTag(complexPattern, 21065);
+    	cborArrayEntry.Add(toid);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+                							Constants.APPLICATION_ACE_CBOR);    
+
+        System.out.println("*** Response from the AS *** ");
+        Util.printResponsePayloadCBOR(response.advanced());
+        
+        
+    	// Toid is the complex (iregexp) pattern "^[A-M][0-9][-a-z0-9]*$"; Tperm expresses permissions that cannot be obtained
+    	// The Toid does not match with the stored complex (iregexp) pattern "^[J-Z][0-9][-a-z0-9]*$", but it matches with the wildcard pattern
+        params = new HashMap<>();
+        params.put(Constants.GRANT_TYPE, Token.clientCredentials);
+        
+        cborArrayScope = CBORObject.NewArray();
+        cborArrayEntry = CBORObject.NewArray();
+    	toid = CBORObject.FromObjectAndTag("^[A-M][0-9][-a-z0-9]*$", 21065);
+    	cborArrayEntry.Add(toid);
+        
+        myPermissions = 0;
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ);
+    	myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE);
+    	cborArrayEntry.Add(myPermissions);
+        
+    	cborArrayScope.Add(cborArrayEntry);
+    	byteStringScope = cborArrayScope.EncodeToBytes();
+    	
+        params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        params.put(Constants.AUDIENCE, CBORObject.FromObject("aud2"));
+        
+        response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
+                							Constants.APPLICATION_ACE_CBOR);    
+
+        System.out.println("*** Response from the AS *** ");
+        Util.printResponsePayloadCBOR(response.advanced());
+    	
+    }
+
+
     // === Case 5 ===
     /**
      * Test CoapIntrospect using RPK
@@ -948,9 +1302,9 @@ public class PlugtestClientGroupOSCORE {
         ArrayList<CertificateType> certTypes = new ArrayList<CertificateType>();
         certTypes.add(CertificateType.RAW_PUBLIC_KEY);
         certTypes.add(CertificateType.X_509);
-        AsyncNewAdvancedCertificateVerifier verifier = new AsyncNewAdvancedCertificateVerifier(new X509Certificate[0],
+        AsyncCertificateVerifier verifier = new AsyncCertificateVerifier(new X509Certificate[0],
                 new RawPublicKeyIdentity[0], certTypes);
-        builder.setAdvancedCertificateVerifier(verifier);
+        builder.setCertificateVerifier(verifier);
 
         DTLSConnector dtlsConnector = new DTLSConnector(builder.build());
 
@@ -967,7 +1321,9 @@ public class PlugtestClientGroupOSCORE {
         params.put(Constants.TOKEN, CBORObject.FromObject(at.encode().EncodeToBytes()));
         CoapResponse response = client.post(Constants.getCBOR(params).EncodeToBytes(), 
                 							Constants.APPLICATION_ACE_CBOR);
-        printResponseFromAS(response);
+
+        System.out.println("*** Response from the AS *** ");
+        Util.printResponsePayloadCBOR(response.advanced());
 
     }
     // End tests with the AS
@@ -999,13 +1355,13 @@ public class PlugtestClientGroupOSCORE {
     	scopeEntry.Add(groupName);
     	
     	int myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
     	scopeEntry.Add(myRoles);
     	
     	cborArrayScope.Add(scopeEntry);
     	byte[] byteStringScope = cborArrayScope.EncodeToBytes();
         params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
-        params.put(Constants.AUD, CBORObject.FromObject("aud2"));
+        params.put(Constants.AUD, CBORObject.FromObject("aud4"));
         
         params.put(Constants.CTI, CBORObject.FromObject("tokenPostRPKGOSR".getBytes(Constants.charset)));
         params.put(Constants.ISS, CBORObject.FromObject("TestAS"));
@@ -1016,7 +1372,7 @@ public class PlugtestClientGroupOSCORE {
         CWT token = new CWT(params);
         CBORObject payload;
         
-        // The payload is a CBOR including also the Access Token
+        // The payload is a CBOR map including also the Access Token
         payload = CBORObject.NewMap();
         payload.Add(Constants.ACCESS_TOKEN, token.encode(ctx1));
         if (askForSignInfo)
@@ -1026,9 +1382,10 @@ public class PlugtestClientGroupOSCORE {
         
         rsAuthzInfo =  "coap://" + rsAddr + ":" + portNumberRSnosec + "/authz-info";
         
-        CoapResponse r = DTLSProfileRequests.postToken(rsAuthzInfo, payload, null);
+        CoapResponse r = DTLSProfileRequests.postToken(rsAuthzInfo, payload, Constants.APPLICATION_ACE_CBOR, null);
         
-        printResponseFromRS(r);
+        System.out.println("*** Response from the RS *** ");
+        Util.printResponsePayloadCBOR(r.advanced());
         
         CBORObject cbor = CBORObject.DecodeFromBytes(r.getPayload());
         
@@ -1036,9 +1393,6 @@ public class PlugtestClientGroupOSCORE {
         // DEBUG: START SET OF ASSERTIONS
         /*
         Assert.assertNotNull(cbor);
-        CBORObject cti = cbor.get(CBORObject.FromObject(Constants.CTI));
-        Assert.assertArrayEquals("tokenPostRPKGOSR".getBytes(Constants.charset), cti.GetByteString());
-        
         Assert.assertEquals(true, cbor.ContainsKey(CBORObject.FromObject(Constants.KDCCHALLENGE)));
         Assert.assertEquals(CBORType.ByteString, cbor.get(CBORObject.FromObject(Constants.KDCCHALLENGE)).getType());
         */
@@ -1107,7 +1461,7 @@ public class PlugtestClientGroupOSCORE {
         }
         
         
-        final CBORObject credFmtExpected = CBORObject.FromObject(Constants.COSE_HEADER_PARAM_CCS);
+        final CBORObject credFmtExpected = CBORObject.FromObject(Constants.COSE_HEADER_PARAM_KCCS);
         
         
         // DEBUG: START SET OF ASSERTIONS
@@ -1189,7 +1543,7 @@ public class PlugtestClientGroupOSCORE {
 		    }
 		}
         */
-        // DEBUG: START SET OF ASSERTIONS
+        // DEBUG: END SET OF ASSERTIONS
         
         
         CoapClient c = DTLSProfileRequests.getRpkClient(cRPK, rsRPK);
@@ -1201,11 +1555,17 @@ public class PlugtestClientGroupOSCORE {
         cborArrayScope.Add(groupName);
         
         myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
     	cborArrayScope.Add(myRoles);
     	    	
         byteStringScope = cborArrayScope.EncodeToBytes();
-        requestPayload.Add(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        requestPayload.Add(GroupcommParameters.SCOPE, CBORObject.FromObject(byteStringScope));
+        
+    	// Add cnonce
+        byte[] cnonce = new byte[8];
+        new SecureRandom().nextBytes(cnonce);
+        requestPayload.Add(GroupcommParameters.CNONCE, cnonce);
+        byte[] serializedCNonceCBOR = CBORObject.FromObject(cnonce).EncodeToBytes();
         
         if (askForAuthCreds) {
         	
@@ -1216,15 +1576,15 @@ public class PlugtestClientGroupOSCORE {
             getCreds.Add(CBORObject.NewArray());
             // The following is required to retrieve the authentication credentials of both the already present group members 
             myRoles = 0;
-            myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
+            myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
             getCreds.get(1).Add(myRoles);            
-            myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-        	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+            myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+        	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
         	getCreds.get(1).Add(myRoles);
             
         	getCreds.Add(CBORObject.NewArray()); // This must be empty
 
-        	requestPayload.Add(Constants.GET_CREDS, getCreds);
+        	requestPayload.Add(GroupcommParameters.GET_CREDS, getCreds);
         	
         }
         
@@ -1243,11 +1603,11 @@ public class PlugtestClientGroupOSCORE {
         	//       encoding in byte lexicographic order, and it has to be adjusted offline
         	OneKey publicKey = C1keyPair.PublicKey();
         	switch (credFmtExpected.AsInt32()) {
-        	    case Constants.COSE_HEADER_PARAM_CCS:
+        	    case Constants.COSE_HEADER_PARAM_KCCS:
         	        // Build a CCS including the public key
         	        authCred = Util.oneKeyToCCS(publicKey, "");
         	        break;
-        	    case Constants.COSE_HEADER_PARAM_CWT:
+        	    case Constants.COSE_HEADER_PARAM_KCWT:
         	        // Build a CWT including the public key
         	        // TODO
         	        break;
@@ -1259,7 +1619,7 @@ public class PlugtestClientGroupOSCORE {
         	*/
 
         	switch (credFmtExpected.AsInt32()) {
-	        	case Constants.COSE_HEADER_PARAM_CCS:
+	        	case Constants.COSE_HEADER_PARAM_KCCS:
 	        	    // A CCS including the public key
 	        	    if (signKeyCurve == KeyKeys.EC2_P256.AsInt32()) {
 	        	    	authCred =net.i2p.crypto.eddsa.Utils.hexToBytes("A2026008A101A5010203262001215820E8F9A8D5850A533CDA24B9FA8A1EE293F6A0E1E81E1E560A64FF134D65F7ECEC225820164A6D5D4B97F56D1F60A12811D55DE7A055EBAC6164C9EF9302CBCBFF1F0ABE");
@@ -1268,7 +1628,7 @@ public class PlugtestClientGroupOSCORE {
 	        	    	authCred = net.i2p.crypto.eddsa.Utils.hexToBytes("A2026008A101A4010103272006215820069E912B83963ACC5941B63546867DEC106E5B9051F2EE14F3BC5CC961ACD43A");
 	        	    }
 	        	    break;
-	        	case Constants.COSE_HEADER_PARAM_CWT:
+	        	case Constants.COSE_HEADER_PARAM_KCWT:
 	        	    // A CWT including the public key
 	        	    // TODO
 	        		authCred = null;
@@ -1280,13 +1640,7 @@ public class PlugtestClientGroupOSCORE {
 	        	    break;
         	}
 
-        	requestPayload.Add(Constants.CLIENT_CRED, CBORObject.FromObject(authCred));
-        	
-        	
-        	// Add the nonce for PoP of the Client's private key
-            byte[] cnonce = new byte[8];
-            new SecureRandom().nextBytes(cnonce);
-            requestPayload.Add(Constants.CNONCE, cnonce);
+        	requestPayload.Add(GroupcommParameters.CLIENT_CRED, CBORObject.FromObject(authCred));
             
             // Add the signature computed over (scope | rsnonce | cnonce), using the Client's private key
             int offset = 0;
@@ -1294,20 +1648,19 @@ public class PlugtestClientGroupOSCORE {
             
             byte[] serializedScopeCBOR = CBORObject.FromObject(byteStringScope).EncodeToBytes();
             byte[] serializedGMNonceCBOR = CBORObject.FromObject(gm_nonce).EncodeToBytes();
-            byte[] serializedCNonceCBOR = CBORObject.FromObject(cnonce).EncodeToBytes();
-       	    byte [] dataToSign = new byte [serializedScopeCBOR.length +
-       	                                   serializedGMNonceCBOR.length +
-       	                                   serializedCNonceCBOR.length];
-       	    System.arraycopy(serializedScopeCBOR, 0, dataToSign, offset, serializedScopeCBOR.length);
+       	    byte[] popInput = new byte[serializedScopeCBOR.length +
+       	                                serializedGMNonceCBOR.length +
+       	                                serializedCNonceCBOR.length];
+       	    System.arraycopy(serializedScopeCBOR, 0, popInput, offset, serializedScopeCBOR.length);
        	    offset += serializedScopeCBOR.length;
-       	    System.arraycopy(serializedGMNonceCBOR, 0, dataToSign, offset, serializedGMNonceCBOR.length);
+       	    System.arraycopy(serializedGMNonceCBOR, 0, popInput, offset, serializedGMNonceCBOR.length);
        	    offset += serializedGMNonceCBOR.length;
-       	    System.arraycopy(serializedCNonceCBOR, 0, dataToSign, offset, serializedCNonceCBOR.length);
+       	    System.arraycopy(serializedCNonceCBOR, 0, popInput, offset, serializedCNonceCBOR.length);
                    	   
-       	    byte[] clientSignature = Util.computeSignature(signKeyCurve, privKey, dataToSign);
+       	    byte[] popEvidence = Util.computeSignature(signKeyCurve, privKey, popInput);
             
-            if (clientSignature != null)
-            	requestPayload.Add(Constants.CLIENT_CRED_VERIFY, clientSignature);
+            if (popEvidence != null)
+            	requestPayload.Add(GroupcommParameters.CLIENT_CRED_VERIFY, popEvidence);
         	else
         		Assert.fail("Computed signature is empty");
         	
@@ -1322,10 +1675,12 @@ public class PlugtestClientGroupOSCORE {
 	        System.out.println(r2.getOptions().getLocationPathString());
         }
         
-        printResponseFromRS(r2);
+        System.out.println("*** Response from the RS *** ");
+        Util.printResponsePayloadCBOR(r2.advanced());
         
-
-        Assert.assertEquals("CREATED", r2.getCode().name());
+        String expectedCodes[] = {"CREATED", "CHANGED"};
+        List<String> expectedCodesList = Arrays.asList(expectedCodes);
+        assertTrue(expectedCodesList.contains(r2.getCode().name()));
         
         byte[] responsePayload = r2.getPayload();
         CBORObject joinResponse = CBORObject.DecodeFromBytes(responsePayload);
@@ -1336,20 +1691,20 @@ public class PlugtestClientGroupOSCORE {
         
         // DEBUG: START SET OF ASSERTIONS
         /*
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.GKTY)));
-        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(Constants.GKTY)).getType());
-        Assert.assertEquals(Constants.GROUP_OSCORE_INPUT_MATERIAL_OBJECT, joinResponse.get(CBORObject.FromObject(Constants.GKTY)).AsInt32());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.GKTY)));
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.GKTY)).getType());
+        Assert.assertEquals(GroupcommParameters.GROUP_OSCORE_INPUT_MATERIAL_OBJECT, joinResponse.get(CBORObject.FromObject(GroupcommParameters.GKTY)).AsInt32());
         
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.KEY)));
-        Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(Constants.KEY)).getType());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KEY)));
+        Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).getType());
         
-        CBORObject myMap = joinResponse.get(CBORObject.FromObject(Constants.KEY));
+        CBORObject myMap = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY));
         
         // Sanity check
     	Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.ms)));
         Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.group_SenderID)));
         Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.hkdf)));
-        Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.sign_enc_alg)));
+        Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.gp_enc_alg)));
         Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.salt)));
         Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.contextId)));
         Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.sign_alg)));
@@ -1365,7 +1720,7 @@ public class PlugtestClientGroupOSCORE {
         // Check the presence, type and value of the signature key encoding
         Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)));
         Assert.assertEquals(CBORType.Integer, myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)).getType());        
-        Assert.assertEquals(CBORObject.FromObject(Constants.COSE_HEADER_PARAM_CCS), myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)));
+        Assert.assertEquals(CBORObject.FromObject(Constants.COSE_HEADER_PARAM_KCCS), myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)));
         
         credFmt = myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)).AsInt32();
         
@@ -1381,7 +1736,7 @@ public class PlugtestClientGroupOSCORE {
     	final AlgorithmID hkdf = AlgorithmID.HMAC_SHA_256;
 
     	
-    	final AlgorithmID signEncAlg = AlgorithmID.AES_CCM_16_64_128;
+    	final AlgorithmID gpEncAlg = AlgorithmID.AES_CCM_16_64_128;
     	AlgorithmID signAlg = null;
     	CBORObject signAlgCapabilities = CBORObject.NewArray();
     	CBORObject signKeyCapabilities = CBORObject.NewArray();
@@ -1434,7 +1789,7 @@ public class PlugtestClientGroupOSCORE {
     	Assert.assertArrayEquals(senderId, myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.group_SenderID)).GetByteString());
     	
         Assert.assertEquals(hkdf.AsCBOR(), myMap.get(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.hkdf)));
-        Assert.assertEquals(signEncAlg.AsCBOR(), myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.sign_enc_alg)));
+        Assert.assertEquals(gpEncAlg.AsCBOR(), myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.gp_enc_alg)));
         Assert.assertArrayEquals(masterSalt, myMap.get(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.salt)).GetByteString());
         Assert.assertArrayEquals(groupId, myMap.get(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.contextId)).GetByteString());
         Assert.assertNotNull(signAlg);
@@ -1448,18 +1803,21 @@ public class PlugtestClientGroupOSCORE {
         if (myMap.ContainsKey(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.salt)) == false)
         	myMap.Add(OSCOREInputMaterialObjectParameters.salt, CBORObject.FromObject(new byte[0]));
         
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.NUM)));
-        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(Constants.NUM)).getType());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.NUM)));
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.NUM)).getType());
         // This assumes that the Group Manager did not rekeyed the group upon previous nodes' joining
-        Assert.assertEquals(0, joinResponse.get(CBORObject.FromObject(Constants.NUM)).AsInt32());
+        Assert.assertEquals(0, joinResponse.get(CBORObject.FromObject(GroupcommParameters.NUM)).AsInt32());
         
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.ACE_GROUPCOMM_PROFILE)));
-        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(Constants.ACE_GROUPCOMM_PROFILE)).getType());
-        Assert.assertEquals(Constants.COAP_GROUP_OSCORE_APP, joinResponse.get(CBORObject.FromObject(Constants.ACE_GROUPCOMM_PROFILE)).AsInt32());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.ACE_GROUPCOMM_PROFILE)));
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.ACE_GROUPCOMM_PROFILE)).getType());
+        Assert.assertEquals(GroupcommParameters.COAP_GROUP_OSCORE_APP, joinResponse.get(CBORObject.FromObject(GroupcommParameters.ACE_GROUPCOMM_PROFILE)).AsInt32());
         
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.EXP)));
-        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(Constants.EXP)).getType());
-        Assert.assertEquals(1000000, joinResponse.get(CBORObject.FromObject(Constants.EXP)).AsInt32());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.EXP)));
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.EXP)).getType());
+        Assert.assertEquals(2682374400L, joinResponse.get(CBORObject.FromObject(GroupcommParameters.EXP)).AsInt64Value());
+        
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.EXI)));
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.EXI)).getType());
         
         if (myMap.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.sign_params))) {
             Assert.assertEquals(CBORType.Array, myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.sign_params)).getType());
@@ -1473,10 +1831,10 @@ public class PlugtestClientGroupOSCORE {
         CBORObject authCredsArray = null;
         
         if (askForAuthCreds) {
-        	Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.CREDS)));
-        	Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(Constants.CREDS)).getType());
+        	Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.CREDS)));
+        	Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(GroupcommParameters.CREDS)).getType());
         	
-        	authCredsArray = joinResponse.get(CBORObject.FromObject(Constants.CREDS));
+        	authCredsArray = joinResponse.get(CBORObject.FromObject(GroupcommParameters.CREDS));
             Assert.assertEquals(2, authCredsArray.size());
         	
         	byte[] peerSenderId;
@@ -1485,13 +1843,13 @@ public class PlugtestClientGroupOSCORE {
             CBORObject peerAuthCredRetrieved;
         	byte[] peerSenderIdFromResponse;
         	
-        	Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.PEER_IDENTIFIERS)));
-        	Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(Constants.PEER_IDENTIFIERS)).getType());
-        	Assert.assertEquals(2, joinResponse.get(CBORObject.FromObject(Constants.PEER_IDENTIFIERS)).size());
+        	Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.PEER_IDENTIFIERS)));
+        	Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_IDENTIFIERS)).getType());
+        	Assert.assertEquals(2, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_IDENTIFIERS)).size());
 
         	peerSenderId = idClient3;
         	peerSenderIdFromResponse = joinResponse.
-                    get(CBORObject.FromObject(Constants.PEER_IDENTIFIERS)).get(0).GetByteString();
+                    get(CBORObject.FromObject(GroupcommParameters.PEER_IDENTIFIERS)).get(0).GetByteString();
         	peerPublicKey = C3pubKey;
         	Assert.assertArrayEquals(peerSenderId, peerSenderIdFromResponse);
         	
@@ -1501,7 +1859,7 @@ public class PlugtestClientGroupOSCORE {
 	        }
 	        byte[] peerAuthCredRetrievedBytes = peerAuthCredRetrieved.GetByteString();
 	        switch (credFmt) {
-	            case Constants.COSE_HEADER_PARAM_CCS:
+	            case Constants.COSE_HEADER_PARAM_KCCS:
 	            	CBORObject ccs = CBORObject.DecodeFromBytes(peerAuthCredRetrievedBytes);
 	                if (ccs.getType() == CBORType.Map) {
 	                	// Retrieve the public key from the CCS
@@ -1511,7 +1869,7 @@ public class PlugtestClientGroupOSCORE {
 	                    Assert.fail("Invalid format of authentication credential");
 	                }
 	                break;
-	            case Constants.COSE_HEADER_PARAM_CWT:
+	            case Constants.COSE_HEADER_PARAM_KCWT:
 	            	CBORObject cwt = CBORObject.DecodeFromBytes(peerAuthCredRetrievedBytes);
 	                if (cwt.getType() == CBORType.Array) {
 	                    // Retrieve the public key from the CWT
@@ -1549,7 +1907,7 @@ public class PlugtestClientGroupOSCORE {
         	
         	peerSenderId = idClient2;
         	peerSenderIdFromResponse = joinResponse.
-                    get(CBORObject.FromObject(Constants.PEER_IDENTIFIERS)).get(1).GetByteString();
+                    get(CBORObject.FromObject(GroupcommParameters.PEER_IDENTIFIERS)).get(1).GetByteString();
         	peerPublicKey = C2pubKey;
         	Assert.assertArrayEquals(peerSenderId, peerSenderIdFromResponse);
         	
@@ -1559,7 +1917,7 @@ public class PlugtestClientGroupOSCORE {
 	        }
 	        peerAuthCredRetrievedBytes = peerAuthCredRetrieved.GetByteString();
 	        switch (credFmt) {
-	            case Constants.COSE_HEADER_PARAM_CCS:
+	            case Constants.COSE_HEADER_PARAM_KCCS:
 	            	CBORObject ccs = CBORObject.DecodeFromBytes(peerAuthCredRetrievedBytes);
 	                if (ccs.getType() == CBORType.Map) {
 	                	// Retrieve the public key from the CCS
@@ -1569,7 +1927,7 @@ public class PlugtestClientGroupOSCORE {
 	                    Assert.fail("Invalid format of authentication credential");
 	                }
 	                break;
-	            case Constants.COSE_HEADER_PARAM_CWT:
+	            case Constants.COSE_HEADER_PARAM_KCWT:
 	            	CBORObject cwt = CBORObject.DecodeFromBytes(peerAuthCredRetrievedBytes);
 	                if (cwt.getType() == CBORType.Array) {
 	                    // Retrieve the public key from the CWT
@@ -1605,53 +1963,53 @@ public class PlugtestClientGroupOSCORE {
                 Assert.assertEquals(peerPublicKey.get(KeyKeys.OKP_X.AsCBOR()), peerPublicKeyRetrieved.get(KeyKeys.OKP_X.AsCBOR()));
             }
         	
-			Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.PEER_ROLES)));
-            Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(Constants.PEER_ROLES)).getType());
-            Assert.assertEquals(2, joinResponse.get(CBORObject.FromObject(Constants.PEER_ROLES)).size());
+			Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.PEER_ROLES)));
+            Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_ROLES)).getType());
+            Assert.assertEquals(2, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_ROLES)).size());
             
             int expectedRoles = 0;
-            expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_REQUESTER);
-            expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_RESPONDER);
-            Assert.assertEquals(expectedRoles, joinResponse.get(CBORObject.FromObject(Constants.PEER_ROLES)).get(0).AsInt32());
+            expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+            expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
+            Assert.assertEquals(expectedRoles, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_ROLES)).get(0).AsInt32());
             expectedRoles = 0;
-            expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_REQUESTER);
-            Assert.assertEquals(expectedRoles, joinResponse.get(CBORObject.FromObject(Constants.PEER_ROLES)).get(1).AsInt32());
+            expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+            Assert.assertEquals(expectedRoles, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_ROLES)).get(1).AsInt32());
         	
         }
         else {
-        	Assert.assertEquals(false, joinResponse.ContainsKey(CBORObject.FromObject(Constants.CREDS)));
-			Assert.assertEquals(false, joinResponse.ContainsKey(CBORObject.FromObject(Constants.PEER_ROLES)));
+        	Assert.assertEquals(false, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.CREDS)));
+			Assert.assertEquals(false, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.PEER_ROLES)));
         }
         
-		Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.GROUP_POLICIES)));
-        Assert.assertEquals(3600, joinResponse.get(CBORObject.FromObject(Constants.GROUP_POLICIES)).get(CBORObject.FromObject(Constants.POLICY_KEY_CHECK_INTERVAL)).AsInt32());
-        Assert.assertEquals(0, joinResponse.get(CBORObject.FromObject(Constants.GROUP_POLICIES)).get(CBORObject.FromObject(Constants.POLICY_EXP_DELTA)).AsInt32());
+		Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.GROUP_POLICIES)));
+        Assert.assertEquals(3600, joinResponse.get(CBORObject.FromObject(GroupcommParameters.GROUP_POLICIES)).get(CBORObject.FromObject(GroupcommPolicies.KEY_CHECK_INTERVAL)).AsInt32());
+        Assert.assertEquals(0, joinResponse.get(CBORObject.FromObject(GroupcommParameters.GROUP_POLICIES)).get(CBORObject.FromObject(GroupcommPolicies.EXP_DELTA)).AsInt32());
         */
         // DEBUG: END SET OF ASSERTIONS
 		
         
 		// Check the proof-of-possession evidence over kdc_nonce, using the GM's public key
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.KDC_NONCE)));
-        Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(Constants.KDC_NONCE)).getType());
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.KDC_CRED)));
-        Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(Constants.KDC_CRED)).getType());
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.KDC_CRED_VERIFY)));
-		Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(Constants.KDC_CRED_VERIFY)).getType());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KDC_NONCE)));
+        Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_NONCE)).getType());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KDC_CRED)));
+        Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED)).getType());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KDC_CRED_VERIFY)));
+		Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED_VERIFY)).getType());
 	    
-	    Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.KEY)));
-        Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(Constants.KEY)).getType());
-	    Assert.assertEquals(true, joinResponse.get(CBORObject.FromObject(Constants.KEY)).
+	    Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KEY)));
+        Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).getType());
+	    Assert.assertEquals(true, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).
 	    		            ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)));
-        Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(Constants.KEY)).getType());
-        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(Constants.KEY)).
+        Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).getType());
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).
         					get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)).getType());
-        credFmt = joinResponse.get(CBORObject.FromObject(Constants.KEY)).
-							get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)).AsInt32();
+        credFmt = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).
+							       get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)).AsInt32();
 	    
         OneKey gmPublicKeyRetrieved = null;
-        byte[] kdcCredBytes = joinResponse.get(CBORObject.FromObject(Constants.KDC_CRED)).GetByteString();
+        byte[] kdcCredBytes = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED)).GetByteString();
         switch (credFmt) {
-            case Constants.COSE_HEADER_PARAM_CCS:
+            case Constants.COSE_HEADER_PARAM_KCCS:
                 CBORObject ccs = CBORObject.DecodeFromBytes(kdcCredBytes);
                 if (ccs.getType() == CBORType.Map) {
                     // Retrieve the public key from the CCS
@@ -1661,7 +2019,7 @@ public class PlugtestClientGroupOSCORE {
                     Assert.fail("Invalid format of Group Manager authentication credential");
                 }
                 break;
-            case Constants.COSE_HEADER_PARAM_CWT:
+            case Constants.COSE_HEADER_PARAM_KCWT:
                 CBORObject cwt = CBORObject.DecodeFromBytes(kdcCredBytes);
                 if (cwt.getType() == CBORType.Array) {
                     // Retrieve the public key from the CWT
@@ -1681,15 +2039,20 @@ public class PlugtestClientGroupOSCORE {
         if (gmPublicKeyRetrieved == null)
         	Assert.fail("Invalid format of Group Manager authentication credential");
         
-        PublicKey gmPublicKey = gmPublicKeyRetrieved.AsPublicKey();
-	
-	    byte[] gmNonce = joinResponse.get(CBORObject.FromObject(Constants.KDC_NONCE)).GetByteString();
+    	PublicKey gmPublicKey = gmPublicKeyRetrieved.AsPublicKey();
+    	
+        int offset = 0;
+		byte[] serializedGMNonceCBOR = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_NONCE)).EncodeToBytes();
+		byte[] signedContent = new byte[serializedCNonceCBOR.length +serializedGMNonceCBOR.length];
+		System.arraycopy(serializedCNonceCBOR, 0, signedContent, offset, serializedCNonceCBOR.length);
+		offset += serializedCNonceCBOR.length;
+		System.arraycopy(serializedGMNonceCBOR, 0, signedContent, offset, serializedGMNonceCBOR.length);
 		
-	    CBORObject gmPopEvidence = joinResponse.get(CBORObject.FromObject(Constants.KDC_CRED_VERIFY));
-	    byte[] rawGmPopEvidence = gmPopEvidence.GetByteString();
-        
+    	CBORObject gmPopEvidence = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED_VERIFY));
+    	byte[] rawGmPopEvidence = gmPopEvidence.GetByteString();
+	    
         // Invalid Client's PoP signature
-        if (!Util.verifySignature(signKeyCurve, gmPublicKey, gmNonce, rawGmPopEvidence)) {
+        if (!Util.verifySignature(signKeyCurve, gmPublicKey, signedContent, rawGmPopEvidence)) {
         	Assert.fail("Invalid GM's PoP evidence");
         }
         
@@ -1719,14 +2082,14 @@ public class PlugtestClientGroupOSCORE {
     	scopeEntry.Add(groupName);
     	
     	int myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	scopeEntry.Add(myRoles);
     	
     	cborArrayScope.Add(scopeEntry);
     	byte[] byteStringScope = cborArrayScope.EncodeToBytes();
         params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
-        params.put(Constants.AUD, CBORObject.FromObject("aud2"));
+        params.put(Constants.AUD, CBORObject.FromObject("aud4"));
         
         params.put(Constants.CTI, CBORObject.FromObject("tokenPostRPKGOMR".getBytes(Constants.charset)));
         params.put(Constants.ISS, CBORObject.FromObject("TestAS"));
@@ -1737,7 +2100,7 @@ public class PlugtestClientGroupOSCORE {
         CWT token = new CWT(params);
         CBORObject payload;
         
-        // The payload is a CBOR including also the Access Token
+        // The payload is a CBOR map including also the Access Token
         payload = CBORObject.NewMap();
         payload.Add(Constants.ACCESS_TOKEN, token.encode(ctx1));
         if (askForSignInfo)
@@ -1747,8 +2110,10 @@ public class PlugtestClientGroupOSCORE {
         
         rsAuthzInfo =  "coap://" + rsAddr + ":" + portNumberRSnosec + "/authz-info";
         
-        CoapResponse r = DTLSProfileRequests.postToken(rsAuthzInfo, payload, null);
-        printResponseFromRS(r);
+        CoapResponse r = DTLSProfileRequests.postToken(rsAuthzInfo, payload, Constants.APPLICATION_ACE_CBOR, null);
+        
+        System.out.println("*** Response from the RS *** ");
+        Util.printResponsePayloadCBOR(r.advanced());
         
         CBORObject cbor = CBORObject.DecodeFromBytes(r.getPayload());
         
@@ -1756,9 +2121,6 @@ public class PlugtestClientGroupOSCORE {
         // DEBUG: START SET OF ASSERTIONS
         /*
         Assert.assertNotNull(cbor);
-        CBORObject cti = cbor.get(CBORObject.FromObject(Constants.CTI));
-        Assert.assertArrayEquals("tokenPostRPKGOMR".getBytes(Constants.charset), cti.GetByteString());
-        
         Assert.assertEquals(true, cbor.ContainsKey(CBORObject.FromObject(Constants.KDCCHALLENGE)));
         Assert.assertEquals(CBORType.ByteString, cbor.get(CBORObject.FromObject(Constants.KDCCHALLENGE)).getType());
         */
@@ -1827,7 +2189,7 @@ public class PlugtestClientGroupOSCORE {
         }
         
         
-        final CBORObject credFmtExpected = CBORObject.FromObject(Constants.COSE_HEADER_PARAM_CCS);
+        final CBORObject credFmtExpected = CBORObject.FromObject(Constants.COSE_HEADER_PARAM_KCCS);
         
         
         // DEBUG: START SET OF ASSERTIONS
@@ -1921,12 +2283,18 @@ public class PlugtestClientGroupOSCORE {
         cborArrayScope.Add(groupName);
         
         myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayScope.Add(myRoles);
     	
     	byteStringScope = cborArrayScope.EncodeToBytes();
-        requestPayload.Add(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        requestPayload.Add(GroupcommParameters.SCOPE, CBORObject.FromObject(byteStringScope));
+        
+    	// Add cnonce
+        byte[] cnonce = new byte[8];
+        new SecureRandom().nextBytes(cnonce);
+        requestPayload.Add(GroupcommParameters.CNONCE, cnonce);
+        byte[] serializedCNonceCBOR = CBORObject.FromObject(cnonce).EncodeToBytes();
         
         if (askForAuthCreds) {
         	
@@ -1937,15 +2305,15 @@ public class PlugtestClientGroupOSCORE {
             getCreds.Add(CBORObject.NewArray());
             // The following is required to retrieve the authentication credentials of both the already present group members
             myRoles = 0;
-            myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
+            myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
             getCreds.get(1).Add(myRoles);            
-            myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-        	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+            myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+        	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
         	getCreds.get(1).Add(myRoles);
             
         	getCreds.Add(CBORObject.NewArray()); // This must be empty
             
-            requestPayload.Add(Constants.GET_CREDS, getCreds);
+            requestPayload.Add(GroupcommParameters.GET_CREDS, getCreds);
         	
         }
         
@@ -1959,11 +2327,11 @@ public class PlugtestClientGroupOSCORE {
         	//       encoding in byte lexicographic order, and it has to be adjusted offline
         	OneKey publicKey = C1keyPair.PublicKey();
         	switch (credFmtExpected.AsInt32()) {
-        	    case Constants.COSE_HEADER_PARAM_CCS:
+        	    case Constants.COSE_HEADER_PARAM_KCCS:
         	        // Build a CCS including the public key
         	        authCred = Util.oneKeyToCCS(publicKey, "");
         	        break;
-        	    case Constants.COSE_HEADER_PARAM_CWT:
+        	    case Constants.COSE_HEADER_PARAM_KCWT:
         	        // Build a CWT including the public key
         	        // TODO
         	        break;
@@ -1975,7 +2343,7 @@ public class PlugtestClientGroupOSCORE {
         	*/
 
         	switch (credFmtExpected.AsInt32()) {
-	        	case Constants.COSE_HEADER_PARAM_CCS:
+	        	case Constants.COSE_HEADER_PARAM_KCCS:
 	        	    // A CCS including the public key
 	        	    if (signKeyCurve == KeyKeys.EC2_P256.AsInt32()) {
 	        	    	authCred = net.i2p.crypto.eddsa.Utils.hexToBytes("A2026008A101A5010203262001215820E8F9A8D5850A533CDA24B9FA8A1EE293F6A0E1E81E1E560A64FF134D65F7ECEC225820164A6D5D4B97F56D1F60A12811D55DE7A055EBAC6164C9EF9302CBCBFF1F0ABE");
@@ -1984,7 +2352,7 @@ public class PlugtestClientGroupOSCORE {
 	        	    	authCred = net.i2p.crypto.eddsa.Utils.hexToBytes("A2026008A101A4010103272006215820069E912B83963ACC5941B63546867DEC106E5B9051F2EE14F3BC5CC961ACD43A");
 	        	    }
 	        	    break;
-	        	case Constants.COSE_HEADER_PARAM_CWT:
+	        	case Constants.COSE_HEADER_PARAM_KCWT:
 	        	    // A CWT including the public key
 	        	    // TODO
 	        		authCred = null;
@@ -1996,13 +2364,7 @@ public class PlugtestClientGroupOSCORE {
 	        	    break;
         	}
 
-        	requestPayload.Add(Constants.CLIENT_CRED, CBORObject.FromObject(authCred));
-        	
-        	
-        	// Add the nonce for PoP of the Client's private key
-            byte[] cnonce = new byte[8];
-            new SecureRandom().nextBytes(cnonce);
-            requestPayload.Add(Constants.CNONCE, cnonce);
+        	requestPayload.Add(GroupcommParameters.CLIENT_CRED, CBORObject.FromObject(authCred));
             
             // Add the signature computed over (scope | rsnonce | cnonce), using the Client's private key
             int offset = 0;
@@ -2010,20 +2372,19 @@ public class PlugtestClientGroupOSCORE {
             
             byte[] serializedScopeCBOR = CBORObject.FromObject(byteStringScope).EncodeToBytes();
             byte[] serializedGMNonceCBOR = CBORObject.FromObject(gm_sign_nonce).EncodeToBytes();
-            byte[] serializedCNonceCBOR = CBORObject.FromObject(cnonce).EncodeToBytes();
-       	    byte [] dataToSign = new byte [serializedScopeCBOR.length +
-       	                                   serializedGMNonceCBOR.length +
-       	                                   serializedCNonceCBOR.length];
-       	    System.arraycopy(serializedScopeCBOR, 0, dataToSign, offset, serializedScopeCBOR.length);
+       	    byte[] popInput = new byte[serializedScopeCBOR.length +
+       	                               serializedGMNonceCBOR.length +
+       	                               serializedCNonceCBOR.length];
+       	    System.arraycopy(serializedScopeCBOR, 0, popInput, offset, serializedScopeCBOR.length);
        	    offset += serializedScopeCBOR.length;
-       	    System.arraycopy(serializedGMNonceCBOR, 0, dataToSign, offset, serializedGMNonceCBOR.length);
+       	    System.arraycopy(serializedGMNonceCBOR, 0, popInput, offset, serializedGMNonceCBOR.length);
        	    offset += serializedGMNonceCBOR.length;
-       	    System.arraycopy(serializedCNonceCBOR, 0, dataToSign, offset, serializedCNonceCBOR.length);
+       	    System.arraycopy(serializedCNonceCBOR, 0, popInput, offset, serializedCNonceCBOR.length);
        	   
-       	    byte[] clientSignature = Util.computeSignature(signKeyCurve, privKey, dataToSign);
+       	    byte[] popEvidence = Util.computeSignature(signKeyCurve, privKey, popInput);
             
-            if (clientSignature != null)
-            	requestPayload.Add(Constants.CLIENT_CRED_VERIFY, clientSignature);
+            if (popEvidence != null)
+            	requestPayload.Add(GroupcommParameters.CLIENT_CRED_VERIFY, popEvidence);
         	else
         		Assert.fail("Computed signature is empty");
         	
@@ -2038,10 +2399,12 @@ public class PlugtestClientGroupOSCORE {
 	        System.out.println(r2.getOptions().getLocationPathString());
         }
         
-        printResponseFromRS(r2);
+        System.out.println("*** Response from the RS *** ");
+        Util.printResponsePayloadCBOR(r2.advanced());
         
-
-        Assert.assertEquals("CREATED", r2.getCode().name());
+        String expectedCodes[] = {"CREATED", "CHANGED"};
+        List<String> expectedCodesList = Arrays.asList(expectedCodes);
+        assertTrue(expectedCodesList.contains(r2.getCode().name()));
 
         byte[] responsePayload = r2.getPayload();
         CBORObject joinResponse = CBORObject.DecodeFromBytes(responsePayload);
@@ -2052,20 +2415,20 @@ public class PlugtestClientGroupOSCORE {
         
         // DEBUG: START SET OF ASSERTIONS
         /*
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.GKTY)));
-        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(Constants.GKTY)).getType());
-        Assert.assertEquals(Constants.GROUP_OSCORE_INPUT_MATERIAL_OBJECT, joinResponse.get(CBORObject.FromObject(Constants.GKTY)).AsInt32());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.GKTY)));
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.GKTY)).getType());
+        Assert.assertEquals(GroupcommParameters.GROUP_OSCORE_INPUT_MATERIAL_OBJECT, joinResponse.get(CBORObject.FromObject(GroupcommParameters.GKTY)).AsInt32());
         
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.KEY)));
-        Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(Constants.KEY)).getType());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KEY)));
+        Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).getType());
         
-        CBORObject myMap = joinResponse.get(CBORObject.FromObject(Constants.KEY));
+        CBORObject myMap = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY));
         
         // Sanity check
     	Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.ms)));
         Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.group_SenderID)));
         Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.hkdf)));
-        Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.sign_enc_alg)));
+        Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.gp_enc_alg)));
         Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.salt)));
         Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.contextId)));
         Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.sign_alg)));
@@ -2082,7 +2445,7 @@ public class PlugtestClientGroupOSCORE {
         // Check the presence, type and value of the signature key encoding
         Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)));
         Assert.assertEquals(CBORType.Integer, myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)).getType());        
-        Assert.assertEquals(CBORObject.FromObject(Constants.COSE_HEADER_PARAM_CCS), myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)));
+        Assert.assertEquals(CBORObject.FromObject(Constants.COSE_HEADER_PARAM_KCCS), myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)));
 
         credFmt = myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)).AsInt32();
 
@@ -2098,7 +2461,7 @@ public class PlugtestClientGroupOSCORE {
     	final AlgorithmID hkdf = AlgorithmID.HMAC_SHA_256;
     	
     	
-    	final AlgorithmID signEncAlg = AlgorithmID.AES_CCM_16_64_128;
+    	final AlgorithmID gpEncAlg = AlgorithmID.AES_CCM_16_64_128;
     	AlgorithmID signAlg = null;
     	CBORObject signAlgCapabilities = CBORObject.NewArray();
     	CBORObject signKeyCapabilities = CBORObject.NewArray();
@@ -2151,7 +2514,7 @@ public class PlugtestClientGroupOSCORE {
     	Assert.assertArrayEquals(senderId, myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.group_SenderID)).GetByteString());
     	
         Assert.assertEquals(hkdf.AsCBOR(), myMap.get(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.hkdf)));
-        Assert.assertEquals(signEncAlg.AsCBOR(), myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.sign_enc_alg)));
+        Assert.assertEquals(gpEncAlg.AsCBOR(), myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.gp_enc_alg)));
         Assert.assertArrayEquals(masterSalt, myMap.get(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.salt)).GetByteString());
         Assert.assertArrayEquals(groupId, myMap.get(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.contextId)).GetByteString());
         Assert.assertNotNull(signAlg);
@@ -2165,18 +2528,21 @@ public class PlugtestClientGroupOSCORE {
         if (myMap.ContainsKey(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.salt)) == false)
         	myMap.Add(OSCOREInputMaterialObjectParameters.salt, CBORObject.FromObject(new byte[0]));
         
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.NUM)));
-        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(Constants.NUM)).getType());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.NUM)));
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.NUM)).getType());
         // This assumes that the Group Manager did not rekeyed the group upon previous nodes' joining
-        Assert.assertEquals(0, joinResponse.get(CBORObject.FromObject(Constants.NUM)).AsInt32());
+        Assert.assertEquals(0, joinResponse.get(CBORObject.FromObject(GroupcommParameters.NUM)).AsInt32());
         
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.ACE_GROUPCOMM_PROFILE)));
-        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(Constants.ACE_GROUPCOMM_PROFILE)).getType());
-        Assert.assertEquals(Constants.COAP_GROUP_OSCORE_APP, joinResponse.get(CBORObject.FromObject(Constants.ACE_GROUPCOMM_PROFILE)).AsInt32());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.ACE_GROUPCOMM_PROFILE)));
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.ACE_GROUPCOMM_PROFILE)).getType());
+        Assert.assertEquals(GroupcommParameters.COAP_GROUP_OSCORE_APP, joinResponse.get(CBORObject.FromObject(GroupcommParameters.ACE_GROUPCOMM_PROFILE)).AsInt32());
         
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.EXP)));
-        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(Constants.EXP)).getType());
-        Assert.assertEquals(1000000, joinResponse.get(CBORObject.FromObject(Constants.EXP)).AsInt32());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.EXP)));
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.EXP)).getType());
+		Assert.assertEquals(2682374400L, joinResponse.get(CBORObject.FromObject(GroupcommParameters.EXP)).AsInt64Value());
+
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.EXI)));
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.EXI)).getType());
         
         if (myMap.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.sign_params))) {
             Assert.assertEquals(CBORType.Array, myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.sign_params)).getType());
@@ -2190,15 +2556,15 @@ public class PlugtestClientGroupOSCORE {
         CBORObject authCredsArray = null;
         
         if (askForAuthCreds) {
-        	Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.CREDS)));
-        	Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(Constants.CREDS)).getType());
+        	Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.CREDS)));
+        	Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(GroupcommParameters.CREDS)).getType());
         	
-        	authCredsArray = joinResponse.get(CBORObject.FromObject(Constants.CREDS));
+        	authCredsArray = joinResponse.get(CBORObject.FromObject(GroupcommParameters.CREDS));
             Assert.assertEquals(2, authCredsArray.size());
         	
-        	Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.PEER_IDENTIFIERS)));
-			Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(Constants.PEER_IDENTIFIERS)).getType());
-			Assert.assertEquals(2, joinResponse.get(CBORObject.FromObject(Constants.PEER_IDENTIFIERS)).size());
+        	Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.PEER_IDENTIFIERS)));
+			Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_IDENTIFIERS)).getType());
+			Assert.assertEquals(2, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_IDENTIFIERS)).size());
         	
         	byte[] peerSenderId;
         	OneKey peerPublicKey;
@@ -2208,7 +2574,7 @@ public class PlugtestClientGroupOSCORE {
         	
         	peerSenderId = idClient3;
         	peerSenderIdFromResponse = joinResponse.
-                            get(CBORObject.FromObject(Constants.PEER_IDENTIFIERS)).get(0).GetByteString();
+                            get(CBORObject.FromObject(GroupcommParameters.PEER_IDENTIFIERS)).get(0).GetByteString();
         	peerPublicKey = C3pubKey;
         	Assert.assertArrayEquals(peerSenderId, peerSenderIdFromResponse);
         	
@@ -2218,7 +2584,7 @@ public class PlugtestClientGroupOSCORE {
 	        }
 	        byte[] peerAuthCredRetrievedBytes = peerAuthCredRetrieved.GetByteString();
 	        switch (credFmt) {
-	            case Constants.COSE_HEADER_PARAM_CCS:
+	            case Constants.COSE_HEADER_PARAM_KCCS:
 	            	CBORObject ccs = CBORObject.DecodeFromBytes(peerAuthCredRetrievedBytes);
 	                if (ccs.getType() == CBORType.Map) {
 	                	// Retrieve the public key from the CCS
@@ -2228,7 +2594,7 @@ public class PlugtestClientGroupOSCORE {
 	                    Assert.fail("Invalid format of authentication credential");
 	                }
 	                break;
-	            case Constants.COSE_HEADER_PARAM_CWT:
+	            case Constants.COSE_HEADER_PARAM_KCWT:
 	            	CBORObject cwt = CBORObject.DecodeFromBytes(peerAuthCredRetrievedBytes);
 	                if (cwt.getType() == CBORType.Array) {
 	                    // Retrieve the public key from the CWT
@@ -2266,7 +2632,7 @@ public class PlugtestClientGroupOSCORE {
         	
         	peerSenderId = idClient2;
         	peerSenderIdFromResponse = joinResponse.
-                            get(CBORObject.FromObject(Constants.PEER_IDENTIFIERS)).get(1).GetByteString();
+                            get(CBORObject.FromObject(GroupcommParameters.PEER_IDENTIFIERS)).get(1).GetByteString();
         	peerPublicKey = C2pubKey;
         	Assert.assertArrayEquals(peerSenderId, peerSenderIdFromResponse);
             
@@ -2276,7 +2642,7 @@ public class PlugtestClientGroupOSCORE {
 	        }
 	        peerAuthCredRetrievedBytes = peerAuthCredRetrieved.GetByteString();
 	        switch (credFmt) {
-	            case Constants.COSE_HEADER_PARAM_CCS:
+	            case Constants.COSE_HEADER_PARAM_KCCS:
 	            	CBORObject ccs = CBORObject.DecodeFromBytes(peerAuthCredRetrievedBytes);
 	                if (ccs.getType() == CBORType.Map) {
 	                	// Retrieve the public key from the CCS
@@ -2286,7 +2652,7 @@ public class PlugtestClientGroupOSCORE {
 	                    Assert.fail("Invalid format of authentication credential");
 	                }
 	                break;
-	            case Constants.COSE_HEADER_PARAM_CWT:
+	            case Constants.COSE_HEADER_PARAM_KCWT:
 	            	CBORObject cwt = CBORObject.DecodeFromBytes(peerAuthCredRetrievedBytes);
 	                if (cwt.getType() == CBORType.Array) {
 	                    // Retrieve the public key from the CWT
@@ -2322,54 +2688,54 @@ public class PlugtestClientGroupOSCORE {
                 Assert.assertEquals(peerPublicKey.get(KeyKeys.OKP_X.AsCBOR()), peerPublicKeyRetrieved.get(KeyKeys.OKP_X.AsCBOR()));
             }
            
-            Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.PEER_ROLES)));
-            Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(Constants.PEER_ROLES)).getType());
-            Assert.assertEquals(2, joinResponse.get(CBORObject.FromObject(Constants.PEER_ROLES)).size());
+            Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.PEER_ROLES)));
+            Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_ROLES)).getType());
+            Assert.assertEquals(2, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_ROLES)).size());
             
             int expectedRoles = 0;
-            expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_REQUESTER);
-            expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_RESPONDER);
-            Assert.assertEquals(expectedRoles, joinResponse.get(CBORObject.FromObject(Constants.PEER_ROLES)).get(0).AsInt32());
+            expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+            expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
+            Assert.assertEquals(expectedRoles, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_ROLES)).get(0).AsInt32());
             
             expectedRoles = 0;
-            expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_REQUESTER);
-            Assert.assertEquals(expectedRoles, joinResponse.get(CBORObject.FromObject(Constants.PEER_ROLES)).get(1).AsInt32());
+            expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+            Assert.assertEquals(expectedRoles, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_ROLES)).get(1).AsInt32());
         	
         }
         else {
-        	Assert.assertEquals(false, joinResponse.ContainsKey(CBORObject.FromObject(Constants.CREDS)));
-        	Assert.assertEquals(false, joinResponse.ContainsKey(CBORObject.FromObject(Constants.PEER_ROLES)));
+        	Assert.assertEquals(false, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.CREDS)));
+        	Assert.assertEquals(false, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.PEER_ROLES)));
         }
         
-		Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.GROUP_POLICIES)));
-        Assert.assertEquals(3600, joinResponse.get(CBORObject.FromObject(Constants.GROUP_POLICIES)).get(CBORObject.FromObject(Constants.POLICY_KEY_CHECK_INTERVAL)).AsInt32());
-        Assert.assertEquals(0, joinResponse.get(CBORObject.FromObject(Constants.GROUP_POLICIES)).get(CBORObject.FromObject(Constants.POLICY_EXP_DELTA)).AsInt32());
+		Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.GROUP_POLICIES)));
+        Assert.assertEquals(3600, joinResponse.get(CBORObject.FromObject(GroupcommParameters.GROUP_POLICIES)).get(CBORObject.FromObject(GroupcommPolicies.KEY_CHECK_INTERVAL)).AsInt32());
+        Assert.assertEquals(0, joinResponse.get(CBORObject.FromObject(GroupcommParameters.GROUP_POLICIES)).get(CBORObject.FromObject(GroupcommPolicies.EXP_DELTA)).AsInt32());
         */
         // DEBUG: END SET OF ASSERTIONS
 		
         
         // Check the proof-of-possession evidence over kdc_nonce, using the GM's public key
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.KDC_NONCE)));
-        Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(Constants.KDC_NONCE)).getType());
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.KDC_CRED)));
-        Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(Constants.KDC_CRED)).getType());
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.KDC_CRED_VERIFY)));
-		Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(Constants.KDC_CRED_VERIFY)).getType());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KDC_NONCE)));
+        Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_NONCE)).getType());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KDC_CRED)));
+        Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED)).getType());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KDC_CRED_VERIFY)));
+		Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED_VERIFY)).getType());
         
-	    Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.KEY)));
-        Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(Constants.KEY)).getType());
-	    Assert.assertEquals(true, joinResponse.get(CBORObject.FromObject(Constants.KEY)).
+	    Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KEY)));
+        Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).getType());
+	    Assert.assertEquals(true, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).
 	    		                  ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)));
-        Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(Constants.KEY)).getType());
-        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(Constants.KEY)).
+        Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).getType());
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).
         					get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)).getType());
-        credFmt = joinResponse.get(CBORObject.FromObject(Constants.KEY)).
-							get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)).AsInt32();
+        credFmt = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).
+							       get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)).AsInt32();
 	    
         OneKey gmPublicKeyRetrieved = null;
-        byte[] kdcCredBytes = joinResponse.get(CBORObject.FromObject(Constants.KDC_CRED)).GetByteString();
+        byte[] kdcCredBytes = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED)).GetByteString();
         switch (credFmt) {
-            case Constants.COSE_HEADER_PARAM_CCS:
+            case Constants.COSE_HEADER_PARAM_KCCS:
                 CBORObject ccs = CBORObject.DecodeFromBytes(kdcCredBytes);
                 if (ccs.getType() == CBORType.Map) {
                     // Retrieve the public key from the CCS
@@ -2379,7 +2745,7 @@ public class PlugtestClientGroupOSCORE {
                     Assert.fail("Invalid format of Group Manager authentication credential");
                 }
                 break;
-            case Constants.COSE_HEADER_PARAM_CWT:
+            case Constants.COSE_HEADER_PARAM_KCWT:
                 CBORObject cwt = CBORObject.DecodeFromBytes(kdcCredBytes);
                 if (cwt.getType() == CBORType.Array) {
                     // Retrieve the public key from the CWT
@@ -2399,15 +2765,20 @@ public class PlugtestClientGroupOSCORE {
         if (gmPublicKeyRetrieved == null)
         	Assert.fail("Invalid format of Group Manager authentication credential");
         
-        PublicKey gmPublicKey = gmPublicKeyRetrieved.AsPublicKey();
-	
-	    byte[] gmNonce = joinResponse.get(CBORObject.FromObject(Constants.KDC_NONCE)).GetByteString();
+    	PublicKey gmPublicKey = gmPublicKeyRetrieved.AsPublicKey();
+    	
+        int offset = 0;
+		byte[] serializedGMNonceCBOR = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_NONCE)).EncodeToBytes();
+		byte[] signedContent = new byte[serializedCNonceCBOR.length +serializedGMNonceCBOR.length];
+		System.arraycopy(serializedCNonceCBOR, 0, signedContent, offset, serializedCNonceCBOR.length);
+		offset += serializedCNonceCBOR.length;
+		System.arraycopy(serializedGMNonceCBOR, 0, signedContent, offset, serializedGMNonceCBOR.length);
 		
-	    CBORObject gmPopEvidence = joinResponse.get(CBORObject.FromObject(Constants.KDC_CRED_VERIFY));
-	    byte[] rawGmPopEvidence = gmPopEvidence.GetByteString();
-        
+    	CBORObject gmPopEvidence = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED_VERIFY));
+    	byte[] rawGmPopEvidence = gmPopEvidence.GetByteString();
+	    
         // Invalid Client's PoP signature
-        if (!Util.verifySignature(signKeyCurve, gmPublicKey, gmNonce, rawGmPopEvidence)) {
+        if (!Util.verifySignature(signKeyCurve, gmPublicKey, signedContent, rawGmPopEvidence)) {
         	Assert.fail("Invalid GM's PoP evidence");
         }
         
@@ -2438,13 +2809,13 @@ public class PlugtestClientGroupOSCORE {
         scopeEntry.Add(groupName);
         
         int myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
     	scopeEntry.Add(myRoles);
         
         cborArrayScope.Add(scopeEntry);
         byte[] byteStringScope = cborArrayScope.EncodeToBytes();
         params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
-        params.put(Constants.AUD, CBORObject.FromObject("aud2"));
+        params.put(Constants.AUD, CBORObject.FromObject("aud4"));
         
         params.put(Constants.CTI, CBORObject.FromObject("tokenPostPSKGOSR".getBytes(Constants.charset)));
         params.put(Constants.ISS, CBORObject.FromObject("TestAS"));
@@ -2455,7 +2826,7 @@ public class PlugtestClientGroupOSCORE {
         CWT token = new CWT(params);
         CBORObject payload;
         
-        // The payload is a CBOR including also the Access Token
+        // The payload is a CBOR map including also the Access Token
         payload = CBORObject.NewMap();
         payload.Add(Constants.ACCESS_TOKEN, token.encode(ctx1));
         if (askForSignInfo)
@@ -2465,20 +2836,17 @@ public class PlugtestClientGroupOSCORE {
         
         rsAuthzInfo =  "coap://" + rsAddr + ":" + portNumberRSnosec + "/authz-info";
         
-        CoapResponse r = DTLSProfileRequests.postToken(rsAuthzInfo, payload, null);
-        printResponseFromRS(r);
+        CoapResponse r = DTLSProfileRequests.postToken(rsAuthzInfo, payload, Constants.APPLICATION_ACE_CBOR, null);
+        
+        System.out.println("*** Response from the RS *** ");
+        Util.printResponsePayloadCBOR(r.advanced());
         
         CBORObject cbor = CBORObject.DecodeFromBytes(r.getPayload());
         
         
         // DEBUG: START SET OF ASSERTIONS
         /*
-        Assert.assertNotNull(cbor);
-        CBORObject cti = cbor.get(CBORObject.FromObject(Constants.CTI));
-        
-        Assert.assertArrayEquals("tokenPostPSKGOSR".getBytes(Constants.charset), 
-                cti.GetByteString());
-        
+        Assert.assertNotNull(cbor);        
         Assert.assertEquals(true, cbor.ContainsKey(CBORObject.FromObject(Constants.KDCCHALLENGE)));
         Assert.assertEquals(CBORType.ByteString, cbor.get(CBORObject.FromObject(Constants.KDCCHALLENGE)).getType());
         */
@@ -2546,7 +2914,7 @@ public class PlugtestClientGroupOSCORE {
         ecdhKeyParamsExpected.Add(KeyKeys.OKP_X25519); // Curve
         }
         
-        final CBORObject credFmtExpected = CBORObject.FromObject(Constants.COSE_HEADER_PARAM_CCS);
+        final CBORObject credFmtExpected = CBORObject.FromObject(Constants.COSE_HEADER_PARAM_KCCS);
         
         
         // DEBUG: START SET OF ASSERTIONS
@@ -2641,11 +3009,17 @@ public class PlugtestClientGroupOSCORE {
         cborArrayScope.Add(groupName);
         
         myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
     	cborArrayScope.Add(myRoles);
     	        
         byteStringScope = cborArrayScope.EncodeToBytes();
-        requestPayload.Add(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        requestPayload.Add(GroupcommParameters.SCOPE, CBORObject.FromObject(byteStringScope));
+        
+    	// Add cnonce
+        byte[] cnonce = new byte[8];
+        new SecureRandom().nextBytes(cnonce);
+        requestPayload.Add(GroupcommParameters.CNONCE, cnonce);
+        byte[] serializedCNonceCBOR = CBORObject.FromObject(cnonce).EncodeToBytes();
         
         if (askForAuthCreds) {
         	
@@ -2656,15 +3030,15 @@ public class PlugtestClientGroupOSCORE {
             getCreds.Add(CBORObject.NewArray());
             // The following is required to retrieve the authentication credentials of both the already present group members 
             myRoles = 0;
-            myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
+            myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
             getCreds.get(1).Add(myRoles);            
-            myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-        	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+            myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+        	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
         	getCreds.get(1).Add(myRoles);
             
         	getCreds.Add(CBORObject.NewArray()); // This must be empty
 
-        	requestPayload.Add(Constants.GET_CREDS, getCreds);
+        	requestPayload.Add(GroupcommParameters.GET_CREDS, getCreds);
         	
         }
         
@@ -2678,11 +3052,11 @@ public class PlugtestClientGroupOSCORE {
         	//       encoding in byte lexicographic order, and it has to be adjusted offline
         	OneKey publicKey = C1keyPair.PublicKey();
         	switch (credFmtExpected.AsInt32()) {
-        	    case Constants.COSE_HEADER_PARAM_CCS:
+        	    case Constants.COSE_HEADER_PARAM_KCCS:
         	        // Build a CCS including the public key
         	        authCred = Util.oneKeyToCCS(publicKey, "");
         	        break;
-        	    case Constants.COSE_HEADER_PARAM_CWT:
+        	    case Constants.COSE_HEADER_PARAM_KCWT:
         	        // Build a CWT including the public key
         	        // TODO
         	        break;
@@ -2694,7 +3068,7 @@ public class PlugtestClientGroupOSCORE {
         	*/
 
         	switch (credFmtExpected.AsInt32()) {
-	        	case Constants.COSE_HEADER_PARAM_CCS:
+	        	case Constants.COSE_HEADER_PARAM_KCCS:
 	        	    // A CCS including the public key
 	        	    if (signKeyCurve == KeyKeys.EC2_P256.AsInt32()) {
 	        	    	authCred = net.i2p.crypto.eddsa.Utils.hexToBytes("A2026008A101A5010203262001215820E8F9A8D5850A533CDA24B9FA8A1EE293F6A0E1E81E1E560A64FF134D65F7ECEC225820164A6D5D4B97F56D1F60A12811D55DE7A055EBAC6164C9EF9302CBCBFF1F0ABE");
@@ -2703,7 +3077,7 @@ public class PlugtestClientGroupOSCORE {
 	        	    	authCred = net.i2p.crypto.eddsa.Utils.hexToBytes("A2026008A101A4010103272006215820069E912B83963ACC5941B63546867DEC106E5B9051F2EE14F3BC5CC961ACD43A");
 	        	    }
 	        	    break;
-	        	case Constants.COSE_HEADER_PARAM_CWT:
+	        	case Constants.COSE_HEADER_PARAM_KCWT:
 	        	    // A CWT including the public key
 	        	    // TODO
 	        		authCred = null;
@@ -2715,13 +3089,7 @@ public class PlugtestClientGroupOSCORE {
 	        	    break;
         	}
 
-        	requestPayload.Add(Constants.CLIENT_CRED, CBORObject.FromObject(authCred));
-        	
-        	
-        	// Add the nonce for PoP of the Client's private key
-            byte[] cnonce = new byte[8];
-            new SecureRandom().nextBytes(cnonce);
-            requestPayload.Add(Constants.CNONCE, cnonce);
+        	requestPayload.Add(GroupcommParameters.CLIENT_CRED, CBORObject.FromObject(authCred));
             
             // Add the signature computed over (scope | rsnonce | cnonce), using the Client's private key
             int offset = 0;
@@ -2729,20 +3097,19 @@ public class PlugtestClientGroupOSCORE {
             
             byte[] serializedScopeCBOR = CBORObject.FromObject(byteStringScope).EncodeToBytes();
             byte[] serializedGMNonceCBOR = CBORObject.FromObject(gm_sign_nonce).EncodeToBytes();
-            byte[] serializedCNonceCBOR = CBORObject.FromObject(cnonce).EncodeToBytes();
-       	    byte [] dataToSign = new byte [serializedScopeCBOR.length +
-       	                                   serializedGMNonceCBOR.length +
-       	                                   serializedCNonceCBOR.length];
-       	    System.arraycopy(serializedScopeCBOR, 0, dataToSign, offset, serializedScopeCBOR.length);
+       	    byte[] popInput = new byte[serializedScopeCBOR.length +
+       	                               serializedGMNonceCBOR.length +
+       	                               serializedCNonceCBOR.length];
+       	    System.arraycopy(serializedScopeCBOR, 0, popInput, offset, serializedScopeCBOR.length);
        	    offset += serializedScopeCBOR.length;
-       	    System.arraycopy(serializedGMNonceCBOR, 0, dataToSign, offset, serializedGMNonceCBOR.length);
+       	    System.arraycopy(serializedGMNonceCBOR, 0, popInput, offset, serializedGMNonceCBOR.length);
        	    offset += serializedGMNonceCBOR.length;
-       	    System.arraycopy(serializedCNonceCBOR, 0, dataToSign, offset, serializedCNonceCBOR.length);
+       	    System.arraycopy(serializedCNonceCBOR, 0, popInput, offset, serializedCNonceCBOR.length);
        	   
-       	    byte[] clientSignature = Util.computeSignature(signKeyCurve, privKey, dataToSign);
+       	    byte[] popEvidence = Util.computeSignature(signKeyCurve, privKey, popInput);
             
-            if (clientSignature != null)
-            	requestPayload.Add(Constants.CLIENT_CRED_VERIFY, clientSignature);
+            if (popEvidence != null)
+            	requestPayload.Add(GroupcommParameters.CLIENT_CRED_VERIFY, popEvidence);
         	else
         		Assert.fail("Computed signature is empty");
         	
@@ -2757,10 +3124,12 @@ public class PlugtestClientGroupOSCORE {
 	        System.out.println(r2.getOptions().getLocationPathString());
         }
         
-        printResponseFromRS(r2);
+        System.out.println("*** Response from the RS *** ");
+        Util.printResponsePayloadCBOR(r2.advanced());
         
-
-        Assert.assertEquals("CREATED", r2.getCode().name());
+        String expectedCodes[] = {"CREATED", "CHANGED"};
+        List<String> expectedCodesList = Arrays.asList(expectedCodes);
+        assertTrue(expectedCodesList.contains(r2.getCode().name()));
         
         byte[] responsePayload = r2.getPayload();
         CBORObject joinResponse = CBORObject.DecodeFromBytes(responsePayload);
@@ -2771,20 +3140,20 @@ public class PlugtestClientGroupOSCORE {
         
         // DEBUG: START SET OF ASSERTIONS
         /*
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.GKTY)));
-        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(Constants.GKTY)).getType());
-        Assert.assertEquals(Constants.GROUP_OSCORE_INPUT_MATERIAL_OBJECT, joinResponse.get(CBORObject.FromObject(Constants.GKTY)).AsInt32());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.GKTY)));
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.GKTY)).getType());
+        Assert.assertEquals(GroupcommParameters.GROUP_OSCORE_INPUT_MATERIAL_OBJECT, joinResponse.get(CBORObject.FromObject(GroupcommParameters.GKTY)).AsInt32());
         
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.KEY)));
-        Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(Constants.KEY)).getType());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KEY)));
+        Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).getType());
         
-        CBORObject myMap = joinResponse.get(CBORObject.FromObject(Constants.KEY));
+        CBORObject myMap = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY));
         
         // Sanity check
     	Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.ms)));
         Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.group_SenderID)));
         Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.hkdf)));
-        Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.sign_enc_alg)));
+        Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.gp_enc_alg)));
         Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.salt)));
         Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.contextId)));
         Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.sign_alg)));
@@ -2800,7 +3169,7 @@ public class PlugtestClientGroupOSCORE {
         // Check the presence, type and value of the signature key encoding
         Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)));
         Assert.assertEquals(CBORType.Integer, myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)).getType());        
-        Assert.assertEquals(CBORObject.FromObject(Constants.COSE_HEADER_PARAM_CCS), myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)));
+        Assert.assertEquals(CBORObject.FromObject(Constants.COSE_HEADER_PARAM_KCCS), myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)));
        
         credFmt = myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)).AsInt32();
                 
@@ -2816,7 +3185,7 @@ public class PlugtestClientGroupOSCORE {
     	final AlgorithmID hkdf = AlgorithmID.HMAC_SHA_256;
     	
     	
-    	final AlgorithmID signEncAlg = AlgorithmID.AES_CCM_16_64_128;
+    	final AlgorithmID gpEncAlg = AlgorithmID.AES_CCM_16_64_128;
     	AlgorithmID signAlg = null;
     	CBORObject signAlgCapabilities = CBORObject.NewArray();
     	CBORObject signKeyCapabilities = CBORObject.NewArray();
@@ -2869,7 +3238,7 @@ public class PlugtestClientGroupOSCORE {
     	Assert.assertArrayEquals(senderId, myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.group_SenderID)).GetByteString());
     	
         Assert.assertEquals(hkdf.AsCBOR(), myMap.get(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.hkdf)));
-        Assert.assertEquals(signEncAlg.AsCBOR(), myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.sign_enc_alg)));
+        Assert.assertEquals(gpEncAlg.AsCBOR(), myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.gp_enc_alg)));
         Assert.assertArrayEquals(masterSalt, myMap.get(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.salt)).GetByteString());
         Assert.assertArrayEquals(groupId, myMap.get(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.contextId)).GetByteString());
         Assert.assertNotNull(signAlg);
@@ -2883,19 +3252,22 @@ public class PlugtestClientGroupOSCORE {
         if (myMap.ContainsKey(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.salt)) == false)
         	myMap.Add(OSCOREInputMaterialObjectParameters.salt, CBORObject.FromObject(new byte[0]));
         
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.NUM)));
-        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(Constants.NUM)).getType());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.NUM)));
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.NUM)).getType());
         // This assumes that the Group Manager did not rekeyed the group upon previous nodes' joining
-        Assert.assertEquals(0, joinResponse.get(CBORObject.FromObject(Constants.NUM)).AsInt32());
+        Assert.assertEquals(0, joinResponse.get(CBORObject.FromObject(GroupcommParameters.NUM)).AsInt32());
         
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.ACE_GROUPCOMM_PROFILE)));
-        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(Constants.ACE_GROUPCOMM_PROFILE)).getType());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.ACE_GROUPCOMM_PROFILE)));
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.ACE_GROUPCOMM_PROFILE)).getType());
         // Assume that "coap_group_oscore" is registered with value 0 in the "ACE Groupcomm Profile" Registry of draft-ietf-ace-key-groupcomm
-        Assert.assertEquals(Constants.COAP_GROUP_OSCORE_APP, joinResponse.get(CBORObject.FromObject(Constants.ACE_GROUPCOMM_PROFILE)).AsInt32());
+        Assert.assertEquals(GroupcommParameters.COAP_GROUP_OSCORE_APP, joinResponse.get(CBORObject.FromObject(GroupcommParameters.ACE_GROUPCOMM_PROFILE)).AsInt32());
         
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.EXP)));
-        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(Constants.EXP)).getType());
-        Assert.assertEquals(1000000, joinResponse.get(CBORObject.FromObject(Constants.EXP)).AsInt32());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.EXP)));
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.EXP)).getType());
+        Assert.assertEquals(2682374400L, joinResponse.get(CBORObject.FromObject(GroupcommParameters.EXP)).AsInt64Value());
+        
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.EXI)));
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.EXI)).getType());
         
         if (myMap.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.sign_params))) {
             Assert.assertEquals(CBORType.Array, myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.sign_params)).getType());
@@ -2909,15 +3281,15 @@ public class PlugtestClientGroupOSCORE {
         CBORObject authCredsArray = null;
         
         if (askForAuthCreds) {
-        	Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.CREDS)));
-        	Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(Constants.CREDS)).getType());
+        	Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.CREDS)));
+        	Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(GroupcommParameters.CREDS)).getType());
         	
-        	authCredsArray = joinResponse.get(CBORObject.FromObject(Constants.CREDS));
+        	authCredsArray = joinResponse.get(CBORObject.FromObject(GroupcommParameters.CREDS));
             Assert.assertEquals(2, authCredsArray.size());
         	
-        	Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.PEER_IDENTIFIERS)));
-			Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(Constants.PEER_IDENTIFIERS)).getType());
-			Assert.assertEquals(2, joinResponse.get(CBORObject.FromObject(Constants.PEER_IDENTIFIERS)).size());
+        	Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.PEER_IDENTIFIERS)));
+			Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_IDENTIFIERS)).getType());
+			Assert.assertEquals(2, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_IDENTIFIERS)).size());
         	
         	byte[] peerSenderId;
         	OneKey peerPublicKey;
@@ -2927,7 +3299,7 @@ public class PlugtestClientGroupOSCORE {
         	
         	peerSenderId = idClient3;
         	peerSenderIdFromResponse = joinResponse.
-                            get(CBORObject.FromObject(Constants.PEER_IDENTIFIERS)).get(0).GetByteString();
+                            get(CBORObject.FromObject(GroupcommParameters.PEER_IDENTIFIERS)).get(0).GetByteString();
         	peerPublicKey = C3pubKey;
         	Assert.assertArrayEquals(peerSenderId, peerSenderIdFromResponse);
         	
@@ -2937,7 +3309,7 @@ public class PlugtestClientGroupOSCORE {
 	        }
 	        byte[] peerAuthCredRetrievedBytes = peerAuthCredRetrieved.GetByteString();
 	        switch (credFmt) {
-	            case Constants.COSE_HEADER_PARAM_CCS:
+	            case Constants.COSE_HEADER_PARAM_KCCS:
 	            	CBORObject ccs = CBORObject.DecodeFromBytes(peerAuthCredRetrievedBytes);
 	                if (ccs.getType() == CBORType.Map) {
 	                	// Retrieve the public key from the CCS
@@ -2947,7 +3319,7 @@ public class PlugtestClientGroupOSCORE {
 	                    Assert.fail("Invalid format of authentication credential");
 	                }
 	                break;
-	            case Constants.COSE_HEADER_PARAM_CWT:
+	            case Constants.COSE_HEADER_PARAM_KCWT:
 	            	CBORObject cwt = CBORObject.DecodeFromBytes(peerAuthCredRetrievedBytes);
 	                if (cwt.getType() == CBORType.Array) {
 	                    // Retrieve the public key from the CWT
@@ -2985,7 +3357,7 @@ public class PlugtestClientGroupOSCORE {
         	
         	peerSenderId = idClient2;
         	peerSenderIdFromResponse = joinResponse.
-                            get(CBORObject.FromObject(Constants.PEER_IDENTIFIERS)).get(1).GetByteString();
+                            get(CBORObject.FromObject(GroupcommParameters.PEER_IDENTIFIERS)).get(1).GetByteString();
         	peerPublicKey = C2pubKey;
         	Assert.assertArrayEquals(peerSenderId, peerSenderIdFromResponse);
         	
@@ -2995,7 +3367,7 @@ public class PlugtestClientGroupOSCORE {
 	        }
 	        peerAuthCredRetrievedBytes = peerAuthCredRetrieved.GetByteString();
 	        switch (credFmt) {
-	            case Constants.COSE_HEADER_PARAM_CCS:
+	            case Constants.COSE_HEADER_PARAM_KCCS:
 	            	CBORObject ccs = CBORObject.DecodeFromBytes(peerAuthCredRetrievedBytes);
 	                if (ccs.getType() == CBORType.Map) {
 	                	// Retrieve the public key from the CCS
@@ -3005,7 +3377,7 @@ public class PlugtestClientGroupOSCORE {
 	                    Assert.fail("Invalid format of authentication credential");
 	                }
 	                break;
-	            case Constants.COSE_HEADER_PARAM_CWT:
+	            case Constants.COSE_HEADER_PARAM_KCWT:
 	            	CBORObject cwt = CBORObject.DecodeFromBytes(peerAuthCredRetrievedBytes);
 	                if (cwt.getType() == CBORType.Array) {
 	                    // Retrieve the public key from the CWT
@@ -3041,53 +3413,53 @@ public class PlugtestClientGroupOSCORE {
                 Assert.assertEquals(peerPublicKey.get(KeyKeys.OKP_X.AsCBOR()), peerPublicKeyRetrieved.get(KeyKeys.OKP_X.AsCBOR()));
             }
             
-			Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.PEER_ROLES)));
-            Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(Constants.PEER_ROLES)).getType());
-            Assert.assertEquals(2, joinResponse.get(CBORObject.FromObject(Constants.PEER_ROLES)).size());
+			Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.PEER_ROLES)));
+            Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_ROLES)).getType());
+            Assert.assertEquals(2, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_ROLES)).size());
             
             int expectedRoles = 0;
-            expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_REQUESTER);
-            expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_RESPONDER);
-            Assert.assertEquals(expectedRoles, joinResponse.get(CBORObject.FromObject(Constants.PEER_ROLES)).get(0).AsInt32());
+            expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+            expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
+            Assert.assertEquals(expectedRoles, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_ROLES)).get(0).AsInt32());
             expectedRoles = 0;
-            expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_REQUESTER);
-            Assert.assertEquals(expectedRoles, joinResponse.get(CBORObject.FromObject(Constants.PEER_ROLES)).get(1).AsInt32());
+            expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+            Assert.assertEquals(expectedRoles, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_ROLES)).get(1).AsInt32());
         	
         }
         else {
-        	Assert.assertEquals(false, joinResponse.ContainsKey(CBORObject.FromObject(Constants.CREDS)));
-        	Assert.assertEquals(false, joinResponse.ContainsKey(CBORObject.FromObject(Constants.PEER_ROLES)));
+        	Assert.assertEquals(false, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.CREDS)));
+        	Assert.assertEquals(false, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.PEER_ROLES)));
         }
         
-		Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.GROUP_POLICIES)));
-        Assert.assertEquals(3600, joinResponse.get(CBORObject.FromObject(Constants.GROUP_POLICIES)).get(CBORObject.FromObject(Constants.POLICY_KEY_CHECK_INTERVAL)).AsInt32());
-        Assert.assertEquals(0, joinResponse.get(CBORObject.FromObject(Constants.GROUP_POLICIES)).get(CBORObject.FromObject(Constants.POLICY_EXP_DELTA)).AsInt32());
+		Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.GROUP_POLICIES)));
+        Assert.assertEquals(3600, joinResponse.get(CBORObject.FromObject(GroupcommParameters.GROUP_POLICIES)).get(CBORObject.FromObject(GroupcommPolicies.KEY_CHECK_INTERVAL)).AsInt32());
+        Assert.assertEquals(0, joinResponse.get(CBORObject.FromObject(GroupcommParameters.GROUP_POLICIES)).get(CBORObject.FromObject(GroupcommPolicies.EXP_DELTA)).AsInt32());
         */
-        // DEBUG: START SET OF ASSERTIONS
+        // DEBUG: END SET OF ASSERTIONS
         
         
         // Check the proof-of-possession evidence over kdc_nonce, using the GM's public key
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.KDC_NONCE)));
-        Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(Constants.KDC_NONCE)).getType());
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.KDC_CRED)));
-        Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(Constants.KDC_CRED)).getType());
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.KDC_CRED_VERIFY)));
-		Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(Constants.KDC_CRED_VERIFY)).getType());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KDC_NONCE)));
+        Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_NONCE)).getType());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KDC_CRED)));
+        Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED)).getType());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KDC_CRED_VERIFY)));
+		Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED_VERIFY)).getType());
         
-	    Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.KEY)));
-        Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(Constants.KEY)).getType());
-	    Assert.assertEquals(true, joinResponse.get(CBORObject.FromObject(Constants.KEY)).
+	    Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KEY)));
+        Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).getType());
+	    Assert.assertEquals(true, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).
 	    		            ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)));
-        Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(Constants.KEY)).getType());
-        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(Constants.KEY)).
+        Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).getType());
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).
         					get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)).getType());
-        credFmt = joinResponse.get(CBORObject.FromObject(Constants.KEY)).
-							get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)).AsInt32();
+        credFmt = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).
+							       get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)).AsInt32();
 	    
         OneKey gmPublicKeyRetrieved = null;
-        byte[] kdcCredBytes = joinResponse.get(CBORObject.FromObject(Constants.KDC_CRED)).GetByteString();
+        byte[] kdcCredBytes = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED)).GetByteString();
         switch (credFmt) {
-            case Constants.COSE_HEADER_PARAM_CCS:
+            case Constants.COSE_HEADER_PARAM_KCCS:
                 CBORObject ccs = CBORObject.DecodeFromBytes(kdcCredBytes);
                 if (ccs.getType() == CBORType.Map) {
                     // Retrieve the public key from the CCS
@@ -3097,7 +3469,7 @@ public class PlugtestClientGroupOSCORE {
                     Assert.fail("Invalid format of Group Manager authentication credential");
                 }
                 break;
-            case Constants.COSE_HEADER_PARAM_CWT:
+            case Constants.COSE_HEADER_PARAM_KCWT:
                 CBORObject cwt = CBORObject.DecodeFromBytes(kdcCredBytes);
                 if (cwt.getType() == CBORType.Array) {
                     // Retrieve the public key from the CWT
@@ -3117,15 +3489,20 @@ public class PlugtestClientGroupOSCORE {
         if (gmPublicKeyRetrieved == null)
         	Assert.fail("Invalid format of Group Manager authentication credential");
         
-        PublicKey gmPublicKey = gmPublicKeyRetrieved.AsPublicKey();
-	
-	    byte[] gmNonce = joinResponse.get(CBORObject.FromObject(Constants.KDC_NONCE)).GetByteString();
+    	PublicKey gmPublicKey = gmPublicKeyRetrieved.AsPublicKey();
+    	
+        int offset = 0;
+		byte[] serializedGMNonceCBOR = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_NONCE)).EncodeToBytes();
+		byte[] signedContent = new byte[serializedCNonceCBOR.length +serializedGMNonceCBOR.length];
+		System.arraycopy(serializedCNonceCBOR, 0, signedContent, offset, serializedCNonceCBOR.length);
+		offset += serializedCNonceCBOR.length;
+		System.arraycopy(serializedGMNonceCBOR, 0, signedContent, offset, serializedGMNonceCBOR.length);
 		
-	    CBORObject gmPopEvidence = joinResponse.get(CBORObject.FromObject(Constants.KDC_CRED_VERIFY));
-	    byte[] rawGmPopEvidence = gmPopEvidence.GetByteString();
-        
+    	CBORObject gmPopEvidence = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED_VERIFY));
+    	byte[] rawGmPopEvidence = gmPopEvidence.GetByteString();
+	    
         // Invalid Client's PoP signature
-        if (!Util.verifySignature(signKeyCurve, gmPublicKey, gmNonce, rawGmPopEvidence)) {
+        if (!Util.verifySignature(signKeyCurve, gmPublicKey, signedContent, rawGmPopEvidence)) {
         	Assert.fail("Invalid GM's PoP evidence");
         }
         
@@ -3156,14 +3533,14 @@ public class PlugtestClientGroupOSCORE {
         scopeEntry.Add(groupName);
         
     	int myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	scopeEntry.Add(myRoles);
     	
     	cborArrayScope.Add(scopeEntry);
     	byte[] byteStringScope = cborArrayScope.EncodeToBytes();
         params.put(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
-        params.put(Constants.AUD, CBORObject.FromObject("aud2"));
+        params.put(Constants.AUD, CBORObject.FromObject("aud4"));
         params.put(Constants.CTI, CBORObject.FromObject("tokenPostPSKGOMR".getBytes(Constants.charset)));
         params.put(Constants.ISS, CBORObject.FromObject("TestAS"));
 
@@ -3173,7 +3550,7 @@ public class PlugtestClientGroupOSCORE {
         CWT token = new CWT(params);
         CBORObject payload;
         
-        // The payload is a CBOR including also the Access Token
+        // The payload is a CBOR map including also the Access Token
         payload = CBORObject.NewMap();
         payload.Add(Constants.ACCESS_TOKEN, token.encode(ctx1));
         if (askForSignInfo)
@@ -3183,20 +3560,17 @@ public class PlugtestClientGroupOSCORE {
         
         rsAuthzInfo =  "coap://" + rsAddr + ":" + portNumberRSnosec + "/authz-info";
         
-        CoapResponse r = DTLSProfileRequests.postToken(rsAuthzInfo, payload, null);
+        CoapResponse r = DTLSProfileRequests.postToken(rsAuthzInfo, payload, Constants.APPLICATION_ACE_CBOR, null);
         
-        printResponseFromRS(r);
+        System.out.println("*** Response from the RS *** ");
+        Util.printResponsePayloadCBOR(r.advanced());
         
         CBORObject cbor = CBORObject.DecodeFromBytes(r.getPayload());
         
         
         // DEBUG: START SET OF ASSERTIONS
         /*
-        Assert.assertNotNull(cbor);
-        CBORObject cti = cbor.get(CBORObject.FromObject(Constants.CTI));
-        Assert.assertArrayEquals("tokenPostPSKGOMR".getBytes(Constants.charset), 
-                cti.GetByteString());
-        
+        Assert.assertNotNull(cbor);       
         Assert.assertEquals(true, cbor.ContainsKey(CBORObject.FromObject(Constants.KDCCHALLENGE)));
         Assert.assertEquals(CBORType.ByteString, cbor.get(CBORObject.FromObject(Constants.KDCCHALLENGE)).getType());
         */
@@ -3264,7 +3638,7 @@ public class PlugtestClientGroupOSCORE {
         ecdhKeyParamsExpected.Add(KeyKeys.OKP_X25519); // Curve
         }
         
-        final CBORObject credFmtExpected = CBORObject.FromObject(Constants.COSE_HEADER_PARAM_CCS);
+        final CBORObject credFmtExpected = CBORObject.FromObject(Constants.COSE_HEADER_PARAM_KCCS);
         
         // DEBUG: START SET OF ASSERTIONS
         /*
@@ -3357,12 +3731,18 @@ public class PlugtestClientGroupOSCORE {
         cborArrayScope.Add(groupName);
         
         myRoles = 0;
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-    	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+    	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
     	cborArrayScope.Add(myRoles);
 
     	byteStringScope = cborArrayScope.EncodeToBytes();
-        requestPayload.Add(Constants.SCOPE, CBORObject.FromObject(byteStringScope));
+        requestPayload.Add(GroupcommParameters.SCOPE, CBORObject.FromObject(byteStringScope));
+        
+    	// Add cnonce
+        byte[] cnonce = new byte[8];
+        new SecureRandom().nextBytes(cnonce);
+        requestPayload.Add(GroupcommParameters.CNONCE, cnonce);
+        byte[] serializedCNonceCBOR = CBORObject.FromObject(cnonce).EncodeToBytes();
         
         if (askForAuthCreds) {
         	
@@ -3373,15 +3753,15 @@ public class PlugtestClientGroupOSCORE {
             getCreds.Add(CBORObject.NewArray());
             // The following is required to retrieve the authentication credentials of both the already present group members 
             myRoles = 0;
-            myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
+            myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
             getCreds.get(1).Add(myRoles);            
-            myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-        	myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+            myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+        	myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
         	getCreds.get(1).Add(myRoles);
             
         	getCreds.Add(CBORObject.NewArray()); // This must be empty
 
-        	requestPayload.Add(Constants.GET_CREDS, getCreds);
+        	requestPayload.Add(GroupcommParameters.GET_CREDS, getCreds);
         	
         }
         
@@ -3395,11 +3775,11 @@ public class PlugtestClientGroupOSCORE {
         	//       encoding in byte lexicographic order, and it has to be adjusted offline
         	OneKey publicKey = C1keyPair.PublicKey();
         	switch (credFmtExpected.AsInt32()) {
-        	    case Constants.COSE_HEADER_PARAM_CCS:
+        	    case Constants.COSE_HEADER_PARAM_KCCS:
         	        // Build a CCS including the public key
         	        authCred = Util.oneKeyToCCS(publicKey, "");
         	        break;
-        	    case Constants.COSE_HEADER_PARAM_CWT:
+        	    case Constants.COSE_HEADER_PARAM_KCWT:
         	        // Build a CWT including the public key
         	        // TODO
         	        break;
@@ -3411,7 +3791,7 @@ public class PlugtestClientGroupOSCORE {
         	*/
 
         	switch (credFmtExpected.AsInt32()) {
-	        	case Constants.COSE_HEADER_PARAM_CCS:
+	        	case Constants.COSE_HEADER_PARAM_KCCS:
 	        	    // A CCS including the public key
 	        	    if (signKeyCurve == KeyKeys.EC2_P256.AsInt32()) {
 	        	    	authCred = net.i2p.crypto.eddsa.Utils.hexToBytes("A2026008A101A5010203262001215820E8F9A8D5850A533CDA24B9FA8A1EE293F6A0E1E81E1E560A64FF134D65F7ECEC225820164A6D5D4B97F56D1F60A12811D55DE7A055EBAC6164C9EF9302CBCBFF1F0ABE");
@@ -3420,7 +3800,7 @@ public class PlugtestClientGroupOSCORE {
 	        	    	authCred = net.i2p.crypto.eddsa.Utils.hexToBytes("A2026008A101A4010103272006215820069E912B83963ACC5941B63546867DEC106E5B9051F2EE14F3BC5CC961ACD43A");
 	        	    }
 	        	    break;
-	        	case Constants.COSE_HEADER_PARAM_CWT:
+	        	case Constants.COSE_HEADER_PARAM_KCWT:
 	        	    // A CWT including the public key
 	        	    // TODO
 	        		authCred = null;
@@ -3432,13 +3812,7 @@ public class PlugtestClientGroupOSCORE {
 	        	    break;
         	}
 
-        	requestPayload.Add(Constants.CLIENT_CRED, CBORObject.FromObject(authCred));
-        	
-        	
-        	// Add the nonce for PoP of the Client's private key
-            byte[] cnonce = new byte[8];
-            new SecureRandom().nextBytes(cnonce);
-            requestPayload.Add(Constants.CNONCE, cnonce);
+        	requestPayload.Add(GroupcommParameters.CLIENT_CRED, CBORObject.FromObject(authCred));
             
             // Add the signature computed over (scope | rsnonce | cnonce), using the Client's private key
             int offset = 0;
@@ -3446,20 +3820,19 @@ public class PlugtestClientGroupOSCORE {
             
             byte[] serializedScopeCBOR = CBORObject.FromObject(byteStringScope).EncodeToBytes();
             byte[] serializedGMNonceCBOR = CBORObject.FromObject(gm_sign_nonce).EncodeToBytes();
-            byte[] serializedCNonceCBOR = CBORObject.FromObject(cnonce).EncodeToBytes();
-       	    byte [] dataToSign = new byte [serializedScopeCBOR.length +
-       	                                   serializedGMNonceCBOR.length +
-       	                                   serializedCNonceCBOR.length];
-       	    System.arraycopy(serializedScopeCBOR, 0, dataToSign, offset, serializedScopeCBOR.length);
+       	    byte[] popInput = new byte[serializedScopeCBOR.length +
+       	                               serializedGMNonceCBOR.length +
+       	                               serializedCNonceCBOR.length];
+       	    System.arraycopy(serializedScopeCBOR, 0, popInput, offset, serializedScopeCBOR.length);
        	    offset += serializedScopeCBOR.length;
-       	    System.arraycopy(serializedGMNonceCBOR, 0, dataToSign, offset, serializedGMNonceCBOR.length);
+       	    System.arraycopy(serializedGMNonceCBOR, 0, popInput, offset, serializedGMNonceCBOR.length);
        	    offset += serializedGMNonceCBOR.length;
-       	    System.arraycopy(serializedCNonceCBOR, 0, dataToSign, offset, serializedCNonceCBOR.length);
+       	    System.arraycopy(serializedCNonceCBOR, 0, popInput, offset, serializedCNonceCBOR.length);
        	   
-       	    byte[] clientSignature = Util.computeSignature(signKeyCurve, privKey, dataToSign);
+       	    byte[] popEvidence = Util.computeSignature(signKeyCurve, privKey, popInput);
             
-            if (clientSignature != null)
-            	requestPayload.Add(Constants.CLIENT_CRED_VERIFY, clientSignature);
+            if (popEvidence != null)
+            	requestPayload.Add(GroupcommParameters.CLIENT_CRED_VERIFY, popEvidence);
         	else
         		Assert.fail("Computed signature is empty");
         	
@@ -3474,10 +3847,12 @@ public class PlugtestClientGroupOSCORE {
 	        System.out.println(r2.getOptions().getLocationPathString());
         }
         
-        printResponseFromRS(r2);
+        System.out.println("*** Response from the RS *** ");
+        Util.printResponsePayloadCBOR(r2.advanced());
         
-
-        Assert.assertEquals("CREATED", r2.getCode().name());
+        String expectedCodes[] = {"CREATED", "CHANGED"};
+        List<String> expectedCodesList = Arrays.asList(expectedCodes);
+        assertTrue(expectedCodesList.contains(r2.getCode().name()));
         
         byte[] responsePayload = r2.getPayload();
         CBORObject joinResponse = CBORObject.DecodeFromBytes(responsePayload);
@@ -3488,20 +3863,20 @@ public class PlugtestClientGroupOSCORE {
         
         // DEBUG: START SET OF ASSERTIONS
         /*
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.GKTY)));
-        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(Constants.GKTY)).getType());
-        Assert.assertEquals(Constants.GROUP_OSCORE_INPUT_MATERIAL_OBJECT, joinResponse.get(CBORObject.FromObject(Constants.GKTY)).AsInt32());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.GKTY)));
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.GKTY)).getType());
+        Assert.assertEquals(GroupcommParameters.GROUP_OSCORE_INPUT_MATERIAL_OBJECT, joinResponse.get(CBORObject.FromObject(GroupcommParameters.GKTY)).AsInt32());
         
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.KEY)));
-        Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(Constants.KEY)).getType());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KEY)));
+        Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).getType());
         
-        CBORObject myMap = joinResponse.get(CBORObject.FromObject(Constants.KEY));
+        CBORObject myMap = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY));
         
         // Sanity check
     	Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.ms)));
         Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.group_SenderID)));
         Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.hkdf)));
-        Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.sign_enc_alg)));
+        Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.gp_enc_alg)));
         Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.salt)));
         Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.contextId)));
         Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.sign_alg)));
@@ -3517,7 +3892,7 @@ public class PlugtestClientGroupOSCORE {
         // Check the presence, type and value of the signature key encoding
         Assert.assertEquals(true, myMap.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)));
         Assert.assertEquals(CBORType.Integer, myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)).getType());
-        Assert.assertEquals(CBORObject.FromObject(Constants.COSE_HEADER_PARAM_CCS), myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)));
+        Assert.assertEquals(CBORObject.FromObject(Constants.COSE_HEADER_PARAM_KCCS), myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)));
        
         credFmt = myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)).AsInt32();
         
@@ -3533,7 +3908,7 @@ public class PlugtestClientGroupOSCORE {
     	final AlgorithmID hkdf = AlgorithmID.HMAC_SHA_256;
     	
     	
-    	final AlgorithmID signEncAlg = AlgorithmID.AES_CCM_16_64_128;
+    	final AlgorithmID gpEncAlg = AlgorithmID.AES_CCM_16_64_128;
     	AlgorithmID signAlg = null;
     	CBORObject signAlgCapabilities = CBORObject.NewArray();
     	CBORObject signKeyCapabilities = CBORObject.NewArray();
@@ -3586,7 +3961,7 @@ public class PlugtestClientGroupOSCORE {
     	Assert.assertArrayEquals(senderId, myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.group_SenderID)).GetByteString());
     	
         Assert.assertEquals(hkdf.AsCBOR(), myMap.get(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.hkdf)));
-        Assert.assertEquals(signEncAlg.AsCBOR(), myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.sign_enc_alg)));
+        Assert.assertEquals(gpEncAlg.AsCBOR(), myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.gp_enc_alg)));
         Assert.assertArrayEquals(masterSalt, myMap.get(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.salt)).GetByteString());
         Assert.assertArrayEquals(groupId, myMap.get(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.contextId)).GetByteString());
         Assert.assertNotNull(signAlg);
@@ -3600,24 +3975,27 @@ public class PlugtestClientGroupOSCORE {
         if (myMap.ContainsKey(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.salt)) == false)
         	myMap.Add(OSCOREInputMaterialObjectParameters.salt, CBORObject.FromObject(new byte[0]));
         
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.NUM)));
-        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(Constants.NUM)).getType());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.NUM)));
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.NUM)).getType());
         // This assumes that the Group Manager did not rekeyed the group upon previous nodes' joining
-        Assert.assertEquals(0, joinResponse.get(CBORObject.FromObject(Constants.NUM)).AsInt32());
+        Assert.assertEquals(0, joinResponse.get(CBORObject.FromObject(GroupcommParameters.NUM)).AsInt32());
         
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.NUM)));
-        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(Constants.NUM)).getType());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.NUM)));
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.NUM)).getType());
         // This assumes that the Group Manager did not rekeyed the group upon previous nodes' joining
-        Assert.assertEquals(0, joinResponse.get(CBORObject.FromObject(Constants.NUM)).AsInt32());
+        Assert.assertEquals(0, joinResponse.get(CBORObject.FromObject(GroupcommParameters.NUM)).AsInt32());
         
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.ACE_GROUPCOMM_PROFILE)));
-        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(Constants.ACE_GROUPCOMM_PROFILE)).getType());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.ACE_GROUPCOMM_PROFILE)));
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.ACE_GROUPCOMM_PROFILE)).getType());
         // Assume that "coap_group_oscore" is registered with value 0 in the "ACE Groupcomm Profile" Registry of draft-ietf-ace-key-groupcomm
-        Assert.assertEquals(Constants.COAP_GROUP_OSCORE_APP, joinResponse.get(CBORObject.FromObject(Constants.ACE_GROUPCOMM_PROFILE)).AsInt32());
+        Assert.assertEquals(GroupcommParameters.COAP_GROUP_OSCORE_APP, joinResponse.get(CBORObject.FromObject(GroupcommParameters.ACE_GROUPCOMM_PROFILE)).AsInt32());
         
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.EXP)));
-        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(Constants.EXP)).getType());
-        Assert.assertEquals(1000000, joinResponse.get(CBORObject.FromObject(Constants.EXP)).AsInt32());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.EXP)));
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.EXP)).getType());
+        Assert.assertEquals(2682374400L, joinResponse.get(CBORObject.FromObject(GroupcommParameters.EXP)).AsInt64Value());
+        
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.EXI)));
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.EXI)).getType());
         
         if (myMap.ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.sign_params))) {
             Assert.assertEquals(CBORType.Array, myMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.sign_params)).getType());
@@ -3631,19 +4009,19 @@ public class PlugtestClientGroupOSCORE {
         CBORObject authCredsArray = null;
         
         if (askForAuthCreds) {
-        	Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.CREDS)));
-        	Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(Constants.CREDS)).getType());
+        	Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.CREDS)));
+        	Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(GroupcommParameters.CREDS)).getType());
         	
-        	authCredsArray = joinResponse.get(CBORObject.FromObject(Constants.CREDS));
+        	authCredsArray = joinResponse.get(CBORObject.FromObject(GroupcommParameters.CREDS));
             Assert.assertEquals(2, authCredsArray.size());
            
-            Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.PEER_IDENTIFIERS)));
-            Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(Constants.PEER_IDENTIFIERS)).getType());
-            Assert.assertEquals(2, joinResponse.get(CBORObject.FromObject(Constants.PEER_IDENTIFIERS)).size());
+            Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.PEER_IDENTIFIERS)));
+            Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_IDENTIFIERS)).getType());
+            Assert.assertEquals(2, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_IDENTIFIERS)).size());
         	
-        	Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.PEER_IDENTIFIERS)));
-			Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(Constants.PEER_IDENTIFIERS)).getType());
-			Assert.assertEquals(2, joinResponse.get(CBORObject.FromObject(Constants.PEER_IDENTIFIERS)).size());
+        	Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.PEER_IDENTIFIERS)));
+			Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_IDENTIFIERS)).getType());
+			Assert.assertEquals(2, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_IDENTIFIERS)).size());
         	
         	byte[] peerSenderId;
         	OneKey peerPublicKey;
@@ -3653,7 +4031,7 @@ public class PlugtestClientGroupOSCORE {
         	
         	peerSenderId = new byte[] { (byte) 0x77 };
         	peerSenderIdFromResponse = joinResponse.
-                            get(CBORObject.FromObject(Constants.PEER_IDENTIFIERS)).get(0).GetByteString();
+                            get(CBORObject.FromObject(GroupcommParameters.PEER_IDENTIFIERS)).get(0).GetByteString();
         	peerPublicKey = C3pubKey;
         	Assert.assertArrayEquals(peerSenderId, peerSenderIdFromResponse);
         	
@@ -3663,7 +4041,7 @@ public class PlugtestClientGroupOSCORE {
 	        }
 	        byte[] peerAuthCredRetrievedBytes = peerAuthCredRetrieved.GetByteString();
 	        switch (credFmt) {
-	            case Constants.COSE_HEADER_PARAM_CCS:
+	            case Constants.COSE_HEADER_PARAM_KCCS:
 	            	CBORObject ccs = CBORObject.DecodeFromBytes(peerAuthCredRetrievedBytes);
 	                if (ccs.getType() == CBORType.Map) {
 	                	// Retrieve the public key from the CCS
@@ -3673,7 +4051,7 @@ public class PlugtestClientGroupOSCORE {
 	                    Assert.fail("Invalid format of authentication credential");
 	                }
 	                break;
-	            case Constants.COSE_HEADER_PARAM_CWT:
+	            case Constants.COSE_HEADER_PARAM_KCWT:
 	            	CBORObject cwt = CBORObject.DecodeFromBytes(peerAuthCredRetrievedBytes);
 	                if (cwt.getType() == CBORType.Array) {
 	                    // Retrieve the public key from the CWT
@@ -3711,7 +4089,7 @@ public class PlugtestClientGroupOSCORE {
         	
         	peerSenderId = new byte[] { (byte) 0x52 };
         	peerSenderIdFromResponse = joinResponse.
-                            get(CBORObject.FromObject(Constants.PEER_IDENTIFIERS)).get(1).GetByteString();
+                            get(CBORObject.FromObject(GroupcommParameters.PEER_IDENTIFIERS)).get(1).GetByteString();
         	peerPublicKey = C2pubKey;
         	Assert.assertArrayEquals(peerSenderId, peerSenderIdFromResponse);
             
@@ -3721,7 +4099,7 @@ public class PlugtestClientGroupOSCORE {
 	        }
 	        peerAuthCredRetrievedBytes = peerAuthCredRetrieved.GetByteString();
 	        switch (credFmt) {
-	            case Constants.COSE_HEADER_PARAM_CCS:
+	            case Constants.COSE_HEADER_PARAM_KCCS:
 	            	CBORObject ccs = CBORObject.DecodeFromBytes(peerAuthCredRetrievedBytes);
 	                if (ccs.getType() == CBORType.Map) {
 	                	// Retrieve the public key from the CCS
@@ -3731,7 +4109,7 @@ public class PlugtestClientGroupOSCORE {
 	                    Assert.fail("Invalid format of authentication credential");
 	                }
 	                break;
-	            case Constants.COSE_HEADER_PARAM_CWT:
+	            case Constants.COSE_HEADER_PARAM_KCWT:
 	            	CBORObject cwt = CBORObject.DecodeFromBytes(peerAuthCredRetrievedBytes);
 	                if (cwt.getType() == CBORType.Array) {
 	                    // Retrieve the public key from the CWT
@@ -3767,54 +4145,54 @@ public class PlugtestClientGroupOSCORE {
                 Assert.assertEquals(peerPublicKey.get(KeyKeys.OKP_X.AsCBOR()), peerPublicKeyRetrieved.get(KeyKeys.OKP_X.AsCBOR()));
             }
            
-            Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.PEER_ROLES)));
-            Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(Constants.PEER_ROLES)).getType());
-            Assert.assertEquals(2, joinResponse.get(CBORObject.FromObject(Constants.PEER_ROLES)).size());
+            Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.PEER_ROLES)));
+            Assert.assertEquals(CBORType.Array, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_ROLES)).getType());
+            Assert.assertEquals(2, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_ROLES)).size());
             
             int expectedRoles = 0;
-            expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_REQUESTER);
-            expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_RESPONDER);
-            Assert.assertEquals(expectedRoles, joinResponse.get(CBORObject.FromObject(Constants.PEER_ROLES)).get(0).AsInt32());
+            expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+            expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
+            Assert.assertEquals(expectedRoles, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_ROLES)).get(0).AsInt32());
             
             expectedRoles = 0;
-            expectedRoles = Util.addGroupOSCORERole(expectedRoles, Constants.GROUP_OSCORE_REQUESTER);
-            Assert.assertEquals(expectedRoles, joinResponse.get(CBORObject.FromObject(Constants.PEER_ROLES)).get(1).AsInt32());
+            expectedRoles = Util.addGroupOSCORERole(expectedRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+            Assert.assertEquals(expectedRoles, joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_ROLES)).get(1).AsInt32());
         	
         }
         else {
-        	Assert.assertEquals(false, joinResponse.ContainsKey(CBORObject.FromObject(Constants.CREDS)));
-        	Assert.assertEquals(false, joinResponse.ContainsKey(CBORObject.FromObject(Constants.PEER_ROLES)));
+        	Assert.assertEquals(false, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.CREDS)));
+        	Assert.assertEquals(false, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.PEER_ROLES)));
         }
         
-		Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.GROUP_POLICIES)));
-        Assert.assertEquals(3600, joinResponse.get(CBORObject.FromObject(Constants.GROUP_POLICIES)).get(CBORObject.FromObject(Constants.POLICY_KEY_CHECK_INTERVAL)).AsInt32());
-        Assert.assertEquals(0, joinResponse.get(CBORObject.FromObject(Constants.GROUP_POLICIES)).get(CBORObject.FromObject(Constants.POLICY_EXP_DELTA)).AsInt32());
+		Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.GROUP_POLICIES)));
+        Assert.assertEquals(3600, joinResponse.get(CBORObject.FromObject(GroupcommParameters.GROUP_POLICIES)).get(CBORObject.FromObject(GroupcommPolicies.KEY_CHECK_INTERVAL)).AsInt32());
+        Assert.assertEquals(0, joinResponse.get(CBORObject.FromObject(GroupcommParameters.GROUP_POLICIES)).get(CBORObject.FromObject(GroupcommPolicies.EXP_DELTA)).AsInt32());
         */
         // DEBUG: START SET OF ASSERTIONS
 
         
         // Check the proof-of-possession evidence over kdc_nonce, using the GM's public key
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.KDC_NONCE)));
-        Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(Constants.KDC_NONCE)).getType());
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.KDC_CRED)));
-        Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(Constants.KDC_CRED)).getType());
-        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.KDC_CRED_VERIFY)));
-		Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(Constants.KDC_CRED_VERIFY)).getType());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KDC_NONCE)));
+        Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_NONCE)).getType());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KDC_CRED)));
+        Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED)).getType());
+        Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KDC_CRED_VERIFY)));
+		Assert.assertEquals(CBORType.ByteString, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED_VERIFY)).getType());
         
-	    Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(Constants.KEY)));
-        Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(Constants.KEY)).getType());
-	    Assert.assertEquals(true, joinResponse.get(CBORObject.FromObject(Constants.KEY)).
+	    Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KEY)));
+        Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).getType());
+	    Assert.assertEquals(true, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).
 	    		            ContainsKey(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)));
-        Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(Constants.KEY)).getType());
-        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(Constants.KEY)).
+        Assert.assertEquals(CBORType.Map, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).getType());
+        Assert.assertEquals(CBORType.Integer, joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).
         					get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)).getType());
-        credFmt = joinResponse.get(CBORObject.FromObject(Constants.KEY)).
-							get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)).AsInt32();
+        credFmt = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)).
+							       get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.cred_fmt)).AsInt32();
 	    
         OneKey gmPublicKeyRetrieved = null;
-        byte[] kdcCredBytes = joinResponse.get(CBORObject.FromObject(Constants.KDC_CRED)).GetByteString();
+        byte[] kdcCredBytes = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED)).GetByteString();
         switch (credFmt) {
-            case Constants.COSE_HEADER_PARAM_CCS:
+            case Constants.COSE_HEADER_PARAM_KCCS:
                 CBORObject ccs = CBORObject.DecodeFromBytes(kdcCredBytes);
                 if (ccs.getType() == CBORType.Map) {
                     // Retrieve the public key from the CCS
@@ -3824,7 +4202,7 @@ public class PlugtestClientGroupOSCORE {
                     Assert.fail("Invalid format of Group Manager authentication credential");
                 }
                 break;
-            case Constants.COSE_HEADER_PARAM_CWT:
+            case Constants.COSE_HEADER_PARAM_KCWT:
                 CBORObject cwt = CBORObject.DecodeFromBytes(kdcCredBytes);
                 if (cwt.getType() == CBORType.Array) {
                     // Retrieve the public key from the CWT
@@ -3844,15 +4222,20 @@ public class PlugtestClientGroupOSCORE {
         if (gmPublicKeyRetrieved == null)
         	Assert.fail("Invalid format of Group Manager authentication credential");
         
-        PublicKey gmPublicKey = gmPublicKeyRetrieved.AsPublicKey();
-	
-	    byte[] gmNonce = joinResponse.get(CBORObject.FromObject(Constants.KDC_NONCE)).GetByteString();
+    	PublicKey gmPublicKey = gmPublicKeyRetrieved.AsPublicKey();
+    	
+        int offset = 0;
+		byte[] serializedGMNonceCBOR = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_NONCE)).EncodeToBytes();
+		byte[] signedContent = new byte[serializedCNonceCBOR.length +serializedGMNonceCBOR.length];
+		System.arraycopy(serializedCNonceCBOR, 0, signedContent, offset, serializedCNonceCBOR.length);
+		offset += serializedCNonceCBOR.length;
+		System.arraycopy(serializedGMNonceCBOR, 0, signedContent, offset, serializedGMNonceCBOR.length);
 		
-	    CBORObject gmPopEvidence = joinResponse.get(CBORObject.FromObject(Constants.KDC_CRED_VERIFY));
-	    byte[] rawGmPopEvidence = gmPopEvidence.GetByteString();
-        
+    	CBORObject gmPopEvidence = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED_VERIFY));
+    	byte[] rawGmPopEvidence = gmPopEvidence.GetByteString();
+	    
         // Invalid Client's PoP signature
-        if (!Util.verifySignature(signKeyCurve, gmPublicKey, gmNonce, rawGmPopEvidence)) {
+        if (!Util.verifySignature(signKeyCurve, gmPublicKey, signedContent, rawGmPopEvidence)) {
         	Assert.fail("Invalid GM's PoP evidence");
         }
 }

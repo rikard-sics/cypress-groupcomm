@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2020 RISE SICS and others.
+ * Copyright (c) 2023 RISE SICS and others.
  * 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
@@ -59,6 +59,9 @@ import net.i2p.crypto.eddsa.EdDSASecurityProvider;
  */
 public class GroupKeyDerivationInteropTest {
 
+	/**
+	 * Test name logging rule
+	 */
 	@Rule
 	public TestNameLoggerRule name = new TestNameLoggerRule();
 
@@ -191,7 +194,7 @@ public class GroupKeyDerivationInteropTest {
 	}
 
 	@Test
-	public void testContextsAlgCountersign() throws OSException {
+	public void testContextsAlgCountersign() {
 		// Check that the contexts use the correct countersignature algorithms
 
 		assertEquals(AlgorithmID.ECDSA_256, senderCtxEcdsa.getAlgSign());
@@ -204,7 +207,7 @@ public class GroupKeyDerivationInteropTest {
 	}
 
 	@Test
-	public void testSenderKeys() throws OSException {
+	public void testSenderKeys() {
 		// Check that sender keys match in both contexts
 		assertArrayEquals(senderCtxEcdsa.getSenderKey(), senderCtxEddsa.getSenderKey());
 
@@ -214,7 +217,7 @@ public class GroupKeyDerivationInteropTest {
 	}
 
 	@Test
-	public void testRecipientKeys() throws OSException {
+	public void testRecipientKeys() {
 		// Check that recipient keys match in both contexts
 		assertArrayEquals(recipient1CtxEcdsa.getRecipientKey(), recipient1CtxEddsa.getRecipientKey());
 		assertArrayEquals(recipient2CtxEcdsa.getRecipientKey(), recipient2CtxEddsa.getRecipientKey());
@@ -229,7 +232,7 @@ public class GroupKeyDerivationInteropTest {
 
 	@Test
 	@Ignore // FIXME
-	public void testPairwiseRecipientKeys() throws OSException {
+	public void testPairwiseRecipientKeys() {
 		byte[] recipient1EcdsaPairwiseKey = recipient1CtxEcdsa.getPairwiseRecipientKey();
 		byte[] recipient2EcdsaPairwiseKey = recipient2CtxEcdsa.getPairwiseRecipientKey();
 
@@ -255,7 +258,7 @@ public class GroupKeyDerivationInteropTest {
 
 	@Test
 	@Ignore // FIXME
-	public void testPairwiseSenderKeys() throws OSException {
+	public void testPairwiseSenderKeys() {
 		byte[] senderEcdsaPairwiseKey1 = senderCtxEcdsa.getPairwiseSenderKey(rid1);
 		byte[] senderEcdsaPairwiseKey2 = senderCtxEcdsa.getPairwiseSenderKey(rid2);
 
@@ -338,7 +341,8 @@ public class GroupKeyDerivationInteropTest {
 
 		// Create context using ECDSA_256
 
-		GroupCtx groupCtxEcdsa = new GroupCtx(master_secret, master_salt, alg, kdf, context_id, AlgorithmID.ECDSA_256, null);
+		GroupCtx groupCtxEcdsa = new GroupCtx(master_secret, master_salt, alg, kdf, context_id, AlgorithmID.ECDSA_256,
+				null);
 
 		OneKey senderFullKey = new OneKey(OneKeyDecoder.parseDiagnosticToCbor(senderFullKeyEcdsa256));
 		groupCtxEcdsa.addSenderCtx(sid, senderFullKey);
@@ -365,7 +369,8 @@ public class GroupKeyDerivationInteropTest {
 		Provider EdDSA = new EdDSASecurityProvider();
 		Security.insertProviderAt(EdDSA, 1);
 
-		GroupCtx groupCtxEddsa = new GroupCtx(master_secret, master_salt, alg, kdf, context_id, AlgorithmID.EDDSA, null);
+		GroupCtx groupCtxEddsa = new GroupCtx(master_secret, master_salt, alg, kdf, context_id, AlgorithmID.EDDSA,
+				null);
 
 		senderFullKey = new OneKey(OneKeyDecoder.parseDiagnosticToCbor(senderFullKeyEddsa));
 		groupCtxEddsa.addSenderCtx(sid, senderFullKey);

@@ -28,19 +28,18 @@
 package org.eclipse.californium.core.network.stack;
 
 import java.util.List;
-import java.util.concurrent.ScheduledExecutorService;
 
-import org.eclipse.californium.core.coap.BlockOption;
 import org.eclipse.californium.core.coap.EmptyMessage;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.coap.option.BlockOption;
 import org.eclipse.californium.core.network.Exchange;
 import org.eclipse.californium.core.network.ExchangeCompleteException;
 import org.eclipse.californium.core.network.Outbox;
 import org.eclipse.californium.core.network.stack.Layer.TopDownBuilder;
 import org.eclipse.californium.core.observe.ObservationStoreException;
-import org.eclipse.californium.core.observe.ObserveRelation;
 import org.eclipse.californium.core.server.MessageDeliverer;
+import org.eclipse.californium.elements.util.ProtocolScheduledExecutorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -98,27 +97,14 @@ public abstract class BaseCoapStack implements CoapStack {
 	@Override
 	public void sendResponse(final Exchange exchange, final Response response) {
 		// delegate to top
-		ObserveRelation relation = exchange.getRelation();
-		boolean retransmit = relation != null && relation.isEstablished();
-
 		try {
-			if (retransmit) {
-				// observe- or cancel-observe-requests may have
-				// multiple responses.
-				// when observes are finished, the last response has
-				// no longer an observe option. Therefore check the
-				// request for it.
-				exchange.retransmitResponse();
-			}
 			top.sendResponse(exchange, response);
 		} catch (ExchangeCompleteException ex) {
 			LOGGER.warn("error send response {}", response, ex);
 			response.setSendError(ex);
 		} catch (RuntimeException ex) {
 			LOGGER.warn("error send response {}", response, ex);
-			if (!retransmit) {
-				exchange.sendReject();
-			}
+			exchange.sendReject();
 			response.setSendError(ex);
 		}
 	}
@@ -153,9 +139,9 @@ public abstract class BaseCoapStack implements CoapStack {
 	}
 
 	@Override
-	public final void setExecutors(ScheduledExecutorService mainExecutor, ScheduledExecutorService secondaryExecutor) {
+	public final void setExecutor(ProtocolScheduledExecutorService executor) {
 		for (Layer layer : layers) {
-			layer.setExecutors(mainExecutor, secondaryExecutor);
+			layer.setExecutor(executor);
 		}
 	}
 
@@ -167,6 +153,17 @@ public abstract class BaseCoapStack implements CoapStack {
 	@Override
 	public final boolean hasDeliverer() {
 		return deliverer != null;
+	}
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public <T extends Layer> T getLayer(Class<T> type) {
+		for (Layer layer : layers) {
+			if (type.isInstance(layer)) {
+				return (T) layer;
+			}
+		}
+		return null;
 	}
 
 	@Override

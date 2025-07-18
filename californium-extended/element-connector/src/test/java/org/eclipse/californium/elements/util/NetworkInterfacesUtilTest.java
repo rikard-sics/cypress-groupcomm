@@ -15,7 +15,6 @@
  ******************************************************************************/
 package org.eclipse.californium.elements.util;
 
-import static org.eclipse.californium.elements.util.TestConditionTools.inRange;
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.hasItems;
 import static org.hamcrest.CoreMatchers.is;
@@ -31,9 +30,13 @@ import java.net.SocketException;
 import java.util.Collection;
 import java.util.HashSet;
 
+import org.eclipse.californium.elements.category.Small;
+import org.eclipse.californium.elements.matcher.InRange;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
+@Category(Small.class)
 public class NetworkInterfacesUtilTest {
 
 	private static final InetAddress[] ARRAY_TYPE = new InetAddress[0];
@@ -49,7 +52,11 @@ public class NetworkInterfacesUtilTest {
 		int mtu = NetworkInterfacesUtil.getAnyMtu();
 		int mtu4 = NetworkInterfacesUtil.getIPv4Mtu();
 		int mtu6 = NetworkInterfacesUtil.getIPv6Mtu();
-		assertThat(mtu, is(inRange(mtu4, mtu6 + 1)));
+		if (mtu4 < mtu6) {
+			assertThat(mtu, is(InRange.inRange(mtu4, mtu6 + 1)));
+		} else {
+			assertThat(mtu, is(InRange.inRange(mtu6, mtu4 + 1)));
+		}
 	}
 
 	@Test

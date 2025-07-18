@@ -19,6 +19,7 @@ package org.eclipse.californium.oscore.group;
 import java.io.File;
 import java.net.Inet6Address;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.Provider;
@@ -85,6 +86,8 @@ public class GroupOSCORESender {
 	 */
 	// static final InetAddress multicastIP = new
 	// InetSocketAddress("FF01:0:0:0:0:0:0:FD", 0).getAddress();
+	// static final InetAddress multicastIP = new InetSocketAddress("127.0.0.1",
+	// 0).getAddress();
 	static final InetAddress multicastIP = CoAP.MULTICAST_IPV4;
 
 	/**
@@ -117,8 +120,8 @@ public class GroupOSCORESender {
 	// Group OSCORE specific values for the countersignature (EdDSA)
 	private final static AlgorithmID algCountersign = AlgorithmID.EDDSA;
 
-	// Encryption algorithm for when using signatures
-	private final static AlgorithmID algSignEnc = AlgorithmID.AES_CCM_16_64_128;
+	// Encryption algorithm for when using Group mode
+	private final static AlgorithmID algGroupEnc = AlgorithmID.AES_CCM_16_64_128;
 
 	// Algorithm for key agreement
 	private final static AlgorithmID algKeyAgreement = AlgorithmID.ECDH_SS_HKDF_256;
@@ -160,6 +163,12 @@ public class GroupOSCORESender {
 
 	/* --- OSCORE Security Context information --- */
 
+	/**
+	 * Main method
+	 * 
+	 * @param args command line arguments
+	 * @throws Exception on setup or message processing failure
+	 */
 	public static void main(String args[]) throws Exception {
 		/**
 		 * URI to perform request against. Need to check for IPv6 to surround it
@@ -187,16 +196,13 @@ public class GroupOSCORESender {
 
 			byte[] gmPublicKey = gm_public_key_bytes;
 			GroupCtx commonCtx = new GroupCtx(master_secret, master_salt, alg, kdf, group_identifier, algCountersign,
-					algSignEnc, algKeyAgreement, gmPublicKey);
+					algGroupEnc, algKeyAgreement, gmPublicKey);
 
 			commonCtx.addSenderCtxCcs(sid, sid_private_key);
 
 			commonCtx.addRecipientCtxCcs(rid0, REPLAY_WINDOW, null);
 			commonCtx.addRecipientCtxCcs(rid1, REPLAY_WINDOW, rid1_public_key);
 			commonCtx.addRecipientCtxCcs(rid2, REPLAY_WINDOW, rid2_public_key);
-
-			commonCtx.setResponsesIncludePartialIV(true);
-			commonCtx.setResponsesIncludePartialIV(true);
 
 			db.addContext(requestURI, commonCtx);
 
@@ -265,6 +271,7 @@ public class GroupOSCORESender {
 			try {
 				wait(timeout);
 			} catch (InterruptedException e) {
+				//
 			}
 			return on;
 		}

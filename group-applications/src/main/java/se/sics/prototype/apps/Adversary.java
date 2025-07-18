@@ -73,6 +73,7 @@ import org.junit.Assert;
 
 import com.upokecenter.cbor.CBORObject;
 import se.sics.ace.Constants;
+import se.sics.ace.GroupcommParameters;
 import se.sics.ace.Util;
 import se.sics.ace.client.GetToken;
 import se.sics.ace.coap.client.OSCOREProfileRequests;
@@ -185,9 +186,6 @@ public class Adversary {
 				AS_HOST = new URI(args[i + 1]).getHost();
 				AS_PORT = new URI(args[i + 1]).getPort();
 				i++;
-			} else if (args[i].toLowerCase().equals("-dht") || args[i].toLowerCase().equals("-usedht")) {
-				System.err.println("Error: DHT not supported by Adversary");
-				System.exit(1);
 			} else if (args[i].toLowerCase().equals("-delay")) {
 				delay = Integer.parseInt(args[i + 1]);
 				i++;
@@ -396,8 +394,8 @@ public class Adversary {
 		cborArrayEntry.Add(groupName);
 
 		int myRoles = 0;
-		myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-		myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+		myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+		myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
 		cborArrayEntry.Add(myRoles);
 
 		cborArrayScope.Add(cborArrayEntry);
@@ -420,7 +418,7 @@ public class Adversary {
 		byte[] recipientId = KeyStorage.aceSenderIds.get("AS");
 		OSCoreCtx ctx = new OSCoreCtx(key128, true, null, senderId, recipientId, null, null, null, null,
 				MAX_UNFRAGMENTED_SIZE, true);
-
+		
 		Response response = OSCOREProfileRequestsGroupOSCORE.getToken(tokenURI, params, ctx, db);
 
 		System.out.println("DB content: " + db.getContext(new byte[] { 0x00 }, null));
@@ -482,13 +480,13 @@ public class Adversary {
 		cborArrayEntry.Add(groupName);
 
 		int myRoles = 0;
-		myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
+		myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
 		cborArrayEntry.Add(myRoles);
 
 		if (invalid) {
 			myRoles = 0;
-			myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-			myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+			myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+			myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
 			cborArrayEntry.Add(myRoles);
 		}
 
@@ -563,7 +561,7 @@ public class Adversary {
 			ecdhKeyParamsExpected.Add(KeyKeys.OKP_X25519); // Curve
 		}
 
-		CBORObject credFmtExpected = CBORObject.FromObject(Constants.COSE_HEADER_PARAM_CCS);
+		CBORObject credFmtExpected = CBORObject.FromObject(Constants.COSE_HEADER_PARAM_KCCS);
 
 		// Now proceed with the Join request
 
@@ -579,8 +577,8 @@ public class Adversary {
 		cborArrayScope.Add(groupName);
 
 		myRoles = 0;
-		myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-		myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+		myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+		myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
 		cborArrayScope.Add(myRoles);
 
 		byteStringScope = cborArrayScope.EncodeToBytes();
@@ -596,15 +594,15 @@ public class Adversary {
 			// The following is required to retrieve the authentication
 			// credentials of both the already present group members
 			myRoles = 0;
-			myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
+			myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
 			getCreds.get(1).Add(myRoles);
-			myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_REQUESTER);
-			myRoles = Util.addGroupOSCORERole(myRoles, Constants.GROUP_OSCORE_RESPONDER);
+			myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+			myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
 			getCreds.get(1).Add(myRoles);
 
 			getCreds.Add(CBORObject.NewArray()); // This must be empty
 
-			requestPayload.Add(Constants.GET_CREDS, getCreds);
+			requestPayload.Add(GroupcommParameters.GET_CREDS, getCreds);
 
 		}
 
@@ -620,7 +618,7 @@ public class Adversary {
 			}
 
 			switch (credFmtExpected.AsInt32()) {
-			case Constants.COSE_HEADER_PARAM_CCS:
+			case Constants.COSE_HEADER_PARAM_KCCS:
 				// A CCS including the public key
 				if (signKeyCurve == KeyKeys.EC2_P256.AsInt32()) {
 					System.out.println("Needs further configuration");
@@ -631,7 +629,7 @@ public class Adversary {
 					authCred = clientCcsBytes;
 				}
 				break;
-			case Constants.COSE_HEADER_PARAM_CWT:
+			case Constants.COSE_HEADER_PARAM_KCWT:
 				// A CWT including the public key
 				break;
 			case Constants.COSE_HEADER_PARAM_X5CHAIN:
@@ -642,7 +640,7 @@ public class Adversary {
 				break;
 			}
 
-			requestPayload.Add(Constants.CLIENT_CRED, CBORObject.FromObject(authCred));
+			requestPayload.Add(GroupcommParameters.CLIENT_CRED, CBORObject.FromObject(authCred));
 
 			// Add the nonce for PoP of the Client's private key
 			byte[] cnonce = new byte[8];
@@ -668,7 +666,7 @@ public class Adversary {
 			byte[] clientSignature = Util.computeSignature(signKeyCurve, privKey, dataToSign);
 
 			if (clientSignature != null)
-				requestPayload.Add(Constants.CLIENT_CRED_VERIFY, clientSignature);
+				requestPayload.Add(GroupcommParameters.CLIENT_CRED_VERIFY, clientSignature);
 			else
 				Assert.fail("Computed signature is empty");
 
@@ -700,7 +698,7 @@ public class Adversary {
 
 		MultiKey clientKey = new MultiKey(authCred, cKeyPair.get(KeyKeys.OKP_D).GetByteString());
 		GroupCtx groupOscoreCtx = null;
-		if (joinResponse.get(CBORObject.FromObject(Constants.KDC_CRED)) != null) {
+		if (joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED)) != null) {
 			groupOscoreCtx = Tools.generateGroupOSCOREContext(joinResponse, clientKey);
 		}
 		return groupOscoreCtx;

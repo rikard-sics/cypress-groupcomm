@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -311,7 +311,7 @@ public class PlugtestRS {
                 new InetSocketAddress(CoAP.DEFAULT_COAP_SECURE_PORT));
 
         DtlspPskStore psk = new DtlspPskStore(ai);
-        config.setAdvancedPskStore(psk);
+		config.setPskStore(psk);
         config.setCertificateIdentityProvider(
                 new SingleCertificateProvider(rpk.AsPrivateKey(), rpk.AsPublicKey()));
  
@@ -392,7 +392,7 @@ public class PlugtestRS {
              new InetSocketAddress(CoAP.DEFAULT_COAP_SECURE_PORT));
 
      DtlspPskStore psk = new DtlspPskStore(ai);
-     config.setAdvancedPskStore(psk);
+		config.setPskStore(psk);
      DTLSConnector connector = new DTLSConnector(config.build());
      CoapEndpoint cep = new CoapEndpoint.Builder().setConnector(connector)
              .setConfiguration(Configuration.getStandard()).build();

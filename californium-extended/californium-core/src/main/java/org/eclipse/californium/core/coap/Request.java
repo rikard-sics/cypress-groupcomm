@@ -50,10 +50,12 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.eclipse.californium.core.CoapClient;
 import org.eclipse.californium.core.coap.CoAP.Code;
 import org.eclipse.californium.core.coap.CoAP.Type;
+import org.eclipse.californium.core.coap.option.BlockOption;
 import org.eclipse.californium.core.network.Endpoint;
 import org.eclipse.californium.core.network.EndpointManager;
 import org.eclipse.californium.elements.AddressEndpointContext;
@@ -61,6 +63,8 @@ import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.californium.elements.util.ClockUtil;
 import org.eclipse.californium.elements.util.NetworkInterfacesUtil;
 import org.eclipse.californium.elements.util.StringUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Request represents a CoAP request and has either the {@link Type} CON or NON
@@ -173,6 +177,10 @@ import org.eclipse.californium.elements.util.StringUtil;
  * @see Response
  */
 public class Request extends Message {
+	/**
+	 * @since 3.10
+	 */
+	private static final Logger LOG = LoggerFactory.getLogger(Request.class);
 
 	/**
 	 * The request code.
@@ -226,6 +234,10 @@ public class Request extends Message {
 
 	/** Contextual information about this request */
 	private Map<String, String> userContext;
+
+	/** Indicate if this exchange allows multiple responses **/
+	private final AtomicBoolean multiResponseRequest = new AtomicBoolean(false);
+
 
 	/**
 	 * Indicates if handling the response caused an error.
@@ -298,11 +310,11 @@ public class Request extends Message {
 	/**
 	 * {@inheritDoc}
 	 * 
-	 * GET and DELETE request are not intended to have payload.
+	 * GET, DELETE, and PING request are not intended to have payload.
 	 */
 	@Override
 	public boolean isIntendedPayload() {
-		return code != Code.GET && code != Code.DELETE;
+		return code != Code.GET && code != Code.DELETE && code != null;
 	}
 
 	/**
@@ -410,21 +422,19 @@ public class Request extends Message {
 	 * strict proxy/CoAP URI exclusion for backwards compatibility, set the
 	 * options directly in the optons-set using {@link #getOptions()}.
 	 * </p>
-	 * Note: if uri-path of uri-query option was set explicitly before, they are
-	 * not cleaned up, if the URI doesn't contain that part. e.g.
-	 * {@code request.getOptions().setUriQuery("param=2")} and
-	 * {@code request.setURI("coap://host/path")} results in
-	 * {@code "coap://host/path?param=2"}. But
-	 * {@code request.getOptions().setUriQuery("param=2")} and
-	 * {@code request.setURI("coap://host/path?mark")} results in
-	 * {@code "coap://host/path?mark"}. That will be removed in the next major
-	 * version! Don't set uri-path or uri-query options before the URI!
+	 * <p>
+	 * Note: if the URI contains a hostname, a DNS lookup may be used to resolve
+	 * the address. That may block for a unknown time. To prevent from that, the
+	 * address may be resolved ahead by {@link InetAddress#getByName(String)}.
+	 * </p>
+	 * Note: since 3.3, uri-path or uri-query options, if required, must be set
+	 * after the URI! The URI will clean them, if not contained in the URI.
 	 * 
 	 * Provides a fluent API to chain setters.
 	 * 
 	 * @param uri A CoAP URI as specified by
-	 *            <a href="https://tools.ietf.org/html/rfc7252#section-6" target="_blank">
-	 *            Section 6 of RFC 7252</a>
+	 *            <a href="https://tools.ietf.org/html/rfc7252#section-6" target
+	 *            ="_blank"> Section 6 of RFC 7252</a>
 	 * @return This request for command chaining.
 	 * @throws NullPointerException if the URI is {@code null}.
 	 * @throws IllegalArgumentException if the given string is not a valid CoAP
@@ -442,7 +452,7 @@ public class Request extends Message {
 			String coapUri = uri;
 			if (!uri.contains("://")) {
 				coapUri = "coap://" + uri;
-				LOGGER.warn("update your code to supply an RFC 7252 compliant URI including a scheme");
+				LOG.warn("update your code to supply an RFC 7252 compliant URI including a scheme");
 			}
 			return setURI(new URI(coapUri));
 		} catch (URISyntaxException e) {
@@ -461,15 +471,13 @@ public class Request extends Message {
 	 * strict proxy/CoAP URI exclusion for backwards compatibility, set the
 	 * options directly in the optons-set using {@link #getOptions()}.
 	 * </p>
-	 * Note: if uri-path of uri-query option was set explicitly before, they are
-	 * not cleaned up, if the URI doesn't contain that part. e.g.
-	 * {@code request.getOptions().setUriQuery("param=2")} and
-	 * {@code request.setURI("coap://host/path")} results in
-	 * {@code "coap://host/path?param=2"}. But
-	 * {@code request.getOptions().setUriQuery("param=2")} and
-	 * {@code request.setURI("coap://host/path?mark")} results in
-	 * {@code "coap://host/path?mark"}. That will be removed in the next major
-	 * version! Don't set uri-path or uri-query options before the URI!
+	 * <p>
+	 * Note: if the URI contains a hostname, a DNS lookup may be used to
+	 * resolve the address. That may block for a unknown time. To prevent from
+	 * that, the address may be resolved ahead by {@link InetAddress#getByName(String)}.
+	 * <p>
+	 * Note: since 3.3, uri-path or uri-query options, if required, must be set
+	 * after the URI! The URI will clean them, if not contained in the URI.
 	 * 
 	 * Provides a fluent API to chain setters.
 	 * 
@@ -512,8 +520,8 @@ public class Request extends Message {
 
 	/**
 	 * Sets this request's options from a given URI as defined in
-	 * <a href="https://tools.ietf.org/html/rfc7252#section-6.4" target="_blank">RFC 7252,
-	 * Section 6.4</a>.
+	 * <a href="https://tools.ietf.org/html/rfc7252#section-6.4" target=
+	 * "_blank">RFC 7252, Section 6.4</a>.
 	 * <p>
 	 * This method requires the <em>destination</em> to be set already because
 	 * it does not try to resolve a host name that is part of the given URI.
@@ -523,15 +531,8 @@ public class Request extends Message {
 	 * strict proxy/CoAP URI exclusion for backwards compatibility, set the
 	 * options directly in the optons-set using {@link #getOptions()}.
 	 * </p>
-	 * Note: if uri-path of uri-query option was set explicitly before, they are
-	 * not cleaned up, if the URI doesn't contain that part. e.g.
-	 * {@code request.getOptions().setUriQuery("param=2")} and
-	 * {@code request.setURI("coap://host/path")} results in
-	 * {@code "coap://host/path?param=2"}. But
-	 * {@code request.getOptions().setUriQuery("param=2")} and
-	 * {@code request.setURI("coap://host/path?mark")} results in
-	 * {@code "coap://host/path?mark"}. That will be removed in the next major
-	 * version! Don't set uri-path or uri-query options before the URI!
+	 * Note: since 3.3, uri-path or uri-query options, if required, must be set
+	 * after the URI! The URI will clean them, if not contained in the URI.
 	 * 
 	 * Provides a fluent API to chain setters.
 	 * 
@@ -604,7 +605,6 @@ public class Request extends Message {
 			throw new NullPointerException("destination address must not be null!");
 		}
 		OptionSet options = getOptions();
-		boolean explicitUriOption = options.hasExplicitUriOptions();
 		String host = uri.getHost();
 
 		if (host != null) {
@@ -620,7 +620,7 @@ public class Request extends Message {
 					}
 				} catch (UnknownHostException e) {
 					// this should not happen because we do not need to resolve a host name
-					LOGGER.warn("could not parse IP address of URI despite successful IP address pattern matching");
+					LOG.warn("could not parse IP address of URI despite successful IP address pattern matching");
 				}
 			} else {
 				if (!StringUtil.isValidHostName(host)) {
@@ -654,18 +654,15 @@ public class Request extends Message {
 		String path = uri.getPath();
 		if (path != null && path.length() > 1) {
 			options.setUriPath(path);
-		} else if (!explicitUriOption) {
+		} else {
 			options.clearUriPath();
 		}
 		// set Uri-Query options
 		String query = uri.getQuery();
 		if (query != null) {
 			options.setUriQuery(query);
-		} else if (!explicitUriOption) {
+		} else {
 			options.clearUriQuery();
-		}
-		if (!explicitUriOption) {
-			options.resetExplicitUriOptions();
 		}
 	}
 
@@ -991,6 +988,7 @@ public class Request extends Message {
 				}
 			}
 			Response r = this.response;
+			this.ready = false;
 			this.response = null;
 			return r;
 		}
@@ -1202,5 +1200,23 @@ public class Request extends Message {
 	 */
 	public static Request newPing() {
 		return new Request(null);
+	}
+
+	/**
+	 * Set flag to indicate this exchange allows multiple responses. TODO: Avoid
+	 * having in both Exchange and Request
+	 * 
+	 * @param b true or false
+	 */
+	public void setMultiResponse(boolean b) {
+		multiResponseRequest.set(b);
+	}
+
+	/**
+	 * Get indicating if this exchange allows responses. TODO: Avoid having in
+	 * both Exchange and Request
+	 */
+	public boolean getMultiResponse() {
+		return multiResponseRequest.get();
 	}
 }

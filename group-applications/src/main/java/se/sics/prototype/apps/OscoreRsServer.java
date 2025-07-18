@@ -58,6 +58,7 @@ import org.eclipse.californium.core.CoapServer;
 import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.core.server.resources.Resource;
@@ -77,6 +78,7 @@ import org.eclipse.californium.elements.util.StringUtil;
 import se.sics.ace.AceException;
 import se.sics.ace.COSEparams;
 import se.sics.ace.Constants;
+import se.sics.ace.GroupcommParameters;
 import se.sics.ace.Util;
 import se.sics.ace.coap.CoapReq;
 import se.sics.ace.coap.rs.CoapAuthzInfo;
@@ -87,7 +89,7 @@ import se.sics.ace.examples.KissTime;
 import se.sics.ace.oscore.GroupInfo;
 import se.sics.ace.oscore.GroupOSCOREInputMaterialObjectParameters;
 import se.sics.ace.oscore.OSCOREInputMaterialObjectParameters;
-import se.sics.ace.oscore.rs.GroupOSCOREJoinValidator;
+import se.sics.ace.oscore.rs.GroupOSCOREValidator;
 import se.sics.ace.oscore.rs.OscoreAuthzInfoGroupOSCORE;
 import se.sics.ace.rs.AsRequestCreationHints;
 import se.sics.ace.rs.TokenRepository;
@@ -118,6 +120,8 @@ public class OscoreRsServer {
 
 	private final static String rootGroupMembershipResource = "ace-group";
 
+	private final static String groupCollectionResourcePath = "manage";
+
 	// Up to 4 bytes, same for all the OSCORE Group of the Group Manager
 	private final static int groupIdPrefixSize = 4;
 
@@ -144,6 +148,10 @@ public class OscoreRsServer {
 	static String testpath = "temp-";
 
 	static Random rand;
+
+	static {
+		CoapConfig.register();
+	}
 
 	/**
 	 * Definition of the Hello-World Resource
@@ -251,29 +259,29 @@ public class OscoreRsServer {
 			}
 
 			// The CBOR Map must include exactly one element, i.e. 'gid'
-			if ((requestCBOR.size() != 1) || (!requestCBOR.ContainsKey(Constants.GID))) {
+			if ((requestCBOR.size() != 1) || (!requestCBOR.ContainsKey(GroupcommParameters.GID))) {
 				exchange.respond(CoAP.ResponseCode.BAD_REQUEST, "Invalid payload format");
 				return;
 			}
 
 			// The 'gid' element must be a CBOR array, with at least one element
-			if (requestCBOR.get(Constants.GID).getType() != CBORType.Array
-					|| requestCBOR.get(Constants.GID).size() == 0) {
+			if (requestCBOR.get(GroupcommParameters.GID).getType() != CBORType.Array
+					|| requestCBOR.get(GroupcommParameters.GID).size() == 0) {
 				exchange.respond(CoAP.ResponseCode.BAD_REQUEST, "Invalid payload format");
 				return;
 			}
 
 			// Each element of 'gid' element must be a CBOR byte string
-			for (int i = 0; i < requestCBOR.get(Constants.GID).size(); i++) {
-				if (requestCBOR.get(Constants.GID).get(i).getType() != CBORType.ByteString) {
+			for (int i = 0; i < requestCBOR.get(GroupcommParameters.GID).size(); i++) {
+				if (requestCBOR.get(GroupcommParameters.GID).get(i).getType() != CBORType.ByteString) {
 					exchange.respond(CoAP.ResponseCode.BAD_REQUEST, "Invalid payload format");
 					return;
 				}
 			}
 
 			List<CBORObject> inputGroupIds = new ArrayList<CBORObject>();
-			for (int i = 0; i < requestCBOR.get(Constants.GID).size(); i++) {
-				inputGroupIds.add(requestCBOR.get(Constants.GID).get(i));
+			for (int i = 0; i < requestCBOR.get(GroupcommParameters.GID).size(); i++) {
+				inputGroupIds.add(requestCBOR.get(GroupcommParameters.GID).get(i));
 			}
 
 			List<String> preliminaryGroupNames = new ArrayList<String>();
@@ -360,9 +368,9 @@ public class OscoreRsServer {
 					guriArray.Add(finalGroupURIs.get(i));
 				}
 
-				myResponse.Add(Constants.GID, gidArray);
-				myResponse.Add(Constants.GNAME, gnameArray);
-				myResponse.Add(Constants.GURI, guriArray);
+				myResponse.Add(GroupcommParameters.GID, gidArray);
+				myResponse.Add(GroupcommParameters.GNAME, gnameArray);
+				myResponse.Add(GroupcommParameters.GURI, guriArray);
 
 				responsePayload = myResponse.EncodeToBytes();
 				coapResponse.getOptions().setContentFormat(Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
@@ -379,14 +387,14 @@ public class OscoreRsServer {
 	/**
 	 * Definition of the group-membership resource for Group OSCORE
 	 */
-	public static class GroupOSCOREJoinResource extends CoapResource {
+	public static class GroupOSCOREGroupMembershipResource extends CoapResource {
 
 		/**
 		 * Constructor
 		 * 
 		 * @param resId the resource identifier
 		 */
-		public GroupOSCOREJoinResource(String resId) {
+		public GroupOSCOREGroupMembershipResource(String resId) {
 
 			// set resource identifier
 			super(resId);
@@ -397,11 +405,12 @@ public class OscoreRsServer {
 			// Set the valid combinations of roles in a Joining Request
 			// Combinations are expressed with the AIF specific data model
 			// AIF-OSCORE-GROUPCOMM
-			validRoleCombinations.add(1 << Constants.GROUP_OSCORE_REQUESTER);
-			validRoleCombinations.add(1 << Constants.GROUP_OSCORE_RESPONDER);
-			validRoleCombinations.add(1 << Constants.GROUP_OSCORE_MONITOR);
+			validRoleCombinations.add(1 << GroupcommParameters.GROUP_OSCORE_REQUESTER);
+			validRoleCombinations.add(1 << GroupcommParameters.GROUP_OSCORE_RESPONDER);
+			validRoleCombinations.add(1 << GroupcommParameters.GROUP_OSCORE_MONITOR);
 			validRoleCombinations
-					.add((1 << Constants.GROUP_OSCORE_REQUESTER) + (1 << Constants.GROUP_OSCORE_RESPONDER));
+					.add((1 << GroupcommParameters.GROUP_OSCORE_REQUESTER)
+							+ (1 << GroupcommParameters.GROUP_OSCORE_RESPONDER));
 
 		}
 
@@ -456,7 +465,8 @@ public class OscoreRsServer {
 
 			// Key Type Value assigned to the Group_OSCORE_Input_Material
 			// object.
-			myResponse.Add(Constants.GKTY, CBORObject.FromObject(Constants.GROUP_OSCORE_INPUT_MATERIAL_OBJECT));
+			myResponse.Add(GroupcommParameters.GKTY,
+					CBORObject.FromObject(GroupcommParameters.GROUP_OSCORE_INPUT_MATERIAL_OBJECT));
 
 			// This map is filled as the Group_OSCORE_Input_Material object,
 			// as defined in draft-ace-key-groupcomm-oscore
@@ -469,32 +479,32 @@ public class OscoreRsServer {
 			myMap.Add(OSCOREInputMaterialObjectParameters.ms, targetedGroup.getMasterSecret());
 			myMap.Add(OSCOREInputMaterialObjectParameters.contextId, targetedGroup.getGroupId());
 			myMap.Add(GroupOSCOREInputMaterialObjectParameters.cred_fmt, targetedGroup.getAuthCredFormat());
-			if (targetedGroup.getMode() != Constants.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {
+			if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {
 				// The group mode is used
-				myMap.Add(GroupOSCOREInputMaterialObjectParameters.sign_enc_alg,
-						targetedGroup.getSignEncAlg().AsCBOR());
+				myMap.Add(GroupOSCOREInputMaterialObjectParameters.gp_enc_alg, targetedGroup.getGpEncAlg().AsCBOR());
 				myMap.Add(GroupOSCOREInputMaterialObjectParameters.sign_alg, targetedGroup.getSignAlg().AsCBOR());
 				if (targetedGroup.getSignParams().size() != 0)
 					myMap.Add(GroupOSCOREInputMaterialObjectParameters.sign_params, targetedGroup.getSignParams());
 			}
-			if (targetedGroup.getMode() != Constants.GROUP_OSCORE_GROUP_MODE_ONLY) {
+			if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_GROUP_MODE_ONLY) {
 				// The pairwise mode is used
 				myMap.Add(OSCOREInputMaterialObjectParameters.alg, targetedGroup.getAlg().AsCBOR());
 				myMap.Add(GroupOSCOREInputMaterialObjectParameters.ecdh_alg, targetedGroup.getEcdhAlg().AsCBOR());
 				if (targetedGroup.getEcdhParams().size() != 0)
 					myMap.Add(GroupOSCOREInputMaterialObjectParameters.ecdh_params, targetedGroup.getEcdhParams());
 			}
-			myResponse.Add(Constants.KEY, myMap);
+			myResponse.Add(GroupcommParameters.KEY, myMap);
 
 			// The current version of the symmetric keying material
-			myResponse.Add(Constants.NUM, CBORObject.FromObject(targetedGroup.getVersion()));
+			myResponse.Add(GroupcommParameters.NUM, CBORObject.FromObject(targetedGroup.getVersion()));
 
 			// CBOR Value assigned to the coap_group_oscore profile.
-			myResponse.Add(Constants.ACE_GROUPCOMM_PROFILE, CBORObject.FromObject(Constants.COAP_GROUP_OSCORE_APP));
+			myResponse.Add(GroupcommParameters.ACE_GROUPCOMM_PROFILE,
+					CBORObject.FromObject(GroupcommParameters.COAP_GROUP_OSCORE_APP));
 
 			// Expiration time in seconds, after which the OSCORE Security
 			// Context derived from the 'k' parameter is not valid anymore.
-			myResponse.Add(Constants.EXP, CBORObject.FromObject(1000000));
+			myResponse.Add(GroupcommParameters.EXP, CBORObject.FromObject(1000000));
 
 			byte[] responsePayload = myResponse.EncodeToBytes();
 
@@ -589,7 +599,7 @@ public class OscoreRsServer {
 			}
 
 			// The group mode is used
-			if (targetedGroup.getMode() != Constants.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {
+			if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {
 				CBORObject signInfoEntry = CBORObject.NewArray();
 				signInfoEntry.Add(CBORObject.FromObject(targetedGroup.getGroupName()));
 				signInfoEntry.Add(targetedGroup.getSignAlg().AsCBOR());
@@ -615,7 +625,7 @@ public class OscoreRsServer {
 			}
 
 			// The pairwise mode is used
-			if (targetedGroup.getMode() != Constants.GROUP_OSCORE_GROUP_MODE_ONLY) {
+			if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_GROUP_MODE_ONLY) {
 				CBORObject ecdhInfoEntry = CBORObject.NewArray();
 				ecdhInfoEntry.Add(CBORObject.FromObject(targetedGroup.getGroupName()));
 				ecdhInfoEntry.Add(targetedGroup.getEcdhAlg().AsCBOR());
@@ -663,10 +673,10 @@ public class OscoreRsServer {
 			// upon getting the join request.
 			// The actual checks of legitimate access are performed by
 			// scopeMatchResource() and scopeMatch()
-			// of the GroupOSCOREJoinValidator used as Scope/Audience Validator.
+			// of the GroupOSCOREValidator used as Scope/Audience Validator.
 
 			// Retrieve scope
-			CBORObject scope = joinRequest.get(CBORObject.FromObject(Constants.SCOPE));
+			CBORObject scope = joinRequest.get(CBORObject.FromObject(GroupcommParameters.SCOPE));
 
 			// Scope must be included for joining OSCORE groups
 			if (scope == null) {
@@ -777,8 +787,8 @@ public class OscoreRsServer {
 				for (int i = 0; i < roleIdArray.length; i++) {
 					short roleIdentifier = roleIdArray[i];
 					// Silently ignore unrecognized roles
-					if (roleIdentifier < Constants.GROUP_OSCORE_ROLES.length)
-						roles.add(Constants.GROUP_OSCORE_ROLES[roleIdentifier]);
+					if (roleIdentifier < GroupcommParameters.GROUP_OSCORE_ROLES.length)
+						roles.add(GroupcommParameters.GROUP_OSCORE_ROLES[roleIdentifier]);
 				}
 			}
 
@@ -824,7 +834,7 @@ public class OscoreRsServer {
 			// Retrieve 'get_creds'
 			// If present, this parameter must be a CBOR array or the CBOR
 			// simple value Null
-			CBORObject getCreds = joinRequest.get(CBORObject.FromObject((Constants.GET_CREDS)));
+			CBORObject getCreds = joinRequest.get(CBORObject.FromObject((GroupcommParameters.GET_CREDS)));
 			if (getCreds != null) {
 
 				// Invalid format of 'get_creds'
@@ -892,7 +902,8 @@ public class OscoreRsServer {
 			byte[] sidClient2 = KeyStorage.clientIds.get("Client2").getBytes();
 			// If this is Client1 or Client2 joining (check auth cred), give
 			// them a specific Sender ID
-			byte[] clientCredCheck = joinRequest.get(CBORObject.FromObject(Constants.CLIENT_CRED)).GetByteString();
+			byte[] clientCredCheck = joinRequest.get(CBORObject.FromObject(GroupcommParameters.CLIENT_CRED))
+					.GetByteString();
 			if (Arrays.equals(clientCredCheck, KeyStorage.memberCcs.get("Client1"))) {
 				senderId = sidClient1;
 				myGroup.allocateSenderId(senderId);
@@ -901,7 +912,7 @@ public class OscoreRsServer {
 				myGroup.allocateSenderId(senderId);
 			}
 			// Assign a Sender ID to the joining node, unless it is a monitor
-			else if (roleSet != (1 << Constants.GROUP_OSCORE_MONITOR)) {
+			else if (roleSet != (1 << GroupcommParameters.GROUP_OSCORE_MONITOR)) {
 
 				senderId = new byte[1];
 				while (Arrays.equals(senderId, new byte[] { 0x25 }) || Arrays.equals(senderId, new byte[] { 0x77 })
@@ -926,15 +937,15 @@ public class OscoreRsServer {
 			}
 
 			// Retrieve 'client_cred'
-			CBORObject clientCred = joinRequest.get(CBORObject.FromObject(Constants.CLIENT_CRED));
+			CBORObject clientCred = joinRequest.get(CBORObject.FromObject(GroupcommParameters.CLIENT_CRED));
 
-			if (clientCred == null && (roleSet != (1 << Constants.GROUP_OSCORE_MONITOR))) {
+			if (clientCred == null && (roleSet != (1 << GroupcommParameters.GROUP_OSCORE_MONITOR))) {
 
 				// TODO: check if the Group Manager already owns this client's
 				// cred
 
 			}
-			if (clientCred == null && (roleSet != (1 << Constants.GROUP_OSCORE_MONITOR))) {
+			if (clientCred == null && (roleSet != (1 << GroupcommParameters.GROUP_OSCORE_MONITOR))) {
 				ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, GM_DEVICE_NAME,
 						"A public key was neither provided nor found as already stored" + " [subject: " + subject
 								+ ", groupName: " + groupName + ", nodeName: " + nodeName + "]");
@@ -943,7 +954,7 @@ public class OscoreRsServer {
 				return;
 			}
 			// Process the public key of the joining node
-			else if (roleSet != (1 << Constants.GROUP_OSCORE_MONITOR)) {
+			else if (roleSet != (1 << GroupcommParameters.GROUP_OSCORE_MONITOR)) {
 
 				OneKey publicKey = null;
 				boolean valid = false;
@@ -959,7 +970,7 @@ public class OscoreRsServer {
 
 				byte[] clientCredBytes = clientCred.GetByteString();
 				switch (myGroup.getAuthCredFormat()) {
-				case Constants.COSE_HEADER_PARAM_CCS:
+				case Constants.COSE_HEADER_PARAM_KCCS:
 					CBORObject ccs = CBORObject.DecodeFromBytes(clientCredBytes);
 					if (ccs.getType() == CBORType.Map) {
 						// Retrieve the public key from the CCS
@@ -969,7 +980,7 @@ public class OscoreRsServer {
 						Assert.fail("Invalid format of public key");
 					}
 					break;
-				case Constants.COSE_HEADER_PARAM_CWT:
+				case Constants.COSE_HEADER_PARAM_KCWT:
 					CBORObject cwt = CBORObject.DecodeFromBytes(clientCredBytes);
 					if (cwt.getType() == CBORType.Array) {
 						// Retrieve the public key from the CWT
@@ -1073,7 +1084,8 @@ public class OscoreRsServer {
 
 				// Check the proof-of-possession evidence over (scope | rsnonce
 				// | cnonce), using the Client's public key
-				CBORObject clientPopEvidence = joinRequest.get(CBORObject.FromObject(Constants.CLIENT_CRED_VERIFY));
+				CBORObject clientPopEvidence = joinRequest
+						.get(CBORObject.FromObject(GroupcommParameters.CLIENT_CRED_VERIFY));
 
 				// A client PoP evidence must be included
 				if (clientPopEvidence == null) {
@@ -1134,7 +1146,7 @@ public class OscoreRsServer {
 				System.arraycopy(serializedCNonceCBOR, 0, popInput, offset, serializedCNonceCBOR.length);
 
 				// The group mode is used. The PoP evidence is a signature
-				if (targetedGroup.getMode() != Constants.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {
+				if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {
 
 					if (publicKey.get(KeyKeys.KeyType).equals(org.eclipse.californium.cose.KeyKeys.KeyType_EC2))
 						signKeyCurve = publicKey.get(KeyKeys.EC2_Curve).AsInt32();
@@ -1215,9 +1227,9 @@ public class OscoreRsServer {
 			// Create and add the sub-resource associated to the new group
 			// member
 			try {
-				valid.setJoinResources(
+				valid.setGroupMembershipResources(
 						Collections.singleton(rootGroupMembershipResource + "/" + groupName + "/nodes/" + nodeName));
-				valid.setJoinResources(Collections
+				valid.setGroupMembershipResources(Collections
 						.singleton(rootGroupMembershipResource + "/" + groupName + "/nodes/" + nodeName + "/cred"));
 			} catch (AceException e) {
 				myGroup.removeGroupMemberBySubject(subject);
@@ -1256,7 +1268,8 @@ public class OscoreRsServer {
 
 			// Key Type Value assigned to the Group_OSCORE_Input_Material
 			// object.
-			joinResponse.Add(Constants.GKTY, CBORObject.FromObject(Constants.GROUP_OSCORE_INPUT_MATERIAL_OBJECT));
+			joinResponse.Add(GroupcommParameters.GKTY,
+					CBORObject.FromObject(GroupcommParameters.GROUP_OSCORE_INPUT_MATERIAL_OBJECT));
 
 			// This map is filled as the Group_OSCORE_Input_Material object, as
 			// defined in draft-ace-key-groupcomm-oscore
@@ -1272,22 +1285,21 @@ public class OscoreRsServer {
 			myMap.Add(OSCOREInputMaterialObjectParameters.ms, targetedGroup.getMasterSecret());
 			myMap.Add(OSCOREInputMaterialObjectParameters.contextId, targetedGroup.getGroupId());
 			myMap.Add(GroupOSCOREInputMaterialObjectParameters.cred_fmt, targetedGroup.getAuthCredFormat());
-			if (targetedGroup.getMode() != Constants.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {
+			if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {
 				// The group mode is used
-				myMap.Add(GroupOSCOREInputMaterialObjectParameters.sign_enc_alg,
-						targetedGroup.getSignEncAlg().AsCBOR());
+				myMap.Add(GroupOSCOREInputMaterialObjectParameters.gp_enc_alg, targetedGroup.getGpEncAlg().AsCBOR());
 				myMap.Add(GroupOSCOREInputMaterialObjectParameters.sign_alg, targetedGroup.getSignAlg().AsCBOR());
 				if (targetedGroup.getSignParams().size() != 0)
 					myMap.Add(GroupOSCOREInputMaterialObjectParameters.sign_params, targetedGroup.getSignParams());
 			}
-			if (targetedGroup.getMode() != Constants.GROUP_OSCORE_GROUP_MODE_ONLY) {
+			if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_GROUP_MODE_ONLY) {
 				// The pairwise mode is used
 				myMap.Add(OSCOREInputMaterialObjectParameters.alg, targetedGroup.getAlg().AsCBOR());
 				myMap.Add(GroupOSCOREInputMaterialObjectParameters.ecdh_alg, targetedGroup.getEcdhAlg().AsCBOR());
 				if (targetedGroup.getEcdhParams().size() != 0)
 					myMap.Add(GroupOSCOREInputMaterialObjectParameters.ecdh_params, targetedGroup.getEcdhParams());
 			}
-			joinResponse.Add(Constants.KEY, myMap);
+			joinResponse.Add(GroupcommParameters.KEY, myMap);
 
 			// If backward security has to be preserved:
 			//
@@ -1297,10 +1309,11 @@ public class OscoreRsServer {
 			// 2) The OSCORE group should be rekeyed
 
 			// The current version of the symmetric keying material
-			joinResponse.Add(Constants.NUM, CBORObject.FromObject(myGroup.getVersion()));
+			joinResponse.Add(GroupcommParameters.NUM, CBORObject.FromObject(myGroup.getVersion()));
 
 			// CBOR Value assigned to the "coap_group_oscore_app" profile.
-			joinResponse.Add(Constants.ACE_GROUPCOMM_PROFILE, CBORObject.FromObject(Constants.COAP_GROUP_OSCORE_APP));
+			joinResponse.Add(GroupcommParameters.ACE_GROUPCOMM_PROFILE,
+					CBORObject.FromObject(GroupcommParameters.COAP_GROUP_OSCORE_APP));
 
 			// Expiration time in seconds, after which the OSCORE Security
 			// Context derived from the 'k' parameter is not valid anymore.
@@ -1358,9 +1371,9 @@ public class OscoreRsServer {
 
 				}
 
-				joinResponse.Add(Constants.CREDS, authCredsArray);
-				joinResponse.Add(Constants.PEER_ROLES, peerRoles);
-				joinResponse.Add(Constants.PEER_IDENTIFIERS, peerIdentifiers);
+				joinResponse.Add(GroupcommParameters.CREDS, authCredsArray);
+				joinResponse.Add(GroupcommParameters.PEER_ROLES, peerRoles);
+				joinResponse.Add(GroupcommParameters.PEER_IDENTIFIERS, peerIdentifiers);
 
 				// Debug:
 				// 1) Print 'kid' as equal to the Sender ID of the key owner
@@ -1376,17 +1389,17 @@ public class OscoreRsServer {
 			}
 
 			// Group Policies
-			joinResponse.Add(Constants.GROUP_POLICIES, myGroup.getGroupPolicies());
+			joinResponse.Add(GroupcommParameters.GROUP_POLICIES, myGroup.getGroupPolicies());
 
 			// Authentication Credential of the Group Manager together with
 			// proof-of-possession evidence
 			byte[] kdcNonce = new byte[8];
 			new SecureRandom().nextBytes(kdcNonce);
-			joinResponse.Add(Constants.KDC_NONCE, kdcNonce);
+			joinResponse.Add(GroupcommParameters.KDC_NONCE, kdcNonce);
 
 			CBORObject publicKey = CBORObject.FromObject(targetedGroup.getGmAuthCred());
 
-			joinResponse.Add(Constants.KDC_CRED, publicKey);
+			joinResponse.Add(GroupcommParameters.KDC_CRED, publicKey);
 
 			PrivateKey gmPrivKey;
 			try {
@@ -1402,7 +1415,7 @@ public class OscoreRsServer {
 			byte[] gmSignature = Util.computeSignature(signKeyCurve, gmPrivKey, kdcNonce);
 
 			if (gmSignature != null) {
-				joinResponse.Add(Constants.KDC_CRED_VERIFY, gmSignature);
+				joinResponse.Add(GroupcommParameters.KDC_CRED_VERIFY, gmSignature);
 			} else {
 				ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, GM_DEVICE_NAME,
 						"Error when computing the GM PoP evidence" + " [subject: " + subject + ", groupName: "
@@ -1496,7 +1509,7 @@ public class OscoreRsServer {
 				// Check that at least one of the Access Tokens for this node
 				// allows (also) the Verifier role for this group
 
-				int role = 1 << Constants.GROUP_OSCORE_VERIFIER;
+				int role = 1 << GroupcommParameters.GROUP_OSCORE_VERIFIER;
 				boolean allowed = false;
 				int[] roleSetToken = getRolesFromToken(subject, groupName);
 				if (roleSetToken == null) {
@@ -1550,11 +1563,11 @@ public class OscoreRsServer {
 
 			}
 
-			myResponse.Add(Constants.NUM, CBORObject.FromObject(targetedGroup.getVersion()));
+			myResponse.Add(GroupcommParameters.NUM, CBORObject.FromObject(targetedGroup.getVersion()));
 
-			myResponse.Add(Constants.CREDS, authCredsArray);
-			myResponse.Add(Constants.PEER_ROLES, peerRoles);
-			myResponse.Add(Constants.PEER_IDENTIFIERS, peerIdentifiers);
+			myResponse.Add(GroupcommParameters.CREDS, authCredsArray);
+			myResponse.Add(GroupcommParameters.PEER_ROLES, peerRoles);
+			myResponse.Add(GroupcommParameters.PEER_IDENTIFIERS, peerIdentifiers);
 
 			byte[] responsePayload = myResponse.EncodeToBytes();
 
@@ -1616,7 +1629,7 @@ public class OscoreRsServer {
 				// Check that at least one of the Access Tokens for this node
 				// allows (also) the Verifier role for this group
 
-				int role = 1 << Constants.GROUP_OSCORE_VERIFIER;
+				int role = 1 << GroupcommParameters.GROUP_OSCORE_VERIFIER;
 				boolean allowed = false;
 				int[] roleSetToken = getRolesFromToken(subject, groupName);
 				if (roleSetToken == null) {
@@ -1661,7 +1674,7 @@ public class OscoreRsServer {
 			}
 
 			// The CBOR Map must include exactly one element, i.e. 'get_creds'
-			if ((requestCBOR.size() != 1) || (!requestCBOR.ContainsKey(Constants.GET_CREDS))) {
+			if ((requestCBOR.size() != 1) || (!requestCBOR.ContainsKey(GroupcommParameters.GET_CREDS))) {
 				valid = false;
 
 			}
@@ -1674,7 +1687,7 @@ public class OscoreRsServer {
 
 			// Retrieve 'get_creds'
 			// This parameter must be a CBOR array or the CBOR simple value Null
-			CBORObject getCreds = requestCBOR.get(CBORObject.FromObject((Constants.GET_CREDS)));
+			CBORObject getCreds = requestCBOR.get(CBORObject.FromObject((GroupcommParameters.GET_CREDS)));
 
 			// Invalid format of 'get_creds'
 			if (!getCreds.getType().equals(CBORType.Array) && !getCreds.equals(CBORObject.Null)) {
@@ -1865,11 +1878,11 @@ public class OscoreRsServer {
 				}
 			}
 
-			myResponse.Add(Constants.NUM, CBORObject.FromObject(targetedGroup.getVersion()));
+			myResponse.Add(GroupcommParameters.NUM, CBORObject.FromObject(targetedGroup.getVersion()));
 
-			myResponse.Add(Constants.CREDS, authCredsArray);
-			myResponse.Add(Constants.PEER_ROLES, peerRoles);
-			myResponse.Add(Constants.PEER_IDENTIFIERS, peerIdentifiers);
+			myResponse.Add(GroupcommParameters.CREDS, authCredsArray);
+			myResponse.Add(GroupcommParameters.PEER_ROLES, peerRoles);
+			myResponse.Add(GroupcommParameters.PEER_IDENTIFIERS, peerIdentifiers);
 
 			byte[] responsePayload = myResponse.EncodeToBytes();
 
@@ -1953,7 +1966,7 @@ public class OscoreRsServer {
 				// Check that at least one of the Access Tokens for this node
 				// allows (also) the Verifier role for this group
 
-				int role = 1 << Constants.GROUP_OSCORE_VERIFIER;
+				int role = 1 << GroupcommParameters.GROUP_OSCORE_VERIFIER;
 				boolean allowed = false;
 				int[] roleSetToken = getRolesFromToken(subject, groupName);
 				if (roleSetToken == null) {
@@ -1988,11 +2001,11 @@ public class OscoreRsServer {
 			// proof-of-possession evidence
 			byte[] kdcNonce = new byte[8];
 			new SecureRandom().nextBytes(kdcNonce);
-			myResponse.Add(Constants.KDC_NONCE, kdcNonce);
+			myResponse.Add(GroupcommParameters.KDC_NONCE, kdcNonce);
 
 			CBORObject authCred = CBORObject.FromObject(targetedGroup.getGmAuthCred());
 
-			myResponse.Add(Constants.KDC_CRED, authCred);
+			myResponse.Add(GroupcommParameters.KDC_CRED, authCred);
 
 			PrivateKey gmPrivKey;
 			try {
@@ -2013,7 +2026,7 @@ public class OscoreRsServer {
 			byte[] gmSignature = Util.computeSignature(signKeyCurve, gmPrivKey, kdcNonce);
 
 			if (gmSignature != null) {
-				myResponse.Add(Constants.KDC_CRED_VERIFY, gmSignature);
+				myResponse.Add(GroupcommParameters.KDC_CRED_VERIFY, gmSignature);
 			} else {
 				exchange.respond(CoAP.ResponseCode.INTERNAL_SERVER_ERROR, "Error when computing the GM PoP evidence");
 				return;
@@ -2098,7 +2111,7 @@ public class OscoreRsServer {
 				// Check that at least one of the Access Tokens for this node
 				// allows (also) the Verifier role for this group
 
-				int role = 1 << Constants.GROUP_OSCORE_VERIFIER;
+				int role = 1 << GroupcommParameters.GROUP_OSCORE_VERIFIER;
 				int[] roleSetToken = getRolesFromToken(subject, groupName);
 				if (roleSetToken == null) {
 					exchange.respond(CoAP.ResponseCode.INTERNAL_SERVER_ERROR,
@@ -2129,7 +2142,8 @@ public class OscoreRsServer {
 
 			// Key Type Value assigned to the Group_OSCORE_Input_Material
 			// object.
-			myResponse.Add(Constants.GKTY, CBORObject.FromObject(Constants.GROUP_OSCORE_INPUT_MATERIAL_OBJECT));
+			myResponse.Add(GroupcommParameters.GKTY,
+					CBORObject.FromObject(GroupcommParameters.GROUP_OSCORE_INPUT_MATERIAL_OBJECT));
 
 			// This map is filled as the Group_OSCORE_Input_Material object
 			CBORObject myMap = CBORObject.NewMap();
@@ -2139,15 +2153,14 @@ public class OscoreRsServer {
 			myMap.Add(OSCOREInputMaterialObjectParameters.hkdf, targetedGroup.getHkdf().AsCBOR());
 			myMap.Add(OSCOREInputMaterialObjectParameters.contextId, targetedGroup.getGroupId());
 			myMap.Add(GroupOSCOREInputMaterialObjectParameters.cred_fmt, targetedGroup.getAuthCredFormat());
-			if (targetedGroup.getMode() != Constants.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {
+			if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {
 				// The group mode is used
-				myMap.Add(GroupOSCOREInputMaterialObjectParameters.sign_enc_alg,
-						targetedGroup.getSignEncAlg().AsCBOR());
+				myMap.Add(GroupOSCOREInputMaterialObjectParameters.gp_enc_alg, targetedGroup.getGpEncAlg().AsCBOR());
 				myMap.Add(GroupOSCOREInputMaterialObjectParameters.sign_alg, targetedGroup.getSignAlg().AsCBOR());
 				if (targetedGroup.getSignParams().size() != 0)
 					myMap.Add(GroupOSCOREInputMaterialObjectParameters.sign_params, targetedGroup.getSignParams());
 			}
-			if (targetedGroup.getMode() != Constants.GROUP_OSCORE_GROUP_MODE_ONLY) {
+			if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_GROUP_MODE_ONLY) {
 				// The pairwise mode is used
 				myMap.Add(OSCOREInputMaterialObjectParameters.alg, targetedGroup.getAlg().AsCBOR());
 				myMap.Add(GroupOSCOREInputMaterialObjectParameters.ecdh_alg, targetedGroup.getEcdhAlg().AsCBOR());
@@ -2155,18 +2168,19 @@ public class OscoreRsServer {
 					myMap.Add(GroupOSCOREInputMaterialObjectParameters.ecdh_params, targetedGroup.getEcdhParams());
 			}
 
-			myResponse.Add(Constants.KEY, myMap);
+			myResponse.Add(GroupcommParameters.KEY, myMap);
 
-			myResponse.Add(Constants.NUM, CBORObject.FromObject(targetedGroup.getVersion()));
+			myResponse.Add(GroupcommParameters.NUM, CBORObject.FromObject(targetedGroup.getVersion()));
 
 			// CBOR Value assigned to the coap_group_oscore profile.
-			myResponse.Add(Constants.ACE_GROUPCOMM_PROFILE, CBORObject.FromObject(Constants.COAP_GROUP_OSCORE_APP));
+			myResponse.Add(GroupcommParameters.ACE_GROUPCOMM_PROFILE,
+					CBORObject.FromObject(GroupcommParameters.COAP_GROUP_OSCORE_APP));
 
 			// Expiration time in seconds, after which the OSCORE Security
 			// Context derived from the 'k' parameter is not valid anymore.
 			myResponse.Add(Constants.EXP, CBORObject.FromObject(1000000));
 
-			myResponse.Add(Constants.GROUP_KEY_ENC, targetedGroup.getGroupEncryptionKey());
+			myResponse.Add(GroupcommParameters.SIGN_ENC_KEY, targetedGroup.getSignatureEncryptionKey());
 
 			byte[] responsePayload = myResponse.EncodeToBytes();
 
@@ -2418,7 +2432,7 @@ public class OscoreRsServer {
 				myResponse = CBORObject.FromObject(new byte[0]);
 			} else {
 				myResponse = CBORObject.NewMap();
-				myResponse.Add(Constants.GROUP_POLICIES, groupPolicies);
+				myResponse.Add(GroupcommParameters.GROUP_POLICIES, groupPolicies);
 			}
 
 			byte[] responsePayload = myResponse.EncodeToBytes();
@@ -2539,7 +2553,8 @@ public class OscoreRsServer {
 
 			// Key Type Value assigned to the Group_OSCORE_Input_Material
 			// object.
-			myResponse.Add(Constants.GKTY, CBORObject.FromObject(Constants.GROUP_OSCORE_INPUT_MATERIAL_OBJECT));
+			myResponse.Add(GroupcommParameters.GKTY,
+					CBORObject.FromObject(GroupcommParameters.GROUP_OSCORE_INPUT_MATERIAL_OBJECT));
 
 			// This map is filled as the Group_OSCORE_Input_Material object
 			CBORObject myMap = CBORObject.NewMap();
@@ -2548,7 +2563,7 @@ public class OscoreRsServer {
 			String myString = targetedGroup.getGroupMemberName(subject);
 
 			if (targetedGroup.getGroupMemberRoles(
-					(targetedGroup.getGroupMemberName(subject))) != (1 << Constants.GROUP_OSCORE_MONITOR)) {
+					(targetedGroup.getGroupMemberName(subject))) != (1 << GroupcommParameters.GROUP_OSCORE_MONITOR)) {
 				// The requester is not a monitor, hence it has a Sender ID
 				senderId = StringUtil.hex2ByteArray(myString.substring(myString.indexOf(nodeNameSeparator) + 1));
 			}
@@ -2563,28 +2578,28 @@ public class OscoreRsServer {
 			myMap.Add(OSCOREInputMaterialObjectParameters.ms, targetedGroup.getMasterSecret());
 			myMap.Add(OSCOREInputMaterialObjectParameters.contextId, targetedGroup.getGroupId());
 			myMap.Add(GroupOSCOREInputMaterialObjectParameters.cred_fmt, targetedGroup.getAuthCredFormat());
-			if (targetedGroup.getMode() != Constants.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {
+			if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {
 				// The group mode is used
-				myMap.Add(GroupOSCOREInputMaterialObjectParameters.sign_enc_alg,
-						targetedGroup.getSignEncAlg().AsCBOR());
+				myMap.Add(GroupOSCOREInputMaterialObjectParameters.gp_enc_alg, targetedGroup.getGpEncAlg().AsCBOR());
 				myMap.Add(GroupOSCOREInputMaterialObjectParameters.sign_alg, targetedGroup.getSignAlg().AsCBOR());
 				if (targetedGroup.getSignParams().size() != 0)
 					myMap.Add(GroupOSCOREInputMaterialObjectParameters.sign_params, targetedGroup.getSignParams());
 			}
-			if (targetedGroup.getMode() != Constants.GROUP_OSCORE_GROUP_MODE_ONLY) {
+			if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_GROUP_MODE_ONLY) {
 				// The pairwise mode is used
 				myMap.Add(OSCOREInputMaterialObjectParameters.alg, targetedGroup.getAlg().AsCBOR());
 				myMap.Add(GroupOSCOREInputMaterialObjectParameters.ecdh_alg, targetedGroup.getEcdhAlg().AsCBOR());
 				if (targetedGroup.getEcdhParams().size() != 0)
 					myMap.Add(GroupOSCOREInputMaterialObjectParameters.ecdh_params, targetedGroup.getEcdhParams());
 			}
-			myResponse.Add(Constants.KEY, myMap);
+			myResponse.Add(GroupcommParameters.KEY, myMap);
 
 			// The current version of the symmetric keying material
-			myResponse.Add(Constants.NUM, CBORObject.FromObject(targetedGroup.getVersion()));
+			myResponse.Add(GroupcommParameters.NUM, CBORObject.FromObject(targetedGroup.getVersion()));
 
 			// CBOR Value assigned to the coap_group_oscore profile.
-			myResponse.Add(Constants.ACE_GROUPCOMM_PROFILE, CBORObject.FromObject(Constants.COAP_GROUP_OSCORE_APP));
+			myResponse.Add(GroupcommParameters.ACE_GROUPCOMM_PROFILE,
+					CBORObject.FromObject(GroupcommParameters.COAP_GROUP_OSCORE_APP));
 
 			// Expiration time in seconds, after which the OSCORE Security
 			// Context derived from the 'k' parameter is not valid anymore.
@@ -2676,7 +2691,7 @@ public class OscoreRsServer {
 			}
 
 			if (targetedGroup.getGroupMemberRoles(
-					(targetedGroup.getGroupMemberName(subject))) == (1 << Constants.GROUP_OSCORE_MONITOR)) {
+					(targetedGroup.getGroupMemberName(subject))) == (1 << GroupcommParameters.GROUP_OSCORE_MONITOR)) {
 				// The requester is a monitor, hence it is not supposed to have
 				// a Sender ID.
 				ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, GM_DEVICE_NAME,
@@ -2731,7 +2746,7 @@ public class OscoreRsServer {
 			CBORObject myResponse = CBORObject.NewMap();
 
 			// The new Sender ID assigned to the group member
-			myResponse.Add(Constants.GROUP_SENDER_ID, CBORObject.FromObject(senderId));
+			myResponse.Add(GroupcommParameters.GROUP_SENDER_ID, CBORObject.FromObject(senderId));
 
 			byte[] responsePayload = myResponse.EncodeToBytes();
 
@@ -2915,7 +2930,7 @@ public class OscoreRsServer {
 			}
 
 			if (targetedGroup.getGroupMemberRoles(
-					(targetedGroup.getGroupMemberName(subject))) == (1 << Constants.GROUP_OSCORE_MONITOR)) {
+					(targetedGroup.getGroupMemberName(subject))) == (1 << GroupcommParameters.GROUP_OSCORE_MONITOR)) {
 				// The requester is a monitor, hence it is not supposed to have
 				// a Sender ID.
 				ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, GM_DEVICE_NAME,
@@ -2946,21 +2961,21 @@ public class OscoreRsServer {
 				return;
 			}
 
-			if (!AuthCredUpdateRequest.ContainsKey(Constants.CLIENT_CRED)) {
+			if (!AuthCredUpdateRequest.ContainsKey(GroupcommParameters.CLIENT_CRED)) {
 				ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, GM_DEVICE_NAME, "Missing parameter: 'client_cred'"
 						+ " [subject: " + subject + ", groupName: " + groupName + "]");
 				exchange.respond(CoAP.ResponseCode.BAD_REQUEST, "Missing parameter: 'client_cred'");
 				return;
 			}
 
-			if (!AuthCredUpdateRequest.ContainsKey(Constants.CNONCE)) {
+			if (!AuthCredUpdateRequest.ContainsKey(GroupcommParameters.CNONCE)) {
 				ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, GM_DEVICE_NAME,
 						"Missing parameter: 'cnonce'" + " [subject: " + subject + ", groupName: " + groupName + "]");
 				exchange.respond(CoAP.ResponseCode.BAD_REQUEST, "Missing parameter: 'cnonce'");
 				return;
 			}
 
-			if (!AuthCredUpdateRequest.ContainsKey(Constants.CLIENT_CRED_VERIFY)) {
+			if (!AuthCredUpdateRequest.ContainsKey(GroupcommParameters.CLIENT_CRED_VERIFY)) {
 				ExtraLogger.printLog(TYPE_WARNING, PRIO_MEDIUM, CAT_STATUS, GM_DEVICE_NAME,
 						"Missing parameter: 'client_cred_verify'" + " [subject: " + subject + ", groupName: "
 								+ groupName + "]");
@@ -2969,7 +2984,7 @@ public class OscoreRsServer {
 			}
 
 			// Retrieve 'client_cred'
-			CBORObject clientCred = AuthCredUpdateRequest.get(CBORObject.FromObject(Constants.CLIENT_CRED));
+			CBORObject clientCred = AuthCredUpdateRequest.get(CBORObject.FromObject(GroupcommParameters.CLIENT_CRED));
 
 			// client_cred cannot be Null
 			if (clientCred == null) {
@@ -2994,7 +3009,7 @@ public class OscoreRsServer {
 
 			byte[] clientCredBytes = clientCred.GetByteString();
 			switch (targetedGroup.getAuthCredFormat()) {
-			case Constants.COSE_HEADER_PARAM_CCS:
+			case Constants.COSE_HEADER_PARAM_KCCS:
 				CBORObject ccs = CBORObject.DecodeFromBytes(clientCredBytes);
 				if (ccs.getType() == CBORType.Map) {
 					// Retrieve the public key from the CCS
@@ -3004,7 +3019,7 @@ public class OscoreRsServer {
 					Assert.fail("Invalid format of authentication credential");
 				}
 				break;
-			case Constants.COSE_HEADER_PARAM_CWT:
+			case Constants.COSE_HEADER_PARAM_KCWT:
 				CBORObject cwt = CBORObject.DecodeFromBytes(clientCredBytes);
 				if (cwt.getType() == CBORType.Array) {
 					// Retrieve the public key from the CWT
@@ -3096,7 +3111,7 @@ public class OscoreRsServer {
 			// Check the PoP evidence over (scope | rsnonce | cnonce), using the
 			// Client's public key
 			CBORObject clientPopEvidence = AuthCredUpdateRequest
-					.get(CBORObject.FromObject(Constants.CLIENT_CRED_VERIFY));
+					.get(CBORObject.FromObject(GroupcommParameters.CLIENT_CRED_VERIFY));
 
 			// A client PoP evidence must be included
 			if (clientPopEvidence == null) {
@@ -3182,7 +3197,7 @@ public class OscoreRsServer {
 			System.arraycopy(serializedCNonceCBOR, 0, popInput, offset, serializedCNonceCBOR.length);
 
 			// The group mode is used. The PoP evidence is a signature
-			if (targetedGroup.getMode() != Constants.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {
+			if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {
 				int signKeyCurve = 0;
 
 				if (publicKey.get(KeyKeys.KeyType).equals(org.eclipse.californium.cose.KeyKeys.KeyType_EC2))
@@ -3245,7 +3260,7 @@ public class OscoreRsServer {
 
 	private static Map<String, Map<String, Set<Short>>> myScopes = new HashMap<>();
 
-	private static GroupOSCOREJoinValidator valid = null;
+	private static GroupOSCOREValidator valid = null;
 
 	/**
 	 * The CoAPs server for testing, run this before running the Junit tests.
@@ -3377,34 +3392,47 @@ public class OscoreRsServer {
 		auds.add("aud1"); // Simple test audience
 		auds.add("rs2"); // OSCORE Group Manager (This audience expects scopes
 							// as Byte Strings)
-		valid = new GroupOSCOREJoinValidator(auds, myScopes, rootGroupMembershipResource);
+
+		valid = new GroupOSCOREValidator(auds, myScopes, rootGroupMembershipResource, groupCollectionResourcePath);
 
 		// Include this audience in the list of audiences recognized as OSCORE
 		// Group Managers
 		valid.setGMAudiences(Collections.singleton("rs2"));
 
 		// Include the root group-membership resource for Group OSCORE.
-		valid.setJoinResources(Collections.singleton(rootGroupMembershipResource));
+		valid.setGroupMembershipResources(Collections.singleton(rootGroupMembershipResource));
 
 		// For each OSCORE group, include the associated group-membership
 		// resource and its sub-resources
-		valid.setJoinResources(Collections.singleton(rootGroupMembershipResource + "/" + groupName1));
-		valid.setJoinResources(Collections.singleton(rootGroupMembershipResource + "/" + groupName1 + "/creds"));
-		valid.setJoinResources(Collections.singleton(rootGroupMembershipResource + "/" + groupName1 + "/kdc-cred"));
-		valid.setJoinResources(Collections.singleton(rootGroupMembershipResource + "/" + groupName1 + "/verif-data"));
-		valid.setJoinResources(Collections.singleton(rootGroupMembershipResource + "/" + groupName1 + "/num"));
-		valid.setJoinResources(Collections.singleton(rootGroupMembershipResource + "/" + groupName1 + "/active"));
-		valid.setJoinResources(Collections.singleton(rootGroupMembershipResource + "/" + groupName1 + "/policies"));
+		valid.setGroupMembershipResources(Collections.singleton(rootGroupMembershipResource + "/" + groupName1));
+		valid.setGroupMembershipResources(
+				Collections.singleton(rootGroupMembershipResource + "/" + groupName1 + "/creds"));
+		valid.setGroupMembershipResources(
+				Collections.singleton(rootGroupMembershipResource + "/" + groupName1 + "/kdc-cred"));
+		valid.setGroupMembershipResources(
+				Collections.singleton(rootGroupMembershipResource + "/" + groupName1 + "/verif-data"));
+		valid.setGroupMembershipResources(
+				Collections.singleton(rootGroupMembershipResource + "/" + groupName1 + "/num"));
+		valid.setGroupMembershipResources(
+				Collections.singleton(rootGroupMembershipResource + "/" + groupName1 + "/active"));
+		valid.setGroupMembershipResources(
+				Collections.singleton(rootGroupMembershipResource + "/" + groupName1 + "/policies"));
 
 		// For each OSCORE group, include the associated group-membership
 		// resource and its sub-resources (2nd group)
-		valid.setJoinResources(Collections.singleton(rootGroupMembershipResource + "/" + groupName2));
-		valid.setJoinResources(Collections.singleton(rootGroupMembershipResource + "/" + groupName2 + "/creds"));
-		valid.setJoinResources(Collections.singleton(rootGroupMembershipResource + "/" + groupName2 + "/kdc-cred"));
-		valid.setJoinResources(Collections.singleton(rootGroupMembershipResource + "/" + groupName2 + "/verif-data"));
-		valid.setJoinResources(Collections.singleton(rootGroupMembershipResource + "/" + groupName2 + "/num"));
-		valid.setJoinResources(Collections.singleton(rootGroupMembershipResource + "/" + groupName2 + "/active"));
-		valid.setJoinResources(Collections.singleton(rootGroupMembershipResource + "/" + groupName2 + "/policies"));
+		valid.setGroupMembershipResources(Collections.singleton(rootGroupMembershipResource + "/" + groupName2));
+		valid.setGroupMembershipResources(
+				Collections.singleton(rootGroupMembershipResource + "/" + groupName2 + "/creds"));
+		valid.setGroupMembershipResources(
+				Collections.singleton(rootGroupMembershipResource + "/" + groupName2 + "/kdc-cred"));
+		valid.setGroupMembershipResources(
+				Collections.singleton(rootGroupMembershipResource + "/" + groupName2 + "/verif-data"));
+		valid.setGroupMembershipResources(
+				Collections.singleton(rootGroupMembershipResource + "/" + groupName2 + "/num"));
+		valid.setGroupMembershipResources(
+				Collections.singleton(rootGroupMembershipResource + "/" + groupName2 + "/active"));
+		valid.setGroupMembershipResources(
+				Collections.singleton(rootGroupMembershipResource + "/" + groupName2 + "/policies"));
 
 		String tokenFile = testpath + "tokens.json";
 		// Delete lingering old token files
@@ -3419,7 +3447,7 @@ public class OscoreRsServer {
 				tokenFile, valid, false);
 
 		// Provide the authz-info endpoint with the set of active OSCORE groups
-		ai.setActiveGroups(activeGroups);
+		ai.setExistingGroups(activeGroups);
 
 		// The related test in TestDtlspClientGroupOSCORE still works with this
 		// server even with a single
@@ -3459,7 +3487,7 @@ public class OscoreRsServer {
 		Resource hello = new HelloWorldResource();
 		Resource temp = new TempResource();
 		Resource groupOSCORERootMembership = new GroupOSCORERootMembershipResource(rootGroupMembershipResource);
-		Resource join = new GroupOSCOREJoinResource(groupName1);
+		Resource join = new GroupOSCOREGroupMembershipResource(groupName1);
 
 		// Add the /creds sub-resource
 		Resource credsSubResource = new GroupOSCORESubResourceCreds("creds");
@@ -3485,7 +3513,7 @@ public class OscoreRsServer {
 		join.add(nodesSubResource);
 
 		// For the second group
-		Resource join2 = new GroupOSCOREJoinResource(groupName2);
+		Resource join2 = new GroupOSCOREGroupMembershipResource(groupName2);
 
 		// Add the /creds sub-resource
 		Resource credsSubResource2 = new GroupOSCORESubResourceCreds("creds");
@@ -3521,7 +3549,7 @@ public class OscoreRsServer {
 				(byte) 0x63, (byte) 0x40 };
 
 		final AlgorithmID hkdf = AlgorithmID.HKDF_HMAC_SHA_256;
-		final int credFmt = Constants.COSE_HEADER_PARAM_CCS;
+		final int credFmt = Constants.COSE_HEADER_PARAM_KCCS;
 
 		// Uncomment to set ECDSA with curve P-256 for countersignatures
 		// int signKeyCurve = KeyKeys.EC2_P256.AsInt32();
@@ -3558,7 +3586,7 @@ public class OscoreRsServer {
 		 * System.out.println(testPublicKeyBytesBase64);
 		 */
 
-		AlgorithmID signEncAlg = null;
+		AlgorithmID gpEncAlg = null;
 		AlgorithmID signAlg = null;
 		CBORObject signAlgCapabilities = null;
 		CBORObject signKeyCapabilities = null;
@@ -3574,14 +3602,14 @@ public class OscoreRsServer {
 			System.out.println("Both the signature key curve and the ECDH key curve are unspecified");
 			return;
 		}
-		int mode = Constants.GROUP_OSCORE_GROUP_PAIRWISE_MODE;
+		int mode = GroupcommParameters.GROUP_OSCORE_GROUP_PAIRWISE_MODE;
 		if (signKeyCurve != 0 && ecdhKeyCurve == 0)
-			mode = Constants.GROUP_OSCORE_GROUP_MODE_ONLY;
+			mode = GroupcommParameters.GROUP_OSCORE_GROUP_MODE_ONLY;
 		else if (signKeyCurve == 0 && ecdhKeyCurve != 0)
-			mode = Constants.GROUP_OSCORE_PAIRWISE_MODE_ONLY;
+			mode = GroupcommParameters.GROUP_OSCORE_PAIRWISE_MODE_ONLY;
 
-		if (mode != Constants.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {
-			signEncAlg = AlgorithmID.AES_CCM_16_64_128;
+		if (mode != GroupcommParameters.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {
+			gpEncAlg = AlgorithmID.AES_CCM_16_64_128;
 			signAlgCapabilities = CBORObject.NewArray();
 			signKeyCapabilities = CBORObject.NewArray();
 			signParams = CBORObject.NewArray();
@@ -3606,7 +3634,7 @@ public class OscoreRsServer {
 			signParams.Add(signKeyCapabilities);
 		}
 
-		if (mode != Constants.GROUP_OSCORE_GROUP_MODE_ONLY) {
+		if (mode != GroupcommParameters.GROUP_OSCORE_GROUP_MODE_ONLY) {
 			alg = AlgorithmID.AES_CCM_16_64_128;
 			ecdhAlg = AlgorithmID.ECDH_SS_HKDF_256;
 			ecdhAlgCapabilities = CBORObject.NewArray();
@@ -3638,8 +3666,8 @@ public class OscoreRsServer {
 		//
 		// The current Group ID is: 0xfeedca57f05c, with Prefix 0xfeedca57 and
 		// current Epoch 0xf05c aaaaaa570000
-		final byte[] groupIdPrefix = new byte[] { (byte) 0xaa, (byte) 0xaa, (byte) 0xaa, (byte) 0x57 };
-		byte[] groupIdEpoch = new byte[] { (byte) 0xf0, (byte) 0x5c }; // < 4 b
+		final byte[] groupIdPrefix1 = new byte[] { (byte) 0xaa, (byte) 0xaa, (byte) 0xaa, (byte) 0x57 };
+		byte[] groupIdEpoch1 = new byte[] { (byte) 0xf0, (byte) 0x5c }; // < 4 b
 
 		// Set the asymmetric key pair and public key of the Group Manager
 
@@ -3665,7 +3693,7 @@ public class OscoreRsServer {
 
 		// Serialization of the authentication credential, according to the
 		// format used in the group
-		byte[] gmPublicKey = null;
+		byte[] gmAuthCred = null;
 
 		/*
 		 * // Build the public key according to the format used in the group //
@@ -3673,26 +3701,26 @@ public class OscoreRsServer {
 		 * deterministic // encoding in byte lexicographic order, and it has to
 		 * be adjusted offline switch (credFmt) { case
 		 * Constants.COSE_HEADER_PARAM_CCS: // A CCS including the public key
-		 * String subjectName = ""; gmPublicKey = Util.oneKeyToCCS(gmKeyPair,
+		 * String subjectName = ""; gmAuthCred = Util.oneKeyToCCS(gmKeyPair,
 		 * subjectName); break; case Constants.COSE_HEADER_PARAM_CWT: // A CWT
 		 * including the public key // case Constants.COSE_HEADER_PARAM_X5CHAIN:
 		 * // A certificate including the public key // }
 		 */
 
 		switch (credFmt) {
-		case Constants.COSE_HEADER_PARAM_CCS:
+		case Constants.COSE_HEADER_PARAM_KCCS:
 			// A CCS including the public key
 			if (signKeyCurve == KeyKeys.EC2_P256.AsInt32()) {
 				System.out.println("More config required.");
-				gmPublicKey = StringUtil.hex2ByteArray(
+				gmAuthCred = StringUtil.hex2ByteArray(
 						"A2026008A101A50102032620012158202236658CA675BB62D7B24623DB0453A3B90533B7C3B221CC1C2C73C4E919D540225820770916BC4C97C3C46604F430B06170C7B3D6062633756628C31180FA3BB65A1B");
 			}
 			if (signKeyCurve == KeyKeys.OKP_Ed25519.AsInt32()) {
-				gmPublicKey = StringUtil.hex2ByteArray(
+				gmAuthCred = StringUtil.hex2ByteArray(
 						"A2026008A101A4010103272006215820C6EC665E817BD064340E7C24BB93A11E8EC0735CE48790F9C458F7FA340B8CA3");
 			}
 			break;
-		case Constants.COSE_HEADER_PARAM_CWT:
+		case Constants.COSE_HEADER_PARAM_KCWT:
 			// A CWT including the public key
 			// TODO
 			break;
@@ -3705,9 +3733,14 @@ public class OscoreRsServer {
 			break;
 		}
 
-		GroupInfo myGroup = new GroupInfo(groupName1, masterSecret, masterSalt, groupIdPrefixSize, groupIdPrefix,
-				groupIdEpoch.length, Util.bytesToInt(groupIdEpoch), prefixMonitorNames, nodeNameSeparator, hkdf,
-				credFmt, mode, signEncAlg, signAlg, signParams, alg, ecdhAlg, ecdhParams, null, gmKeyPair, gmPublicKey);
+		// Set GM key pairs
+		setGroupManagerKeyPairs();
+
+		GroupInfo myGroup = new GroupInfo(groupName1, masterSecret, masterSalt, groupIdPrefixSize, groupIdPrefix1,
+				groupIdEpoch1.length, Util.bytesToInt(groupIdEpoch1), true, prefixMonitorNames, nodeNameSeparator, hkdf,
+				credFmt, mode, gpEncAlg, signAlg, signParams, alg, ecdhAlg, ecdhParams, null, gmKeyPair, gmAuthCred,
+				gmSigningKeyPairs, gmSigningPublicAuthCred, gmKeyAgreementKeyPairs, gmKeyAgreementPublicAuthCred,
+				maxStaleIdsSets, 0);
 
 		myGroup.setStatus(true);
 
@@ -3723,7 +3756,7 @@ public class OscoreRsServer {
 		mySubject = "clientX";
 
 		int roles = 0;
-		roles = Util.addGroupOSCORERole(roles, Constants.GROUP_OSCORE_REQUESTER);
+		roles = Util.addGroupOSCORERole(roles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
 
 		if (!myGroup.addGroupMember(mySid, myName, roles, mySubject))
 			return;
@@ -3747,7 +3780,7 @@ public class OscoreRsServer {
 		 */
 
 		switch (credFmt) {
-		case Constants.COSE_HEADER_PARAM_CCS:
+		case Constants.COSE_HEADER_PARAM_KCCS:
 			// A CCS including the public key
 			if (signKeyCurve == KeyKeys.EC2_P256.AsInt32()) {
 				System.out.println("More config required.");
@@ -3759,7 +3792,7 @@ public class OscoreRsServer {
 						"A2026008A101A401010327200621582077EC358C1D344E41EE0E87B8383D23A2099ACD39BDF989CE45B52E887463389B");
 			}
 			break;
-		case Constants.COSE_HEADER_PARAM_CWT:
+		case Constants.COSE_HEADER_PARAM_KCWT:
 			// A CWT including the public key
 			// TODO
 			break;
@@ -3782,8 +3815,8 @@ public class OscoreRsServer {
 		mySubject = "clientY";
 
 		roles = 0;
-		roles = Util.addGroupOSCORERole(roles, Constants.GROUP_OSCORE_REQUESTER);
-		roles = Util.addGroupOSCORERole(roles, Constants.GROUP_OSCORE_RESPONDER);
+		roles = Util.addGroupOSCORERole(roles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+		roles = Util.addGroupOSCORERole(roles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
 
 		if (!myGroup.addGroupMember(mySid, myName, roles, mySubject))
 			return;
@@ -3807,7 +3840,7 @@ public class OscoreRsServer {
 		 */
 
 		switch (credFmt) {
-		case Constants.COSE_HEADER_PARAM_CCS:
+		case Constants.COSE_HEADER_PARAM_KCCS:
 			// A CCS including the public key
 			if (signKeyCurve == KeyKeys.EC2_P256.AsInt32()) {
 				System.out.println("More config required.");
@@ -3819,7 +3852,7 @@ public class OscoreRsServer {
 						"A2026008A101A4010103272006215820105B8C6A8C88019BF0C354592934130BAA8007399CC2AC3BE845884613D5BA2E");
 			}
 			break;
-		case Constants.COSE_HEADER_PARAM_CWT:
+		case Constants.COSE_HEADER_PARAM_KCWT:
 			// A CWT including the public key
 			// TODO
 			break;
@@ -3837,8 +3870,10 @@ public class OscoreRsServer {
 		final byte[] groupIdPrefix2 = new byte[] { (byte) 0xbb, (byte) 0xbb, (byte) 0xbb, (byte) 0x57 };
 		byte[] groupIdEpoch2 = new byte[] { (byte) 0xf0, (byte) 0x3a }; // < 4 b
 		GroupInfo myGroup2 = new GroupInfo(groupName2, masterSecret, masterSalt, groupIdPrefixSize, groupIdPrefix2,
-				groupIdEpoch2.length, Util.bytesToInt(groupIdEpoch2), prefixMonitorNames, nodeNameSeparator, hkdf,
-				credFmt, mode, signEncAlg, signAlg, signParams, alg, ecdhAlg, ecdhParams, null, gmKeyPair, gmPublicKey);
+				groupIdEpoch2.length, Util.bytesToInt(groupIdEpoch2), true, prefixMonitorNames, nodeNameSeparator, hkdf,
+				credFmt, mode, gpEncAlg, signAlg, signParams, alg, ecdhAlg, ecdhParams, null, gmKeyPair, gmAuthCred,
+				gmSigningKeyPairs, gmSigningPublicAuthCred, gmKeyAgreementKeyPairs, gmKeyAgreementPublicAuthCred,
+				maxStaleIdsSets, 0);
 
 		myGroup2.setStatus(true);
 
@@ -3850,7 +3885,7 @@ public class OscoreRsServer {
 		mySubject = "clientX";
 
 		roles = 0;
-		roles = Util.addGroupOSCORERole(roles, Constants.GROUP_OSCORE_REQUESTER);
+		roles = Util.addGroupOSCORERole(roles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
 
 		if (!myGroup2.addGroupMember(mySid, myName, roles, mySubject))
 			return;
@@ -3871,7 +3906,7 @@ public class OscoreRsServer {
 		 */
 
 		switch (credFmt) {
-		case Constants.COSE_HEADER_PARAM_CCS:
+		case Constants.COSE_HEADER_PARAM_KCCS:
 			// A CCS including the public key
 			if (signKeyCurve == KeyKeys.EC2_P256.AsInt32()) {
 				System.out.println("More config required.");
@@ -3883,7 +3918,7 @@ public class OscoreRsServer {
 						"A2026008A101A401010327200621582077EC358C1D344E41EE0E87B8383D23A2099ACD39BDF989CE45B52E887463389B");
 			}
 			break;
-		case Constants.COSE_HEADER_PARAM_CWT:
+		case Constants.COSE_HEADER_PARAM_KCWT:
 			// A CWT including the public key
 			// TODO
 			authCred1 = null;
@@ -3908,8 +3943,8 @@ public class OscoreRsServer {
 		mySubject = "clientY";
 
 		roles = 0;
-		roles = Util.addGroupOSCORERole(roles, Constants.GROUP_OSCORE_REQUESTER);
-		roles = Util.addGroupOSCORERole(roles, Constants.GROUP_OSCORE_RESPONDER);
+		roles = Util.addGroupOSCORERole(roles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+		roles = Util.addGroupOSCORERole(roles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
 
 		if (!myGroup2.addGroupMember(mySid, myName, roles, mySubject))
 			return;
@@ -4071,6 +4106,81 @@ public class OscoreRsServer {
 		}
 
 		return ret;
+
+	}
+
+	// GM key pair setup
+
+	// The map key is the cryptographic curve; the map value is the hex string
+	// of the key pair
+	private static Map<CBORObject, String> gmSigningKeyPairs = new HashMap<CBORObject, String>();
+
+	// For the outer map, the map key is the type of authentication credential
+	// For the inner map, the map key is the cryptographic curve, while the map
+	// value is the hex string of the authentication credential
+	private static Map<Integer, Map<CBORObject, String>> gmSigningPublicAuthCred = new HashMap<Integer, Map<CBORObject, String>>();
+
+	// The map key is the cryptographic curve; the map value is the hex string
+	// of the key pair
+	private static Map<CBORObject, String> gmKeyAgreementKeyPairs = new HashMap<CBORObject, String>();
+
+	// For the outer map, the map key is the type of authentication credential
+	// For the inner map, the map key is the cryptographic curve, while the map
+	// value is the hex string of the authentication credential
+	private static Map<Integer, Map<CBORObject, String>> gmKeyAgreementPublicAuthCred = new HashMap<Integer, Map<CBORObject, String>>();
+
+	// The maximum number of sets of stale Sender IDs for the group
+	// This value must be strictly greater than 1
+	private final static int maxStaleIdsSets = 3;
+
+	private static void setGroupManagerKeyPairs() {
+
+		gmSigningPublicAuthCred.put(Constants.COSE_HEADER_PARAM_KCCS, new HashMap<CBORObject, String>());
+		gmKeyAgreementPublicAuthCred.put(Constants.COSE_HEADER_PARAM_KCCS, new HashMap<CBORObject, String>());
+
+		// Set the key signing key pairs
+
+		// Key pair for ECDSA with curve P-256
+		String keySigningKeyPairP256 = "a60102032620012158202236658ca675bb62d7b24623db0453a3b90533b7c3b221cc1c2c73c4e919d540225820770916bc4c97c3c46604f430b06170c7b3d6062633756628c31180fa3bb65a1b2358204a7b844a4c97ef91ed232aa564c9d5d373f2099647f9e9bd3fe6417a0d0f91ad";
+		gmSigningKeyPairs.put(org.eclipse.californium.cose.KeyKeys.EC2_P256, keySigningKeyPairP256);
+
+		// Authentication credential for ECDSA with curve P-256, as a CCS
+		String keySigningAuthCredP256CCS = "a2026008a101a50102032620012158202236658ca675bb62d7b24623db0453a3b90533b7c3b221cc1c2c73c4e919d540225820770916bc4c97c3c46604f430b06170c7b3d6062633756628c31180fa3bb65a1b";
+		gmSigningPublicAuthCred.get(Constants.COSE_HEADER_PARAM_KCCS).put(org.eclipse.californium.cose.KeyKeys.EC2_P256,
+				keySigningAuthCredP256CCS);
+
+		// Key pair for EdDSA with curve Ed25519
+		String keySigningKeyPairEd25519 = "a5010103272006215820c6ec665e817bd064340e7c24bb93a11e8ec0735ce48790f9c458f7fa340b8ca3235820d0a2ce11b2ba614b048903b72638ef4a3b0af56e1a60c6fb6706b0c1ad8a14fb";
+		gmSigningKeyPairs.put(org.eclipse.californium.cose.KeyKeys.OKP_Ed25519, keySigningKeyPairEd25519);
+
+		// Authentication credential for EdDSA with curve Ed25519, as a CCS
+		String keySigningAuthCredEd25519CCS = "a2026008a101a4010103272006215820c6ec665e817bd064340e7c24bb93a11e8ec0735ce48790f9c458f7fa340b8ca3";
+		gmSigningPublicAuthCred.get(Constants.COSE_HEADER_PARAM_KCCS)
+				.put(org.eclipse.californium.cose.KeyKeys.OKP_Ed25519, keySigningAuthCredEd25519CCS);
+
+		// Set the key agreement key pairs
+
+		// Key pair for ECDSA with curve P-256
+		String keyAgreementKeyPairP256 = "a6010203262001215820b95e2727b98d6f6f98852e2b360c4e6872c3a8070192d4f810e051572657775522582060aca41e3b065853f836dac69617efd69bad45f29bb7f4335ef93961941f79c5235820b77698f83f3f5a6473eba56125fd0ed2501ac7028d1f906abfa0a6080ef7936a";
+		gmKeyAgreementKeyPairs.put(org.eclipse.californium.cose.KeyKeys.EC2_P256, keyAgreementKeyPairP256);
+
+		// Authentication credential for ECDSA with curve P-256, as a CCS
+		String keyAgreementAuthCredP256CCS = "a2026008a101a5010203262001215820b95e2727b98d6f6f98852e2b360c4e6872c3a8070192d4f810e051572657775522582060aca41e3b065853f836dac69617efd69bad45f29bb7f4335ef93961941f79c5";
+		gmKeyAgreementPublicAuthCred.get(Constants.COSE_HEADER_PARAM_KCCS)
+				.put(org.eclipse.californium.cose.KeyKeys.EC2_P256, keyAgreementAuthCredP256CCS);
+
+		// Key pair with curve X25519
+		// TODO - This is just a placeholder with a non valid private
+		// coordinate. Replace with a valid key pair using X25519
+		String keyAgreementKeyPairX25519 = "a5010103381A2004215820c6ec665e817bd064340e7c24bb93a11e8ec0735ce48790f9c458f7fa340b8ca3235820d0a2ce11b2ba614b048903b72638ef4a3b0af56e1a60c6fb6706b0c1ad8a14fb";
+		gmKeyAgreementKeyPairs.put(org.eclipse.californium.cose.KeyKeys.OKP_X25519, keyAgreementKeyPairX25519);
+
+		// Authentication credential with curve X25519, as a CCS
+		// TODO - This is just a placeholder. Replace with an authentication
+		// credential corresponding to a valid key pair using X25519 (see above)
+		String keyAgreementAuthCredX25519 = "a2026008a101a4010103381a2004215820c6ec665e817bd064340e7c24bb93a11e8ec0735ce48790f9c458f7fa340b8ca3";
+		gmKeyAgreementPublicAuthCred.get(Constants.COSE_HEADER_PARAM_KCCS)
+				.put(org.eclipse.californium.cose.KeyKeys.OKP_X25519, keyAgreementAuthCredX25519);
 
 	}
 

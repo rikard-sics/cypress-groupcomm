@@ -36,7 +36,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 
 /**
- * Handles connection establishment and sending of log messages.
+ * Handles printing of extra log messages.
  *
  */
 public class ExtraLogger {

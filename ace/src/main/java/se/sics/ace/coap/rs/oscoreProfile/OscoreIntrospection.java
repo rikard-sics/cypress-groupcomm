@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -48,7 +48,9 @@ import org.eclipse.californium.oscore.OSCoreCtx;
 import org.eclipse.californium.oscore.OSCoreCtxDB;
 import org.eclipse.californium.oscore.OSException;
 
+import com.upokecenter.cbor.CBORException;
 import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
 
 import org.eclipse.californium.cose.CoseException;
 
@@ -108,7 +110,7 @@ public class OscoreIntrospection implements IntrospectionHandler {
         LOGGER.info("Sending introspection request on " + tokenReference);
         Map<Short, CBORObject> params = new HashMap<>();
         params.put(Constants.TOKEN, CBORObject.FromObject(CBORObject.FromObject(tokenReference).EncodeToBytes()));
-        params.put(Constants.TOKEN_TYPE_HINT, CBORObject.FromObject("pop")); 
+        params.put(Constants.TOKEN_TYPE_HINT, CBORObject.FromObject(Constants.POP)); 
         CoapResponse response;
         Request r = new Request(Code.POST);
         r.setPayload(Constants.getCBOR(params).EncodeToBytes());
@@ -127,9 +129,19 @@ public class OscoreIntrospection implements IntrospectionHandler {
                 throw new IntrospectionException(response.getCode().value, "");
             }
             //Client error
-            throw new IntrospectionException(response.getCode().value, 
-                    CBORObject.DecodeFromBytes(
-                            response.getPayload()).toString());
+            String errorMessage = new String();
+            byte[] payload = response.getPayload();
+            CBORObject payloadObj = null;
+            try {
+            	payloadObj = CBORObject.DecodeFromBytes(payload);
+            }
+            catch (CBORException e) {
+            	errorMessage = new String("Invalid payload received from the introspection endpoint");
+            };
+            if (payloadObj != null && payloadObj.getType() == CBORType.TextString) {
+            	errorMessage = new String(payloadObj.AsString());
+            }
+            throw new IntrospectionException(response.getCode().value, errorMessage);
         }
         CBORObject res = CBORObject.DecodeFromBytes(response.getPayload());
         Map<Short, CBORObject> map = Constants.getParams(res);

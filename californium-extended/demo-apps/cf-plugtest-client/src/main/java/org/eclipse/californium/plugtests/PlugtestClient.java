@@ -17,6 +17,7 @@
  *                                                    ClientInitializer.
  *    Achim Kraus (Bosch Software Innovations GmbH) - use special properties file
  *                                                    for configuration
+ *    Rikard Höglund (RISE)                         - OSCORE support     
  ******************************************************************************/
 /**
  * 
@@ -46,12 +47,19 @@ import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Token;
 import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.config.CoapConfig.MatcherMode;
+import org.eclipse.californium.cose.AlgorithmID;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.config.Configuration.DefinitionsProvider;
 import org.eclipse.californium.elements.config.SystemConfig;
 import org.eclipse.californium.elements.exception.ConnectorException;
+import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.elements.util.StringUtil;
+import org.eclipse.californium.oscore.ContextRederivation.PHASE;
+import org.eclipse.californium.oscore.HashMapCtxDB;
+import org.eclipse.californium.oscore.OSCoreCoapStackFactory;
+import org.eclipse.californium.oscore.OSCoreCtx;
+import org.eclipse.californium.oscore.OSException;
 import org.eclipse.californium.scandium.config.DtlsConfig;
 
 import picocli.CommandLine.Command;
@@ -98,12 +106,17 @@ public class PlugtestClient {
 		@Option(names = "--no-ping", negatable = true, description = "use ping.")
 		public boolean ping = true;
 
+		@Option(names = "--no-oscore", negatable = true, description = "use OSCORE.")
+		public boolean oscore = true;
+
 	}
 
 	/**
 	 * Main entry point.
 	 * 
 	 * @param args the arguments
+	 * @throws IOException an i/o error occurred
+	 * @throws ConnectorException an issue specific to the connector occurred
 	 */
 	public static void main(String[] args) throws ConnectorException, IOException {
 
@@ -111,10 +124,16 @@ public class PlugtestClient {
 		clientConfig.configurationHeader = CONFIG_HEADER;
 		clientConfig.customConfigurationDefaultsProvider = DEFAULTS;
 		clientConfig.configurationFile = CONFIG_FILE;
-		ClientInitializer.init(args, clientConfig);
+		ClientInitializer.init(args, clientConfig, false);
 		if (clientConfig.helpRequested) {
 			System.exit(0);
 		}
+		if (clientConfig.oscore) {
+			HashMapCtxDB db = new HashMapCtxDB();
+			initOscore(clientConfig, db);
+			OSCoreCoapStackFactory.useAsDefault(db);
+		}
+		ClientInitializer.registerEndpoint(clientConfig, null);
 
 		if (clientConfig.tcp) {
 			clientConfig.ping = false;
@@ -145,6 +164,10 @@ public class PlugtestClient {
 			testCB(clientConfig.uri, context);
 			testCO(clientConfig.uri, context);
 			testCL(clientConfig.uri, context);
+
+			if (clientConfig.oscore) {
+				testOscore(clientConfig.uri, context);
+			}
 		} catch (IOException ex) {
 			System.err.println("IO-Error: " + ex.getMessage());
 		} catch (ConnectorException ex) {
@@ -309,14 +332,14 @@ public class PlugtestClient {
 		System.out.println("===============\nCC21");
 		System.out.println("---------------\nGET /validate\n---------------");
 		response = client.get();
-		if (response.getOptions().getETagCount() == 1) {
-			etag = response.getOptions().getETags().get(0);
+		etag = response.getOptions().getResponseEtag();
+		if (etag != null) {
 			System.out.println(response.getCode() + " - ETag [" + Utils.toHexString(etag) + "]");
 			System.out.println(response.getResponseText());
 
 			System.out.println("---------------\nGET /validate with ETag\n---------------");
 			response = client.validate(etag);
-			etag = response.getOptions().getETags().get(0);
+			etag = response.getOptions().getResponseEtag();
 			System.out.println(response.getCode() + " - ETag [" + Utils.toHexString(etag) + "]");
 			System.out.println(response.getResponseText());
 
@@ -329,7 +352,7 @@ public class PlugtestClient {
 
 			System.out.println("---------------\nGET /validate with ETag\n---------------");
 			response = client.validate(etag);
-			etag = response.getOptions().getETags().get(0);
+			etag = response.getOptions().getResponseEtag();
 			System.out.println(response.getCode() + " - ETag [" + Utils.toHexString(etag) + "]");
 			System.out.println(response.getResponseText());
 
@@ -340,8 +363,8 @@ public class PlugtestClient {
 		System.out.println("===============\nCC22");
 		System.out.println("---------------\nGET /validate with If-Match\n---------------");
 		response = client.get();
-		if (response.getOptions().getETagCount() == 1) {
-			etag = response.getOptions().getETags().get(0);
+		etag = response.getOptions().getResponseEtag();
+		if (etag != null) {
 			System.out.println(response.getCode() + " - ETag [" + Utils.toHexString(etag) + "]");
 			System.out.println(response.getResponseText());
 
@@ -353,7 +376,7 @@ public class PlugtestClient {
 
 			System.out.println("---------------\nGET /validate\n---------------");
 			response = client.get();
-			etag = response.getOptions().getETags().get(0);
+			etag = response.getOptions().getResponseEtag();
 			System.out.println(response.getCode() + " - ETag [" + Utils.toHexString(etag) + "]");
 			System.out.println(response.getResponseText());
 
@@ -703,6 +726,100 @@ public class PlugtestClient {
 		}
 
 		client.shutdown();
+	}
+
+	/**
+	 * Test communication using OSCORE towards a resource only accessible if
+	 * OSCORE is used. Similar to the requests in testCC.
+	 * 
+	 * @param uri URI of the OSCORE resource
+	 * @param context endpoint context to use
+	 * @throws ConnectorException on connection failure
+	 * @throws IOException on IO failure
+	 */
+	public static void testOscore(String uri, EndpointContext context) throws ConnectorException, IOException {
+
+		// re-usable response object
+		CoapResponse response;
+
+		CoapClient client = new CoapClient(uri + "/oscore");
+		client.setDestinationContext(context);
+
+		System.out.println("\nWill run OSCORE Appendix B.2 context rederivaton followed by 4 OSCORE requests.");
+
+		System.out.println("===============\nOSCORE 01");
+		System.out.println("---------------\nGET /oscore\n---------------");
+		Request r = Request.newGet();
+		r.getOptions().setOscore(Bytes.EMPTY);
+		response = client.advanced(r);
+		context = client.getDestinationContext();
+		if (context != null) {
+			System.out.println(Utils.prettyPrint(context));
+		}
+		System.out.println(response.advanced().getType() + "-" + response.getCode());
+		System.out.println(response.getResponseText());
+
+		System.out.println("===============\nOSCORE 02");
+		System.out.println("---------------\nDELETE /oscore\n---------------");
+		r = Request.newDelete();
+		r.getOptions().setOscore(Bytes.EMPTY);
+		response = client.advanced(r);
+		System.out.println(response.advanced().getType() + "-" + response.getCode());
+		System.out.println(response.getResponseText());
+
+		System.out.println("===============\nOSCORE 03");
+		System.out.println("---------------\nPUT /oscore\n---------------");
+		r = Request.newPut();
+		r.setPayload("");
+		r.getOptions().setContentFormat(MediaTypeRegistry.TEXT_PLAIN);
+		r.getOptions().setOscore(Bytes.EMPTY);
+		response = client.advanced(r);
+		System.out.println(response.advanced().getType() + "-" + response.getCode());
+		System.out.println(response.getResponseText());
+
+		System.out.println("===============\nOSCORE 04");
+		System.out.println("---------------\nPOST /oscore\n---------------");
+		r = Request.newPost();
+		r.setPayload("non-empty");
+		r.getOptions().setContentFormat(MediaTypeRegistry.TEXT_PLAIN);
+		r.getOptions().setOscore(Bytes.EMPTY);
+		response = client.advanced(r);
+		System.out.println(response.advanced().getType() + "-" + response.getCode());
+		System.out.println(response.getResponseText());
+		
+	}
+
+	/**
+	 * Initializes an OSCORE context for the client built on a pre-defined
+	 * configuration and adds it to the OSCORE context database. The created
+	 * context will support and by default always use the Appendix B.2 context
+	 * rederivation procedure. This is to avoid message replay errors that would
+	 * otherwise arise for clients.
+	 * 
+	 * @param config configuration with the URI of the OSCORE resource at the server
+	 * @param db the OSCORE context database
+	 */
+	public static void initOscore(ClientBaseConfig config, HashMapCtxDB db) {
+		AlgorithmID alg = AlgorithmID.AES_CCM_16_64_128;
+		AlgorithmID kdf = AlgorithmID.HKDF_HMAC_SHA_256;
+
+		byte[] master_secret = StringUtil.hex2ByteArray("0102030405060708090a0b0c0d0e0f10");
+		byte[] master_salt = StringUtil.hex2ByteArray("9e7ca92223786340");
+		byte[] sid = StringUtil.hex2ByteArray("01");
+		byte[] rid = StringUtil.hex2ByteArray("02");
+		byte[] id_context = StringUtil.hex2ByteArray("37cbf3210017a2d3");
+		int MAX_UNFRAGMENTED_SIZE = config.configuration.get(CoapConfig.MAX_RESOURCE_BODY_SIZE);
+
+		OSCoreCtx ctx = null;
+		try {
+			ctx = new OSCoreCtx(master_secret, false, alg, sid, rid, kdf, 32, master_salt, id_context,
+					MAX_UNFRAGMENTED_SIZE);
+			ctx.setContextRederivationEnabled(true);
+			ctx.setContextRederivationPhase(PHASE.CLIENT_INITIATE);
+			db.addContext(config.uri, ctx);
+		} catch (OSException e) {
+			e.printStackTrace();
+		}
 	}
 
 	public static String getLargeRequestPayload() {

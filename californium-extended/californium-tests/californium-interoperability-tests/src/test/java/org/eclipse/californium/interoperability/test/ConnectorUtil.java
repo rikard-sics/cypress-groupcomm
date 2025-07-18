@@ -34,6 +34,7 @@ import org.eclipse.californium.elements.util.SslContextUtil.Credentials;
 import org.eclipse.californium.scandium.ConnectorHelper;
 import org.eclipse.californium.scandium.DTLSConnector;
 import org.eclipse.californium.scandium.config.DtlsConfig;
+import org.eclipse.californium.scandium.config.DtlsConfig.DtlsRole;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.AlertMessage;
 import org.eclipse.californium.scandium.dtls.AlertMessage.AlertDescription;
@@ -41,10 +42,10 @@ import org.eclipse.californium.scandium.dtls.AlertMessage.AlertLevel;
 import org.eclipse.californium.scandium.dtls.CertificateType;
 import org.eclipse.californium.scandium.dtls.SingleNodeConnectionIdGenerator;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
-import org.eclipse.californium.scandium.dtls.pskstore.AdvancedSinglePskStore;
+import org.eclipse.californium.scandium.dtls.pskstore.SinglePskStore;
 import org.eclipse.californium.scandium.dtls.x509.SingleCertificateProvider;
-import org.eclipse.californium.scandium.dtls.x509.StaticNewAdvancedCertificateVerifier;
-import org.eclipse.californium.scandium.dtls.x509.StaticNewAdvancedCertificateVerifier.Builder;
+import org.eclipse.californium.scandium.dtls.x509.StaticCertificateVerifier;
+import org.eclipse.californium.scandium.dtls.x509.StaticCertificateVerifier.Builder;
 
 /**
  * Connector utility.
@@ -55,14 +56,19 @@ public class ConnectorUtil {
 
 	public static final int PORT = 5684;
 
+	public static final long HANDSHAKE_TIMEOUT_MILLIS = 4000;
+
 	private static final char[] KEY_STORE_PASSWORD = "endPass".toCharArray();
 	private static final String KEY_STORE_LOCATION = "certs/keyStore.jks";
+	private static final String EDDSA_KEY_STORE_LOCATION = "certs/eddsaKeyStore.jks";
 	private static final char[] TRUST_STORE_PASSWORD = "rootPass".toCharArray();
 	private static final String TRUST_STORE_LOCATION = "certs/trustStore.jks";
 	private static final String CLIENT_NAME = "client";
 	private static final String SERVER_NAME = "server";
 	public static final String CLIENT_RSA_NAME = "clientrsa";
 	public static final String SERVER_RSA_NAME = "serverrsa";
+	public static final String CLIENT_EDDSA_NAME = "clienteddsa";
+	public static final String SERVER_EDDSA_NAME = "servereddsa";
 	public static final String SERVER_CA_RSA_NAME = "servercarsa";
 	public static final String TRUST_CA = "ca";
 	public static final String TRUST_ROOT = "root";
@@ -87,6 +93,14 @@ public class ConnectorUtil {
 	 * Specific credentials for ECDSA base cipher suites to be used by the next test.
 	 */
 	private Credentials nextCredentials;
+	/**
+	 * Next test uses anonymous peer.
+	 */
+	private boolean nextAnonymous;
+	/**
+	 * Specific certificate types to be used by the next test.
+	 */
+	private CertificateType[] nextCertificateTypes;
 	private Certificate[] trustCa;
 	private Certificate[] trustRoot;
 
@@ -113,6 +127,7 @@ public class ConnectorUtil {
 
 	public void loadCredentials(String alias) {
 		try {
+			nextAnonymous = false;
 			nextCredentials = SslContextUtil.loadCredentials(SslContextUtil.CLASSPATH_SCHEME + KEY_STORE_LOCATION, alias,
 					KEY_STORE_PASSWORD, KEY_STORE_PASSWORD);
 		} catch (GeneralSecurityException e) {
@@ -122,6 +137,28 @@ public class ConnectorUtil {
 			e.printStackTrace();
 			fail(alias + ": " + e.getMessage());
 		}
+	}
+
+	public void loadEdDsaCredentials(String alias) {
+		try {
+			nextAnonymous = false;
+			nextCredentials = SslContextUtil.loadCredentials(SslContextUtil.CLASSPATH_SCHEME + EDDSA_KEY_STORE_LOCATION,
+					alias, KEY_STORE_PASSWORD, KEY_STORE_PASSWORD);
+		} catch (GeneralSecurityException e) {
+			e.printStackTrace();
+			fail(alias + ": " + e.getMessage());
+		} catch (IOException e) {
+			e.printStackTrace();
+			fail(alias + ": " + e.getMessage());
+		}
+	}
+
+	public void setAnonymous() {
+		nextAnonymous = true;
+	}
+
+	public void setCertificateTypes(CertificateType... types) {
+		nextCertificateTypes = types;
 	}
 
 	/**
@@ -150,7 +187,7 @@ public class ConnectorUtil {
 	 * Build connector.
 	 * 
 	 * @param bind address to bind connector to
-	 * @param dtlsBuilder preconfigured dtls builder. Maybe {@link null}.
+	 * @param dtlsBuilder preconfigured dtls builder. Maybe {@code null}.
 	 * @param trust alias of trusted certificate, or {@code null} to trust all
 	 *            received certificates.
 	 * @param cipherSuites cipher suites to support.
@@ -162,23 +199,36 @@ public class ConnectorUtil {
 			dtlsBuilder = DtlsConnectorConfig.builder(new Configuration());
 		}
 		dtlsBuilder.set(DtlsConfig.DTLS_ADDITIONAL_ECC_TIMEOUT, 1000, TimeUnit.MILLISECONDS)
+				.set(DtlsConfig.DTLS_RETRANSMISSION_TIMEOUT, 1000, TimeUnit.MILLISECONDS)
 				.set(DtlsConfig.DTLS_RECEIVER_THREAD_COUNT, 2)
 				.set(DtlsConfig.DTLS_CONNECTOR_THREAD_COUNT, 2)
 				.set(DtlsConfig.DTLS_RECOMMENDED_CIPHER_SUITES_ONLY, false)
 				.setAddress(bind)
 				.setConnectionIdGenerator(new SingleNodeConnectionIdGenerator(6));
 		if (CipherSuite.containsPskBasedCipherSuite(suites)) {
-			dtlsBuilder.setAdvancedPskStore(
-					new AdvancedSinglePskStore(OpenSslUtil.OPENSSL_PSK_IDENTITY, OpenSslUtil.OPENSSL_PSK_SECRET));
+			dtlsBuilder.setPskStore(
+					new SinglePskStore(CredentialslUtil.OPENSSL_PSK_IDENTITY, CredentialslUtil.OPENSSL_PSK_SECRET));
 		}
 		if (CipherSuite.containsCipherSuiteRequiringCertExchange(suites)) {
-			if (credentials != null && dtlsBuilder.getIncompleteConfig().getCertificateIdentityProvider() == null) {
+			if (nextAnonymous) {
+				nextAnonymous = false;
+				dtlsBuilder.set(DtlsConfig.DTLS_ROLE, DtlsRole.CLIENT_ONLY);
+			} else if ((credentials != null || nextCredentials != null)
+					&& dtlsBuilder.getIncompleteConfig().getCertificateIdentityProvider() == null) {
 				Credentials credentials = nextCredentials != null ? nextCredentials : this.credentials;
-				dtlsBuilder.setCertificateIdentityProvider(new SingleCertificateProvider(credentials.getPrivateKey(),
-						credentials.getCertificateChain(), CertificateType.X_509, CertificateType.RAW_PUBLIC_KEY));
+				SingleCertificateProvider provider;
+				if (nextCertificateTypes == null) {
+					provider = new SingleCertificateProvider(credentials.getPrivateKey(),
+							credentials.getCertificateChain(), CertificateType.X_509, CertificateType.RAW_PUBLIC_KEY);
+				} else {
+					provider = new SingleCertificateProvider(credentials.getPrivateKey(),
+							credentials.getCertificateChain(), nextCertificateTypes);
+					nextCertificateTypes = null;
+				}
+				dtlsBuilder.setCertificateIdentityProvider(provider);
 			}
-			if (dtlsBuilder.getIncompleteConfig().getAdvancedCertificateVerifier() == null) {
-				Builder builder = StaticNewAdvancedCertificateVerifier.builder();
+			if (dtlsBuilder.getIncompleteConfig().getCertificateVerifier() == null) {
+				Builder builder = StaticCertificateVerifier.builder();
 				if (TRUST_CA.equals(trust)) {
 					builder.setTrustedCertificates(trustCa);
 				} else if (TRUST_ROOT.equals(trust)) {
@@ -187,12 +237,12 @@ public class ConnectorUtil {
 					builder.setTrustAllCertificates();
 				}
 				builder.setTrustAllRPKs();
-				dtlsBuilder.setAdvancedCertificateVerifier(builder.build());
+				dtlsBuilder.setCertificateVerifier(builder.build());
 			}
 		}
 		dtlsBuilder.set(DtlsConfig.DTLS_CIPHER_SUITES, suites);
 		connector = new DTLSConnector(dtlsBuilder.build());
-		alertCatcher.resetAlert();
+		alertCatcher.resetEvent();
 		connector.setAlertHandler(alertCatcher);
 		nextCredentials = null;
 	}
@@ -226,9 +276,9 @@ public class ConnectorUtil {
 	 * @since 3.0
 	 */
 	public void assertAlert(long timeout, AlertMessage expected) throws InterruptedException {
-		AlertMessage alert = getAlertCatcher().waitForAlert(timeout, TimeUnit.MILLISECONDS);
+		AlertMessage alert = getAlertCatcher().waitForEvent(timeout, TimeUnit.MILLISECONDS);
 		assertThat("received alert", alert, is(expected));
-		getAlertCatcher().resetAlert();
+		getAlertCatcher().resetEvent();
 	}
 
 	/**
@@ -241,9 +291,9 @@ public class ConnectorUtil {
 		if (expectedAlerts == null || expectedAlerts.length == 0) {
 			expectedAlerts = new AlertMessage[] { new AlertMessage(AlertLevel.WARNING, AlertDescription.CLOSE_NOTIFY) };
 		}
-		AlertMessage alert = getAlertCatcher().getAlert();
+		AlertMessage alert = getAlertCatcher().getEvent();
 		if (alert != null) {
-			getAlertCatcher().resetAlert();
+			getAlertCatcher().resetEvent();
 			StringBuffer description = new StringBuffer();
 			description.append(alert.getLevel()).append("/").append(alert.getDescription())
 					.append(" is not of expected ");

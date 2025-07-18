@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -48,6 +48,7 @@ import org.eclipse.californium.core.coap.CoAP.Code;
 import org.eclipse.californium.core.coap.CoAP.Type;
 import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.Request;
+import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.network.Exchange;
 import org.eclipse.californium.core.network.Exchange.Origin;
@@ -90,6 +91,10 @@ import se.sics.ace.rs.TokenRepository;
  */
 public class TestDtlspAuthzInfo {
 
+    static {
+        CoapConfig.register();
+    }
+	
     private static byte[] key128a = {'c', 'b', 'c', 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
     private static byte[] key128 = {'a', 'b', 'c', 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
     private static CwtCryptoCtx ctx;
@@ -97,6 +102,7 @@ public class TestDtlspAuthzInfo {
     private static CoapAuthzInfo dai;
     private static CBORObject payload;
     private static CBORObject payload2;
+    
     
     /**
      * Set up the necessary objects.
@@ -211,7 +217,7 @@ public class TestDtlspAuthzInfo {
         cep.start();
         Exchange iex = new Exchange(req, null, Origin.REMOTE, new TestSynchroneExecutor());
         iex.setEndpoint(cep);
-        CoapExchange ex = new CoapExchange(iex, dai);      
+        CoapExchange ex = new CoapExchange(iex);
         dai.handlePOST(ex);
       
         byte[] kidBytes = new byte[]{0x01, 0x02};
@@ -260,7 +266,7 @@ public class TestDtlspAuthzInfo {
         cep.start();
         Exchange iex = new Exchange(req, null, Origin.REMOTE, new TestSynchroneExecutor());
         iex.setEndpoint(cep);
-        CoapExchange ex = new CoapExchange(iex, dai);      
+        CoapExchange ex = new CoapExchange(iex);  
         dai.handlePOST(ex);
       
         byte[] kidBytes = new byte[]{0x01, 0x02};

@@ -16,7 +16,6 @@
 package org.eclipse.californium.cli.tcp.netty;
 
 import java.security.GeneralSecurityException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.KeyManager;
@@ -26,11 +25,14 @@ import javax.net.ssl.TrustManager;
 
 import org.eclipse.californium.cli.CliConnectorFactory;
 import org.eclipse.californium.cli.ClientBaseConfig;
+import org.eclipse.californium.cli.ConnectorConfig.Authentication;
+import org.eclipse.californium.cli.ConnectorConfig.Trust;
 import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.elements.Connector;
 import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.config.TcpConfig;
 import org.eclipse.californium.elements.tcp.netty.TlsClientConnector;
+import org.eclipse.californium.elements.util.ProtocolScheduledExecutorService;
 import org.eclipse.californium.elements.util.SslContextUtil;
 
 /**
@@ -43,7 +45,7 @@ public class TlsConnectorFactory implements CliConnectorFactory {
 	private static final String ALIAS = "client";
 
 	@Override
-	public Connector create(ClientBaseConfig clientConfig, ExecutorService executor) {
+	public Connector create(ClientBaseConfig clientConfig, ProtocolScheduledExecutorService executor) {
 		Configuration config = clientConfig.configuration;
 		int maxPeers = config.get(CoapConfig.MAX_ACTIVE_PEERS);
 		int sessionTimeout = config.getTimeAsInt(TcpConfig.TLS_SESSION_TIMEOUT, TimeUnit.SECONDS);
@@ -55,6 +57,10 @@ public class TlsConnectorFactory implements CliConnectorFactory {
 		SSLContext clientSslContext = null;
 		try {
 			KeyManager[] keyManager;
+			if (clientConfig.authentication == null) {
+				clientConfig.authentication = new Authentication();
+			}
+			clientConfig.authentication.defaults(clientConfig.defaultEcCredentials);
 			if (clientConfig.authentication.anonymous) {
 				keyManager = SslContextUtil.createAnonymousKeyManager();
 			} else {
@@ -63,6 +69,10 @@ public class TlsConnectorFactory implements CliConnectorFactory {
 						clientConfig.authentication.credentials.getCertificateChain());
 			}
 			TrustManager[] trustManager;
+			if (clientConfig.trust == null) {
+				clientConfig.trust = new Trust();
+			}
+			clientConfig.trust.defaults(clientConfig.defaultEcTrusts);
 			if (clientConfig.trust.trustall) {
 				trustManager = SslContextUtil.createTrustAllManager();
 			} else {

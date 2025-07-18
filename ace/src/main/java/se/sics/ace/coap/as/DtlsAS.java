@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -49,7 +49,7 @@ import org.eclipse.californium.scandium.dtls.CertificateType;
 import org.eclipse.californium.scandium.dtls.SignatureAndHashAlgorithm;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
 import org.eclipse.californium.scandium.dtls.cipher.XECDHECryptography.SupportedGroup;
-import org.eclipse.californium.scandium.dtls.x509.AsyncNewAdvancedCertificateVerifier;
+import org.eclipse.californium.scandium.dtls.x509.AsyncCertificateVerifier;
 import org.eclipse.californium.scandium.dtls.x509.SingleCertificateProvider;
 
 import org.eclipse.californium.cose.CoseException;
@@ -77,6 +77,10 @@ import se.sics.ace.as.Token;
  */
 public class DtlsAS extends CoapServer implements AutoCloseable {
     
+	static {
+		DtlsConfig.register();
+	}
+	
     /**
      * The logger
      */
@@ -96,6 +100,7 @@ public class DtlsAS extends CoapServer implements AutoCloseable {
     private CoapDtlsEndpoint token;
 
     private CoapDtlsEndpoint introspect;
+
 
     /**
      * Constructor.
@@ -225,11 +230,11 @@ public class DtlsAS extends CoapServer implements AutoCloseable {
        ArrayList<CertificateType> certTypes = new ArrayList<CertificateType>();
        certTypes.add(CertificateType.RAW_PUBLIC_KEY);
        certTypes.add(CertificateType.X_509);
-       AsyncNewAdvancedCertificateVerifier verifier = new AsyncNewAdvancedCertificateVerifier(new X509Certificate[0],
+       AsyncCertificateVerifier verifier = new AsyncCertificateVerifier(new X509Certificate[0],
                new RawPublicKeyIdentity[0], certTypes);
-       config.setAdvancedCertificateVerifier(verifier);
+       config.setCertificateVerifier(verifier);
 
-       config.setAdvancedPskStore(db);
+       config.setPskStore(db);
        if (asymmetricKey != null) {
            config.setCertificateIdentityProvider(
                    new SingleCertificateProvider(asymmetricKey.AsPrivateKey(), asymmetricKey.AsPublicKey()));

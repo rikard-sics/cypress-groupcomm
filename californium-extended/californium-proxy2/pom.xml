@@ -8,7 +8,7 @@
 	<parent>
 		<groupId>org.eclipse.californium</groupId>
 		<artifactId>cf-bom</artifactId>
-		<version>3.1.0-SNAPSHOT</version>
+		<version>4.0.0-SNAPSHOT</version>
 		<relativePath>../bom</relativePath>
 	</parent>
 	<artifactId>californium-proxy2</artifactId>
@@ -18,13 +18,18 @@
 	<description>Cross-proxy2 module</description>
 
 	<properties>
-		<httpclient5.version>5.1.3</httpclient5.version>
+		<httpclient5.version>5.4.3</httpclient5.version>
 		<httpclient5.version.spec>version="[${versionmask;==;${httpclient5.version}},${versionmask;+;${httpclient5.version}})"</httpclient5.version.spec>
-		<httpcore5.version>5.1.3</httpcore5.version>
+		<httpcore5.version>5.3.4</httpcore5.version>
 		<httpcore5.version.spec>version="[${versionmask;==;${httpcore5.version}},${versionmask;+;${httpcore5.version}})"</httpcore5.version.spec>
+		<guava.version>33.3.1-jre</guava.version>
 	</properties>
 
 	<dependencies>
+		<dependency>
+			<groupId>com.upokecenter</groupId>
+			<artifactId>cbor</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>${project.groupId}</groupId>
 			<artifactId>californium-legal</artifactId>
@@ -40,11 +45,16 @@
 		<dependency>
 			<groupId>com.google.guava</groupId>
 			<artifactId>guava</artifactId>
-			<version>30.0-android</version>
+			<!-- requires java 7 support -->
+			<version>${guava.version}</version>
 			<exclusions>
 				<exclusion>
 					<groupId>com.google.code.findbugs</groupId>
 					<artifactId>jsr305</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>com.google.errorprone</groupId>
+					<artifactId>error_prone_annotations</artifactId>
 				</exclusion>
 			</exclusions>
 		</dependency>

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -118,9 +118,7 @@ public class CoapDtlsEndpoint extends CoapResource implements AutoCloseable {
         if (m instanceof CoapRes) {
             CoapRes res = (CoapRes)m;
             LOGGER.log(Level.FINEST, "Produced response: " + res.toString());
-            //XXX: Should the profile set the content format here?
-            exchange.respond(res.getCode(), res.getRawPayload(), 
-                    Constants.APPLICATION_ACE_CBOR);
+            exchange.respond(res.getCode(), res.getRawPayload(), Constants.APPLICATION_ACE_CBOR);
             return;
         }
         if (m == null) {//Wasn't a CoAP message

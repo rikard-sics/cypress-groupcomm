@@ -17,10 +17,16 @@ package org.eclipse.californium.scandium.dtls;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assume.assumeTrue;
 
 import java.security.GeneralSecurityException;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.KeyPairGenerator;
+import java.security.PublicKey;
 import java.security.cert.X509Certificate;
+import java.security.spec.ECGenParameterSpec;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.crypto.spec.SecretKeySpec;
 
@@ -32,6 +38,7 @@ import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.elements.util.DatagramReader;
 import org.eclipse.californium.elements.util.DatagramWriter;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
+import org.eclipse.californium.scandium.dtls.cipher.ThreadLocalKeyPairGenerator;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -39,8 +46,9 @@ import org.junit.experimental.categories.Category;
 @Category(Small.class)
 public class DTLSSessionTest {
 
-	static final int DEFAULT_MAX_FRAGMENT_LENGTH = 16384; //2^14 as defined in DTLS 1.2 spec
 	private static final Random RANDOM = new Random();
+	private static final AtomicInteger COUNTER = new AtomicInteger();
+
 	DTLSSession session;
 
 	@Before
@@ -54,7 +62,7 @@ public class DTLSSessionTest {
 		session = new DTLSSession();
 
 		// then the max fragment size is as specified in DTLS spec
-		assertThat(session.getMaxFragmentLength(), is(DEFAULT_MAX_FRAGMENT_LENGTH));
+		assertThat(session.getMaxFragmentLength(), is(Record.DTLS_MAX_PLAINTEXT_FRAGMENT_LENGTH));
 	}
 
 	@Test
@@ -157,11 +165,20 @@ public class DTLSSessionTest {
 		session.setSendCertificateType(type);
 		session.setMasterSecret(new SecretKeySpec(getRandomBytes(48), "MAC"));
 		if (cipherSuite.isPskBased()) {
-			session.setPeerIdentity(new PreSharedKeyIdentity("client_identity"));
+			session.setPeerIdentity(new PreSharedKeyIdentity("client_identity_" + COUNTER.incrementAndGet()));
 		} else {
 			X509Certificate[] chain = DtlsTestTools.getServerCertificateChain();
 			if (type == CertificateType.RAW_PUBLIC_KEY) {
-				session.setPeerIdentity(new RawPublicKeyIdentity(chain[0].getPublicKey()));
+				PublicKey peer = chain[0].getPublicKey();
+				try {
+					ThreadLocalKeyPairGenerator keyPairGenerator = new ThreadLocalKeyPairGenerator("EC");
+					KeyPairGenerator generator = keyPairGenerator.current();
+					generator.initialize(new ECGenParameterSpec("secp256r1"));
+					peer = generator.generateKeyPair().getPublic();
+				} catch (InvalidAlgorithmParameterException e) {
+					assumeTrue("secp256r1 must be supported!", false);
+				}
+				session.setPeerIdentity(new RawPublicKeyIdentity(peer));
 			} else {
 				session.setPeerIdentity(X509CertPath.fromCertificatesChain(chain));
 			}

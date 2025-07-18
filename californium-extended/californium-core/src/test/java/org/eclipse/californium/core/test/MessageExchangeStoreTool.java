@@ -20,6 +20,8 @@ package org.eclipse.californium.core.test;
 
 import static org.junit.Assert.assertTrue;
 
+import java.io.IOException;
+import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.Collection;
@@ -28,20 +30,15 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.concurrent.TimeUnit;
 
-import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.MessageObserverAdapter;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.network.CoapEndpoint;
-import org.eclipse.californium.core.network.CoapStackFactory;
 import org.eclipse.californium.core.network.InMemoryMessageExchangeStore;
-import org.eclipse.californium.core.network.Outbox;
 import org.eclipse.californium.core.network.RandomTokenGenerator;
 import org.eclipse.californium.core.network.stack.BlockwiseLayer;
 import org.eclipse.californium.core.network.stack.CoapStack;
-import org.eclipse.californium.core.network.stack.CoapUdpStack;
-import org.eclipse.californium.core.network.stack.Layer;
 import org.eclipse.californium.core.observe.InMemoryObservationStore;
 import org.eclipse.californium.elements.Connector;
 import org.eclipse.californium.elements.EndpointContextMatcher;
@@ -62,6 +59,7 @@ import org.slf4j.LoggerFactory;
  * Dumps exchanges, if MessageExchangeStore is not finally empty.
  */
 public class MessageExchangeStoreTool {
+
 	private static final Logger LOGGER = LoggerFactory.getLogger(MessageExchangeStoreTool.class);
 
 	/**
@@ -167,40 +165,6 @@ public class MessageExchangeStoreTool {
 		return empty;
 	}
 
-	private static final CoapStackFactory COAP_STACK_TEST_FACTORY = new CoapStackFactory() {
-
-		@Override
-		public CoapStack createCoapStack(String protocol, String tag, Configuration config, Outbox outbox, Object customStackArgument) {
-			if (CoAP.isTcpProtocol(protocol)) {
-				throw new IllegalArgumentException("protocol \"" + protocol + "\" is not supported!");
-			}
-			return new CoapUdpTestStack(tag, config, outbox);
-		}
-	};
-
-	public static class CoapUdpTestStack extends CoapUdpStack {
-
-		private BlockwiseLayer blockwiseLayer;
-
-		public CoapUdpTestStack(String tag, Configuration config, Outbox outbox) {
-			super(tag, config, outbox);
-		}
-
-		@Override
-		protected Layer createBlockwiseLayer(String tag, Configuration config) {
-			blockwiseLayer = (BlockwiseLayer) super.createBlockwiseLayer(tag, config);
-			return blockwiseLayer;
-		}
-
-		public BlockwiseLayer getBlockwiseLayer() {
-			return blockwiseLayer;
-		}
-
-		public boolean isEmpty() {
-			return blockwiseLayer == null || blockwiseLayer.isEmpty();
-		}
-	}
-
 	public static class CoapTestEndpoint extends CoapEndpoint {
 
 		private final InMemoryMessageExchangeStore exchangeStore;
@@ -208,11 +172,10 @@ public class MessageExchangeStoreTool {
 		private final UDPTestConnector testConnector;
 		private RequestEventChecker requestChecker;
 
-		private CoapTestEndpoint(Connector connector, Configuration config,
-				InMemoryObservationStore observationStore, InMemoryMessageExchangeStore exchangeStore,
-				EndpointContextMatcher matcher) {
-			super(connector, config, new RandomTokenGenerator(config), observationStore,
-					exchangeStore, matcher, null, null, null, COAP_STACK_TEST_FACTORY, null);
+		private CoapTestEndpoint(Connector connector, Configuration config, InMemoryObservationStore observationStore,
+				InMemoryMessageExchangeStore exchangeStore, EndpointContextMatcher matcher) {
+			super(connector, config, new RandomTokenGenerator(config), observationStore, exchangeStore, matcher, null,
+					null, null, null, null);
 			this.exchangeStore = exchangeStore;
 			this.observationStore = observationStore;
 			this.requestChecker = new RequestEventChecker();
@@ -220,8 +183,8 @@ public class MessageExchangeStoreTool {
 		}
 
 		public CoapTestEndpoint(UDPTestConnector connector, Configuration config, boolean checkAddress) {
-			this(connector, config, new InMemoryObservationStore(config),
-					new InMemoryMessageExchangeStore(config), new UdpEndpointContextMatcher(checkAddress));
+			this(connector, config, new InMemoryObservationStore(config), new InMemoryMessageExchangeStore(config),
+					new UdpEndpointContextMatcher(checkAddress));
 		}
 
 		public CoapTestEndpoint(InetSocketAddress bind, Configuration config, boolean checkAddress) {
@@ -234,8 +197,8 @@ public class MessageExchangeStoreTool {
 		}
 
 		public CoapTestEndpoint(Connector connector, Configuration config, EndpointContextMatcher matcher) {
-			this(connector, config, new InMemoryObservationStore(config),
-					new InMemoryMessageExchangeStore(config), matcher);
+			this(connector, config, new InMemoryObservationStore(config), new InMemoryMessageExchangeStore(config),
+					matcher);
 		}
 
 		public InMemoryMessageExchangeStore getExchangeStore() {
@@ -246,12 +209,13 @@ public class MessageExchangeStoreTool {
 			return observationStore;
 		}
 
-		public CoapUdpTestStack getStack() {
-			return (CoapUdpTestStack) coapstack;
+		public CoapStack getStack() {
+			return (CoapStack) coapstack;
 		}
 
 		public boolean isEmpty() {
-			return exchangeStore.isEmpty() && getStack().isEmpty();
+			BlockwiseLayer layer = getStack().getLayer(BlockwiseLayer.class);
+			return exchangeStore.isEmpty() && layer != null && layer.isEmpty();
 		}
 
 		@Override
@@ -277,6 +241,19 @@ public class MessageExchangeStoreTool {
 			}
 			testConnector.setDrops(drops);
 		}
+
+		/**
+		 * Rebind to local address on restart.
+		 * 
+		 * @since 3.12
+		 */
+		public void rebindLocalAddress() {
+			if (testConnector == null) {
+				throw new IllegalStateException("no test connector available!");
+			}
+			testConnector.rebindLocalAddress();
+		}
+
 	}
 
 	public static class RequestEventChecker {
@@ -331,6 +308,7 @@ public class MessageExchangeStoreTool {
 
 	public static class UDPTestConnector extends UDPConnector {
 
+		private InetSocketAddress bindAddress;
 		private int counter;
 		private int[] drops;
 
@@ -357,6 +335,32 @@ public class MessageExchangeStoreTool {
 		public synchronized void setDrops(int... drops) {
 			this.drops = drops;
 			this.counter = 0;
+		}
+
+		/**
+		 * Rebind to local address on restart.
+		 * 
+		 * @since 3.12
+		 */
+		public void rebindLocalAddress() {
+			this.bindAddress = effectiveAddr;
+		}
+
+		@Override
+		public synchronized void start() throws IOException {
+
+			if (isRunning()) {
+				return;
+			}
+
+			DatagramSocket socket = new DatagramSocket(null);
+			socket.setReuseAddress(getReuseAddress());
+			if (bindAddress != null) {
+				socket.bind(bindAddress);
+			} else {
+				socket.bind(localAddr);
+			}
+			init(socket);
 		}
 	}
 }

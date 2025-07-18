@@ -24,7 +24,6 @@ import org.slf4j.LoggerFactory;
 import org.eclipse.californium.core.coap.EmptyMessage;
 import org.eclipse.californium.core.coap.Message;
 import org.eclipse.californium.core.coap.MessageObserverAdapter;
-import org.eclipse.californium.core.coap.OptionNumberRegistry;
 import org.eclipse.californium.core.coap.OptionSet;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
@@ -35,6 +34,7 @@ import org.eclipse.californium.core.network.Exchange;
 import org.eclipse.californium.core.network.stack.AbstractLayer;
 import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.oscore.ContextRederivation.PHASE;
+import org.eclipse.californium.oscore.group.GroupSenderCtx;
 import org.eclipse.californium.oscore.group.OptionEncoder;
 
 /**
@@ -78,9 +78,10 @@ public class ObjectSecurityLayer extends AbstractLayer {
 	 * @param ctxDb the OSCore context DB
 	 * @param message the message
 	 * @param ctx the OSCore context
-	 * @param newPartialIV boolean to indicate whether to use a new partial IV or not
-	 * @param outerBlockwise boolean to indicate whether the block-wise options
-	 *            should be encrypted or not
+	 * @param newPartialIV whether to use a new partial IV or not
+	 * @param outerBlockwise whether the block-wise options should be encrypted
+	 * @param requestSequenceNr sequence number (Partial IV) from the request
+	 *            (if encrypting a response)
 	 * @param requestOption the OSCORE option of the corresponding request
 	 * 
 	 * @return the encrypted message
@@ -88,8 +89,8 @@ public class ObjectSecurityLayer extends AbstractLayer {
 	 * @throws OSException error while encrypting response
 	 */
 	public static Response prepareSend(OSCoreCtxDB ctxDb, Response message, OSCoreCtx ctx, final boolean newPartialIV,
-			boolean outerBlockwise, byte[] requestOption) throws OSException {
-		return ResponseEncryptor.encrypt(ctxDb, message, ctx, newPartialIV, outerBlockwise, requestOption);
+			boolean outerBlockwise, int requestSequenceNr, byte[] requestOption) throws OSException {
+		return ResponseEncryptor.encrypt(ctxDb, message, ctx, newPartialIV, outerBlockwise, requestSequenceNr, requestOption);
 	}
 
 	/**
@@ -112,12 +113,16 @@ public class ObjectSecurityLayer extends AbstractLayer {
 	 *
 	 * @param ctxDb the context database used
 	 * @param response the incoming request
+	 * @param requestSequenceNr sequence number (Partial IV) from the request
+	 *            (if decrypting a response)
+	 * 
 	 * @return the decrypted and verified response
 	 * 
 	 * @throws OSException error while decrypting response
 	 */
-	public static Response prepareReceive(OSCoreCtxDB ctxDb, Response response) throws OSException {
-		return ResponseDecryptor.decrypt(ctxDb, response);
+	public static Response prepareReceive(OSCoreCtxDB ctxDb, Response response, int requestSequenceNr)
+			throws OSException {
+		return ResponseDecryptor.decrypt(ctxDb, response, requestSequenceNr);
 	}
 
 	@Override
@@ -128,21 +133,35 @@ public class ObjectSecurityLayer extends AbstractLayer {
 				// Handle outgoing requests for more data from a responder that
 				// is responding with outer block-wise. These requests should
 				// not be processed with OSCORE.
-				boolean outerBlockwise = request.getOptions().hasBlock2() && exchange.getCurrentResponse() != null
-						&& ctxDb.getContextByToken(exchange.getCurrentResponse().getToken()) != null;
-				if (outerBlockwise) {
-					super.sendRequest(exchange, req);
-					return;
+				Response response = exchange.getCurrentResponse();
+				if (request.getOptions().hasBlock2() && response != null) {
+					final OSCoreCtx ctx = ctxDb.getContextByToken(response.getToken());
+					if (ctx != null) {
+						request.addMessageObserver(0, new MessageObserverAdapter() {
+
+							@Override
+							public void onReadyToSend() {
+								ctxDb.addContext(request.getToken(), ctx);
+							}
+						});
+						super.sendRequest(exchange, request);
+						return;
+					}
 				}
 
-				String uri = request.getURI();
+				String uri;
+				if (request.getOptions().hasProxyUri()) {
+					uri = request.getOptions().getProxyUri();
+				} else {
+					uri = request.getURI();
+				}
 				
 				// Check if parameters in the option was set by the application
 				if (request.getOptions().getOscore().length != 0) {
 					// Use the URI from the option to find the correct context
 					uri = OptionEncoder.getContextUri(request.getOptions().getOscore());
 				}
-				
+
 				if (uri == null) {
 					LOGGER.error(ErrorDescriptions.URI_NULL);
 					throw new OSException(ErrorDescriptions.URI_NULL);
@@ -167,14 +186,12 @@ public class ObjectSecurityLayer extends AbstractLayer {
 				 */
 				OSCoreEndpointContextInfo.sendingRequest(ctx, exchange);
 
-				final int seqByToken = ctx.getSenderSeq();
-
 				final Request preparedRequest = prepareSend(ctxDb, request);
 				final OSCoreCtx finalCtx = ctxDb.getContext(uri);
 
 				exchange.setCryptographicContextID(preparedRequest.getOptions().getOscore());
 
-				if (outgoingExceedsMaxUnfragSize(preparedRequest, outerBlockwise, ctx.getMaxUnfragmentedSize())) {
+				if (outgoingExceedsMaxUnfragSize(preparedRequest, false, ctx.getMaxUnfragmentedSize())) {
 					throw new IllegalStateException("outgoing request is exceeding the MAX_UNFRAGMENTED_SIZE!");
 				}
 
@@ -193,22 +210,32 @@ public class ObjectSecurityLayer extends AbstractLayer {
 							request.setToken(token);
 						}
 
+						if (!request.hasMID() && preparedRequest.hasMID()) {
+							request.setMID(preparedRequest.getMID());
+						}
+
+						// Clear long exchanges for this Token
+						if (finalCtx.isGroupContext()) {
+							((GroupSenderCtx) finalCtx).getCommonCtx().longExchanges
+									.remove(new ByteId(token.getBytes()));
+						}
+
 						ctxDb.addContext(token, finalCtx);
-						ctxDb.addSeqByToken(token, seqByToken);
 					}
 				});
 
 				req = preparedRequest;
+				exchange.setCryptographicContextID(req.getOptions().getOscore());
 
 			} catch (OSException e) {
-				LOGGER.error("Error sending request: " + e.getMessage());
+				LOGGER.error("Error sending request: {}", e.getMessage());
 				return;
 			} catch (IllegalArgumentException e) {
-				LOGGER.error("Unable to send request because of illegal argument: " + e.getMessage());
+				LOGGER.error("Unable to send request because of illegal argument: {}", e.getMessage());
 				return;
 			}
 		}
-		LOGGER.info("Request: " + exchange.getRequest().toString());
+		LOGGER.trace("Request: {}", exchange.getRequest());
 		super.sendRequest(exchange, req);
 	}
 
@@ -233,6 +260,7 @@ public class ObjectSecurityLayer extends AbstractLayer {
 					&& exchange.getCurrentRequest().getOptions().getOscore().length != 0;
 
 			try {
+				// Retrieve the context
 				// TODO: Don't just use Token as key, also use the addressing
 				// information. Maybe consider using Token and RID + ID Context
 				// instead. Need to change the map to take 3 things instead of
@@ -241,22 +269,27 @@ public class ObjectSecurityLayer extends AbstractLayer {
 				// Or actually use the requestOption KID and KID Context
 				// directly. (Indirectly using the Token).
 				OSCoreCtx ctx = ctxDb.getContextByToken(exchange.getCurrentRequest().getToken());
-				addPartialIV = ctx.getResponsesIncludePartialIV() || exchange.getRequest().getOptions().hasObserve();
+				addPartialIV = (ctx !=null && ctx.getResponsesIncludePartialIV()) || exchange.getRequest().getOptions().hasObserve();
 
+				// Parse the OSCORE option from the corresponding request
 				byte[] requestOption = exchange.getCryptographicContextID();
+				OscoreOptionDecoder optionDecoder = new OscoreOptionDecoder(requestOption);
+				int requestSequenceNumber = optionDecoder.getSequenceNumber();
+
 				Response preparedResponse = prepareSend(ctxDb, response, ctx, addPartialIV, outerBlockwise,
-						requestOption);
+						requestSequenceNumber, requestOption);
 
 				if (outgoingExceedsMaxUnfragSize(preparedResponse, outerBlockwise, ctx.getMaxUnfragmentedSize())) {
-					super.sendResponse(exchange,
-							Response.createResponse(exchange.getCurrentRequest(), ResponseCode.INTERNAL_SERVER_ERROR));
+					Response error = new Response(ResponseCode.INTERNAL_SERVER_ERROR, true);
+					error.setDestinationContext(exchange.getCurrentRequest().getSourceContext());
+					super.sendResponse(exchange, error);
 					throw new IllegalStateException("outgoing response is exceeding the MAX_UNFRAGMENTED_SIZE!");
 				}
 
 				response = preparedResponse;
 				exchange.setResponse(response);
 			} catch (OSException e) {
-				LOGGER.error("Error sending response: " + e.getMessage());
+				LOGGER.error("Error sending response: {}", e.getMessage());
 				return;
 			}
 		}
@@ -279,15 +312,17 @@ public class ObjectSecurityLayer extends AbstractLayer {
 	public void receiveRequest(Exchange exchange, Request request) {
 		if (isProtected(request)) {
 
-			// Retrieve the OSCORE context associated with this RID and ID Context
-			byte[] rid = OptionJuggle.getRid(request.getOptions().getOscore());
-			byte[] IDContext = OptionJuggle.getIDContext(request.getOptions().getOscore());
-			
 			OSCoreCtx ctx = null;
 			try {
+				// Retrieve the OSCORE context associated with this RID and ID
+				// Context
+				OscoreOptionDecoder optionDecoder = new OscoreOptionDecoder(request.getOptions().getOscore());
+				byte[] rid = optionDecoder.getKid();
+				byte[] IDContext = optionDecoder.getIdContext();
+
 				ctx = ctxDb.getContext(rid, IDContext);
 			} catch (CoapOSException e) {
-				LOGGER.error("Error while receiving OSCore request: " + e.getMessage());
+				LOGGER.error("Error while receiving OSCore request: {}", e.getMessage());
 				Response error;
 				error = CoapOSExceptionHandler.manageError(e, request);
 				if (error != null) {
@@ -309,14 +344,14 @@ public class ObjectSecurityLayer extends AbstractLayer {
 				return;
 			}
 
-			byte[] oscoreOption = null;
+			byte[] requestOscoreOption;
 			try {
+				requestOscoreOption = request.getOptions().getOscore();
 				request = prepareReceive(ctxDb, request, ctx);
-				oscoreOption = request.getOptions().getOscore();
 				request.getOptions().setOscore(Bytes.EMPTY);
 				exchange.setRequest(request);
 			} catch (CoapOSException e) {
-				LOGGER.error("Error while receiving OSCore request: " + e.getMessage());
+				LOGGER.error("Error while receiving OSCore request: {}", e.getMessage());
 				Response error;
 				error = CoapOSExceptionHandler.manageError(e, request);
 				if (error != null) {
@@ -324,7 +359,8 @@ public class ObjectSecurityLayer extends AbstractLayer {
 				}
 				return;
 			}
-			exchange.setCryptographicContextID(oscoreOption);
+
+			exchange.setCryptographicContextID(requestOscoreOption);
 		}
 		super.receiveRequest(exchange, request);
 	}
@@ -341,10 +377,13 @@ public class ObjectSecurityLayer extends AbstractLayer {
 		try {
 			//Printing of status information.
 			//Warns when expecting OSCORE response but unprotected response is received
-			if (!isProtected(response) && responseShouldBeProtected(exchange, response)) {
-				LOGGER.warn("Incoming response is NOT OSCORE protected!");
+			boolean expectProtectedResponse = responseShouldBeProtected(exchange, response);
+			if (!isProtected(response) && expectProtectedResponse) {
+				LOGGER.info("Incoming response is NOT OSCORE protected but is expected to be!");
+			} else if (isProtected(response) && expectProtectedResponse) {
+				LOGGER.debug("Incoming response is OSCORE protected");
 			} else if (isProtected(response)) {
-				LOGGER.info("Incoming response is OSCORE protected");
+				LOGGER.warn("Incoming response is OSCORE protected but it should not be");
 			}
 
 			// For OSCORE-protected response with the outer block2-option let
@@ -362,20 +401,14 @@ public class ObjectSecurityLayer extends AbstractLayer {
 
 			//If response is protected with OSCORE parse it first with prepareReceive
 			if (isProtected(response)) {
-				
-				boolean groupModeResp = OptionJuggle.getGroupModeBit(response.getOptions().getOscore());
+				// Parse the OSCORE option from the corresponding request
+				OscoreOptionDecoder optionDecoder = new OscoreOptionDecoder(exchange.getCryptographicContextID());
+				int requestSequenceNumber = optionDecoder.getSequenceNumber();
 
-				if(groupModeResp) {
-					System.out.println("Incoming Group Mode Response payload size: " + response.getPayloadSize());
-				} else {
-					System.out.println("Incoming Pairwise Mode Response payload size: " + response.getPayloadSize());
-				}
-				
-				
-				response = prepareReceive(ctxDb, response);
+				response = prepareReceive(ctxDb, response, requestSequenceNumber);
 			}
 		} catch (OSException e) {
-			LOGGER.error("Error while receiving OSCore response: " + e.getMessage());
+			LOGGER.error("Error while receiving OSCore response: {}", e.getMessage());
 			EmptyMessage error = CoapOSExceptionHandler.manageError(e, response);
 			if (error != null) {
 				sendEmptyMessage(exchange, error);
@@ -407,18 +440,10 @@ public class ObjectSecurityLayer extends AbstractLayer {
 		OptionSet options = request.getOptions();
 		if (exchange.getCryptographicContextID() == null) {
 			if (response.getOptions().hasObserve() && request.getOptions().hasObserve()) {
-
 				// Since the exchange object has been re-created the
 				// cryptographic id doesn't exist
 				if (options.hasOscore()) {
-					String uri = request.getURI();
-					try {
-						OSCoreCtx ctx = ctxDb.getContext(uri);
-						exchange.setCryptographicContextID(ctx.getRecipientId());
-					} catch (OSException e) {
-						LOGGER.error("Error when re-creating exchange at OSCORE level");
-						throw new OSException("Error when re-creating exchange at OSCORE level");
-					}
+					exchange.setCryptographicContextID(options.getOscore());
 				}
 			}
 		}
@@ -427,7 +452,7 @@ public class ObjectSecurityLayer extends AbstractLayer {
 
 	private static boolean shouldProtectRequest(Request request) {
 		OptionSet options = request.getOptions();
-		return options.hasOption(OptionNumberRegistry.OSCORE);
+		return options.hasOscore();
 
 	}
 

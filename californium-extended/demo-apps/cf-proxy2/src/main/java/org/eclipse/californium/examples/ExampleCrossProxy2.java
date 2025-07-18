@@ -25,16 +25,15 @@ import java.lang.management.ThreadMXBean;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.Date;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.eclipse.californium.core.CoapResource;
 import org.eclipse.californium.core.CoapServer;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+import org.eclipse.californium.core.coap.MediaTypeRegistry;
 import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.config.CoapConfig.TrackerMode;
-import org.eclipse.californium.core.coap.MediaTypeRegistry;
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.server.MessageDeliverer;
 import org.eclipse.californium.core.server.resources.CoapExchange;
@@ -46,6 +45,7 @@ import org.eclipse.californium.elements.config.TcpConfig;
 import org.eclipse.californium.elements.config.UdpConfig;
 import org.eclipse.californium.elements.util.DaemonThreadFactory;
 import org.eclipse.californium.elements.util.ExecutorsUtil;
+import org.eclipse.californium.elements.util.ProtocolScheduledExecutorService;
 import org.eclipse.californium.proxy2.ClientEndpoints;
 import org.eclipse.californium.proxy2.ClientSingleEndpoint;
 import org.eclipse.californium.proxy2.Coap2CoapTranslator;
@@ -70,14 +70,15 @@ import org.slf4j.LoggerFactory;
  * Demonstrates the examples for cross proxy functionality of CoAP.
  * 
  * Http2CoAP: Insert in browser: URI:
- * http://localhost:8080/proxy/coap://localhost:PORT/target
+ * {@code http://localhost:8080/proxy/coap://localhost:PORT/target}
  * 
  * Http2LocalCoAPResource: Insert in browser: URI:
- * http://localhost:8080/local/target
+ * {@code http://localhost:8080/local/target}
  * 
  * Http2CoAP: configure browser to use the proxy "localhost:8080". Insert in
  * browser: ("localhost" requests are not send to a proxy, so use the hostname
- * or none-local-ip-address) URI: http://<hostname>:5683/target/coap:
+ * or none-local-ip-address) URI:
+ * {@code http://<hostname>:5683/target/coap:}
  * 
  * CoAP2CoAP: Insert in Copper:
  * 
@@ -162,15 +163,14 @@ public class ExampleCrossProxy2 {
 		coapPort = config.get(CoapConfig.COAP_PORT);
 		httpPort = config.get(Proxy2Config.HTTP_PORT);
 		int threads = config.get(CoapConfig.PROTOCOL_STAGE_THREAD_COUNT);
-		ScheduledExecutorService mainExecutor = ExecutorsUtil.newScheduledThreadPool(threads,
+		ProtocolScheduledExecutorService executor = ExecutorsUtil.newProtocolScheduledThreadPool(threads,
 				new DaemonThreadFactory("Proxy#"));
-		ScheduledExecutorService secondaryExecutor = ExecutorsUtil.newDefaultSecondaryScheduler("ProxyTimer#");
 		Coap2CoapTranslator translater = new Coap2CoapTranslator();
 		Configuration outgoingConfig = new Configuration(config);
 		if (useEndpointsPool) {
 			outgoingConfig.set(UdpConfig.UDP_RECEIVER_THREAD_COUNT, 1);
 			outgoingConfig.set(UdpConfig.UDP_SENDER_THREAD_COUNT, 1);
-			endpoints = new EndpointPool(1000, 250, outgoingConfig, mainExecutor, secondaryExecutor);
+			endpoints = new EndpointPool(1000, 250, outgoingConfig, executor);
 		} else {
 			outgoingConfig.set(CoapConfig.MID_TRACKER, TrackerMode.NULL);
 			CoapEndpoint.Builder builder = CoapEndpoint.builder()
@@ -184,7 +184,9 @@ public class ExampleCrossProxy2 {
 			statsResource = new StatsResource(cacheResource);
 		}
 		ProxyCoapResource coap2coap = new ProxyCoapClientResource(COAP2COAP, false, accept, translater, endpoints);
+		coap2coap.setMaxResourceBodySize(config.get(CoapConfig.MAX_RESOURCE_BODY_SIZE));
 		ProxyCoapResource coap2http = new ProxyHttpClientResource(COAP2HTTP, false, accept, new Coap2HttpTranslator());
+		coap2http.setMaxResourceBodySize(config.get(CoapConfig.MAX_RESOURCE_BODY_SIZE));
 		if (cache) {
 			coap2coap.setCache(cacheResource);
 			coap2coap.setStatsResource(statsResource);
@@ -195,11 +197,11 @@ public class ExampleCrossProxy2 {
 		coapProxyServer = new CoapServer(config, coapPort);
 		MessageDeliverer local = coapProxyServer.getMessageDeliverer();
 		ForwardProxyMessageDeliverer proxyMessageDeliverer = new ForwardProxyMessageDeliverer(coapProxyServer.getRoot(),
-				translater);
+				translater, config);
 		proxyMessageDeliverer.addProxyCoapResources(coap2coap, coap2http);
 		proxyMessageDeliverer.addExposedServiceAddresses(new InetSocketAddress(coapPort));
 		coapProxyServer.setMessageDeliverer(proxyMessageDeliverer);
-		coapProxyServer.setExecutors(mainExecutor, secondaryExecutor, false);
+		coapProxyServer.setExecutor(executor, false);
 		coapProxyServer.add(coap2http);
 		coapProxyServer.add(coap2coap);
 		if (cache) {
@@ -216,7 +218,7 @@ public class ExampleCrossProxy2 {
 		httpServer = ProxyHttpServer.buider()
 				.setConfiguration(config)
 				.setPort(8080)
-				.setExecutor(mainExecutor)
+				.setExecutor(executor)
 				.setHttpTranslator(new Http2CoapTranslator())
 				.setLocalCoapDeliverer(local)
 				.setProxyCoapDeliverer(proxyMessageDeliverer)
@@ -279,7 +281,7 @@ public class ExampleCrossProxy2 {
 		System.out.println(
 				ExampleCrossProxy2.class.getSimpleName() + " started (" + max / (1024 * 1024) + "MB heap) ...");
 		long lastGcCount = 0;
-		NetStatLogger netstat = new NetStatLogger("udp");
+		NetStatLogger netstat = new NetStatLogger("udp", false);
 		for (;;) {
 			try {
 				Thread.sleep(15000);

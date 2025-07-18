@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -318,8 +318,7 @@ public class Introspect implements Endpoint, AutoCloseable {
             try {
                 // Get the RS id (audience) from the COSE KID header.
 				org.eclipse.californium.cose.Message coseRaw = org.eclipse.californium.cose.Message
-						.DecodeFromBytes(
-                        token.EncodeToBytes());
+						.DecodeFromBytes(token.EncodeToBytes());
                 CBORObject kid = coseRaw.findAttribute(HeaderKeys.KID);
                 Set<String> aud = new HashSet<>();
                 if(kid == null) {

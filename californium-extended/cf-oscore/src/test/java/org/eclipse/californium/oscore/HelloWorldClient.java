@@ -62,17 +62,6 @@ public class HelloWorldClient {
 		r.getOptions().setOscore(new byte[0]);
 		resp = c.advanced(r);
 		printResponse(resp);
-		
-		r = new Request(Code.GET);
-		r.getOptions().setOscore(new byte[0]);
-		resp = c.advanced(r);
-		printResponse(resp);
-		
-		r = new Request(Code.GET);
-		r.getOptions().setOscore(new byte[0]);
-		resp = c.advanced(r);
-		printResponse(resp);
-		
 		c.shutdown();
 	}
 

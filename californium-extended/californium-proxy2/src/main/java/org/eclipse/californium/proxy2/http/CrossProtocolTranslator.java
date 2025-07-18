@@ -15,8 +15,8 @@
  ******************************************************************************/
 package org.eclipse.californium.proxy2.http;
 
-import static org.eclipse.californium.elements.util.StandardCharsets.ISO_8859_1;
-import static org.eclipse.californium.elements.util.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -50,7 +50,13 @@ import org.eclipse.californium.core.coap.Option;
 import org.eclipse.californium.core.coap.OptionNumberRegistry;
 import org.eclipse.californium.core.coap.OptionNumberRegistry.OptionFormat;
 import org.eclipse.californium.core.coap.OptionSet;
-import org.eclipse.californium.elements.util.Bytes;
+import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.coap.option.EmptyOption;
+import org.eclipse.californium.core.coap.option.IntegerOption;
+import org.eclipse.californium.core.coap.option.OpaqueOption;
+import org.eclipse.californium.core.coap.option.OptionDefinition;
+import org.eclipse.californium.core.coap.option.StandardOptionRegistry;
+import org.eclipse.californium.core.coap.option.StringOption;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.proxy2.InvalidMethodException;
 import org.eclipse.californium.proxy2.TranslationException;
@@ -205,7 +211,10 @@ public class CrossProtocolTranslator {
 
 		// retrieve the mapping from the property file
 		Integer coapType = translationMapping.getCoapMediaType(mimeType);
-
+		if (coapType == null) {
+			String mimeBaseType = mimeType.split("/")[0].trim();
+			coapType = translationMapping.getCoapMediaType(mimeBaseType);
+		}
 		if (coapType != null) {
 			coapContentType = coapType;
 		} else {
@@ -252,24 +261,22 @@ public class CrossProtocolTranslator {
 				String headerName = header.getName().toLowerCase();
 
 				// get the mapping from the property file
-				Integer coapOption = translationMapping.getCoapOption(headerName);
+				OptionDefinition optionDefinition = translationMapping.getCoapOptionDefinition(headerName);
 				// ignore the header if not found in the properties file
-				if (coapOption == null) {
+				if (optionDefinition == null) {
 					continue;
 				}
-				int optionNumber = coapOption;
-				// ignore the content-type because it will be handled within the
+				// ignore the content-type, it will be handled within the
 				// payload
-				if (optionNumber == OptionNumberRegistry.CONTENT_FORMAT) {
+				if (optionDefinition.equals(StandardOptionRegistry.CONTENT_FORMAT)) {
 					continue;
 				}
 
 				// get the value of the current header
 				String headerValue = header.getValue().trim();
 
-				// if the option is accept, it needs to translate the
-				// values
-				if (optionNumber == OptionNumberRegistry.ACCEPT) {
+				// if the option is accept, it needs to translate the values
+				if (optionDefinition.equals(StandardOptionRegistry.ACCEPT)) {
 					final ParserCursor cursor = new ParserCursor(0, headerValue.length());
 					HeaderElement[] headerElements = parser.parseElements(headerValue, cursor);
 					for (HeaderElement element : headerElements) {
@@ -294,12 +301,12 @@ public class CrossProtocolTranslator {
 								coapContentType = getCoapMediaType(headerFragment, MediaTypeRegistry.UNDEFINED);
 							}
 							if (coapContentType != MediaTypeRegistry.UNDEFINED) {
-								accept = new Option(optionNumber, coapContentType);
+								accept = StandardOptionRegistry.ACCEPT.create(coapContentType);
 								acceptQualifier = qualifier;
 							}
 						}
 					}
-				} else if (optionNumber == OptionNumberRegistry.MAX_AGE) {
+				} else if (optionDefinition.equals(StandardOptionRegistry.MAX_AGE)) {
 					int maxAge = -1;
 					final ParserCursor cursor = new ParserCursor(0, headerValue.length());
 					HeaderElement[] headerElements = parser.parseElements(headerValue, cursor);
@@ -319,25 +326,25 @@ public class CrossProtocolTranslator {
 					}
 					if (maxAge >= 0) {
 						// create the option
-						Option option = new Option(optionNumber, maxAge);
+						Option option = StandardOptionRegistry.MAX_AGE.create(maxAge);
 						optionList.add(option);
 					}
-				} else if (optionNumber == OptionNumberRegistry.ETAG) {
+				} else if (optionDefinition.equals(StandardOptionRegistry.ETAG)) {
 					byte[] etag = etagTranslator.getCoapEtag(headerValue);
-					Option option = new Option(optionNumber, etag);
+					Option option = StandardOptionRegistry.ETAG.create(etag);
 					optionList.add(option);
-				} else if (optionNumber == OptionNumberRegistry.IF_MATCH) {
+				} else if (optionDefinition.equals(StandardOptionRegistry.IF_MATCH)) {
 					byte[] etag = etagTranslator.getCoapEtag(headerValue);
-					Option option = new Option(optionNumber, etag);
+					Option option = StandardOptionRegistry.IF_MATCH.create(etag);
 					optionList.add(option);
-				} else if (optionNumber == OptionNumberRegistry.IF_NONE_MATCH) {
+				} else if (optionDefinition.equals(StandardOptionRegistry.IF_NONE_MATCH)) {
 					if (headerValue.equals("*")) {
-						Option option = new Option(optionNumber, Bytes.EMPTY);
+						Option option = StandardOptionRegistry.IF_NONE_MATCH.create();
 						optionList.add(option);
 					} else {
 						LOGGER.debug("'if-none-match' with etag '{}' is not supported!", headerValue);
 					}
-				} else if (optionNumber == OptionNumberRegistry.LOCATION_PATH) {
+				} else if (optionDefinition.equals(StandardOptionRegistry.LOCATION_PATH)) {
 					try {
 						URI uri = new URI(headerValue);
 						OptionSet set = new OptionSet();
@@ -357,20 +364,20 @@ public class CrossProtocolTranslator {
 					}
 				} else {
 					// create the option
-					Option option = new Option(optionNumber);
-					switch (OptionNumberRegistry.getFormatByNr(optionNumber)) {
+					Option option;
+					switch (optionDefinition.getFormat()) {
 					case INTEGER:
-						option.setIntegerValue(Integer.parseInt(headerValue));
+						option = ((IntegerOption.Definition)optionDefinition).create(Long.parseLong(headerValue));
 						break;
 					case OPAQUE:
-						option.setValue(headerValue.getBytes(ISO_8859_1));
+						option = ((OpaqueOption.Definition)optionDefinition).create(headerValue.getBytes(ISO_8859_1));
 						break;
 					case EMPTY:
-						option.setValue(Bytes.EMPTY);
+						option = ((EmptyOption.Definition)optionDefinition).create();
 						break;
 					case STRING:
 					default:
-						option.setStringValue(headerValue);
+						option = ((StringOption.Definition)optionDefinition).create(headerValue);
 						break;
 					}
 					optionList.add(option);
@@ -404,7 +411,8 @@ public class CrossProtocolTranslator {
 			byte[] payload = httpBody.getContent();
 			if (payload != null) {
 				ContentType contentType = httpBody.getContentType();
-				int coapContentType = getCoapMediaType(contentType.getMimeType());
+				String mimeType = contentType.getMimeType();
+				int coapContentType = getCoapMediaType(mimeType);
 				coapMessage.getOptions().setContentFormat(coapContentType);
 				if (MediaTypeRegistry.isCharsetConvertible(coapContentType)) {
 					try {
@@ -412,15 +420,36 @@ public class CrossProtocolTranslator {
 						// get the charset for the http entity
 						Charset httpCharset = contentType.getCharset();
 
-						// check if the charset is UTF_8, the only supported by
-						// coap
+						// check if the charset is UTF-8,
+						// the only supported by coap
 						if (httpCharset != null && !httpCharset.equals(UTF_8)) {
-							// translate the payload to the utf-8 charset
+							// translate the payload to the UTF-8 charset
 							payload = convertCharset(payload, httpCharset, UTF_8);
 						}
 					} catch (UnsupportedCharsetException e) {
 						LOGGER.debug("Cannot get the content of the http entity: " + e.getMessage());
 						throw new TranslationException("Cannot get the content of the http entity", e);
+					}
+				}
+				if (payload.length > 256) {
+					if (coapMessage instanceof Response) {
+						if (!((Response) coapMessage).isSuccess()) {
+							if (ContentType.TEXT_HTML.getMimeType().equals(mimeType)) {
+								// blockwise is not supported for error
+								// responses
+								// https://github.com/core-wg/corrclar/issues/25
+								// reduce payload size
+								String page = new String(payload, UTF_8);
+								int start = page.indexOf("<body>");
+								if (start >= 0) {
+									int end = page.indexOf("</body>", start);
+									if (end >= 0) {
+										page = page.substring(start + 6, end);
+										payload = page.getBytes(UTF_8);
+									}
+								}
+							}
+						}
 					}
 				}
 				coapMessage.setPayload(payload);
@@ -509,6 +538,26 @@ public class CrossProtocolTranslator {
 	}
 
 	/**
+	 * Get http conversion content-type from coap content-type.
+	 * 
+	 * Used to convert the charset, e.g. from UTF-8 (coap) to ISO-8859-1 (http).
+	 * 
+	 * @param coapContentType coap content-type
+	 * @return http content-type, or {@code null}, if not available.
+	 * @since 3.13
+	 */
+	public Charset getHttpCharset(int coapContentType) {
+		String charsetString = translationMapping.getHttpCharset(coapContentType);
+		if (charsetString != null && !charsetString.isEmpty()) {
+			try {
+				return Charset.forName(charsetString);
+			} catch (IllegalArgumentException e) {
+			}
+		}
+		return null;
+	}
+
+	/**
 	 * Gets the http headers from a list of CoAP options.
 	 * 
 	 * The method iterates over the list looking for a translation of each
@@ -531,55 +580,57 @@ public class CrossProtocolTranslator {
 		List<Header> headers = new LinkedList<Header>();
 		// iterate over each option
 		for (Option option : optionList) {
-			// skip content-type because it should be translated while handling
-			// the payload;
-			int optionNumber = option.getNumber();
-			if (optionNumber == OptionNumberRegistry.CONTENT_FORMAT) {
+			// skip content-type, it should be translated
+			// while handling the payload
+			OptionDefinition definition = option.getDefinition();
+			if (StandardOptionRegistry.CONTENT_FORMAT.equals(definition)) {
 				continue;
 			}
-			if (optionNumber == OptionNumberRegistry.LOCATION_PATH
-					|| optionNumber == OptionNumberRegistry.LOCATION_QUERY) {
+			if (StandardOptionRegistry.LOCATION_PATH.equals(definition)
+					|| StandardOptionRegistry.LOCATION_QUERY.equals(definition)) {
 				hasLocation = true;
 				continue;
 			}
 			// get the mapping from the property file
-			String headerName = translationMapping.getHttpHeader(optionNumber);
+			String headerName = translationMapping.getHttpHeader(option.getNumber());
 
 			// set the header
 			if (headerName != null && !headerName.isEmpty()) {
 
-				OptionFormat optionFormat = OptionNumberRegistry.getFormatByNr(optionNumber);
+				OptionFormat optionFormat = definition.getFormat();
 				// format the value
 				String stringOptionValue = null;
-				if (optionNumber == OptionNumberRegistry.ETAG) {
-					stringOptionValue = etagTranslator.getHttpEtag(option.getValue());
-				} else if (optionNumber == OptionNumberRegistry.IF_MATCH) {
-					stringOptionValue = etagTranslator.getHttpEtag(option.getValue());
-				} else if (optionNumber == OptionNumberRegistry.IF_NONE_MATCH) {
+				if (StandardOptionRegistry.ETAG.equals(definition)) {
+					stringOptionValue = etagTranslator.getHttpEtag(((OpaqueOption)option).getValue());
+				} else if (StandardOptionRegistry.IF_MATCH.equals(definition)) {
+					stringOptionValue = etagTranslator.getHttpEtag(((OpaqueOption)option).getValue());
+				} else if (StandardOptionRegistry.IF_NONE_MATCH.equals(definition)) {
 					stringOptionValue = "*";
-				} else if (optionNumber == OptionNumberRegistry.ACCEPT) {
+				} else if (StandardOptionRegistry.ACCEPT.equals(definition)) {
 					try {
-						stringOptionValue = getHttpContentType(option.getIntegerValue()).toString();
+						stringOptionValue = getHttpContentType(((IntegerOption)option).getIntegerValue()).toString();
 					} catch (TranslationException e) {
 						continue;
 					}
+				} else if (StandardOptionRegistry.MAX_AGE.equals(definition)) {
+					// format: cache-control: max-age=60
+					int maxAge = ((IntegerOption)option).getIntegerValue();
+					if (maxAge > 0) {
+						stringOptionValue = "max-age=" + Integer.toString(maxAge);
+					} else {
+						stringOptionValue = "no-cache";
+					}
 				} else if (optionFormat == OptionFormat.STRING) {
-					stringOptionValue = option.getStringValue();
+					stringOptionValue = ((StringOption)option).getStringValue();
 				} else if (optionFormat == OptionFormat.INTEGER) {
-					stringOptionValue = Integer.toString(option.getIntegerValue());
+					stringOptionValue = Integer.toString(((IntegerOption)option).getIntegerValue());
 				} else if (optionFormat == OptionFormat.OPAQUE) {
-					stringOptionValue = new String(option.getValue());
+					stringOptionValue = new String(((OpaqueOption)option).getValue());
 				} else if (optionFormat == OptionFormat.EMPTY) {
 					stringOptionValue = "";
 				} else {
 					// if the option is not formattable, skip it
 					continue;
-				}
-
-				// custom handling for max-age
-				// format: cache-control: max-age=60
-				if (optionNumber == OptionNumberRegistry.MAX_AGE) {
-					stringOptionValue = "max-age=" + stringOptionValue;
 				}
 
 				Header header = new BasicHeader(headerName, stringOptionValue);
@@ -590,10 +641,11 @@ public class CrossProtocolTranslator {
 			StringBuilder locationPath = new StringBuilder();
 			StringBuilder locationQuery = new StringBuilder();
 			for (Option option : optionList) {
-				if (option.getNumber() == OptionNumberRegistry.LOCATION_PATH) {
-					locationPath.append("/").append(option.getStringValue());
-				} else if (option.getNumber() == OptionNumberRegistry.LOCATION_QUERY) {
-					locationQuery.append("&").append(option.getStringValue());
+				OptionDefinition definition = option.getDefinition();
+				if (StandardOptionRegistry.LOCATION_PATH.equals(definition)) {
+					locationPath.append("/").append(((StringOption)option).getStringValue());
+				} else if (StandardOptionRegistry.LOCATION_QUERY.equals(definition)) {
+					locationQuery.append("&").append(((StringOption)option).getStringValue());
 				}
 			}
 			if (locationQuery.length() > 0) {
@@ -645,27 +697,29 @@ public class CrossProtocolTranslator {
 				if (MediaTypeRegistry.isCharsetConvertible(coapContentType)) {
 					// get the charset
 					Charset charset = contentType.getCharset();
+					Charset charsetTo = getHttpCharset(coapContentType);
+
 					// try to convert to http default ISO_8859_1
 					// Just for JSON, keep the original encoding
-					if (charset != null && !ISO_8859_1.equals(charset)) {
-						byte[] newPayload = convertCharset(payload, charset, ISO_8859_1);
+					if (charset != null && charsetTo != null && !charsetTo.equals(charset)) {
+						byte[] newPayload = convertCharset(payload, charset, charsetTo);
 						// since ISO-8859-1 is a subset of UTF-8, it is needed
-						// to
-						// check if the mapping could be accomplished, only if
-						// the
-						// operation is successful the payload and the charset
-						// should be changed
+						// to check, if the mapping could be accomplished.
+						// Only if the operation is successful the payload and
+						// the charset should be changed
 						if (newPayload != null) {
 							payload = newPayload;
-							// if the charset is changed, also the entire
-							// content-type must change
-							contentType = contentType.withCharset(ISO_8859_1);
+							// if the charset is changed, also the
+							// entire content-type must change
+							contentType = contentType.withCharset(charsetTo);
 						}
 					}
 				}
 			}
 			// create the entity
-			httpEntity = new ContentTypedEntity(contentType, payload);
+			if (contentType != null) {
+				httpEntity = new ContentTypedEntity(contentType, payload);
+			}
 		}
 
 		return httpEntity;
@@ -758,7 +812,7 @@ public class CrossProtocolTranslator {
 		@Override
 		public byte[] getCoapEtag(String value) {
 			byte[] etag = StringUtil.hex2ByteArray(value);
-			OptionNumberRegistry.assertValueLength(OptionNumberRegistry.ETAG, etag.length);
+			StandardOptionRegistry.ETAG.assertValueLength(etag.length);
 			return etag;
 		}
 
@@ -782,7 +836,7 @@ public class CrossProtocolTranslator {
 		@Override
 		public byte[] getCoapEtag(String value) {
 			byte[] etag = value.getBytes(ISO_8859_1);
-			OptionNumberRegistry.assertValueLength(OptionNumberRegistry.ETAG, etag.length);
+			StandardOptionRegistry.ETAG.assertValueLength(etag.length);
 			return etag;
 		}
 

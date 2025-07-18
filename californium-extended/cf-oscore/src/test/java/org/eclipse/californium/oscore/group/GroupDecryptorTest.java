@@ -25,8 +25,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.Random;
 
-
-
 import org.eclipse.californium.core.coap.Message;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
@@ -38,7 +36,8 @@ import org.eclipse.californium.cose.CoseException;
 import org.eclipse.californium.cose.OneKey;
 import org.eclipse.californium.elements.UdpEndpointContext;
 import org.eclipse.californium.elements.rule.TestNameLoggerRule;
-import org.eclipse.californium.elements.util.Base64;
+
+import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.oscore.ByteId;
 import org.eclipse.californium.oscore.CoapOSException;
 import org.eclipse.californium.oscore.HashMapCtxDB;
@@ -49,6 +48,7 @@ import org.eclipse.californium.oscore.RequestDecryptor;
 import org.eclipse.californium.oscore.ResponseDecryptor;
 import org.eclipse.californium.rule.CoapNetworkRule;
 import org.eclipse.californium.rule.CoapThreadsRule;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -59,15 +59,28 @@ import org.junit.rules.ExpectedException;
 
 import com.upokecenter.cbor.CBORObject;
 
+/**
+ * Test message decryption for Group OSCORE
+ *
+ */
 public class GroupDecryptorTest {
 
+	/**
+	 * Define CoAP network rule for JUnit tests
+	 */
 	@ClassRule
 	public static CoapNetworkRule network = new CoapNetworkRule(CoapNetworkRule.Mode.DIRECT,
 			CoapNetworkRule.Mode.NATIVE);
 
+	/**
+	 * Thread cleanup rule
+	 */
 	@Rule
 	public CoapThreadsRule cleanup = new CoapThreadsRule();
 
+	/**
+	 * Test name logging rule
+	 */
 	@Rule
 	public TestNameLoggerRule name = new TestNameLoggerRule();
 
@@ -94,31 +107,43 @@ public class GroupDecryptorTest {
 
 	static Random rand;
 
+	/**
+	 * Set GM public key and clear endpoints before tests
+	 * 
+	 * @throws IOException on setup failure
+	 */
 	@Before
 	public void init() throws IOException {
+		gmPublicKey = StringUtil.base64ToByteArray(gmPublicKeyString);
 		EndpointManager.clear();
-		gmPublicKey = Base64.decode(gmPublicKeyString);
 	}
 
-	// Use the OSCORE stack factory
+	/**
+	 * Use the OSCORE stack factory
+	 */
 	@BeforeClass
 	public static void setStackFactory() {
 		OSCoreCoapStackFactory.useAsDefault(null); // TODO: Better way?
 		rand = new Random();
 	}
 
+	/**
+	 * Test request decryption in group mode
+	 * 
+	 * @throws OSException on test failure
+	 * @throws CoseException on test failure
+	 * @throws IOException on test failure
+	 */
 	@Test
 	@Ignore // TODO: Recalculate
 	public void testRequestDecryptorGroupMode() throws OSException, CoseException, IOException {
 		// Set up OSCORE context
 		byte[] rid = new byte[] { 0x00 };
-		int seq = 20;
 
 		// Create client context
 		GroupCtx commonCtx = new GroupCtx(master_secret, master_salt, alg, kdf, context_id, algCountersign,
 				gmPublicKey);
-		OneKey clientPublicKey = new OneKey(
-				CBORObject.DecodeFromBytes(Base64.decode(clientKeyString))).PublicKey();
+		OneKey clientPublicKey = new OneKey(CBORObject.DecodeFromBytes(StringUtil.base64ToByteArray(clientKeyString))).PublicKey();
 		commonCtx.addRecipientCtx(rid, REPLAY_WINDOW, clientPublicKey);
 		GroupRecipientCtx recipientCtx = commonCtx.recipientCtxMap.get(new ByteId(rid));
 
@@ -146,6 +171,7 @@ public class GroupDecryptorTest {
 		if (mess instanceof Request) {
 			r = (Request) mess;
 		}
+		Assert.assertNotNull(r);
 
 		// Check that the group bit is set
 		byte flagByte = r.getOptions().getOscore()[0];
@@ -154,7 +180,7 @@ public class GroupDecryptorTest {
 
 		// Set up some state information simulating an incoming request
 		OSCoreCtxDB db = new HashMapCtxDB();
-		recipientCtx.setReceiverSeq(seq - 1);
+		// FIXME: //recipientCtx.setReceiverSeq(seq - 1);
 		db.addContext(recipientCtx);
 		r.setSourceContext(new UdpEndpointContext(new InetSocketAddress(0)));
 
@@ -171,11 +197,10 @@ public class GroupDecryptorTest {
 				0x61, 0x6c, 0x68, 0x6f, 0x73, 0x74, (byte) 0x83, 0x74, 0x76, 0x31 };
 
 		assertArrayEquals(predictedBytes, decryptedBytes);
-
 	}
 
 	@Test
-	@Ignore // TODO: Recalculate
+	@Ignore
 	public void testResponseDecryptorPairwiseMode() throws OSException, CoseException, IOException {
 		// Set up OSCORE context
 		// test vector OSCORE draft Appendix C.1.2
@@ -187,22 +212,17 @@ public class GroupDecryptorTest {
 		// Create server context
 		GroupCtx commonCtx = new GroupCtx(master_secret, master_salt, alg, kdf, context_id, algCountersign,
 				gmPublicKey);
-		OneKey serverFullKey = new OneKey(
-				CBORObject.DecodeFromBytes(Base64.decode(serverKeyString)));
+		OneKey serverFullKey = new OneKey(CBORObject.DecodeFromBytes(StringUtil.base64ToByteArray(serverKeyString)));
 		commonCtx.addSenderCtx(sid, serverFullKey);
 
 		// Create client context
-		OneKey clientPublicKey = new OneKey(
-				CBORObject.DecodeFromBytes(Base64.decode(clientKeyString))).PublicKey();
+		OneKey clientPublicKey = new OneKey(CBORObject.DecodeFromBytes(StringUtil.base64ToByteArray(clientKeyString))).PublicKey();
 		commonCtx.addRecipientCtx(rid, REPLAY_WINDOW, clientPublicKey);
 		GroupRecipientCtx recipientCtx = commonCtx.recipientCtxMap.get(new ByteId(rid));
 
 		// Create the encrypted response message from raw byte array
-		byte[] encryptedResponseBytes = new byte[] { (byte) 0x64, (byte) 0x44, (byte) 0x5D, (byte) 0x1F, (byte) 0x00,
-				(byte) 0x00, (byte) 0x39, (byte) 0x74, (byte) 0x92, (byte) 0x08, (byte) 0x11, (byte) 0xFF, (byte) 0x90,
-				(byte) 0x51, (byte) 0xE4, (byte) 0x9A, (byte) 0xE0, (byte) 0x12, (byte) 0x7B, (byte) 0x61, (byte) 0xE9,
-				(byte) 0x85, (byte) 0x91, (byte) 0x4A, (byte) 0x1D, (byte) 0x54, (byte) 0xAC, (byte) 0x9D, (byte) 0x53,
-				(byte) 0x19, (byte) 0x53, (byte) 0xB8, (byte) 0xC5, (byte) 0x29 };
+		byte[] encryptedResponseBytes = StringUtil
+				.hex2ByteArray("64445d1f00003974920811ff944b5dcf45cc39da6bab5967ee21056d19755228351c");
 
 		UdpDataParser parser = new UdpDataParser();
 		Message mess = parser.parseMessage(encryptedResponseBytes);
@@ -211,6 +231,7 @@ public class GroupDecryptorTest {
 		if (mess instanceof Response) {
 			r = (Response) mess;
 		}
+		Assert.assertNotNull(r);
 
 		// Check that the group bit is not set
 		byte flagByte = r.getOptions().getOscore()[0];
@@ -221,11 +242,11 @@ public class GroupDecryptorTest {
 		// request
 		OSCoreCtxDB db = new HashMapCtxDB();
 		db.addContext(r.getToken(), recipientCtx);
-		db.addSeqByToken(r.getToken(), seq);
+		// FIXME: //db.addSeqByToken(r.getToken(), seq);
 		db.addContext("localhost", commonCtx);
 
 		// Decrypt the response message
-		Response decrypted = ResponseDecryptor.decrypt(db, r);
+		Response decrypted = ResponseDecryptor.decrypt(db, r, seq);
 		decrypted.getOptions().removeOscore();
 
 		// Check the decrypted response payload
@@ -246,7 +267,6 @@ public class GroupDecryptorTest {
 	}
 
 	@Test
-	@Ignore // TODO: Recalculate
 	public void testResponseDecryptorGroupMode() throws OSException, CoseException, IOException {
 		// Set up OSCORE context
 		byte[] master_salt = new byte[] { (byte) 0x9e, 0x7c, (byte) 0xa9, 0x22, 0x23, 0x78, 0x63, 0x40 };
@@ -259,25 +279,13 @@ public class GroupDecryptorTest {
 				gmPublicKey);
 		commonCtx.addSenderCtx(requestKID, null);
 
-		OneKey serverPublicKey = new OneKey(
-				CBORObject.DecodeFromBytes(Base64.decode(serverKeyString))).PublicKey();
+		OneKey serverPublicKey = new OneKey(CBORObject.DecodeFromBytes(StringUtil.base64ToByteArray(serverKeyString))).PublicKey();
 		commonCtx.addRecipientCtx(rid, REPLAY_WINDOW, serverPublicKey);
 		GroupRecipientCtx recipientCtx = commonCtx.recipientCtxMap.get(new ByteId(rid));
 
 		// Create the encrypted response message from raw byte array
-		byte[] encryptedResponseBytes = new byte[] { (byte) 0x64, (byte) 0x44, (byte) 0x5D, (byte) 0x1F, (byte) 0x00,
-				(byte) 0x00, (byte) 0x39, (byte) 0x74, (byte) 0x92, (byte) 0x28, (byte) 0x11, (byte) 0xFF, (byte) 0x70,
-				(byte) 0xBB, (byte) 0xCD, (byte) 0x26, (byte) 0x09, (byte) 0xA8, (byte) 0x9C, (byte) 0xAD, (byte) 0x4E,
-				(byte) 0x24, (byte) 0x13, (byte) 0x59, (byte) 0x4F, (byte) 0x01, (byte) 0x14, (byte) 0x95, (byte) 0x7B,
-				(byte) 0x85, (byte) 0xA9, (byte) 0x97, (byte) 0x37, (byte) 0xF1, (byte) 0x71, (byte) 0x83, (byte) 0xDE,
-				(byte) 0x24, (byte) 0xE1, (byte) 0xEA, (byte) 0x43, (byte) 0x6D, (byte) 0xF2, (byte) 0x44, (byte) 0xCD,
-				(byte) 0x57, (byte) 0xCE, (byte) 0xC4, (byte) 0x6C, (byte) 0xAB, (byte) 0x03, (byte) 0x04, (byte) 0x44,
-				(byte) 0x26, (byte) 0xAD, (byte) 0xDC, (byte) 0xB8, (byte) 0x66, (byte) 0xC3, (byte) 0x61, (byte) 0xEA,
-				(byte) 0xC4, (byte) 0x61, (byte) 0x61, (byte) 0x2B, (byte) 0xED, (byte) 0xED, (byte) 0x30, (byte) 0x3D,
-				(byte) 0xF3, (byte) 0xA8, (byte) 0xE8, (byte) 0x76, (byte) 0x7E, (byte) 0x69, (byte) 0xC5, (byte) 0x84,
-				(byte) 0xDF, (byte) 0x8B, (byte) 0x24, (byte) 0x01, (byte) 0xD7, (byte) 0xD7, (byte) 0xF6, (byte) 0xA9,
-				(byte) 0xEA, (byte) 0xBE, (byte) 0xB0, (byte) 0xBC, (byte) 0x40, (byte) 0xD2, (byte) 0x85, (byte) 0xA0,
-				(byte) 0x0A, (byte) 0x6C, (byte) 0x4A, (byte) 0xE1, (byte) 0x42 };
+		byte[] encryptedResponseBytes = StringUtil.hex2ByteArray(
+				"64445D1F00003974922811FF70BBCD2609A89CAD4E2413594F01A361723936F96475E2BF04A21CEE6B90EE7A0227EC8304050BD1D16C280291B4581BCE2ACEC8B084E803D5A7F8E22005A9C0120A756B78D6E68AE0384B0BC3606745C77B37A991D4");
 
 		UdpDataParser parser = new UdpDataParser();
 		Message mess = parser.parseMessage(encryptedResponseBytes);
@@ -286,6 +294,7 @@ public class GroupDecryptorTest {
 		if (mess instanceof Response) {
 			r = (Response) mess;
 		}
+		Assert.assertNotNull(r);
 
 		// Check that the group bit is set
 		byte flagByte = r.getOptions().getOscore()[0];
@@ -296,12 +305,12 @@ public class GroupDecryptorTest {
 		// request
 		OSCoreCtxDB db = new HashMapCtxDB();
 		db.addContext(r.getToken(), recipientCtx);
-		db.addSeqByToken(r.getToken(), seq);
+		// FIXME: //db.addSeqByToken(r.getToken(), seq);
 		db.addContext("", commonCtx);
 		r.setSourceContext(new UdpEndpointContext(new InetSocketAddress(0)));
 
 		// Decrypt the response message
-		Response decrypted = ResponseDecryptor.decrypt(db, r);
+		Response decrypted = ResponseDecryptor.decrypt(db, r, seq);
 		decrypted.getOptions().removeOscore();
 
 		// Check the decrypted response payload
@@ -319,6 +328,14 @@ public class GroupDecryptorTest {
 
 		assertArrayEquals(predictedBytes, decryptedBytes);
 
+		// Try receiving the response again (which should be a replay)
+		// This will throw an OSException
+		try {
+			decrypted = ResponseDecryptor.decrypt(db, r, seq);
+			Assert.fail("OSException not thrown");
+		} catch (OSException expected) {
+			//
+		}
 	}
 
 	/**
@@ -337,13 +354,11 @@ public class GroupDecryptorTest {
 		// Create client context
 		GroupCtx commonCtx = new GroupCtx(master_secret, master_salt, alg, kdf, context_id, algCountersign,
 				gmPublicKey);
-		OneKey clientFullKey = new OneKey(
-				CBORObject.DecodeFromBytes(Base64.decode(clientKeyString)));
+		OneKey clientFullKey = new OneKey(CBORObject.DecodeFromBytes(StringUtil.base64ToByteArray(clientKeyString)));
 		commonCtx.addSenderCtx(sid, clientFullKey);
 
 		// Create server context
-		OneKey serverPublicKey = new OneKey(
-				CBORObject.DecodeFromBytes(Base64.decode(serverKeyString))).PublicKey();
+		OneKey serverPublicKey = new OneKey(CBORObject.DecodeFromBytes(StringUtil.base64ToByteArray(serverKeyString))).PublicKey();
 		commonCtx.addRecipientCtx(rid, REPLAY_WINDOW, serverPublicKey);
 		GroupRecipientCtx recipientCtx = commonCtx.recipientCtxMap.get(new ByteId(rid));
 
@@ -363,6 +378,7 @@ public class GroupDecryptorTest {
 		if (mess instanceof Request) {
 			r = (Request) mess;
 		}
+		Assert.assertNotNull(r);
 		String uri = r.getURI();
 
 		// Check that the group bit is not set
@@ -395,6 +411,10 @@ public class GroupDecryptorTest {
 
 	}
 
+	/**
+	 * Exception rule
+	 */
+	@SuppressWarnings("deprecation")
 	@Rule
 	public ExpectedException exceptionRule = ExpectedException.none();
 
@@ -418,13 +438,11 @@ public class GroupDecryptorTest {
 		// Create client context
 		GroupCtx commonCtx = new GroupCtx(master_secret, master_salt, alg, kdf, context_id, algCountersign,
 				gmPublicKey);
-		OneKey clientFullKey = new OneKey(
-				CBORObject.DecodeFromBytes(Base64.decode(clientKeyString)));
+		OneKey clientFullKey = new OneKey(CBORObject.DecodeFromBytes(StringUtil.base64ToByteArray(clientKeyString)));
 		commonCtx.addSenderCtx(sid, clientFullKey);
 
 		// Create server context
-		OneKey serverPublicKey = new OneKey(
-				CBORObject.DecodeFromBytes(Base64.decode(serverKeyString))).PublicKey();
+		OneKey serverPublicKey = new OneKey(CBORObject.DecodeFromBytes(StringUtil.base64ToByteArray(serverKeyString))).PublicKey();
 		commonCtx.addRecipientCtx(rid, REPLAY_WINDOW, serverPublicKey);
 		GroupRecipientCtx recipientCtx = commonCtx.recipientCtxMap.get(new ByteId(rid));
 
@@ -444,6 +462,7 @@ public class GroupDecryptorTest {
 		if (mess instanceof Request) {
 			r = (Request) mess;
 		}
+		Assert.assertNotNull(r);
 		String uri = r.getURI();
 
 		// Set the context in the context database
@@ -460,6 +479,5 @@ public class GroupDecryptorTest {
 		// Decrypt the request message
 		RequestDecryptor.decrypt(db, r, recipientCtx);
 	}
-
 
 }

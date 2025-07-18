@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -31,7 +31,6 @@
  *******************************************************************************/
 package se.sics.ace.coap.dtlsProfile;
 
-
 import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -39,26 +38,17 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+
 import org.bouncycastle.crypto.InvalidCipherTextException;
 import org.eclipse.californium.core.CoapClient;
 import org.eclipse.californium.core.CoapResponse;
 import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.MediaTypeRegistry;
-import org.eclipse.californium.core.network.CoapEndpoint;
-import org.eclipse.californium.elements.Connector;
-import org.eclipse.californium.elements.config.CertificateAuthenticationMode;
-import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.exception.ConnectorException;
-import org.eclipse.californium.scandium.DTLSConnector;
-import org.eclipse.californium.scandium.config.DtlsConfig;
-import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
+import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.scandium.dtls.HandshakeException;
-import org.eclipse.californium.scandium.dtls.PskPublicInformation;
-import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
-import org.eclipse.californium.scandium.dtls.pskstore.AdvancedMultiPskStore;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -77,7 +67,6 @@ import se.sics.ace.COSEparams;
 import se.sics.ace.Constants;
 import se.sics.ace.Hkdf;
 import se.sics.ace.TestConfig;
-import se.sics.ace.Util;
 import se.sics.ace.coap.client.DTLSProfileRequests;
 import se.sics.ace.cwt.CWT;
 import se.sics.ace.cwt.CwtCryptoCtx;
@@ -212,10 +201,8 @@ public class TestDtlspClient2RS {
         CWT token = new CWT(params);
         CBORObject payload = token.encode(ctx); 
         CoapResponse r = DTLSProfileRequests.postToken(rsAddrCS, payload, key);
-        CBORObject cbor = CBORObject.DecodeFromBytes(r.getPayload());
-        Assert.assertNotNull(cbor);
-        CBORObject cti = cbor.get(CBORObject.FromObject(Constants.CTI));
-        Assert.assertArrayEquals("tokenPAI".getBytes(Constants.charset), cti.GetByteString());
+        Assert.assertEquals(CoAP.ResponseCode.CREATED, r.getCode());
+        Assert.assertArrayEquals(Bytes.EMPTY, r.getPayload());
     }
     
     /**
@@ -624,65 +611,42 @@ public class TestDtlspClient2RS {
         Assert.assertEquals("CONTENT", r2.getCode().name());
         Assert.assertEquals("Hello World!", r2.getResponseText());  
     }   
-
-
+    
+    
     /**
      * Test with a erroneous psk-identity
-     * 
-     * @throws IOException
-     * @throws ConnectorException
+     * @throws IOException 
+     * @throws ConnectorException 
      */
     @Test
     public void testFailPskId() throws ConnectorException, IOException {
         OneKey key = new OneKey();
         key.add(KeyKeys.KeyType, KeyKeys.KeyType_Octet);
         String kidStr = "someKey";
-        CBORObject kid = CBORObject.FromObject(kidStr.getBytes(Constants.charset));
+        CBORObject kid = CBORObject.FromObject(
+                kidStr.getBytes(Constants.charset));
         key.add(KeyKeys.KeyId, kid);
         key.add(KeyKeys.Octet_K, CBORObject.FromObject(key128));
-
-        InetSocketAddress serverAddress = new InetSocketAddress("localhost", CoAP.DEFAULT_COAP_SECURE_PORT);
-        byte[] kidBytes = "randomStuff".getBytes();
-        CoapClient c = DTLSProfileRequests.getPskClient(serverAddress, kidBytes, key);
+        CoapClient c = DTLSProfileRequests.getPskClient(new InetSocketAddress("localhost",
+                CoAP.DEFAULT_COAP_SECURE_PORT), "randomStuff".getBytes(), key);
         c.setURI("coaps://localhost/temp");
-
-        Configuration dtlsConfig = Configuration.getStandard();
-        dtlsConfig.set(DtlsConfig.DTLS_USE_SERVER_NAME_INDICATION, false);
-        dtlsConfig.set(DtlsConfig.DTLS_CIPHER_SUITES,
-                Collections.singletonList(CipherSuite.TLS_PSK_WITH_AES_128_CCM_8));
-        dtlsConfig.set(DtlsConfig.DTLS_CLIENT_AUTHENTICATION_MODE, CertificateAuthenticationMode.NEEDED);
-        dtlsConfig.set(DtlsConfig.DTLS_MAX_RETRANSMISSIONS, 1);
-        DtlsConnectorConfig.Builder builder = new DtlsConnectorConfig.Builder(dtlsConfig)
-                .setAddress(new InetSocketAddress(0));
-        AdvancedMultiPskStore store = new AdvancedMultiPskStore();
-        byte[] identityBytes = Util.buildDtlsPskIdentity(kidBytes);
-        String identityStr = Base64.getEncoder().encodeToString(identityBytes);
-        PskPublicInformation pskInfo = new PskPublicInformation(identityStr, identityBytes);
-        store.addKnownPeer(serverAddress, pskInfo, key.get(KeyKeys.Octet_K).GetByteString());
-        builder.setAdvancedPskStore(store);
-        Connector cc = new DTLSConnector(builder.build());
-        CoapEndpoint e = new CoapEndpoint.Builder().setConfiguration(Configuration.getStandard()).setConnector(cc)
-                .build();
-
-        c.setEndpoint(e);
-
         try {
             c.get();
-        } catch (Exception ex) {
+        } catch (IOException ex) {
             System.out.println(ex.getMessage());
-            if (ex.getMessage().equals("org.eclipse.californium.scandium.dtls.DtlsHandshakeTimeoutException: "
-                    + "Handshake flight 5 failed! Stopped by timeout after 1 retransmissions!")) {
-                // Everything ok
+            if (ex.getMessage().equals(
+                    "org.eclipse.californium.scandium.dtls.DtlsHandshakeTimeoutException: Handshake flight 5 failed! Stopped by timeout after 4 retransmissions! Wrong PSK identity or secret?")) {
+                //Everything ok
                 return;
             }
-            Assert.fail("Handshake should fail");
+            Assert.fail("Hanshake should fail");
         }
-
-        // Server should silently drop the handshake
-        Assert.fail("Handshake should fail");
+        
+        //Server should silently drop the handshake
+        Assert.fail("Hanshake should fail");
     }
-
-
+    
+    
     /**
      * Test  passing a valid token through psk-identity
      * that doesn't match the request

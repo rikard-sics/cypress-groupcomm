@@ -6,10 +6,10 @@
 set -e
 
 # Build Californium (if needed)
-FILE1=californium-extended/cf-oscore/target/cf-oscore-3.1.0-SNAPSHOT.jar
-FILE2=californium-extended/californium-core/target/californium-core-3.1.0-SNAPSHOT.jar
-FILE3=californium-extended/scandium-core/target/scandium-3.1.0-SNAPSHOT.jar
-FILE4=californium-extended/element-connector/target/element-connector-3.1.0-SNAPSHOT.jar
+FILE1=californium-extended/cf-oscore/target/cf-oscore-4.0.0-SNAPSHOT.jar
+FILE2=californium-extended/californium-core/target/californium-core-4.0.0-SNAPSHOT.jar
+FILE3=californium-extended/scandium-core/target/scandium-4.0.0-SNAPSHOT.jar
+FILE4=californium-extended/element-connector/target/element-connector-4.0.0-SNAPSHOT.jar
 if [[ -f "$FILE1" ]] && [[ -f "$FILE2" ]] && [[ -f "$FILE3" ]] && [[ -f "$FILE4" ]]; then
     echo "Dependencies from Californium exist."
 else 
@@ -20,31 +20,31 @@ else
 fi
 
 # Prepare dependencies from Californium for ACE
-mvn install:install-file -Dfile=californium-extended/cf-oscore/target/cf-oscore-3.1.0-SNAPSHOT.jar \
+mvn install:install-file -Dfile=californium-extended/cf-oscore/target/cf-oscore-4.0.0-SNAPSHOT.jar \
                          -DgroupId=org.eclipse.californium \
                          -DartifactId=cf-oscore \
-                         -Dversion=3.1.0-SNAPSHOT \
+                         -Dversion=4.0.0-SNAPSHOT \
                          -Dpackaging=jar \
                          -DlocalRepositoryPath=ace/local-maven-repo
 
-mvn install:install-file -Dfile=californium-extended/californium-core/target/californium-core-3.1.0-SNAPSHOT.jar \
+mvn install:install-file -Dfile=californium-extended/californium-core/target/californium-core-4.0.0-SNAPSHOT.jar \
                          -DgroupId=org.eclipse.californium \
                          -DartifactId=californium-core \
-                         -Dversion=3.1.0-SNAPSHOT \
+                         -Dversion=4.0.0-SNAPSHOT \
                          -Dpackaging=jar \
                          -DlocalRepositoryPath=ace/local-maven-repo
 
-mvn install:install-file -Dfile=californium-extended/scandium-core/target/scandium-3.1.0-SNAPSHOT.jar \
+mvn install:install-file -Dfile=californium-extended/scandium-core/target/scandium-4.0.0-SNAPSHOT.jar \
                          -DgroupId=org.eclipse.californium \
                          -DartifactId=scandium \
-                         -Dversion=3.1.0-SNAPSHOT \
+                         -Dversion=4.0.0-SNAPSHOT \
                          -Dpackaging=jar \
                          -DlocalRepositoryPath=ace/local-maven-repo
 
-mvn install:install-file -Dfile=californium-extended/element-connector/target/element-connector-3.1.0-SNAPSHOT.jar \
+mvn install:install-file -Dfile=californium-extended/element-connector/target/element-connector-4.0.0-SNAPSHOT.jar \
                          -DgroupId=org.eclipse.californium \
                          -DartifactId=element-connector \
-                         -Dversion=3.1.0-SNAPSHOT \
+                         -Dversion=4.0.0-SNAPSHOT \
                          -Dpackaging=jar \
                          -DlocalRepositoryPath=ace/local-maven-repo
 

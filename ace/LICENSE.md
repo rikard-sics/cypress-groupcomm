@@ -1,6 +1,6 @@
 # LICENSE #
 
- Copyright (c) 2023, RISE SICS AB
+ Copyright (c) 2025, RISE SICS AB
  All rights reserved.
 
   Redistribution and use in source and binary forms, with or without 

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -126,7 +126,7 @@ public class CoapDeliverer implements MessageDeliverer {
         if (TokenRepository.getInstance() == null) {
             throw new AceException("Must initialize TokenRepository");
         }
-        this.d = new ServerMessageDeliverer(root);
+        this.d = new ServerMessageDeliverer(root, null);
         this.asRCH = asRCHM;
         
         if (cep == null) {
@@ -135,17 +135,17 @@ public class CoapDeliverer implements MessageDeliverer {
         this.coapEndpoint = cep;
     }
   
-    //Really the TokenRepository _should not_ be closed here
+    // Really the TokenRepository _should not_ be closed here
     @SuppressWarnings("resource") 
     @Override
     public void deliverRequest(final Exchange ex) {
         Request request = ex.getCurrentRequest();
         Response r = null;
         
-        //authz-info is not under access control
+        // authz-info is not under access control
         try {
             URI uri = new URI(request.getURI());
-            //Need to check with and without trailing / in case there are query options
+            // Need to check with and without trailing / in case there are query options
             if (uri.getPath().endsWith("/authz-info") || uri.getPath().endsWith("/authz-info/") ) { 
                 this.d.deliverRequest(ex);
                 return;
@@ -187,7 +187,7 @@ public class CoapDeliverer implements MessageDeliverer {
         }
         String kid = TokenRepository.getInstance().getKid(subject);
        
-        if (kid == null) {//Check if this was the Base64 encoded kid map
+        if (kid == null) { // Check if this was the Base64 encoded kid map
             try {
                 CBORObject cbor = CBORObject.DecodeFromBytes(
                         Base64.getDecoder().decode(subject));
@@ -197,20 +197,20 @@ public class CoapDeliverer implements MessageDeliverer {
                            CBORType.ByteString)) {
                       kid = new String(ckid.GetByteString(), 
                               Constants.charset);
-                   } else { //No kid in that CBOR map or it isn't a bstr
+                   } else { // No kid in that CBOR map or it isn't a bstr
                        failUnauthz(ex);
                        return;
                    }
-                } else {//Some weird CBOR that is not a map here
+                } else { // Some weird CBOR that is not a map here
                    failUnauthz(ex);
                    return;
                 }                
-            } catch (CBORException e) {//Really no kid found for that subject
+            } catch (CBORException e) { // Really no kid found for that subject
                 LOGGER.finest("Error while trying to parse some "
                         + "subject identity to CBOR: " + e.getMessage());
                failUnauthz(ex);
                return;
-            } catch (IllegalArgumentException e) {//Text was not Base64 encoded
+            } catch (IllegalArgumentException e) { // Text was not Base64 encoded
                 LOGGER.finest("Error: " + e.getMessage() 
                 + " while trying to Base64 decode this: " + subject);
                 failUnauthz(ex);

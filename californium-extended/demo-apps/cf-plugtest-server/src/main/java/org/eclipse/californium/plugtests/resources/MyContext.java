@@ -24,6 +24,7 @@ import static org.eclipse.californium.core.coap.MediaTypeRegistry.TEXT_PLAIN;
 import static org.eclipse.californium.core.coap.MediaTypeRegistry.UNDEFINED;
 
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.security.Principal;
 
 import org.eclipse.californium.core.CoapResource;
@@ -37,7 +38,6 @@ import org.eclipse.californium.elements.DtlsEndpointContext;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.californium.elements.TlsEndpointContext;
 import org.eclipse.californium.elements.config.Configuration;
-import org.eclipse.californium.elements.util.StandardCharsets;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.scandium.config.DtlsConfig;
 
@@ -145,6 +145,10 @@ public class MyContext extends CoapResource {
 		String via = context.getString(DtlsEndpointContext.KEY_VIA_ROUTER);
 		if (via != null) {
 			formatter.add("via", via);
+		}
+		Boolean secureRenegotiation = context.get(DtlsEndpointContext.KEY_SECURE_RENEGOTIATION);
+		if (secureRenegotiation != null) {
+			formatter.add("secure-renegotiation", secureRenegotiation);
 		}
 		Boolean extendedMasterSecret = context.get(DtlsEndpointContext.KEY_EXTENDED_MASTER_SECRET);
 		if (extendedMasterSecret != null) {

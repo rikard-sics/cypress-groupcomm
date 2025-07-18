@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -39,6 +39,7 @@ import java.util.logging.Logger;
 
 import org.eclipse.californium.core.CoapServer;
 import org.eclipse.californium.core.coap.CoAP;
+import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.oscore.OSCoreCoapStackFactory;
 import org.eclipse.californium.oscore.OSCoreCtx;
@@ -72,6 +73,10 @@ import se.sics.ace.coap.rs.oscoreProfile.OscoreCtxDbSingleton;
  */
 public class OscoreAS extends CoapServer implements AutoCloseable {
 
+	static {
+	    CoapConfig.register();
+	}
+	
     /**
      * The logger
      */

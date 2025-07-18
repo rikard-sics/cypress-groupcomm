@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -42,7 +42,7 @@ import org.eclipse.californium.scandium.dtls.ConnectionId;
 import org.eclipse.californium.scandium.dtls.HandshakeResultHandler;
 import org.eclipse.californium.scandium.dtls.PskPublicInformation;
 import org.eclipse.californium.scandium.dtls.PskSecretResult;
-import org.eclipse.californium.scandium.dtls.pskstore.AdvancedPskStore;
+import org.eclipse.californium.scandium.dtls.pskstore.PskStore;
 import org.eclipse.californium.scandium.util.ServerNames;
 
 import com.upokecenter.cbor.CBORObject;
@@ -60,7 +60,7 @@ import se.sics.ace.examples.SQLDBAdapter;
  * @author Ludwig Seitz
  *
  */
-public class CoapDBConnector extends SQLConnector implements AdvancedPskStore {
+public class CoapDBConnector extends SQLConnector implements PskStore {
     
     /**
      * The logger

@@ -67,3 +67,4 @@ public class MAC0Message extends MacCommon {
     }
             
 }
+

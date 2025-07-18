@@ -52,22 +52,22 @@
 				<dependency>
 					<groupId>org.eclipse.californium</groupId>
 					<artifactId>cf-oscore</artifactId>
-					<version>3.1.0-SNAPSHOT</version>
+					<version>4.0.0-SNAPSHOT</version>
 				</dependency>
 				<dependency>
 					<groupId>org.eclipse.californium</groupId>
 					<artifactId>californium-core</artifactId>
-					<version>3.1.0-SNAPSHOT</version>
+					<version>4.0.0-SNAPSHOT</version>
 				</dependency>
 				<dependency>
 					<groupId>org.eclipse.californium</groupId>
 					<artifactId>element-connector</artifactId>
-					<version>3.1.0-SNAPSHOT</version>
+					<version>4.0.0-SNAPSHOT</version>
 				</dependency>
 				<dependency>
 					<groupId>org.eclipse.californium</groupId>
 					<artifactId>scandium</artifactId>
-					<version>3.1.0-SNAPSHOT</version>
+					<version>4.0.0-SNAPSHOT</version>
 				</dependency>
 			</dependencies>
 		</profile>
@@ -133,6 +133,11 @@
 			<artifactId>slf4j-api</artifactId>
 			<version>1.7.36</version>
 		</dependency>
+		<dependency>
+       		<groupId>com.github.mifmif</groupId>
+       		<artifactId>generex</artifactId>
+       		<version>1.0.2</version>
+   		</dependency>
 		<dependency> <!-- Rikard: Added for WebSocket -->
 			<groupId>javax.websocket</groupId>
 			<artifactId>javax.websocket-api</artifactId>
@@ -200,3 +205,4 @@
 		</plugins>
 	</build>
 </project>
+

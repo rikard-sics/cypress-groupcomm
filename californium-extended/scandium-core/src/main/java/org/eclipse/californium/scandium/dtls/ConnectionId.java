@@ -20,15 +20,15 @@ import org.eclipse.californium.elements.util.Bytes;
 /**
  * Implementation of DTLS connection id.
  * 
- * <a href=
- * "https://datatracker.ietf.org/doc/draft-ietf-tls-dtls-connection-id">draft-ietf-tls-dtls-connection-id</a>
+ * @see <a href= "https://www.rfc-editor.org/rfc/rfc9146.html" target
+ *      ="_blank">RFC 9146, Connection Identifier for DTLS 1.2</a>
  */
 public class ConnectionId extends Bytes {
 
 	public static final ConnectionId EMPTY = new ConnectionId(Bytes.EMPTY);
 
 	/**
-	 * Create connection id from bytes.
+	 * Creates connection id from bytes.
 	 * 
 	 * @param connectionId connectionId bytes
 	 * @throws NullPointerException if connectionId is {@code null}
@@ -73,8 +73,8 @@ public class ConnectionId extends Bytes {
 	}
 
 	/**
-	 * Check, if provided cid is used for records.
-	 * 
+	 * Checks, if provided cid is used for records.
+	 * <p>
 	 * Only none {@link ConnectionId#isEmpty()} cids are used for records.
 	 * 
 	 * @param cid cid
@@ -83,6 +83,25 @@ public class ConnectionId extends Bytes {
 	 * @since 3.0
 	 */
 	public static boolean useConnectionId(ConnectionId cid) {
-		return cid != null && !cid.isEmpty();
+		return Bytes.hasBytes(cid);
+	}
+
+	/**
+	 * Creates connection id from bytes.
+	 * 
+	 * @param bytes bytes to create connection id
+	 * @return create connection id or the provided bytes, if that is already of
+	 *         type {@link ConnectionId}.
+	 * @since 4.0
+	 */
+	public static ConnectionId create(Bytes bytes) {
+		if (Bytes.isEmpty(bytes)) {
+			return null;
+		}
+		if (bytes instanceof ConnectionId) {
+			return (ConnectionId) bytes;
+		} else {
+			return new ConnectionId(bytes.getBytes());
+		}
 	}
 }

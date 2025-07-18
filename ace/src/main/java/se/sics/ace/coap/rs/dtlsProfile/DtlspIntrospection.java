@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -57,7 +57,7 @@ import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.CertificateType;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
-import org.eclipse.californium.scandium.dtls.x509.AsyncNewAdvancedCertificateVerifier;
+import org.eclipse.californium.scandium.dtls.x509.AsyncCertificateVerifier;
 import org.eclipse.californium.scandium.dtls.x509.SingleCertificateProvider;
 
 import com.upokecenter.cbor.CBORObject;
@@ -123,9 +123,9 @@ public class DtlspIntrospection implements IntrospectionHandler {
         ArrayList<CertificateType> certTypes = new ArrayList<CertificateType>();
         certTypes.add(CertificateType.RAW_PUBLIC_KEY);
         certTypes.add(CertificateType.X_509);
-        AsyncNewAdvancedCertificateVerifier verifier = new AsyncNewAdvancedCertificateVerifier(new X509Certificate[0],
+        AsyncCertificateVerifier verifier = new AsyncCertificateVerifier(new X509Certificate[0],
                 new RawPublicKeyIdentity[0], certTypes);
-        builder.setAdvancedCertificateVerifier(verifier);
+        builder.setCertificateVerifier(verifier);
 
         DTLSConnector dtlsConnector = new DTLSConnector(builder.build());
         CoapEndpoint e = new CoapEndpoint.Builder()
@@ -172,7 +172,7 @@ public class DtlspIntrospection implements IntrospectionHandler {
                 .setAddress(new InetSocketAddress(0));
         BksStore keystore = new BksStore(
                 keystoreLocation, keystorePwd, addr2idFile);
-        builder.setAdvancedPskStore(keystore);
+        builder.setPskStore(keystore);
 
         
         CBORObject rpkData = CBORObject.NewMap();
@@ -187,11 +187,11 @@ public class DtlspIntrospection implements IntrospectionHandler {
         ArrayList<CertificateType> certTypes = new ArrayList<CertificateType>();
         certTypes.add(CertificateType.RAW_PUBLIC_KEY);
         certTypes.add(CertificateType.X_509);
-        AsyncNewAdvancedCertificateVerifier verifier = new AsyncNewAdvancedCertificateVerifier(
+        AsyncCertificateVerifier verifier = new AsyncCertificateVerifier(
                                                             new X509Certificate[0],
                                                             new RawPublicKeyIdentity[0],
                                                             certTypes);
-        builder.setAdvancedCertificateVerifier(verifier);
+        builder.setCertificateVerifier(verifier);
         
         
         DTLSConnector dtlsConnector = new DTLSConnector(builder.build());
@@ -213,7 +213,7 @@ public class DtlspIntrospection implements IntrospectionHandler {
         LOGGER.info("Sending introspection request on " + tokenReference);
         Map<Short, CBORObject> params = new HashMap<>();
         params.put(Constants.TOKEN, CBORObject.FromObject(CBORObject.FromObject(tokenReference).EncodeToBytes()));
-        params.put(Constants.TOKEN_TYPE_HINT, CBORObject.FromObject("pop")); 
+        params.put(Constants.TOKEN_TYPE_HINT, CBORObject.FromObject(Constants.POP)); 
         CoapResponse response;
         try {
             response = this.client.post(

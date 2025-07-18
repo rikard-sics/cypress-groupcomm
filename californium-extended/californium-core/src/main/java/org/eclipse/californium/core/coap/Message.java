@@ -53,6 +53,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.eclipse.californium.core.coap.CoAP.Type;
+import org.eclipse.californium.core.coap.option.BlockOption;
 import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.network.TokenGenerator;
 import org.eclipse.californium.core.network.stack.ReliabilityLayerParameters;
@@ -68,17 +69,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The class Message models the base class of all CoAP messages. CoAP messages
- * are of type {@link Request}, {@link Response} or {@link EmptyMessage}. Each
- * message has a {@link Type}, a message identifier (MID), a token (0-8 bytes),
- * a collection of options ({@link OptionSet}) and a payload.
+ * The class Message models the base class of all CoAP messages.
+ * <p>
+ * CoAP messages are of type {@link Request}, {@link Response} or
+ * {@link EmptyMessage}. Each message has a {@link Type}, a message identifier
+ * (MID), a token (0-8 bytes), a collection of options ({@link OptionSet}) and
+ * a payload.
  * <p>
  * Furthermore, a message can be acknowledged, rejected, canceled, or time out;
  * the meaning of which is defined more specifically in the subclasses. Clients
  * can register {@link MessageObserver}s with a message which will be notified
  * when any of the events listed above occur.
  * <p>
- * Note: The {@link #messageObservers} and {@link #options} properties are
+ * <b>Note:</b> The {@link #messageObservers} and {@link #options} properties are
  * initialized lazily. This saves a few bytes in case the properties are not in
  * use. For instance an empty message should not have any options and most
  * messages will not have any observers registered.
@@ -88,8 +91,10 @@ import org.slf4j.LoggerFactory;
  * @see EmptyMessage
  */
 public abstract class Message {
-
-	protected final static Logger LOGGER = LoggerFactory.getLogger(Message.class);
+	/**
+	 * The logger.
+	 */
+	private final static Logger LOGGER = LoggerFactory.getLogger(Message.class);
 
 	/**
 	 * Offload mode.
@@ -116,7 +121,11 @@ public abstract class Message {
 	 */
 	public static final int MAX_MID = (1 << 16) - 1;
 
-	/** The type. One of {CON, NON, ACK or RST}. */
+	/** 
+	 * The type.
+	 * <p>
+	 * One of {CON, NON, ACK or RST}.
+	 */
 	private CoAP.Type type;
 
 	/** The 16-bit Message Identification. */
@@ -138,30 +147,35 @@ public abstract class Message {
 	/** The payload of this message. */
 	private byte[] payload = Bytes.EMPTY;
 
-	/** Marks this message to have payload even if this is not intended */
+	/** Marks this message to have payload even if this is not intended. */
 	private boolean unintendedPayload;
 
 	/**
-	 * Maximum resource body size. For outgoing requests, this limits the size
-	 * of the response.
+	 * Maximum resource body size.
+	 * <p>
+	 * For outgoing requests, this limits the size of the response.
 	 * 
 	 * @since 2.3
 	 */
 	private int maxResourceBodySize;
 
 	/**
-	 * Message specific parameter. Overwrites then general ones from
-	 * {@link Configuration}.
+	 * Message specific parameter.
+	 * <p>
+	 * Overwrites then general ones from {@link Configuration}.
 	 */
 	private volatile ReliabilityLayerParameters parameters;
 
 	/**
-	 * Destination endpoint context. Used for outgoing messages.
+	 * Destination endpoint context.
+	 * <p>
+	 * Used for outgoing messages.
 	 */
 	private volatile EndpointContext destinationContext;
 	/**
-	 * Effective destination endpoint context. May differ from
-	 * {@link #destinationContext} on retransmissions.
+	 * Effective destination endpoint context.
+	 * <p>
+	 * May differ from {@link #destinationContext} on retransmissions.
 	 * 
 	 * @see EndpointContextUtil#getFollowUpEndpointContext(EndpointContext,
 	 *      EndpointContext)
@@ -170,7 +184,9 @@ public abstract class Message {
 	private volatile EndpointContext effectiveDestinationContext;
 
 	/**
-	 * Source endpoint context. Used for incoming messages.
+	 * Source endpoint context.
+	 * <p>
+	 * Used for incoming messages.
 	 */
 	private volatile EndpointContext sourceContext;
 
@@ -209,10 +225,22 @@ public abstract class Message {
 	/** Indicates, if sending the message caused an error. */
 	private volatile Throwable sendError;
 
-	/** The serialized message as byte array. */
+	/** 
+	 * The serialized message as byte array.
+	 * <p>
+	 * Not available for blockwise transfer!
+	 */
 	private volatile byte[] bytes;
 
-	/** Offload message. remove payload, options and serialized bytes to reduce heap usage, when message is kept for deduplication. */
+	/** The serialized message size */
+	private volatile int messageSize;
+
+	/**
+	 * Offload message.
+	 * <p>
+	 * Remove payload, options and serialized bytes to reduce heap usage, when
+	 * message is kept for deduplication.
+	 */
 	private volatile OffloadMode offload;
 
 	/** Protect message from being offloaded. */
@@ -220,9 +248,11 @@ public abstract class Message {
 
 	/**
 	 * A list of all {@link ObserveManager} that should be notified when an
-	 * event for this message occurs. By default, this field is null
-	 * (lazy-initialization). If a handler is added, the list will be created
-	 * and from then on must never again become null.
+	 * event for this message occurs.
+	 * <p>
+	 * By default, this field is {@code null} (lazy-initialization). If a
+	 * handler is added, the list will be created and from then on must never
+	 * again become {@code null}.
 	 */
 	private final AtomicReference<List<MessageObserver>> messageObservers = new AtomicReference<List<MessageObserver>>();
 
@@ -277,7 +307,8 @@ public abstract class Message {
 	/**
 	 * Creates a new message of a given type.
 	 * <p>
-	 * The type must be one of CON, NON, ACK or RST.
+	 * The type must be one of {@link Type#CON}, {@link Type#NON}, 
+	 * {@link Type#ACK}, {@link Type#RST} or {@code null}.
 	 * 
 	 * @param type the type
 	 */
@@ -286,19 +317,19 @@ public abstract class Message {
 	}
 
 	/**
-	 * Gets the message type ({@link Type#CON}, {@link Type#NON},
-	 * {@link Type#ACK} or {@link Type#RST}). If no type has been defined, the
-	 * type is null.
+	 * Gets the message type .
 	 * 
-	 * @return the type
+	 * @return the type. {@link Type#CON}, {@link Type#NON}, {@link Type#ACK} or
+	 *         {@link Type#RST}). If no type has been defined, the type is
+	 *         {@code null}.
 	 */
-	public Type getType() {
+	public final Type getType() {
 		return type;
 	}
 
 	/**
 	 * Sets the CoAP message type.
-	 * 
+	 * <p>
 	 * Provides a fluent API to chain setters.
 	 *
 	 * @param type the new type
@@ -312,18 +343,19 @@ public abstract class Message {
 	/**
 	 * Checks if this message is confirmable.
 	 *
-	 * @return true, if is confirmable
+	 * @return {@code true}, if is confirmable
 	 */
-	public boolean isConfirmable() {
+	public final boolean isConfirmable() {
 		return getType() == Type.CON;
 	}
 
 	/**
 	 * Chooses between confirmable and non-confirmable message.
-	 * 
-	 * Pass true for CON, false for NON. Provides a fluent API to chain setters.
+	 * <p>
+	 * Provides a fluent API to chain setters.
 	 *
-	 * @param con true for CON, false for NON
+	 * @param con {@code true} for {@link Type#CON}, {@code false} for
+	 *            {@link Type#NON}
 	 * @return this Message
 	 */
 	public Message setConfirmable(boolean con) {
@@ -340,7 +372,7 @@ public abstract class Message {
 
 	/**
 	 * Checks, if this message is intended to have payload.
-	 * 
+	 * <p>
 	 * To be overwritten by subclass to provide a specific check.
 	 * 
 	 * @return {@code true}, if message is intended to have payload
@@ -351,7 +383,7 @@ public abstract class Message {
 
 	/**
 	 * Set marker for unintended payload.
-	 * 
+	 * <p>
 	 * Enables to use payload with messages, which are not intended to have
 	 * payload.
 	 * 
@@ -398,7 +430,7 @@ public abstract class Message {
 	 *
 	 * @return the mid
 	 */
-	public int getMID() {
+	public final int getMID() {
 		return mid;
 	}
 
@@ -407,13 +439,13 @@ public abstract class Message {
 	 * 
 	 * @return {@code true} if this message's ID is a 16 bit unsigned integer.
 	 */
-	public boolean hasMID() {
+	public final boolean hasMID() {
 		return mid != NONE;
 	}
 
 	/**
 	 * Sets the 16-bit message identification.
-	 *
+	 * <p>
 	 * Provides a fluent API to chain setters.
 	 *
 	 * @param mid the new mid
@@ -451,46 +483,51 @@ public abstract class Message {
 	 * @return {@code true} if this message's token is either {@code null} or of
 	 *         length 0.
 	 */
-	public boolean hasEmptyToken() {
-		return token == null || token.isEmpty();
+	public final boolean hasEmptyToken() {
+		return Bytes.isEmpty(token);
 	}
 
 	/**
 	 * Gets this message's token.
 	 *
-	 * @return the token
+	 * @return the token, or {@code null}, if the token has not yet being
+	 *         provided.
 	 */
-	public Token getToken() {
+	public final Token getToken() {
 		return token;
 	}
 
 	/**
 	 * Gets this message's 0- -8 byte token.
 	 *
-	 * @return the token
+	 * @return the token, or {@link Bytes#EMPTY}, if the token has not yet being
+	 *         provided.
 	 */
-	public byte[] getTokenBytes() {
-		return token == null ? null : token.getBytes();
+	public final byte[] getTokenBytes() {
+		Token token = this.token;
+		return token == null ? Bytes.EMPTY : token.getBytes();
 	}
 
 	/**
 	 * Gets the 0--8 byte token as string representation.
 	 *
-	 * @return the token as string
+	 * @return the token as string, or {@code "null"}, if the token has not yet
+	 *         being provided.
 	 */
-	public String getTokenString() {
+	public final String getTokenString() {
+		Token token = this.token;
 		return token == null ? "null" : token.getAsString();
 	}
 
 	/**
 	 * Sets the token bytes, which can be 0--8 bytes.
-	 * 
-	 * Note: The token are generated by default with a {@link TokenGenerator}.
-	 * If application defined tokens are to be used, these tokens must also
-	 * comply to the scope encoding of the effectively used generator. This
-	 * narrows the definition of RFC 7252, 5.3.1, from "client-local" to
-	 * "node-local", and "system-local" tokens.
-	 * 
+	 * <p>
+	 * <b>Note:</b> The token are generated by default with a
+	 * {@link TokenGenerator}. If application defined tokens are to be used,
+	 * these tokens must also comply to the scope encoding of the effectively
+	 * used generator. This narrows the definition of RFC 7252, 5.3.1, from
+	 * "client-local" to "node-local", and "system-local" tokens.
+	 * <p>
 	 * Provides a fluent API to chain setters.
 	 *
 	 * @param tokenBytes the new token bytes
@@ -500,40 +537,38 @@ public abstract class Message {
 	 *             ({@link #setBytes(byte[])} has been called before)
 	 */
 	public Message setToken(byte[] tokenBytes) {
-		Token token = null;
-		if (tokenBytes != null) {
-			token = new Token(tokenBytes);
-		}
-		return setToken(token);
+		return setToken(Token.create(tokenBytes));
 	}
 
 	/**
 	 * Sets the token.
-	 * 
-	 * Note: The token are generated by default with a {@link TokenGenerator}.
-	 * If application defined tokens are to be used, these tokens must also
-	 * comply to the scope encoding of the effectively used generator. This
-	 * narrows the definition of RFC 7252, 5.3.1, from "client-local" to
-	 * "node-local", and "system-local" tokens.
-	 * 
+	 * <p>
+	 * <b>Note:</b> The token are generated by default with a
+	 * {@link TokenGenerator}. If application defined tokens are to be used,
+	 * these tokens must also comply to the scope encoding of the effectively
+	 * used generator. This narrows the definition of RFC 7252, 5.3.1, from
+	 * "client-local" to "node-local", and "system-local" tokens.
+	 * <p>
 	 * Provides a fluent API to chain setters.
 	 *
-	 * @param token the new token
+	 * @param token the new token. May be {@code null} to reset the token. 
 	 * @return this Message
 	 * @throws IllegalStateException if message is already serialized
 	 *             ({@link #setBytes(byte[])} has been called before)
 	 */
 	public Message setToken(Token token) {
-		this.token = token;
 		if (bytes != null) {
 			throw new IllegalStateException("already serialized!");
 		}
+		this.token = token;
 		return this;
 	}
 
 	/**
-	 * Gets the set of options. If no set has been defined yet, it creates a new
-	 * one. EmptyMessages should not have any options.
+	 * Gets the set of options.
+	 * <p>
+	 * If no set has been defined yet, it creates a new one. EmptyMessages
+	 * should not have any options.
 	 * 
 	 * @return the options
 	 * @throws IllegalStateException if message was {@link #offload}ed.
@@ -552,7 +587,7 @@ public abstract class Message {
 
 	/**
 	 * Sets the set of options.
-	 * 
+	 * <p>
 	 * This function makes a defensive copy of the specified set of options.
 	 * Provides a fluent API to chain setters.
 	 * 
@@ -566,7 +601,7 @@ public abstract class Message {
 
 	/**
 	 * Get the maximum resource body size.
-	 * 
+	 * <p>
 	 * For incoming messages the protocol stack may set individual sizes. For
 	 * outgoing requests, this limits the size of the response.
 	 * 
@@ -581,7 +616,7 @@ public abstract class Message {
 
 	/**
 	 * Set the maximum resource body size.
-	 * 
+	 * <p>
 	 * For incoming messages the protocol stack may set individual sizes. For
 	 * outgoing requests, this limits the size of the response.
 	 * 
@@ -595,12 +630,14 @@ public abstract class Message {
 	}
 
 	/**
-	 * Gets the size (amount of bytes) of the payload. Be aware that this might
-	 * differ from the payload string length due to the UTF-8 encoding.
+	 * Gets the size (amount of bytes) of the payload.
+	 * <p>
+	 * Be aware that this might differ from the payload string length due to the
+	 * UTF-8 encoding.
 	 *
 	 * @return the payload size
 	 */
-	public int getPayloadSize() {
+	public final int getPayloadSize() {
 		return payload.length;
 	}
 
@@ -610,7 +647,7 @@ public abstract class Message {
 	 * @return the payload.
 	 * @throws IllegalStateException if message was {@link #offload}ed.
 	 */
-	public byte[] getPayload() {
+	public final byte[] getPayload() {
 		if (offload != null) {
 			throw new IllegalStateException("message " + offload + " offloaded!");
 		}
@@ -618,13 +655,14 @@ public abstract class Message {
 	}
 
 	/**
-	 * Gets the payload in the form of a string. Returns an empty string if no
-	 * payload is defined.
+	 * Gets the payload in the form of a string.
+	 * <p>
+	 * Returns an empty string if no payload is defined.
 	 * 
 	 * @return the payload as string
 	 * @throws IllegalStateException if message was {@link #offload}ed.
 	 */
-	public String getPayloadString() {
+	public final String getPayloadString() {
 		if (offload != null) {
 			throw new IllegalStateException("message " + offload + " offloaded!");
 		}
@@ -635,13 +673,18 @@ public abstract class Message {
 		}
 	}
 
-	protected String getPayloadTracingString() {
+	/**
+	 * Get payload as string for logging-
+	 * 
+	 * @return payload as string.
+	 */
+	protected final String getPayloadTracingString() {
 		return StringUtil.toDisplayString(payload, 32);
 	}
 
 	/**
 	 * Sets the UTF-8 bytes from the specified string as payload.
-	 * 
+	 * <p>
 	 * Provides a fluent API to chain setters.
 	 * 
 	 * @param payload the payload as string. {@code null} is replaced by an
@@ -665,7 +708,7 @@ public abstract class Message {
 
 	/**
 	 * Sets the payload.
-	 *
+	 * <p>
 	 * Provides a fluent API to chain setters.
 	 *
 	 * @param payload the new payload. {@code null} is replaced by an empty
@@ -701,25 +744,26 @@ public abstract class Message {
 
 	/**
 	 * Get destination endpoint context.
-	 * 
+	 * <p>
 	 * May be {@code null} for {@link Request} during it's construction.
 	 * 
 	 * @return the destination endpoint context.
 	 */
-	public EndpointContext getDestinationContext() {
+	public final EndpointContext getDestinationContext() {
 		return destinationContext;
 	}
 
 	/**
-	 * Get the effective destination context. May differ from
-	 * {@link #getDestinationContext()} on retransmissions.
+	 * Get the effective destination context.
+	 * <p>
+	 * May differ from {@link #getDestinationContext()} on retransmissions.
 	 * 
 	 * @return the effective destination context.
 	 * @see EndpointContextUtil#getFollowUpEndpointContext(EndpointContext,
 	 *      EndpointContext)
 	 * @since 2.3
 	 */
-	public EndpointContext getEffectiveDestinationContext() {
+	public final EndpointContext getEffectiveDestinationContext() {
 		return effectiveDestinationContext;
 	}
 
@@ -728,15 +772,15 @@ public abstract class Message {
 	 * 
 	 * @return the source endpoint context.
 	 */
-	public EndpointContext getSourceContext() {
+	public final EndpointContext getSourceContext() {
 		return sourceContext;
 	}
 
 	/**
 	 * Set destination endpoint context.
-	 * 
+	 * <p>
 	 * Multicast addresses are only supported for {@link Request}s.
-	 * 
+	 * <p>
 	 * Provides a fluent API to chain setters.
 	 * 
 	 * @param peerContext destination endpoint context
@@ -763,8 +807,9 @@ public abstract class Message {
 	}
 
 	/**
-	 * Set the effective destination context. Used to set a different
-	 * destination context for retransmissions.
+	 * Set the effective destination context.
+	 * <p>
+	 * Used to set a different destination context for retransmissions.
 	 * 
 	 * @param peerContext destination context for retransmissions
 	 * @see EndpointContextUtil#getFollowUpEndpointContext(EndpointContext,
@@ -777,6 +822,7 @@ public abstract class Message {
 
 	/**
 	 * Set destination endpoint context for requests.
+	 * <p>
 	 * Multicast addresses are supported.
 	 * 
 	 * @param peerContext destination endpoint context
@@ -789,7 +835,7 @@ public abstract class Message {
 
 	/**
 	 * Set source endpoint context.
-	 * 
+	 * <p>
 	 * Provides a fluent API to chain setters.
 	 * 
 	 * @param peerContext source endpoint context
@@ -817,7 +863,7 @@ public abstract class Message {
 	 *         outgoing messages.
 	 * @since 3.0
 	 */
-	public InetSocketAddress getLocalAddress() {
+	public final InetSocketAddress getLocalAddress() {
 		return localAddress;
 	}
 
@@ -826,17 +872,17 @@ public abstract class Message {
 	 *
 	 * @return true, if is acknowledged
 	 */
-	public boolean isAcknowledged() {
+	public final boolean isAcknowledged() {
 		return acknowledged.get();
 	}
 
 	/**
 	 * Marks this message as acknowledged.
-	 *
+	 * <p>
 	 * Since 3.0 doesn't longer call
 	 * {@link MessageObserver#onAcknowledgement()}. Use {@link #acknowledge()}
 	 * instead.
-	 * 
+	 * <p>
 	 * Not part of the fluent API.
 	 *
 	 * @param acknowledged if acknowledged
@@ -847,11 +893,11 @@ public abstract class Message {
 
 	/**
 	 * Acknowledge a unacknowledged confirmable message.
-	 *
+	 * <p>
 	 * Checks and set {@link #acknowledged} atomically. Calls
 	 * {@link MessageObserver#onAcknowledgement()}, if message was
 	 * unacknowledged.
-	 * 
+	 * <p>
 	 * Not part of the fluent API.
 	 *
 	 * @return {@code true}, if message was unacknowledged and confirmable,
@@ -872,15 +918,15 @@ public abstract class Message {
 	/**
 	 * Checks if this message has been rejected.
 	 *
-	 * @return true, if is rejected
+	 * @return {@code true}, if is rejected
 	 */
-	public boolean isRejected() {
+	public final boolean isRejected() {
 		return rejected;
 	}
 
 	/**
 	 * Marks this message as rejected.
-	 *
+	 * <p>
 	 * Not part of the fluent API.
 	 *
 	 * @param rejected if rejected
@@ -895,18 +941,20 @@ public abstract class Message {
 	}
 
 	/**
-	 * Checks if this message has timed out. Confirmable messages in particular
-	 * might timeout.
+	 * Checks if this message has timed out.
+	 * <p>
+	 * Confirmable messages in particular might timeout.
 	 * 
-	 * @return true, if timed out
+	 * @return {@code true}, if timed out
 	 */
-	public boolean isTimedOut() {
+	public final boolean isTimedOut() {
 		return timedOut;
 	}
 
 	/**
-	 * Marks this message as timed out. Confirmable messages in particular might
-	 * timeout.
+	 * Marks this message as timed out.
+	 * <p>
+	 * Confirmable messages in particular might timeout.
 	 * 
 	 * @param timedOut {@code true} if timed out
 	 */
@@ -922,18 +970,18 @@ public abstract class Message {
 	/**
 	 * Checks if this message has been canceled.
 	 * 
-	 * @return true, if is canceled
+	 * @return {@code true}, if is canceled
 	 */
-	public boolean isCanceled() {
+	public final boolean isCanceled() {
 		return canceled;
 	}
 
 	/**
 	 * Marks this message as canceled.
-	 * 
+	 * <p>
 	 * Not part of the fluent API.
 	 * 
-	 * @param canceled if canceled
+	 * @param canceled {@code true} if canceled
 	 */
 	public void setCanceled(boolean canceled) {
 		this.canceled = canceled;
@@ -946,7 +994,7 @@ public abstract class Message {
 
 	/**
 	 * Indicate, that this message is ready to be send.
-	 * 
+	 * <p>
 	 * Not part of the fluent API.
 	 */
 	public void setReadyToSend() {
@@ -957,7 +1005,9 @@ public abstract class Message {
 
 	/**
 	 * Indicate, that this message triggered the connector to establish a
-	 * connection. Not part of the fluent API.
+	 * connection.
+	 * <p>
+	 * Not part of the fluent API.
 	 */
 	public void onConnecting() {
 		for (MessageObserver handler : getMessageObservers()) {
@@ -980,15 +1030,15 @@ public abstract class Message {
 	/**
 	 * Checks if this message has been sent.
 	 * 
-	 * @return true, if is sent
+	 * @return {@code true}, if is sent
 	 */
-	public boolean isSent() {
+	public final boolean isSent() {
 		return sent;
 	}
 
 	/**
 	 * Marks this message as sent.
-	 * 
+	 * <p>
 	 * Not part of the fluent API.
 	 * 
 	 * @param sent if sent
@@ -1006,15 +1056,15 @@ public abstract class Message {
 	/**
 	 * Checks if this message has been sent.
 	 * 
-	 * @return true, if is sent
+	 * @return {@code true}, if is sent
 	 */
-	public Throwable getSendError() {
+	public final Throwable getSendError() {
 		return sendError;
 	}
 
 	/**
 	 * Marks this message with send error.
-	 * 
+	 * <p>
 	 * Not part of the fluent API.
 	 * 
 	 * @param sendError if error occurred while sending
@@ -1030,7 +1080,7 @@ public abstract class Message {
 
 	/**
 	 * Report resulting endpoint context.
-	 * 
+	 * <p>
 	 * The {@link #destinationContext} may not contain all information, but the
 	 * connector will fill these information and report it. This method doesn't
 	 * change the {@link #destinationContext} but calls
@@ -1068,7 +1118,6 @@ public abstract class Message {
 	 * specified timeout has expired, or an error occurred. A timeout of 0 is
 	 * interpreted as infinity. If the message is already sent, this method
 	 * returns it immediately.
-	 * <p>
 	 * 
 	 * @param timeout the maximum time to wait in milliseconds.
 	 * @return {@code true}, if the message was sent in time, {@code false},
@@ -1098,18 +1147,18 @@ public abstract class Message {
 
 	/**
 	 * Checks if this message is a duplicate.
-	 * 
+	 * <p>
 	 * Since 2.1 this also reflects, if the message is resent.
 	 * 
-	 * @return true, if is a duplicate
+	 * @return {@code true}, if is a duplicate
 	 */
-	public boolean isDuplicate() {
+	public final boolean isDuplicate() {
 		return duplicate;
 	}
 
 	/**
 	 * Marks this message as a duplicate.
-	 * 
+	 * <p>
 	 * Not part of the fluent API.
 	 *
 	 * @param duplicate if a duplicate
@@ -1118,6 +1167,11 @@ public abstract class Message {
 		this.duplicate = duplicate;
 	}
 
+	/**
+	 * Get textual status for logging.
+	 * 
+	 * @return textual status
+	 */
 	protected String getStatusTracingString() {
 		if (canceled) {
 			return "canceled ";
@@ -1139,7 +1193,7 @@ public abstract class Message {
 	 * @return the bytes of the serialized message or {@code null}
 	 * @throws IllegalStateException if message was {@link #offload}ed.
 	 */
-	public byte[] getBytes() {
+	public final byte[] getBytes() {
 		if (offload == OffloadMode.FULL) {
 			throw new IllegalStateException("message offloaded!");
 		}
@@ -1148,21 +1202,50 @@ public abstract class Message {
 
 	/**
 	 * Sets the bytes of the serialized message.
-	 * 
+	 * <p>
 	 * Not part of the fluent API.
 	 *
 	 * @param bytes the serialized bytes
 	 */
 	public void setBytes(byte[] bytes) {
 		this.bytes = bytes;
+		this.messageSize = bytes == null ? 0 : bytes.length;
+	}
+
+	/**
+	 * Add bytes to message size.
+	 * <p>
+	 * Accumulates the bytes of a blockwise transfer.
+	 * <p>
+	 * Not part of the fluent API.
+	 * 
+	 * @param bytes bytes to add
+	 * @since 3.7
+	 */
+	public final void addMessageSize(int bytes) {
+		this.messageSize += bytes;
+	}
+
+	/**
+	 * Get message size.
+	 * <p>
+	 * For incoming blockwise transfer the accumulated message size is returned.
+	 * <p>
+	 * Not part of the fluent API.
+	 * 
+	 * @return message size
+	 * @since 3.7
+	 */
+	public final int getMessageSize() {
+		return messageSize;
 	}
 
 	/**
 	 * Checks whether a given block offset falls into this message's payload.
-	 * 
-	 * Note: since 3.0 the block option of the message is also used for the
-	 * check. If this message exactly ends at the offset of the provided block,
-	 * this is also reported as overlapping.
+	 * <p>
+	 * <b>Note:</b> since 3.0 the block option of the message is also used for
+	 * the check. If this message exactly ends at the offset of the provided
+	 * block, this is also reported as overlapping.
 	 * 
 	 * @param block The offset of the block.
 	 * @return {@code true} if this message has a payload and its size is
@@ -1189,23 +1272,27 @@ public abstract class Message {
 
 	/**
 	 * Gets the nano timestamp, when this message has been received, sent, or
-	 * {@code 0}, if neither has happened yet. The sent timestamp is granted to
-	 * be not after sending, therefore it's very short before actual sending the
-	 * message. And the receive timestamp is granted to be not before receiving
-	 * the message, therefore it's very short after actual receiving the
-	 * message.
+	 * {@code 0}, if neither has happened yet.
+	 * <p>
+	 * The sent timestamp is granted to be not after sending, therefore it's
+	 * very short before actual sending the message. And the receive timestamp
+	 * is granted to be not before receiving the message, therefore it's very
+	 * short after actual receiving the message.
+	 * <p>
+	 * If a "transparent blockwise-transfers" is received, the time reflects the
+	 * time of the first block.
 	 * 
 	 * @return the nano timestamp
 	 * @see ClockUtil#nanoRealtime()
 	 */
-	public long getNanoTimestamp() {
+	public final long getNanoTimestamp() {
 		return nanoTimestamp;
 	}
 
 	/**
 	 * Sets the nano timestamp when this message has been received, sent, or
 	 * {@code 0} if neither has happened yet.
-	 * 
+	 * <p>
 	 * Not part of the fluent API.
 	 *
 	 * @param timestamp the nano timestamp.
@@ -1217,7 +1304,7 @@ public abstract class Message {
 
 	/**
 	 * Cancels this message.
-	 * 
+	 * <p>
 	 * This method calls {@link #setCanceled(boolean)} with {@code true}.
 	 * Subclasses should override {@link #setCanceled(boolean)} to react to
 	 * cancellation.
@@ -1242,18 +1329,20 @@ public abstract class Message {
 	}
 
 	/**
-	 * Offload message. Remove payload, options and serialized bytes to reduce
-	 * heap usage, when message is kept for deduplication.
-	 * 
+	 * Offload message.
+	 * <p>
+	 * Remove payload, options and serialized bytes to reduce heap usage, when
+	 * message is kept for deduplication.
+	 * <p>
 	 * The server-side offloads message when sending the first response when
 	 * {@link CoapConfig#USE_MESSAGE_OFFLOADING} is enabled. Requests are
 	 * {@link OffloadMode#FULL} offloaded, responses are
 	 * {@link OffloadMode#PAYLOAD} offloaded.
-	 * 
+	 * <p>
 	 * A client-side may also chose to offload requests and responses based on
-	 * {@link CoapConfig#USE_MESSAGE_OFFLOADING}, when the request and responses are
-	 * not longer used by the client.
-	 * 
+	 * {@link CoapConfig#USE_MESSAGE_OFFLOADING}, when the request and responses
+	 * are not longer used by the client.
+	 * <p>
 	 * For messages with {@link #setProtectFromOffload()}, offloading is
 	 * ineffective.
 	 * 
@@ -1289,13 +1378,13 @@ public abstract class Message {
 	 *         serialized bytes are offloaded.
 	 * @since 2.2
 	 */
-	public OffloadMode getOffloadMode() {
+	public final OffloadMode getOffloadMode() {
 		return offload;
 	}
 
 	/**
 	 * Protect message from being offloaded.
-	 * 
+	 * <p>
 	 * Used to protect observe- and starting-blockwise-requests and empty
 	 * messages from being offloaded.
 	 * @since 2.2
@@ -1308,17 +1397,45 @@ public abstract class Message {
 	 * Returns the observers registered for this message.
 	 * 
 	 * @return an immutable list of the registered observers.
+	 * @see #getMessageObserver(Class)
 	 * @see #addMessageObserver(MessageObserver)
 	 * @see #addMessageObserver(int, MessageObserver)
 	 * @see #addMessageObservers(List)
 	 * @see #removeMessageObserver(MessageObserver)
 	 */
-	public List<MessageObserver> getMessageObservers() {
+	public final List<MessageObserver> getMessageObservers() {
 		if (null == unmodifiableMessageObserversFacade) {
 			return Collections.emptyList();
 		} else {
 			return unmodifiableMessageObserversFacade;
 		}
+	}
+
+	/**
+	 * Returns the observer of the provided type registered for this message.
+	 * 
+	 * @param <T> type of observer
+	 * @param type type of observer
+	 * @return the registered observer of that type, or {@code null}, if not
+	 *         available.
+	 * @see #getMessageObservers()
+	 * @see #addMessageObserver(MessageObserver)
+	 * @see #addMessageObserver(int, MessageObserver)
+	 * @see #addMessageObservers(List)
+	 * @see #removeMessageObserver(MessageObserver)
+	 * @since 3.3
+	 */
+	@SuppressWarnings("unchecked")
+	public <T extends MessageObserver> T getMessageObserver(Class<T> type) {
+		List<MessageObserver> list = unmodifiableMessageObserversFacade;
+		if (null != list) {
+			for (MessageObserver obs : list) {
+				if (type.isInstance(obs)) {
+					return (T) obs;
+				}
+			}
+		}
+		return null;
 	}
 
 	/**
@@ -1397,8 +1514,10 @@ public abstract class Message {
 	}
 
 	/**
-	 * Get list of {@link MessageObserver}. If not already defined, create a new
-	 * one. This method is thread-safe and creates exactly one list.
+	 * Get list of {@link MessageObserver}.
+	 * <p>
+	 * If not already defined, create a new one. This method is thread-safe and
+	 * creates exactly one list.
 	 * 
 	 * @return list of {@link MessageObserver}
 	 */

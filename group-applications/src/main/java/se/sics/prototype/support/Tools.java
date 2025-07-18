@@ -47,7 +47,9 @@ import org.eclipse.californium.oscore.group.MultiKey;
 import org.postgresql.core.Utils;
 
 import com.upokecenter.cbor.CBORObject;
+
 import se.sics.ace.Constants;
+import se.sics.ace.GroupcommParameters;
 import se.sics.ace.Util;
 import se.sics.ace.oscore.GroupOSCOREInputMaterialObjectParameters;
 import se.sics.ace.oscore.OSCOREInputMaterialObjectParameters;
@@ -76,23 +78,23 @@ public class Tools {
 		System.out.println(joinResponse.get(CBORObject.FromObject(Constants.KID)));
 
 		System.out.print("KEY: ");
-		System.out.println(joinResponse.get(CBORObject.FromObject(Constants.KEY)));
+		System.out.println(joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY)));
 
 		System.out.print("PROFILE: ");
 		System.out.println(joinResponse.get(CBORObject.FromObject(Constants.PROFILE)));
 
 		System.out.print("EXP: ");
-		System.out.println(joinResponse.get(CBORObject.FromObject(Constants.EXP)));
+		System.out.println(joinResponse.get(CBORObject.FromObject(GroupcommParameters.EXP)));
 
 		System.out.print("PUB_KEYS: ");
-		System.out.println(joinResponse.get(CBORObject.FromObject(Constants.CREDS)));
+		System.out.println(joinResponse.get(CBORObject.FromObject(GroupcommParameters.CREDS)));
 
 		System.out.print("NUM: ");
-		System.out.println(joinResponse.get(CBORObject.FromObject(Constants.NUM)));
+		System.out.println(joinResponse.get(CBORObject.FromObject(GroupcommParameters.NUM)));
 
 		// Parse the KEY parameter
 
-		CBORObject keyMap = joinResponse.get(CBORObject.FromObject(Constants.KEY));
+		CBORObject keyMap = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY));
 
 		System.out.println();
 		System.out.println("KEY map contents: ");
@@ -132,8 +134,8 @@ public class Tools {
 		System.out.println();
 		System.out.println("PUB_KEYS contents: ");
 
-		if (joinResponse.ContainsKey(CBORObject.FromObject(Constants.CREDS))) {
-			CBORObject coseKeySetArray = joinResponse.get(CBORObject.FromObject(Constants.CREDS));
+		if (joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.CREDS))) {
+			CBORObject coseKeySetArray = joinResponse.get(CBORObject.FromObject(GroupcommParameters.CREDS));
 
 			for (int i = 0; i < coseKeySetArray.size(); i++) {
 
@@ -156,11 +158,11 @@ public class Tools {
 	public static GroupCtx generateGroupOSCOREContext(CBORObject joinResponse, MultiKey clientKey) {
 
 		int replayWindow = 32;
-		byte[] gmPubKey = joinResponse.get(CBORObject.FromObject(Constants.KDC_CRED)).GetByteString();
+		byte[] gmPubKey = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED)).GetByteString();
 
 		// Parse the KEY parameter
 
-		CBORObject keyMap = joinResponse.get(CBORObject.FromObject(Constants.KEY));
+		CBORObject keyMap = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KEY));
 
 		byte[] ms = keyMap.get(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.ms)).GetByteString();
 		byte[] salt = keyMap.get(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.salt)).GetByteString();
@@ -193,8 +195,8 @@ public class Tools {
 		}
 
 		// Parse public keys and add recipient contexts
-		if (joinResponse.ContainsKey(CBORObject.FromObject(Constants.CREDS))) {
-			CBORObject coseKeySetArray = joinResponse.get(CBORObject.FromObject(Constants.CREDS));
+		if (joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.CREDS))) {
+			CBORObject coseKeySetArray = joinResponse.get(CBORObject.FromObject(GroupcommParameters.CREDS));
 
 			for (int i = 0; i < coseKeySetArray.size(); i++) {
 
@@ -202,7 +204,8 @@ public class Tools {
 
 				CBORObject parsedKey = CBORObject.DecodeFromBytes(key_param.GetByteString());
 
-				byte[] recipientId = joinResponse.get(CBORObject.FromObject(Constants.PEER_IDENTIFIERS)).get(i)
+				byte[] recipientId = joinResponse.get(CBORObject.FromObject(GroupcommParameters.PEER_IDENTIFIERS))
+						.get(i)
 						.GetByteString();
 				MultiKey recipientKey = new MultiKey(key_param.GetByteString());
 				try {

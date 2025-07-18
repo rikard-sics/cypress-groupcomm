@@ -15,9 +15,6 @@
  ******************************************************************************/
 package org.eclipse.californium.core.network.stack.congestioncontrol;
 
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.elements.util.CounterStatisticManager;
 import org.eclipse.californium.elements.util.SimpleCounterStatistic;
@@ -41,19 +38,15 @@ public class CongestionStatisticLogger extends CounterStatisticManager {
 	private final SimpleCounterStatistic receivedResponses = new SimpleCounterStatistic("recv-responses", align);
 
 	/**
-	 * Create active congestion logger.
+	 * Create passive congestion logger.
 	 * 
-	 * {@link #dump()} is called repeated with configurable interval.
+	 * {@link #dump()} must be called externally.
 	 * 
 	 * @param tag logging tag
-	 * @param interval interval. {@code 0} to disable active logging.
-	 * @param executor executor executor to schedule active logging.
-	 * @param unit time unit of interval
-	 * @throws NullPointerException if executor is {@code null}
-	 * @since 3.0 (added unit)
+	 * @since 3.1 
 	 */
-	public CongestionStatisticLogger(String tag, int interval, TimeUnit unit, ScheduledExecutorService executor) {
-		super(tag, interval, unit, executor);
+	public CongestionStatisticLogger(String tag) {
+		super(tag);
 		init();
 	}
 
@@ -65,22 +58,27 @@ public class CongestionStatisticLogger extends CounterStatisticManager {
 
 	@Override
 	public boolean isEnabled() {
-		return LOGGER.isDebugEnabled();
+		return LOGGER.isInfoEnabled();
 	}
 
 	@Override
 	public void dump() {
 		try {
-			if (receivedResponses.isUsed() || sentRequests.isUsed() || queueRequests.isUsed()) {
-				String eol = StringUtil.lineSeparator();
-				String head = "   " + tag;
-				StringBuilder log = new StringBuilder();
-				log.append(tag).append("congestion statistic:").append(eol);
-				log.append(head).append(sentRequests).append(eol);
-				log.append(head).append(queueRequests).append(eol);
-				log.append(head).append(dequeueRequests).append(eol);
-				log.append(head).append(receivedResponses).append(eol);
-				LOGGER.debug("{}", log);
+			if (isEnabled()) {
+				if (LOGGER.isDebugEnabled()) {
+					if (receivedResponses.isUsed() || sentRequests.isUsed() || queueRequests.isUsed()) {
+						String eol = StringUtil.lineSeparator();
+						String head = "   " + tag;
+						StringBuilder log = new StringBuilder();
+						log.append(tag).append("congestion statistic:").append(eol);
+						log.append(head).append(sentRequests).append(eol);
+						log.append(head).append(queueRequests).append(eol);
+						log.append(head).append(dequeueRequests).append(eol);
+						log.append(head).append(receivedResponses).append(eol);
+						LOGGER.debug("{}", log);
+					}
+				}
+				transferCounter();
 			}
 		} catch (Throwable e) {
 			LOGGER.error("{}", tag, e);

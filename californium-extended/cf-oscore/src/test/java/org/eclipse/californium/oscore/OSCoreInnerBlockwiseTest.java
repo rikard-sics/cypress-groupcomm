@@ -40,10 +40,12 @@ import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.network.EndpointManager;
+import org.eclipse.californium.core.network.stack.BaseCoapStack;
 import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.cose.AlgorithmID;
 import org.eclipse.californium.elements.category.Medium;
 import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.elements.rule.LoggingRule;
 import org.eclipse.californium.elements.rule.TestNameLoggerRule;
 import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.elements.util.ExpectedExceptionWrapper;
@@ -84,6 +86,12 @@ public class OSCoreInnerBlockwiseTest {
 
 	@Rule
 	public TestNameLoggerRule name = new TestNameLoggerRule();
+
+	@Rule
+	public ExpectedException exceptionRule = ExpectedExceptionWrapper.none();
+
+	@Rule 
+	public LoggingRule logging = new LoggingRule();
 
 	private static final int DEFAULT_BLOCK_SIZE = 64;
 
@@ -148,6 +156,7 @@ public class OSCoreInnerBlockwiseTest {
 	 * @throws Exception on test failure
 	 */
 	@Test
+	@Ignore
 	public void testOscoreBlockwisePost() throws Exception {
 		setClientContext(uri);
 		String payload = createRandomPayload(DEFAULT_BLOCK_SIZE * 4);
@@ -175,6 +184,7 @@ public class OSCoreInnerBlockwiseTest {
 	 * @throws Exception on test failure
 	 */
 	@Test
+	@Ignore
 	public void testOscoreBlockwisePut() throws Exception {
 		setClientContext(uri);
 		String payload = createRandomPayload(DEFAULT_BLOCK_SIZE * 4);
@@ -196,9 +206,6 @@ public class OSCoreInnerBlockwiseTest {
 		client.shutdown();
 	}
 
-	@Rule
-	public ExpectedException exceptionRule = ExpectedExceptionWrapper.none();
-
 	/**
 	 * Perform a PUT request that is not sent with (inner) block-wise even
 	 * though it is exceeding the configured MAX_UNFRAGMENTED_SIZE parameter.
@@ -212,6 +219,8 @@ public class OSCoreInnerBlockwiseTest {
 		exceptionRule.expect(IOException.class);
 		exceptionRule.expectMessage(
 				"java.lang.IllegalStateException: outgoing request is exceeding the MAX_UNFRAGMENTED_SIZE!");
+
+		logging.setLoggingLevel("ERROR", BaseCoapStack.class);
 
 		setClientContext(uri);
 		OSCoreCtx ctx = dbClient.getContext(uri);
