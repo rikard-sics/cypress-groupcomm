@@ -16,28 +16,22 @@ OscoreAsRsClient -name Server4
 OscoreAsRsClient -name Server5  
 OscoreAsRsClient -name Server6  
 
-**Start up the CYPRESS DHT application (download separately)**  
-./build_and_launch.sh 
+**Next, start the first client. It will listen to commands from command line input.**  
+OscoreAsRsClient -name Client1
 
-**Next, start the first client. It will listen to commands from the DHT.**  
-OscoreAsRsClient -dht -name Client1
-
-**Then start the second client. It will listen to commands from the DHT.**  
-OscoreAsRsClient -dht -name Client2
+**Then start the second client. It will listen to commands from command line input.**  
+OscoreAsRsClient -name Client2
 
 **Full list of command line parameters:**  
 The following is the full list of command line parameters supported by the OscoreAsRsClient application:  
-*Usage: [ -name Name ] [ -gm URI ] [ -as URI ] [ -delay Seconds ] [ -dht {URI} ] [ -help ]*
+*Usage: [ -name Name ] [ -gm URI ] [ -as URI ] [ -delay Seconds ] [ -help ]*
 - *-name*: Name/Role of this peer
 - *-gm*: Group Manager base URI
 - *-as*: Authorization Server base URI
 - *-delay*: - Delay in seconds before starting
-- *-dht*: Use DHT: Optionally specify its WebSocket URI
 - *-help*: - Print help
 
 If the Group Manager or Authorization Server are running on a different host, the options *-gm* and *-as* can be used.  
-
-In addition, the OscoreRsServer and OscoreAsServer applications also support the *-dht* parameter to enable logging to the DHT.  
 
 Furthermore, the OscoreAsServer supports the *-db* parameter to indicate a connection string for the database.  
 Example: "mysql://root:password@localhost:3306"  

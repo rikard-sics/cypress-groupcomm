@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2023, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -32,8 +32,6 @@
 package se.sics.prototype.apps;
 
 import java.util.Base64;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -67,10 +65,6 @@ import se.sics.prototype.support.Tools;
  *
  */
 public class OscoreAsServer {
-
-	// Default URI for DHT WebSocket connection. Can be changed using command
-	// line arguments.
-	private static String dhtWebsocketUri = "ws://localhost:3000/ws";
 
 	// Key information for ACE
 	static byte[] key128 = { (byte) 0xa1, (byte) 0xa2, (byte) 0xa3, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
@@ -120,25 +114,9 @@ public class OscoreAsServer {
 		System.out.println("Starting Authorization Server: OscoreAsServer...");
 
 		// Parse command line arguments
-		boolean useDht = false;
 		String dbConnStr = null;
 		for (int i = 0; i < args.length; i++) {
-			if (args[i].toLowerCase().endsWith("-dht") || args[i].toLowerCase().endsWith("-usedht")) {
-				useDht = true;
-
-				// Check if a WebSocket URI for the DHT is also indicated
-				URI parsed = null;
-				try {
-					parsed = new URI(args[i + 1]);
-				} catch (URISyntaxException | ArrayIndexOutOfBoundsException e) {
-					// No URI indicated
-				}
-				if (parsed != null) {
-					dhtWebsocketUri = parsed.toString();
-					i++;
-				}
-
-			} else if (args[i].toLowerCase().endsWith("-db")) {
+			if (args[i].toLowerCase().endsWith("-db")) {
 				dbConnStr = args[i + 1];
 				i++;
 			} else if (args[i].toLowerCase().endsWith("-help")) {
@@ -681,12 +659,9 @@ public class OscoreAsServer {
 	 * Print help message with valid command line arguments
 	 */
 	private static void printHelp() {
-		System.out.println("Usage: [ -dht {URI} ] [ -db {URI} ] [ -help ]");
+		System.out.println("Usage: [ -db {URI} ] [ -help ]");
 
 		System.out.println("Options:");
-
-		System.out.print("-dht");
-		System.out.println("\t Use DHT: Optionally specify its WebSocket URI for logging");
 
 		System.out.print("-db");
 		System.out.println(

@@ -23,19 +23,14 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Scanner;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
 import org.eclipse.californium.core.CoapClient;
 import org.eclipse.californium.core.CoapHandler;
 import org.eclipse.californium.core.CoapResponse;
 import org.eclipse.californium.core.Utils;
 import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.MediaTypeRegistry;
-import org.eclipse.californium.core.coap.CoAP.ResponseCode;
 import org.eclipse.californium.core.coap.CoAP.Type;
 import org.eclipse.californium.core.coap.Request;
-import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.cose.KeyKeys;
@@ -47,22 +42,7 @@ import org.eclipse.californium.oscore.InstallCryptoProviders;
 import org.eclipse.californium.oscore.OSCoreCoapStackFactory;
 import org.eclipse.californium.oscore.Utility;
 import org.eclipse.californium.oscore.group.GroupCtx;
-import org.glassfish.tyrus.client.ClientManager;
-
-import com.google.gson.Gson;
-
 import jakarta.websocket.ClientEndpoint;
-import jakarta.websocket.CloseReason;
-import jakarta.websocket.DeploymentException;
-import jakarta.websocket.OnClose;
-import jakarta.websocket.OnMessage;
-import jakarta.websocket.OnOpen;
-import jakarta.websocket.Session;
-import se.sics.prototype.json.incoming.JsonIn;
-import se.sics.prototype.json.outgoing.JsonOut;
-import se.sics.prototype.json.outgoing.OutValue;
-import se.sics.prototype.json.outgoing.RequestPubMessage;
-import se.sics.prototype.support.Tools;
 
 /**
  * Group OSCORE client application.
@@ -138,23 +118,18 @@ public class GroupOscoreClient {
 	 */
 	private final static HashMapCtxDB db = new HashMapCtxDB();
 
-	private static CountDownLatch latch;
 	private static CoapClient client;
-	private static String clientName;
 
 	/**
 	 * Initialize and start Group OSCORE client.
 	 * 
 	 * @param derivedCtx the Group OSCORE context
 	 * @param multicastIP multicast IP to send to
-	 * @param useDht use input/output from/to DHT
 	 * @param setClientName name of this client (Client1 / Client2)
-	 * @param dhtWebsocketUri URI to use for the WebSocket connection to the DHT
 	 * 
 	 * @throws Exception on failure
 	 */
-	public static void start(GroupCtx derivedCtx, InetAddress multicastIP, String setClientName, boolean useDht,
-			String dhtWebsocketUri) throws Exception {
+	public static void start(GroupCtx derivedCtx, InetAddress multicastIP, String setClientName) throws Exception {
 		/**
 		 * URI to perform request against. Need to check for IPv6 to surround it
 		 * with []
@@ -165,7 +140,6 @@ public class GroupOscoreClient {
 		} else {
 			requestURI = "coap://" + multicastIP.getHostAddress() + ":" + destinationPort + requestResource;
 		}
-		clientName = setClientName;
 
 		// Install cryptographic providers
 		InstallCryptoProviders.installProvider();
@@ -205,33 +179,6 @@ public class GroupOscoreClient {
 
 		System.out.println("");
 		System.out.println("Ready to send requests to the OSCORE group.");
-
-		// Connect to DHT and continously retry if connection is lost
-		while (useDht) {
-			System.out.println("Using DHT");
-
-			latch = new CountDownLatch(1);
-			ClientManager dhtClient = ClientManager.createClient();
-			try {
-				// wss://socketsbay.com/wss/v2/2/demo/
-				URI uri = new URI(dhtWebsocketUri);
-				dhtClient.connectToServer(GroupOscoreClient.class, uri);
-				latch.await();
-			} catch (DeploymentException | URISyntaxException | InterruptedException e) {
-				System.err.println("Error: Failed to connect to DHT");
-				e.printStackTrace();
-			}
-
-			System.err.println("Connection to DHT lost. Retrying...");
-			try {
-				Thread.sleep(5000);
-			} catch (InterruptedException e) {
-				System.err.println("Error: Failed to sleep when reconnecting to DHT");
-				e.printStackTrace();
-			}
-
-			Tools.waitForDht(dhtWebsocketUri);
-		}
 
 		Scanner scanner = new Scanner(System.in);
 		String command = "";
@@ -354,155 +301,6 @@ public class GroupOscoreClient {
 		public void onError() {
 			System.err.println("error");
 		}
-	}
-
-	// DHT related methods
-
-	@OnOpen
-	public void onOpen(Session session) {
-		System.out.println("--- Connected " + session.getId());
-		// try {
-		// session.getBasicRemote().sendText("start");
-		// } catch (IOException e) {
-		// throw new RuntimeException(e);
-		// }
-	}
-
-	@OnMessage
-	public String onMessage(String message, Session session) {
-		// Topics to listen for messages on
-		String topicDev1 = "command_dev1";
-		String topicDev2 = "command_dev2";
-
-		// Do nothing if message does not contain one of the topics
-		if (message.contains(topicDev1) == false && message.contains(topicDev2) == false) {
-			return null;
-		}
-
-		System.out.println("--- Received " + message);
-
-		// Parse incoming JSON string from DHT
-		Gson gson = new Gson();
-		JsonIn parsed = gson.fromJson(message, JsonIn.class);
-
-		String topicField = parsed.getVolatile().getValue().getTopic();
-		String messageField = parsed.getVolatile().getValue().getMessage();
-
-		// Device 1 filter
-		if (clientName.equals("Client1") && topicField.equals(topicDev1)) {
-			System.out.println("Filter matched message (device 1)!");
-
-			// Send group request and compile responses
-			ArrayList<CoapResponse> responsesList = sendRequest(messageField);
-			String responsesString = "";
-			String toDhtString = "";
-			for (int i = 0; i < responsesList.size(); i++) {
-				responsesString += Utils.prettyPrint(responsesList.get(i)) + "\n|\n";
-				toDhtString += "Response #" + (i + 1) + ": [" + responseToText(responsesList.get(i)) + "] ";
-			}
-			responsesString = responsesString.replace(".", "").replace(":", " ").replace("=", "-").replace("[", "")
-					.replace("]", "").replace("/", "-").replace("\"", "").replace(".", "").replace("{", "")
-					.replace("}", "");
-			System.out.println("Compiled responses: " + responsesString);
-
-			// Build outgoing JSON to DHT
-			JsonOut outgoing = new JsonOut();
-			RequestPubMessage pubMsg = new RequestPubMessage();
-			OutValue outVal = new OutValue();
-			outVal.setTopic("output_dev1");
-			outVal.setMessage(toDhtString); // Responses
-			pubMsg.setValue(outVal);
-			outgoing.setRequestPubMessage(pubMsg);
-			Gson gsonOut = new Gson();
-			String jsonOut = gsonOut.toJson(outgoing);
-
-			System.out.println("Outgoing JSON: " + jsonOut);
-			return (jsonOut);
-		}
-
-		// Device 2 filter
-		else if (clientName.equals("Client2") && topicField.equals(topicDev2)) {
-			System.out.println("Filter matched message (device 2)!");
-
-			// Send group request and compile responses
-			ArrayList<CoapResponse> responsesList = sendRequest(messageField);
-			String responsesString = "";
-			String toDhtString = "";
-			for (int i = 0; i < responsesList.size(); i++) {
-				responsesString += Utils.prettyPrint(responsesList.get(i)) + "\n|\n";
-				toDhtString += "Response #" + (i + 1) + ": [" + responseToText(responsesList.get(i)) + "]";
-			}
-			responsesString = responsesString.replace(".", "").replace(":", " ").replace("=", "-").replace("[", "")
-					.replace("]", "").replace("/", "-").replace("\"", "").replace(".", "").replace("{", "")
-					.replace("}", "");
-			System.out.println("Compiled responses: " + responsesString);
-
-			// Build outgoing JSON to DHT
-			JsonOut outgoing = new JsonOut();
-			RequestPubMessage pubMsg = new RequestPubMessage();
-			OutValue outVal = new OutValue();
-			outVal.setTopic("output_dev2");
-			outVal.setMessage(toDhtString); // Responses
-			pubMsg.setValue(outVal);
-			outgoing.setRequestPubMessage(pubMsg);
-			Gson gsonOut = new Gson();
-			String jsonOut = gsonOut.toJson(outgoing);
-
-			System.out.println("Outgoing JSON: " + jsonOut);
-			return (jsonOut);
-		}
-
-		// String userInput = bufferRead.readLine();
-		// return userInput;
-		return null; // Sent as response to DHT
-		// } catch (IOException e) {
-		// throw new RuntimeException(e);
-		// }
-	}
-
-	@OnClose
-	public void onClose(Session session, CloseReason closeReason) {
-		System.out.println("Session " + session.getId() + " closed because " + closeReason);
-		latch.countDown();
-	}
-
-	// Print function
-
-	/**
-	 * Convert a CoAP response to a textual representation.
-	 * 
-	 * @param resp the response
-	 * @return a textual representation
-	 */
-	public static String responseToText(CoapResponse resp) {
-		StringBuilder sb = new StringBuilder();
-		Response response = resp.advanced();
-
-		sb.append("CoAP Response. ");
-		sb.append(String.format("MID: %d. ", response.getMID()));
-		sb.append(String.format("Token: %s. ", response.getTokenString()));
-		sb.append(String.format("Type: %s. ", response.getType()));
-		ResponseCode code = response.getCode();
-		sb.append(String.format("Status: %s - %s. ", code, code.name()));
-		Long rtt = response.getApplicationRttNanos();
-		if (response.getOffloadMode() != null) {
-			if (rtt != null) {
-				sb.append(String.format("RTT: %d ms", TimeUnit.NANOSECONDS.toMillis(rtt)));
-			}
-			sb.append("(offloaded). ");
-		} else {
-			sb.append(String.format("Options: %s: ", response.getOptions()));
-			if (rtt != null) {
-				sb.append(String.format("RTT: %d ms. ", TimeUnit.NANOSECONDS.toMillis(rtt)));
-			}
-			sb.append(String.format("Payload: %d Bytes. ", response.getPayloadSize()));
-			if (response.getPayloadSize() > 0
-					&& MediaTypeRegistry.isPrintable(response.getOptions().getContentFormat())) {
-				sb.append("Payload: " + response.getPayloadString());
-			}
-		}
-
-		return sb.toString();
 	}
 
 }

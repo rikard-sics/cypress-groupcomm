@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2023, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -374,65 +374,22 @@ public class Tools {
 	}
 
 	/**
-	 * Wait for a connection to the DHT before proceeding
-	 *
-	 * @param dhtWebsocketUri the URI of the WebSocket interface for the DHT
-	 * @return true when the connection succeeds
-	 */
-	public static boolean waitForDht(String dhtWebsocketUri) {
-		int waitTime = 0;
-		int maxWait = 10 * 1000;
-
-		Socket soc = null;
-		URI dhtUri = URI.create(dhtWebsocketUri);
-
-		int count = 0;
-		while (soc == null) {
-			try {
-				System.out.print("Attempting to reach DHT at: " + dhtWebsocketUri + " ...");
-				if (count % 2 == 0) {
-					System.out.print(".");
-				}
-				System.out.println("");
-
-				count++;
-				Thread.sleep(waitTime);
-				if (waitTime < maxWait) {
-					waitTime += 1000;
-				}
-
-				soc = new Socket(dhtUri.getHost(), dhtUri.getPort());
-			} catch (Exception e) {
-				// DHT is unavailable currently
-			}
-		}
-
-		try {
-			soc.close();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		System.out.println("DHT is available.");
-		return true;
-	}
-
-	/**
 	 * Wait for a connection to the MySQL database before proceeding
 	 *
 	 * @param dbUri the URI of the MySQL database
 	 * @return true when the connection succeeds
 	 */
-	public static boolean waitForDb(String dbUri) {
+	public static boolean waitForDb(String dbConnString) {
 		int waitTime = 0;
 		int maxWait = 10 * 1000;
 
 		Socket soc = null;
-		URI dhtUri = URI.create(dbUri);
+		URI dbUri = URI.create(dbConnString);
 
 		int count = 0;
 		while (soc == null) {
 			try {
-				System.out.print("Attempting to reach MySQL database at: " + dbUri + " ...");
+				System.out.print("Attempting to reach MySQL database at: " + dbConnString + " ...");
 				if (count % 2 == 0) {
 					System.out.print(".");
 				}
@@ -444,7 +401,7 @@ public class Tools {
 					waitTime += 1000;
 				}
 
-				soc = new Socket(dhtUri.getHost(), dhtUri.getPort());
+				soc = new Socket(dbUri.getHost(), dbUri.getPort());
 			} catch (Exception e) {
 				// MySQL database is currently unavailable
 			}

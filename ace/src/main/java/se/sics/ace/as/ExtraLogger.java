@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2023, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -31,10 +31,6 @@
  *******************************************************************************/
 package se.sics.ace.as;
 
-import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-
 
 /**
  * Handles connection establishment and sending of log messages.
@@ -44,13 +40,8 @@ public class ExtraLogger {
 
 	private static boolean loggingEnabled = true;
 
-	private static final String LOG_TOPIC_NAME = "CYPRESS:Log";
-	private static final String LOG_TOPIC_UUID = "Log";
-
-	private static final int LOG_MAX_LEN = 200;
-
 	/**
-	 * Sends a logging message to the DHT
+	 * Print a logging message
 	 * 
 	 * @param type the type
 	 * @param priority the priority
@@ -61,7 +52,7 @@ public class ExtraLogger {
 	 */
 	static public void printLog(String type, String priority, String category, String device, String message) {
 
-		// Return if DHT logging is not used
+		// Return if extra logging is not used
 		if (!loggingEnabled) {
 			return;
 		}
@@ -73,7 +64,7 @@ public class ExtraLogger {
 	}
 
 	/**
-	 * Enable or disable logging to the DHT
+	 * Enable or disable extra logging
 	 * 
 	 * @param logging true/false
 	 */
@@ -84,8 +75,8 @@ public class ExtraLogger {
 	public static class Const {
 
 	    /**
-	     * Enums for DHT logging levels
-	     */
+		 * Enums for logging levels
+		 */
 	    public static String TYPE_INFO = "info";
 	    public static String TYPE_WARNING = "warning";
 	    public static String TYPE_ERROR = "error";

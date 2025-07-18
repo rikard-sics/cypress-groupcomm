@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2023, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -115,10 +115,6 @@ public class OscoreAsRsClient {
 	// Multicast IP for Group B
 	static final InetAddress groupB_multicastIP = new InetSocketAddress("224.0.1.192", 0).getAddress();
 
-	// Default URI for DHT WebSocket connection. Can be changed using command
-	// line arguments.
-	private static String dhtWebsocketUri = "ws://localhost:3000/ws";
-
 	static HashMapCtxDB db = new HashMapCtxDB();
 
 	// OSCORE Context shared between Client and AS
@@ -162,9 +158,6 @@ public class OscoreAsRsClient {
 			e.printStackTrace();
 		}
 
-		// Usage of DHT for controlling the client
-		boolean useDht = false;
-
 		// Set member name, AS and GM to use from command line arguments
 		String memberName = "Client1";
 		int delay = 0;
@@ -180,21 +173,6 @@ public class OscoreAsRsClient {
 				AS_HOST = new URI(args[i + 1]).getHost();
 				AS_PORT = new URI(args[i + 1]).getPort();
 				i++;
-			} else if (args[i].toLowerCase().endsWith("-dht") || args[i].toLowerCase().endsWith("-usedht")) {
-				useDht = true;
-
-				// Check if a WebSocket URI for the DHT is also indicated
-				URI parsed = null;
-				try {
-					parsed = new URI(args[i + 1]);
-				} catch (URISyntaxException | ArrayIndexOutOfBoundsException e) {
-					// No URI indicated
-				}
-				if (parsed != null) {
-					dhtWebsocketUri = parsed.toString();
-					i++;
-				}
-
 			} else if (args[i].toLowerCase().endsWith("-delay")) {
 				delay = Integer.parseInt(args[i + 1]);
 				i++;
@@ -215,11 +193,6 @@ public class OscoreAsRsClient {
 		// Explicitly enable the OSCORE Stack
 		if (CoapEndpoint.isDefaultCoapStackFactorySet() == false) {
 			OSCoreCoapStackFactory.useAsDefault(db);
-		}
-
-		// Wait for DHT to become available
-		if (useDht) {
-			Tools.waitForDht(dhtWebsocketUri);
 		}
 
 		// Wait for Authorization Server to become available
@@ -321,7 +294,7 @@ public class OscoreAsRsClient {
 		// derived context
 		try {
 			if (memberName.equals("Client1") || memberName.equals("Client2")) {
-				GroupOscoreClient.start(derivedCtx, multicastIP, memberName, useDht, dhtWebsocketUri);
+				GroupOscoreClient.start(derivedCtx, multicastIP, memberName);
 			} else {
 				GroupOscoreServer.start(derivedCtx, multicastIP);
 			}
@@ -804,7 +777,7 @@ public class OscoreAsRsClient {
 	 * Print help message with valid command line arguments
 	 */
 	private static void printHelp() {
-		System.out.println("Usage: [ -name Name ] [ -gm URI ] [ -as URI ] [-delay Seconds ] [ -dht {URI} ] [ -help ]");
+		System.out.println("Usage: [ -name Name ] [ -gm URI ] [ -as URI ] [-delay Seconds ] [ -help ]");
 
 		System.out.println("Options:");
 
