@@ -14,7 +14,7 @@
  *    Bosch Software Innovations - initial creation
  *    Rikard Höglund (RISE)
  ******************************************************************************/
-package se.sics.prototype.apps;
+package se.sics.prototype.groupapps;
 
 import java.io.File;
 import java.net.Inet6Address;

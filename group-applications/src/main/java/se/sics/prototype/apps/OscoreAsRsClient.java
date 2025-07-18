@@ -75,6 +75,8 @@ import se.sics.ace.client.GetToken;
 import se.sics.ace.coap.client.OSCOREProfileRequests;
 import se.sics.ace.coap.client.OSCOREProfileRequestsGroupOSCORE;
 import se.sics.ace.oscore.GroupOSCOREInputMaterialObjectParameters;
+import se.sics.prototype.groupapps.GroupOscoreClient;
+import se.sics.prototype.groupapps.GroupOscoreServer;
 import se.sics.prototype.support.KeyStorage;
 import se.sics.prototype.support.Tools;
 
