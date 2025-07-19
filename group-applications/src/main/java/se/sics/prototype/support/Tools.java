@@ -173,17 +173,42 @@ public class Tools {
 
 		AlgorithmID alg = null;
 		AlgorithmID kdf = null;
+		AlgorithmID algGroupEnc = null;
+		AlgorithmID algKeyAgreement = null;
 		AlgorithmID algCountersign = null;
+		boolean pairwiseMode = true;
 		try {
-			alg = AlgorithmID.FromCBOR(keyMap.get(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.alg)));
-			kdf = AlgorithmID.FromCBOR(keyMap.get(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.hkdf)));
-			algCountersign = AlgorithmID
-					.FromCBOR(keyMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.sign_alg)));
+
+			if (keyMap.ContainsKey((CBORObject.FromObject(OSCOREInputMaterialObjectParameters.alg)))) {
+				alg = AlgorithmID.FromCBOR(keyMap.get(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.alg)));
+			} else {
+				pairwiseMode = false;
+			}
+
+			if (keyMap.ContainsKey((CBORObject.FromObject(OSCOREInputMaterialObjectParameters.hkdf)))) {
+				kdf = AlgorithmID.FromCBOR(keyMap.get(CBORObject.FromObject(OSCOREInputMaterialObjectParameters.hkdf)));
+			}
+
+			if (keyMap.ContainsKey((CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.sign_alg)))) {
+				algCountersign = AlgorithmID
+						.FromCBOR(keyMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.sign_alg)));
+			}
+
+			if (keyMap.ContainsKey((CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.gp_enc_alg)))) {
+				algGroupEnc = AlgorithmID.FromCBOR(
+						keyMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.gp_enc_alg)));
+			}
+
+			if (keyMap.ContainsKey((CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.ecdh_alg)))) {
+				algKeyAgreement = AlgorithmID
+						.FromCBOR(keyMap.get(CBORObject.FromObject(GroupOSCOREInputMaterialObjectParameters.ecdh_alg)));
+			}
 		} catch (CoseException e1) {
 			System.err.println("Failed to parse crypto params in join response: " + e1.toString());
 		}
 
-		GroupCtx commonCtx = new GroupCtx(ms, salt, alg, kdf, idContext, algCountersign, gmPubKey);
+		GroupCtx commonCtx = new GroupCtx(ms, salt, alg, kdf, idContext, algCountersign, algGroupEnc, algKeyAgreement, gmPubKey);
+		commonCtx.setUsePairwiseMode(pairwiseMode);
 
 		try {
 			System.out.println("Adding Sender CTX for: " + Utils.toHexString(sid) + " "

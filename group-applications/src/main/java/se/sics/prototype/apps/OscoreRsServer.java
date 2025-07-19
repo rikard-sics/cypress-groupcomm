@@ -482,8 +482,8 @@ public class OscoreRsServer {
 				gmKeyAgreementKeyPairs, gmKeyAgreementPublicAuthCred, myScopes, valid);
 
 		// Create the OSCORE Group(s)
-		if (!OSCOREGroupCreation(groupName, signKeyCurve, ecdhKeyCurve))
-			return;
+		// if (!OSCOREGroupCreation(groupName, signKeyCurve, ecdhKeyCurve))
+		// return;
 
 		rs = new CoapServer();
 		rs.add(hello);
@@ -518,6 +518,7 @@ public class OscoreRsServer {
 		ai.close();
 		new File(testpath + "tokens.json").delete();
 	}
+
 
 	private static void setGroupManagerKeyPairs() {
 
@@ -570,7 +571,7 @@ public class OscoreRsServer {
 
 	}
 
-
+	// TODO: Remove?
 	private static boolean OSCOREGroupCreation(String groupName, int signKeyCurve, int ecdhKeyCurve)
 			throws CoseException, Exception {
 		// Create the OSCORE group

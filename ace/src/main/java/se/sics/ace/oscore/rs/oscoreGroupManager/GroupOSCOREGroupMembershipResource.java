@@ -56,6 +56,7 @@ import org.eclipse.californium.cose.AlgorithmID;
 import org.eclipse.californium.cose.CoseException;
 import org.eclipse.californium.cose.KeyKeys;
 import org.eclipse.californium.cose.OneKey;
+import org.postgresql.core.Utils;
 
 import se.sics.ace.AceException;
 import se.sics.ace.Constants;
@@ -260,7 +261,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
             responseMap.Add(GroupcommParameters.KDCCHALLENGE, rsnonce);
             TokenRepository.getInstance().setRsnonce(subject, Base64.getEncoder().encodeToString(rsnonce));
             byte[] responsePayload = responseMap.EncodeToBytes();
-        	exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
+			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
         					 responsePayload,
         					 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
         	return;
@@ -271,7 +272,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
     	byte[] requestPayload = exchange.getRequestPayload();
     	
     	if(requestPayload == null) {
-    		exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
+			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
     						 "A payload must be present");
     		return;
     	}
@@ -369,7 +370,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
     	// The payload of the join request must be a CBOR Map
     	if (!joinRequest.getType().equals(CBORType.Map)) {
     		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();
-    		exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
+			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
     						 errorResponsePayload,
     						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
     		return;
@@ -392,7 +393,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
     	// Scope must be included for joining OSCORE groups
     	if (scope == null) {
     		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();
-    		exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
+			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
     						 errorResponsePayload,
     						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
     		return;
@@ -400,7 +401,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
     	// Scope must be wrapped in a binary string for joining OSCORE groups
     	if (!scope.getType().equals(CBORType.ByteString)) {
     		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();
-    		exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
+			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
     						 errorResponsePayload,
     						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
     		return;
@@ -412,7 +413,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
     	// Invalid scope format for joining OSCORE groups
     	if (!cborScope.getType().equals(CBORType.Array)) {
     		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();
-    		exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
+			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
     						 errorResponsePayload,
     						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
     		return;
@@ -421,7 +422,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
     	// Invalid scope format for joining OSCORE groups
     	if (cborScope.size() != 2) {
     		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();
-    		exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
+			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
     						 errorResponsePayload,
     						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
     		return;
@@ -435,7 +436,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
   	  		// The group name in 'scope' is not pertinent for this group-membership resource
   	  		if (!groupName.equals(this.getName())) {
         		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();
-  				exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
+				exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
   								 errorResponsePayload,
   								 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
   				return;
@@ -444,7 +445,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
   	  	// Invalid scope format for joining OSCORE groups
   	  	else {
     		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();
-  	  		exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
+			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
   	  				 		 errorResponsePayload,
   	  						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
     		return;
@@ -461,7 +462,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
     		// Invalid format of roles
     		if (roleSet < 0) {
         		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();
-  	  			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
+				exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
   	  							 errorResponsePayload,
   	  							 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
         		return;
@@ -469,7 +470,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
  	  		// Invalid combination of roles
     		if(!GroupcommParameters.getValidGroupOSCORERoleCombinations().contains(roleSet)) {
         		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();
-					exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
+				exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
 									 errorResponsePayload,
 									 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
 					return;
@@ -498,7 +499,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
     	// Invalid format of roles
   	  	else {
     		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();
-  	  		exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
+			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
   	  						 errorResponsePayload,
   	  						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
     		return;
@@ -537,7 +538,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
 		// A client nonce must be included for proof-of-possession for joining OSCORE groups
     	if (cnonce == null) {
     		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();
-    		exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorResponsePayload,
+			exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorResponsePayload,
     						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
     		return;
     	}
@@ -545,7 +546,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
     	// The client nonce must be wrapped in a binary string for joining OSCORE groups
     	if (!cnonce.getType().equals(CBORType.ByteString)) {
     		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();
-    		exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorResponsePayload,
+			exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorResponsePayload,
     						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
     		return;
         }
@@ -560,7 +561,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
     		// Invalid format of 'get_creds'
     		if (!getCreds.getType().equals(CBORType.Array) && !getCreds.equals(CBORObject.Null)) {
         		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();
-    			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
+				exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
     							 errorResponsePayload,
     							 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
         		return;
@@ -576,7 +577,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
         			 getCreds.get(2).size() != 0) {
             		
             		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();
-        			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
+					exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
         							 errorResponsePayload,
         							 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
             		return;
@@ -593,7 +594,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
     					!GroupcommParameters.getValidGroupOSCORERoleCombinations().contains(getCreds.get(1).get(i).AsInt32())) {
     					
                 		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();
-            			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
+						exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
             							 errorResponsePayload,
             							 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
                 		return;
@@ -654,7 +655,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
     		
     	}
     	if (clientCred == null && (roleSet != (1 << GroupcommParameters.GROUP_OSCORE_MONITOR))) {
-    		exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
+			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
     						 "A public key was neither provided nor found as already stored");
     		return;
     	}
@@ -666,7 +667,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
     		boolean valid = false;
     		
     		if (clientCred.getType() != CBORType.ByteString) {
-        		exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
+				exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
 						 			 "The parameter 'client_cred' must be a CBOR byte string");
         		return;
     		}
@@ -681,7 +682,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
     		            valid = true;
     		        }
     		        else {
-    	        		exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
+					exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
 					 			 "Invalid format of authentication credential");
     	        		return;
     		        }
@@ -693,7 +694,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
     		            // TODO
     		        }
     		        else {
-    	        		exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
+					exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
 					 			 "Invalid format of authentication credential");
     	        		return;
     		        }
@@ -704,19 +705,19 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
     		            // TODO
     		        }
     		        else {
-    	        		exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
+					exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
 					 			 "Invalid format of authentication credential");
     	        		return;
     		        }
     		        break;
     		    default:
-	        		exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
+				exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
 				 			 "Invalid format of authentication credential");
 	        		return;
     		}
     		if (publicKey == null ||  valid == false) {
         		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();
-        		exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorResponsePayload,
+				exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorResponsePayload,
         						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
         		return;
     		}
@@ -744,7 +745,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
             			errorResponseMap.Add(Constants.PROBLEM_DETAIL_KEY_TITLE, GroupcommErrors.DESCRIPTION[GroupcommErrors.INCOMPATIBLE_CRED]);
             			
                 		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();
-                		exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
+					exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
                 						 errorResponsePayload,
                 						 Constants.APPLICATION_CONCISE_PROBLEM_DETAILS_CBOR);
             			return;
@@ -772,7 +773,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
 						errorResponseMap.Add(Constants.PROBLEM_DETAIL_KEY_TITLE, GroupcommErrors.DESCRIPTION[GroupcommErrors.INCOMPATIBLE_CRED]);
 						
                 		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();
-                		exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
+					exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
                 						 errorResponsePayload,
                 						 Constants.APPLICATION_CONCISE_PROBLEM_DETAILS_CBOR);
                 		
@@ -790,7 +791,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
         	// A client PoP evidence must be included
         	if (clientPopEvidence == null) {
         		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();
-        		exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorResponsePayload,
+				exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorResponsePayload,
         						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
         		return;
         	}
@@ -798,7 +799,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
         	// The client PoP evidence must be wrapped in a binary string
         	if (!clientPopEvidence.getType().equals(CBORType.ByteString)) {
         		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();
-        		exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorResponsePayload,
+				exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorResponsePayload,
         						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
         		return;
             }
@@ -858,7 +859,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
                 	errorResponseMap.Add(Constants.PROBLEM_DETAIL_KEY_TITLE, GroupcommErrors.DESCRIPTION[GroupcommErrors.INVALID_POP_EVIDENCE]);
                 	
                 	byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();
-                	exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
+					exchange.respond(CoAP.ResponseCode.BAD_REQUEST,
                 					 errorResponsePayload,
                 					 Constants.APPLICATION_CONCISE_PROBLEM_DETAILS_CBOR);
                 	
@@ -1119,7 +1120,6 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
     	System.arraycopy(serializedGMNonceCBOR, 0, popInput, offset, serializedGMNonceCBOR.length);
     	
 		byte[] gmSignature = Util.computeSignature(signKeyCurve, gmPrivKey, popInput);
-    	
     	if (gmSignature != null) {
     	    joinResponse.Add(GroupcommParameters.KDC_CRED_VERIFY, gmSignature);
     	}

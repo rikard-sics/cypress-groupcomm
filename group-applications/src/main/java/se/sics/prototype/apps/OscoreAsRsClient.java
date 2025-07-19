@@ -63,6 +63,7 @@ import org.eclipse.californium.oscore.OSCoreCtxDB;
 import org.eclipse.californium.oscore.group.GroupCtx;
 import org.eclipse.californium.oscore.group.MultiKey;
 import org.junit.Assert;
+import org.postgresql.core.Utils;
 
 import com.upokecenter.cbor.CBORObject;
 import com.upokecenter.cbor.CBORType;
@@ -429,7 +430,7 @@ public class OscoreAsRsClient {
 
 		// Nonce from the GM, to use together with a local nonce to prove
 		// possession of the private key
-		byte[] gm_nonce = rsPayload.get(CBORObject.FromObject(Constants.KDCCHALLENGE)).GetByteString();
+		byte[] nonce_server = rsPayload.get(CBORObject.FromObject(Constants.KDCCHALLENGE)).GetByteString();
 
 		// Group OSCORE specific values for the countersignature
 		CBORObject signParamsExpected = CBORObject.NewArray();
@@ -527,13 +528,14 @@ public class OscoreAsRsClient {
 		}
 
 		byte[] authCred = null;
+		byte[] cnonce = null;
 		if (provideAuthCreds) {
 
 			// This should never happen, if the Group Manager has provided
 			// 'kdc_challenge' in the Token POST response,
 			// or the joining node has computed N_S differently (e.g. through a
 			// TLS exporter)
-			if (gm_nonce == null) {
+			if (nonce_server == null) {
 				Assert.fail("Error: the component N_S of the PoP evidence challence is null");
 			}
 
@@ -578,9 +580,9 @@ public class OscoreAsRsClient {
 			requestPayload.Add(GroupcommParameters.CLIENT_CRED, CBORObject.FromObject(authCred));
 
 			// Add the nonce for PoP of the Client's private key
-			byte[] cnonce = new byte[8];
+			cnonce = new byte[8];
 			new SecureRandom().nextBytes(cnonce);
-			requestPayload.Add(Constants.CNONCE, cnonce);
+			requestPayload.Add(GroupcommParameters.CNONCE, cnonce);
 
 			// Add the signature computed over (scope | rsnonce | cnonce), using
 			// the Client's private key
@@ -588,14 +590,14 @@ public class OscoreAsRsClient {
 			PrivateKey privKey = cKeyPair.AsPrivateKey();
 
 			byte[] serializedScopeCBOR = CBORObject.FromObject(byteStringScope).EncodeToBytes();
-			byte[] serializedGMNonceCBOR = CBORObject.FromObject(gm_nonce).EncodeToBytes();
+			byte[] serializedRSNonceCBOR = CBORObject.FromObject(nonce_server).EncodeToBytes();
 			byte[] serializedCNonceCBOR = CBORObject.FromObject(cnonce).EncodeToBytes();
-			byte[] dataToSign = new byte[serializedScopeCBOR.length + serializedGMNonceCBOR.length
+			byte[] dataToSign = new byte[serializedScopeCBOR.length + serializedRSNonceCBOR.length
 					+ serializedCNonceCBOR.length];
 			System.arraycopy(serializedScopeCBOR, 0, dataToSign, offset, serializedScopeCBOR.length);
 			offset += serializedScopeCBOR.length;
-			System.arraycopy(serializedGMNonceCBOR, 0, dataToSign, offset, serializedGMNonceCBOR.length);
-			offset += serializedGMNonceCBOR.length;
+			System.arraycopy(serializedRSNonceCBOR, 0, dataToSign, offset, serializedRSNonceCBOR.length);
+			offset += serializedRSNonceCBOR.length;
 			System.arraycopy(serializedCNonceCBOR, 0, dataToSign, offset, serializedCNonceCBOR.length);
 
 			byte[] clientSignature = Util.computeSignature(signKeyCurve, privKey, dataToSign);
@@ -691,13 +693,22 @@ public class OscoreAsRsClient {
 
 		PublicKey gmPublicKey = gmPublicKeyRetrieved.AsPublicKey();
 
-		byte[] gmNonce = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_NONCE)).GetByteString();
+		byte[] nonce_kdc = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_NONCE)).GetByteString();
 
 		CBORObject gmPopEvidence = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED_VERIFY));
 		byte[] rawGmPopEvidence = gmPopEvidence.GetByteString();
 
-		// Invalid Client's PoP signature
-		if (!Util.verifySignature(signKeyCurve, gmPublicKey, gmNonce, rawGmPopEvidence)) {
+		// Check KDF_CRED_VERIFY
+		int offset = 0;
+		byte[] serializedCNonceCBOR = CBORObject.FromObject(cnonce).EncodeToBytes();
+		byte[] serializedGMNonceCBOR = CBORObject.FromObject(nonce_kdc).EncodeToBytes();
+		byte[] popInput = new byte[serializedCNonceCBOR.length + serializedGMNonceCBOR.length];
+		System.arraycopy(serializedCNonceCBOR, 0, popInput, offset, serializedCNonceCBOR.length);
+		offset += serializedCNonceCBOR.length;
+		System.arraycopy(serializedGMNonceCBOR, 0, popInput, offset, serializedGMNonceCBOR.length);
+		offset += serializedGMNonceCBOR.length;
+
+		if (!Util.verifySignature(signKeyCurve, gmPublicKey, popInput, rawGmPopEvidence)) {
 			Assert.fail("Invalid GM's PoP evidence");
 		}
 
