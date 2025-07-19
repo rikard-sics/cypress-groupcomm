@@ -21,8 +21,8 @@ package org.eclipse.californium.oscore;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.eclipse.californium.core.coap.CoAP.Code;
@@ -48,7 +48,7 @@ public class OptionJuggle {
 	 * The logger
 	 */
 	private static final Logger LOGGER = LoggerFactory.getLogger(OptionJuggle.class);
-	
+
 	private static List<Integer> allEOptions = populateAllEOptions();
 
 	private static List<Integer> populateAllEOptions() {
@@ -85,6 +85,7 @@ public class OptionJuggle {
 		boolean hasProxyScheme = options.hasProxyScheme();
 		boolean hasMaxAge = options.hasMaxAge();
 		boolean hasObserve = options.hasObserve();
+		boolean hasEdhoc = options.hasEdhoc(); // EDHOC
 
 		OptionSet ret = new OptionSet();
 
@@ -125,6 +126,11 @@ public class OptionJuggle {
 			ret.setOscore(oscore);
 		}
 
+		// EDHOC
+		if (hasEdhoc) {
+			ret.setEdhoc();
+		}
+
 		return ret;
 	}
 
@@ -145,11 +151,12 @@ public class OptionJuggle {
 			case OptionNumberRegistry.URI_PORT:
 			case OptionNumberRegistry.PROXY_SCHEME:
 			case OptionNumberRegistry.OSCORE:
+			case OptionNumberRegistry.EDHOC: // EDHOC
 				// do not encrypt
 				break;
 			case OptionNumberRegistry.PROXY_URI:
 				// create Uri-Path and Uri-Query
-				String proxyUri = ((StringOption)o).getStringValue();
+				String proxyUri = ((StringOption) o).getStringValue();
 				proxyUri = proxyUri.replace("coap://", "");
 				proxyUri = proxyUri.replace("coaps://", "");
 				int i = proxyUri.indexOf('/');
@@ -193,7 +200,7 @@ public class OptionJuggle {
 	public static OptionSet discardEOptions(OptionSet optionSet) {
 		LOGGER.trace("Removing inner only E options from the outer options");
 		OptionSet result = new OptionSet();
-		
+
 		for (Option opt : optionSet.asSortedList()) {
 			if (!allEOptions.contains(opt.getNumber())) {
 				result.addOption(opt);
@@ -253,6 +260,7 @@ public class OptionJuggle {
 	 * @return request with new code.
 	 */
 	private static Request requestWithNewCode(Request request, Code code) {
+
 		Request newRequest = new Request(code);
 		copy(newRequest, request);
 		newRequest.setUserContext(request.getUserContext());
@@ -291,7 +299,7 @@ public class OptionJuggle {
 		newMessage.setDuplicate(oldMessage.isDuplicate());
 		newMessage.setNanoTimestamp(oldMessage.getNanoTimestamp());
 	}
-	
+
 	/**
 	 * Merges two optionSets and returns the merge. Priority is eOptions
 	 * 
@@ -323,30 +331,30 @@ public class OptionJuggle {
 		if (oscoreOption.length == 0) {
 			return null;
 		}
-	
+
 		// Parse the flag byte
 		byte flagByte = oscoreOption[0];
 		int n = flagByte & 0x07;
 		int k = flagByte & 0x08;
 		int h = flagByte & 0x10;
-	
+
 		byte[] kid = null;
 		int index = 1;
-	
+
 		// Partial IV
 		index += n;
-	
+
 		// KID Context
 		if (h != 0) {
 			int s = oscoreOption[index];
 			index += s + 1;
 		}
-	
+
 		// KID
 		if (k != 0) {
 			kid = Arrays.copyOfRange(oscoreOption, index, oscoreOption.length);
 		}
-	
+
 		return kid;
 	}
 
@@ -402,7 +410,7 @@ public class OptionJuggle {
 
 		// Parsing Partial IV
 		if (n > 0) {
-				partialIV = Arrays.copyOfRange(oscoreOption, index, index + n);
+			partialIV = Arrays.copyOfRange(oscoreOption, index, index + n);
 		} else {
 			return -1;
 		}
@@ -436,4 +444,5 @@ public class OptionJuggle {
 		}
 
 	}
+
 }

@@ -60,6 +60,16 @@ import org.eclipse.californium.core.coap.option.StringOption;
  * means that user may want to check if option actually exists before naively
  * trying to use these values.
  * <p>
+ * <b>NOTE:</b> since 4.0 the behavior of {@link #addOption(Option)} for
+ * non-repeatable {@link Option}s has changed. Adding more than one
+ * {@code critical} {@link Option}s fails now with
+ * {@link IllegalArgumentException}. And adding more than one {@code elective}
+ * {@link Option} is now silently ignored. Both has been change to comply with
+ * <a href="https://www.rfc-editor.org/rfc/rfc7252#section-5.4.1" target=
+ * "_blank">RFC7252, 5.4.1 Options - Critical/Elective</a> and
+ * <a href="https://www.rfc-editor.org/rfc/rfc7252#section-5.4.5" target=
+ * "_blank">RFC7252, 5.4.5 Options - Repeatable Options</a>.
+ * <p>
  * This class is not thread-safe.
  * 
  * @see Option
@@ -91,6 +101,7 @@ public final class OptionSet {
 	private IntegerOption observe;
 	private OpaqueOption oscore;
 	private NoResponseOption no_response;
+	private EmptyOption edhoc; // EDHOC
 
 	// Arbitrary options
 	private List<Option> others;
@@ -124,6 +135,7 @@ public final class OptionSet {
 		observe = null;
 		oscore = null;
 		no_response = null;
+		edhoc = null; // EDHOC
 
 		others = null; // new LinkedList<>();
 	}
@@ -161,6 +173,7 @@ public final class OptionSet {
 		observe = origin.observe;
 		oscore = origin.oscore;
 		no_response = origin.no_response;
+		edhoc = origin.edhoc; // EDHOC
 		others = copyList(origin.others);
 	}
 
@@ -190,6 +203,7 @@ public final class OptionSet {
 		observe = null;
 		oscore = null;
 		no_response = null;
+		edhoc = null; // EDHOC
 		clear(others);
 	}
 
@@ -277,6 +291,8 @@ public final class OptionSet {
 	 * @param list the list of options
 	 * @param option the option to add
 	 * @throws NullPointerException if any argument is {@code null}
+	 * @throws IllegalArgumentException if a {@code single/non-repeatable} and
+	 *             {@code critical} options is added more than once.
 	 * @since 4.0
 	 */
 	private static final void addOrdered(List<Option> list, Option option) {
@@ -292,11 +308,12 @@ public final class OptionSet {
 			int cmp = list.get(pos).compareTo(option);
 			if (cmp <= 0) {
 				if (cmp == 0 && option.isSingleValue()) {
-					list.remove(pos);
+					handleAdditionalNonRepeatableOption(option);
+					return;
 				} else {
 					++pos;
+					break;
 				}
-				break;
 			}
 		}
 		list.add(pos, option);
@@ -342,6 +359,36 @@ public final class OptionSet {
 				throw new IllegalArgumentException("List not sorted! " + last + " > " + option);
 			}
 			last = option;
+		}
+	}
+
+	/**
+	 * Handles an additional non-repeatable option.
+	 * <p>
+	 * Adding more than one {@code critical} {@link Option}s fails now with
+	 * {@link IllegalArgumentException}. And adding more than one
+	 * {@code elective} {@link Option} is now silently ignored. Both has been
+	 * change to comply with
+	 * <a href="https://www.rfc-editor.org/rfc/rfc7252#section-5.4.1" target=
+	 * "_blank">RFC7252, 5.4.1 Options - Critical/Elective</a> and
+	 * <a href="https://www.rfc-editor.org/rfc/rfc7252#section-5.4.5" target=
+	 * "_blank">RFC7252, 5.4.5 Options - Repeatable Options</a>.
+	 * 
+	 * @param option additional non-repeatable option
+	 * @throws IllegalArgumentException if the option is {@code critical} or
+	 *             {@code repeatable}.
+	 * @since 4.0
+	 */
+	private static final void handleAdditionalNonRepeatableOption(Option option) {
+		if (!option.isSingleValue()) {
+			throw new IllegalArgumentException(option.getDefinition() + " is no non-repeatable option.");
+		}
+		if (option.isCritical()) {
+			throw new IllegalArgumentException(
+					option.getDefinition() + " critical single option provided multiple times.");
+		} else {
+			// "unrecognized options of class "elective" MUST be silently
+			// ignored."
 		}
 	}
 
@@ -1646,6 +1693,37 @@ public final class OptionSet {
 		return this;
 	}
 
+	// EDHOC
+	/**
+	 * Checks if the EDHOC option is present.
+	 * 
+	 * @return {@code true}, if present
+	 */
+	public boolean hasEdhoc() {
+		return edhoc != null;
+	}
+
+	// EDHOC
+	/**
+	 * Sets the EDHOC option.
+	 * 
+	 * @return this OptionSet for a fluent API.
+	 */
+	public OptionSet setEdhoc() {
+		edhoc = StandardOptionRegistry.EDHOC.create();
+		return this;
+	}
+
+	/**
+	 * Removes the EDHOC option.
+	 * 
+	 * @return this OptionSet for a fluent API.
+	 */
+	public OptionSet removeEdhoc() {
+		this.edhoc = null;
+		return this;
+	}
+
 	/**
 	 * Gets the NoResponse option.
 	 * 
@@ -1842,6 +1920,8 @@ public final class OptionSet {
 			options.add(accept);
 		if (location_query_list != null)
 			options.addAll(location_query_list);
+		if (hasEdhoc()) // EDHOC
+			options.add(edhoc);
 		if (hasBlock2())
 			options.add(block2);
 		if (hasBlock1())
@@ -1879,7 +1959,9 @@ public final class OptionSet {
 	 * 
 	 * @param options list with options to add
 	 * @return this OptionSet for a fluent API.
-	 * @since 3.0
+	 * @throws IllegalArgumentException if a {@code single/non-repeatable} and
+	 *             {@code critical} options is added more than once.
+	 * @since 4.0 (added IllegalArgumentException)
 	 */
 	public OptionSet addOptions(Option... options) {
 		if (options != null) {
@@ -1895,7 +1977,9 @@ public final class OptionSet {
 	 * 
 	 * @param options list with options to add
 	 * @return this OptionSet for a fluent API.
-	 * @since 3.0
+	 * @throws IllegalArgumentException if a {@code single/non-repeatable} and
+	 *             {@code critical} options is added more than once.
+	 * @since 4.0 (added IllegalArgumentException)
 	 */
 	public OptionSet addOptions(List<Option> options) {
 		if (options != null) {
@@ -1914,6 +1998,9 @@ public final class OptionSet {
 	 * @param option the Option object to add
 	 * @return this OptionSet for a fluent API.
 	 * @throws NullPointerException if option is {@code null}.
+	 * @throws IllegalArgumentException if a {@code single/non-repeatable} and
+	 *             {@code critical} options is added more than once.
+	 * @since 4.0 (added IllegalArgumentException)
 	 */
 	public OptionSet addOption(Option option) {
 		if (option == null) {
@@ -1924,15 +2011,27 @@ public final class OptionSet {
 			getIfMatch().add((OpaqueOption) option);
 			break;
 		case OptionNumberRegistry.URI_HOST:
+			if (uri_host != null) {
+				handleAdditionalNonRepeatableOption(option);
+				return this;
+			}
 			uri_host = (StringOption) option;
 			break;
 		case OptionNumberRegistry.ETAG:
 			getETags().add((OpaqueOption) option);
 			break;
 		case OptionNumberRegistry.IF_NONE_MATCH:
+			if (if_none_match != null) {
+				handleAdditionalNonRepeatableOption(option);
+				return this;
+			}
 			if_none_match = (EmptyOption) option;
 			break;
 		case OptionNumberRegistry.URI_PORT:
+			if (uri_port != null) {
+				handleAdditionalNonRepeatableOption(option);
+				return this;
+			}
 			uri_port = (IntegerOption) option;
 			break;
 		case OptionNumberRegistry.LOCATION_PATH:
@@ -1942,46 +2041,101 @@ public final class OptionSet {
 			getUriPath().add((StringOption) option);
 			break;
 		case OptionNumberRegistry.CONTENT_FORMAT:
+			if (content_format != null) {
+				handleAdditionalNonRepeatableOption(option);
+				return this;
+			}
 			content_format = (IntegerOption) option;
 			break;
 		case OptionNumberRegistry.MAX_AGE:
+			if (max_age != null) {
+				handleAdditionalNonRepeatableOption(option);
+				return this;
+			}
 			max_age = (IntegerOption) option;
 			break;
 		case OptionNumberRegistry.URI_QUERY:
 			getUriQuery().add((StringOption) option);
 			break;
 		case OptionNumberRegistry.ACCEPT:
+			if (accept != null) {
+				handleAdditionalNonRepeatableOption(option);
+				return this;
+			}
 			accept = (IntegerOption) option;
 			break;
 		case OptionNumberRegistry.LOCATION_QUERY:
 			getLocationQuery().add((StringOption) option);
 			break;
 		case OptionNumberRegistry.PROXY_URI:
+			if (proxy_uri != null) {
+				handleAdditionalNonRepeatableOption(option);
+				return this;
+			}
 			proxy_uri = (StringOption) option;
 			break;
 		case OptionNumberRegistry.PROXY_SCHEME:
+			if (proxy_scheme != null) {
+				handleAdditionalNonRepeatableOption(option);
+				return this;
+			}
 			proxy_scheme = (StringOption) option;
 			break;
 		case OptionNumberRegistry.BLOCK1:
+			if (block1 != null) {
+				handleAdditionalNonRepeatableOption(option);
+				return this;
+			}
 			block1 = (BlockOption) option;
 			break;
 		case OptionNumberRegistry.BLOCK2:
+			if (block2 != null) {
+				handleAdditionalNonRepeatableOption(option);
+				return this;
+			}
 			block2 = (BlockOption) option;
 			break;
 		case OptionNumberRegistry.SIZE1:
+			if (size1 != null) {
+				handleAdditionalNonRepeatableOption(option);
+				return this;
+			}
 			size1 = (IntegerOption) option;
 			break;
 		case OptionNumberRegistry.SIZE2:
+			if (size2 != null) {
+				handleAdditionalNonRepeatableOption(option);
+				return this;
+			}
 			size2 = (IntegerOption) option;
 			break;
 		case OptionNumberRegistry.OBSERVE:
+			if (observe != null) {
+				handleAdditionalNonRepeatableOption(option);
+				return this;
+			}
 			observe = (IntegerOption) option;
 			break;
 		case OptionNumberRegistry.OSCORE:
+			if (oscore != null) {
+				handleAdditionalNonRepeatableOption(option);
+				return this;
+			}
 			oscore = (OpaqueOption) option;
 			break;
 		case OptionNumberRegistry.NO_RESPONSE:
+			if (no_response != null) {
+				handleAdditionalNonRepeatableOption(option);
+				return this;
+			}
 			no_response = (NoResponseOption) option;
+			break;
+		case OptionNumberRegistry.EDHOC: // EDHOC
+			if (edhoc != null) {
+				handleAdditionalNonRepeatableOption(option);
+				return this;
+			}
+			edhoc = (EmptyOption) option;
 			break;
 		default:
 			addOrdered(getOthersInternal(), option);
@@ -1995,6 +2149,9 @@ public final class OptionSet {
 	 * @param option the Option object to add
 	 * @return this OptionSet for a fluent API.
 	 * @throws NullPointerException if option is {@code null}.
+	 * @throws IllegalArgumentException if a {@code single/non-repeatable} and
+	 *             {@code critical} options is added more than once.
+	 * @since 4.0 (added IllegalArgumentException)
 	 */
 	public OptionSet addOtherOption(Option option) {
 		if (option == null) {

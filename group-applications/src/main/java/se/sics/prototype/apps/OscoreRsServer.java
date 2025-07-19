@@ -479,7 +479,7 @@ public class OscoreRsServer {
 		Resource groupOSCOREGroupCollection = new GroupOSCOREGroupCollectionResource(groupCollectionResourcePath,
 				groupOSCORERootGroupMembership, groupIdPrefixSize, usedGroupIdPrefixes, prefixMonitorNames,
 				nodeNameSeparator, existingGroupInfo, gmSigningKeyPairs, gmSigningPublicAuthCred,
-				gmKeyAgreementKeyPairs, gmKeyAgreementPublicAuthCred, myScopes, valid);
+				gmKeyAgreementKeyPairs, gmKeyAgreementPublicAuthCred, myScopes, valid, "coap://as.example.com/token");
 
 		// Create the OSCORE Group(s)
 		// if (!OSCOREGroupCreation(groupName, signKeyCurve, ecdhKeyCurve))

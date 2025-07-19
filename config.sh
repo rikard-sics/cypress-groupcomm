@@ -15,9 +15,9 @@ mvn -P eclipse eclipse:eclipse
 cd ..
 
 # Disabled for now
-#cd edhoc-applications
-#mvn -P eclipse eclipse:eclipse
-#cd ..
+cd edhoc-applications
+mvn -P eclipse eclipse:eclipse
+cd ..
 
 #Check that the ace/db.pwd file exists
 FILE=ace/db.pwd
