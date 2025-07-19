@@ -351,7 +351,7 @@ public class OscoreAdminClient {
 		Assert.assertNotNull(ctxDB.getContext(
 				"coap://" + rsAddr + ":" + portNumberRSnosec + "/" + groupCollectionResourcePath));
 
-		// Send a POST request to /manage to create the first group ====
+		// === Send a POST request to /manage to create the first group ====
 
 		System.out.println();
 		CoapClient c = OSCOREProfileRequests.getClient(
@@ -366,6 +366,59 @@ public class OscoreAdminClient {
 
 		//
 		requestPayloadCbor.Add(GroupcommParameters.GROUP_NAME, CBORObject.FromObject(KeyStorage.newGroupName1));
+		requestPayloadCbor.Add(GroupcommParameters.ACTIVE, CBORObject.True);
+
+		requestPayloadCbor.Add(GroupcommParameters.GROUP_MODE, CBORObject.FromObject(true));
+		requestPayloadCbor.Add(GroupcommParameters.PAIRWISE_MODE, CBORObject.FromObject(false));
+
+		requestPayloadCbor.Add(GroupcommParameters.HKDF, AlgorithmID.HMAC_SHA_256.AsCBOR());
+		requestPayloadCbor.Add(GroupcommParameters.SIGN_ALG, AlgorithmID.EDDSA.AsCBOR());
+		requestPayloadCbor.Add(GroupcommParameters.GP_ENC_ALG, AlgorithmID.AES_CCM_16_64_128.AsCBOR());
+
+		requestPayloadCbor.Add(GroupcommParameters.GROUP_DESCRIPTION, CBORObject.FromObject("The first group."));
+		requestPayloadCbor.Add(GroupcommParameters.MAX_STALE_SETS, CBORObject.FromObject(5));
+		requestPayloadCbor.Add(GroupcommParameters.GID_REUSE, CBORObject.FromObject(false));
+
+		requestPayloadCbor.Add(GroupcommParameters.AS_URI,
+				CBORObject.FromObject("coap://" + AS_HOST + ":" + AS_PORT + "/token"));
+
+		//
+
+		adminReq.setPayload(requestPayloadCbor.EncodeToBytes());
+
+		CoapResponse adminRes = c.advanced(adminReq);
+		printResponseFromRS(adminRes.advanced());
+		System.out.println("group-configuration resource at: " + adminRes.getOptions().getLocationPath());
+
+		Assert.assertNotNull(adminRes);
+		Assert.assertEquals(ResponseCode.CREATED, adminRes.getCode());
+		Assert.assertNotNull(adminRes.getPayload());
+
+		CBORObject responsePayloadCbor = CBORObject.DecodeFromBytes(adminRes.getPayload());
+		Assert.assertNotNull(responsePayloadCbor);
+
+		Assert.assertEquals(CBORType.Map, responsePayloadCbor.getType());
+		System.out.println("Response code: " + adminRes.advanced().getCode());
+		if (adminRes.getOptions().hasContentFormat()) {
+			System.out.println("Response Content-Format: " + adminRes.getOptions().getContentFormat());
+		}
+		System.out.println("Response payload:");
+		Util.prettyPrintCborMap(responsePayloadCbor);
+		Assert.assertEquals(3, responsePayloadCbor.size());
+
+		// === Send a POST request to /manage to create the second group ====
+
+		System.out.println();
+		c = OSCOREProfileRequests.getClient(new InetSocketAddress(
+				"coap://" + rsAddr + ":" + portNumberRSnosec + "/" + groupCollectionResourcePath, GM_PORT), ctxDB);
+
+		adminReq = new Request(CoAP.Code.POST);
+		adminReq.getOptions().setOscore(new byte[0]);
+		adminReq.getOptions().setContentFormat(Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
+		requestPayloadCbor = CBORObject.NewMap();
+
+		//
+		requestPayloadCbor.Add(GroupcommParameters.GROUP_NAME, CBORObject.FromObject(KeyStorage.newGroupName2));
 		requestPayloadCbor.Add(GroupcommParameters.ACTIVE, CBORObject.True);
 
 		requestPayloadCbor.Add(GroupcommParameters.GROUP_MODE, CBORObject.FromObject(true));
@@ -390,7 +443,7 @@ public class OscoreAdminClient {
 
 		adminReq.setPayload(requestPayloadCbor.EncodeToBytes());
 
-		CoapResponse adminRes = c.advanced(adminReq);
+		adminRes = c.advanced(adminReq);
 		printResponseFromRS(adminRes.advanced());
 		System.out.println("group-configuration resource at: " + adminRes.getOptions().getLocationPath());
 
@@ -398,7 +451,7 @@ public class OscoreAdminClient {
 		Assert.assertEquals(ResponseCode.CREATED, adminRes.getCode());
 		Assert.assertNotNull(adminRes.getPayload());
 
-		CBORObject responsePayloadCbor = CBORObject.DecodeFromBytes(adminRes.getPayload());
+		responsePayloadCbor = CBORObject.DecodeFromBytes(adminRes.getPayload());
 		Assert.assertNotNull(responsePayloadCbor);
 
 		Assert.assertEquals(CBORType.Map, responsePayloadCbor.getType());
