@@ -163,6 +163,8 @@ public class OscoreRsServer {
 	private static byte[] key128_token = { (byte) 0xa1, (byte) 0xa2, (byte) 0xa3, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
 			0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10 };
 
+	static String testpath = "temp-";
+
 	static {
 		CoapConfig.register();
 	}
@@ -354,11 +356,12 @@ public class OscoreRsServer {
 		auds.add("aud1"); // Simple test audience
 		auds.add("aud2"); // OSCORE Group Manager (This audience expects scopes
 							// as Byte Strings)
+		auds.add("rs2");
 		valid = new GroupOSCOREValidator(auds, myScopes, rootGroupMembershipResourcePath, groupCollectionResourcePath);
 
 		// Include this audience in the list of audiences recognized as OSCORE
 		// Group Managers
-		valid.setGMAudiences(Collections.singleton("aud2"));
+		valid.setGMAudiences(Collections.singleton("rs2"));
 
 		// Include the root group-membership resource for Group OSCORE.
 		valid.setGroupMembershipResources(Collections.singleton(rootGroupMembershipResourcePath));
@@ -384,9 +387,9 @@ public class OscoreRsServer {
 		// Include the group-collection resource for Group OSCORE.
 		valid.setGroupAdminResources(Collections.singleton(groupCollectionResourcePath));
 
-		String rsId = "rs1";
+		String rsId = "rs2";
 
-		String tokenFile = TestConfig.testFilePath + "tokens.json";
+		String tokenFile = testpath + "tokens.json";
 		// Delete lingering old token files
 		new File(tokenFile).delete();
 
@@ -396,7 +399,7 @@ public class OscoreRsServer {
 
 		// Set up the inner Authz-Info library
 		// Changed this OscoreAuthzInfo->OscoreAuthzInfoGroupOSCORE
-		ai = new OscoreAuthzInfoGroupOSCORE(Collections.singletonList("TestAS"), new KissTime(), null, rsId, valid, ctx,
+		ai = new OscoreAuthzInfoGroupOSCORE(Collections.singletonList("AS"), new KissTime(), null, rsId, valid, ctx,
 				tokenFile, valid, false);
 
 		// Provide the authz-info endpoint with the set of existing OSCORE
@@ -514,7 +517,7 @@ public class OscoreRsServer {
 	public static void stop() throws AceException {
 		rs.stop();
 		ai.close();
-		new File(TestConfig.testFilePath + "tokens.json").delete();
+		new File(testpath + "tokens.json").delete();
 	}
 
 	private static void setGroupManagerKeyPairs() {

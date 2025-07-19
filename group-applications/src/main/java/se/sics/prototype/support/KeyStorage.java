@@ -44,6 +44,12 @@ import org.eclipse.californium.elements.util.StringUtil;
 public class KeyStorage {
 
 	/**
+	 * Group names for the two new groups to be created
+	 */
+	public static String newGroupName1 = "G1000";
+	public static String newGroupName2 = "G2000";
+
+	/**
 	 * Hold specific Sender IDs for the 2 clients
 	 */
 	public static Map<String, Bytes> clientIds;

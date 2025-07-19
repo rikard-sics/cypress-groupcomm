@@ -276,7 +276,8 @@ public class AuthzInfo implements Endpoint, AutoCloseable {
 	            map.Add(Constants.ERROR_DESCRIPTION, "Token issuer unknown");
 	            LOGGER.log(Level.INFO, "Message processing aborted: "
 	                    + "Token issuer unknown");
-	            return msg.failReply(Message.FAIL_UNAUTHORIZED, map);
+
+				return msg.failReply(Message.FAIL_UNAUTHORIZED, map);
 	        }
 	    }
 	    
@@ -313,6 +314,7 @@ public class AuthzInfo implements Endpoint, AutoCloseable {
             map.Add(Constants.ERROR_DESCRIPTION, "Audience does not apply");
             LOGGER.log(Level.INFO, "Message processing aborted: "
                     + "Audience does not apply");
+
 	        return msg.failReply(Message.FAIL_FORBIDDEN, map);
 	    }
 

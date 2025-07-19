@@ -49,6 +49,7 @@ import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
 import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.network.CoapEndpoint;
+import org.eclipse.californium.cose.AlgorithmID;
 import org.eclipse.californium.cose.OneKey;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.oscore.HashMapCtxDB;
@@ -273,7 +274,7 @@ public class OscoreAdminClient {
 		CBORObject cborArrayScope = CBORObject.NewArray();
 
 		cborArrayEntry = CBORObject.NewArray();
-		groupNamePattern = new String("G1000");
+		groupNamePattern = new String(KeyStorage.newGroupName1);
 		myPermissions = 0;
 		myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST);
 		myPermissions = Util.addGroupOSCOREAdminPermission(myPermissions,
@@ -287,7 +288,7 @@ public class OscoreAdminClient {
 		cborArrayScope.Add(cborArrayEntry);
 
 		cborArrayEntry = CBORObject.NewArray();
-		groupNamePattern = new String("G2000");
+		groupNamePattern = new String(KeyStorage.newGroupName2);
 		cborArrayEntry.Add(groupNamePattern);
 		cborArrayEntry.Add(myPermissions);
 		cborArrayScope.Add(cborArrayEntry);
@@ -339,22 +340,73 @@ public class OscoreAdminClient {
 			int portNumberRSnosec, OSCoreCtxDB ctxDB, OneKey cKeyPair, Response responseFromAS, byte[] clientCcsBytes)
 			throws Exception {
 
-		// Send a POST request to /manage
+		// Upload token
+
+		Response rsRes = OSCOREProfileRequests.postToken("coap://" + rsAddr + ":" + portNumberRSnosec + "/authz-info",
+				responseFromAS, ctxDB, usedRecipientIds);
+
+		printResponseFromRS(rsRes);
+
+		// Check that the OSCORE context has been created:
+		Assert.assertNotNull(ctxDB.getContext(
+				"coap://" + rsAddr + ":" + portNumberRSnosec + "/" + groupCollectionResourcePath));
+
+		// Send a POST request to /manage to create the first group
 
 		System.out.println();
 		CoapClient c = OSCOREProfileRequests.getClient(
-				new InetSocketAddress("coap://" + GM_HOST + ":" + GM_PORT + "/" + groupCollectionResourcePath, GM_PORT),
+				new InetSocketAddress("coap://" + rsAddr + ":" + portNumberRSnosec + "/" + groupCollectionResourcePath,
+						GM_PORT),
 				ctxDB);
 
 		Request adminReq = new Request(CoAP.Code.POST);
 		adminReq.getOptions().setOscore(new byte[0]);
 		adminReq.getOptions().setContentFormat(Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
 		CBORObject requestPayloadCbor = CBORObject.NewMap();
-		requestPayloadCbor.Add(GroupcommParameters.GROUP_NAME, CBORObject.FromObject("gp1"));
+
+		//
+		requestPayloadCbor.Add(GroupcommParameters.GROUP_NAME, CBORObject.FromObject(KeyStorage.newGroupName1));
 		requestPayloadCbor.Add(GroupcommParameters.ACTIVE, CBORObject.True);
+
+		requestPayloadCbor.Add(GroupcommParameters.GROUP_MODE, CBORObject.FromObject(true));
+		requestPayloadCbor.Add(GroupcommParameters.PAIRWISE_MODE, CBORObject.FromObject(true));
+
+		requestPayloadCbor.Add(GroupcommParameters.ALG, AlgorithmID.AES_CCM_16_64_128);
+
+		/*
+		 * requestPayloadCbor.Add(GroupcommParameters.HKDF,
+		 * AlgorithmID.HKDF_HMAC_SHA_256);
+		 * requestPayloadCbor.Add(GroupcommParameters.SIGN_ALG,
+		 * AlgorithmID.EDDSA);
+		 * requestPayloadCbor.Add(GroupcommParameters.GP_ENC_ALG,
+		 * AlgorithmID.AES_CCM_16_64_128);
+		 * requestPayloadCbor.Add(GroupcommParameters.ECDH_ALG,
+		 * AlgorithmID.ECDH_SS_HKDF_256);
+		 * 
+		 * 
+		 * requestPayloadCbor.Add(GroupcommParameters.GROUP_DESCRIPTION,
+		 * CBORObject.FromObject("The first group."));
+		 * requestPayloadCbor.Add(GroupcommParameters.MAX_STALE_SETS,
+		 * CBORObject.FromObject(5));
+		 * requestPayloadCbor.Add(GroupcommParameters.GID_REUSE,
+		 * CBORObject.FromObject(false));
+		 * requestPayloadCbor.Add(GroupcommParameters.DET_REQ,
+		 * CBORObject.FromObject(false));
+		 * 
+		 * requestPayloadCbor.Add(GroupcommParameters.JOINING_URI, CBORObject
+		 * .FromObject("coap://" + rsAddr + ":" + portNumberRSnosec + "/" +
+		 * groupCollectionResourcePath));
+		 * requestPayloadCbor.Add(GroupcommParameters.AS_URI,
+		 * CBORObject.FromObject("coap://" + AS_HOST + ":" + AS_PORT +
+		 * "/token"));
+		 */
+
+		//
+
 		adminReq.setPayload(requestPayloadCbor.EncodeToBytes());
 
 		CoapResponse adminRes = c.advanced(adminReq);
+		printResponseFromRS(adminRes.advanced());
 
 		Assert.assertNotNull(adminRes);
 		Assert.assertEquals(ResponseCode.CREATED, adminRes.getCode());
@@ -395,6 +447,28 @@ public class OscoreAdminClient {
 			int read = System.in.read(new byte[2]);
 		} catch (IOException e) {
 			e.printStackTrace();
+		}
+	}
+
+	private static void printResponseFromRS(Response res) {
+		if (res != null) {
+			System.out.println("*** Response from the RS *** ");
+			System.out.print(res.getCode().codeClass + ".0" + res.getCode().codeDetail);
+			System.out.println(" " + res.getCode().name());
+
+			if (res.getPayload() != null) {
+
+				if (res.getOptions().getContentFormat() == Constants.APPLICATION_ACE_CBOR
+						|| res.getOptions().getContentFormat() == Constants.APPLICATION_ACE_GROUPCOMM_CBOR) {
+					CBORObject resCBOR = CBORObject.DecodeFromBytes(res.getPayload());
+					System.out.println(resCBOR.toString());
+				} else {
+					System.out.println(new String(res.getPayload()));
+				}
+			}
+		} else {
+			System.out.println("*** The response from the RS is null! ");
+			System.out.print("No response received");
 		}
 	}
 
