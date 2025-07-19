@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2023 RISE and others.
+ * Copyright (c) 2025 RISE and others.
  * 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
@@ -35,19 +35,8 @@ import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.elements.config.Configuration;
 import org.glassfish.tyrus.client.ClientManager;
 
-import com.google.gson.Gson;
-
 import jakarta.websocket.ClientEndpoint;
-import jakarta.websocket.CloseReason;
 import jakarta.websocket.DeploymentException;
-import jakarta.websocket.OnClose;
-import jakarta.websocket.OnMessage;
-import jakarta.websocket.OnOpen;
-import jakarta.websocket.Session;
-import se.sics.edhocapps.json.incoming.JsonIn;
-import se.sics.edhocapps.json.outgoing.JsonOut;
-import se.sics.edhocapps.json.outgoing.OutValue;
-import se.sics.edhocapps.json.outgoing.RequestPubMessage;
 
 /**
  * 
@@ -56,8 +45,6 @@ import se.sics.edhocapps.json.outgoing.RequestPubMessage;
  */
 @ClientEndpoint
 public class Phase0Client {
-
-	private static final int COAP_PORT = Configuration.getStandard().get(CoapConfig.COAP_PORT) + 10;
 
 	private static CountDownLatch latch;
 	static int HANDLER_TIMEOUT = 1000;
@@ -69,9 +56,16 @@ public class Phase0Client {
 	private static String dhtWebsocketUri = "ws://localhost:3000/ws";
 
 	// Set accordingly
-	private static String serverUri = "coap://localhost" + ":" + COAP_PORT;
+	private static String serverUri;
 	private final static String hello1 = "/light";
 	private static String lightURI = serverUri + hello1;
+
+	private static int COAP_PORT;
+
+	static {
+		CoapConfig.register();
+	}
+
 
 	/**
 	 * Initiates and starts a simple CoAP-only client
@@ -79,6 +73,9 @@ public class Phase0Client {
 	 * @param args command line arguments
 	 */
 	public static void main(String[] args) {
+
+		COAP_PORT = Configuration.getStandard().get(CoapConfig.COAP_PORT) + 10;
+		serverUri = "coap://localhost" + ":" + COAP_PORT;
 
 		System.out.println("Starting Phase0Client...");
 
@@ -90,21 +87,6 @@ public class Phase0Client {
 				// Set URI for light resource
 				lightURI = serverUri + hello1;
 				i++;
-
-			} else if (args[i].toLowerCase().endsWith("-dht") || args[i].toLowerCase().endsWith("-usedht")) {
-				useDht = true;
-
-				// Check if a WebSocket URI for the DHT is also indicated
-				URI parsed = null;
-				try {
-					parsed = new URI(args[i + 1]);
-				} catch (URISyntaxException | ArrayIndexOutOfBoundsException e) {
-					// No URI indicated
-				}
-				if (parsed != null) {
-					dhtWebsocketUri = parsed.toString();
-					i++;
-				}
 
 			} else if (args[i].toLowerCase().endsWith("-help")) {
 				Support.printHelp();
@@ -273,83 +255,6 @@ public class Phase0Client {
 		public void onError() {
 			System.err.println("error");
 		}
-	}
-
-	// DHT related methods
-
-	@OnOpen
-	public void onOpen(Session session) {
-		System.out.println("--- Connected " + session.getId());
-		// try {
-		// session.getBasicRemote().sendText("start");
-		// } catch (IOException e) {
-		// throw new RuntimeException(e);
-		// }
-	}
-
-	@OnMessage
-	public String onMessage(String message, Session session) {
-		// Topic to listen for messages on
-		String topic = "command_co";
-
-		// Do nothing if message does not contain the topic
-		if (message.contains(topic) == false) {
-			return null;
-		}
-
-		System.out.println("--- Received " + message);
-
-		// Parse incoming JSON string from DHT
-		Gson gson = new Gson();
-		JsonIn parsed = gson.fromJson(message, JsonIn.class);
-
-		String topicField = parsed.getVolatile().getValue().getTopic();
-		String messageField = parsed.getVolatile().getValue().getMessage();
-
-		// Device 1 filter
-		if (topicField.equals(topic)) {
-			System.out.println("Filter matched message (CoAP client)!");
-
-			// Send group request and compile responses
-			ArrayList<CoapResponse> responsesList = sendRequest(messageField);
-			String responsesString = "";
-			String toDhtString = "";
-			for (int i = 0; i < responsesList.size(); i++) {
-				responsesString += Utils.prettyPrint(responsesList.get(i)) + "\n|\n";
-				toDhtString += "Response #" + (i + 1) + ": [" + Support.responseToText(responsesList.get(i)) + "] ";
-			}
-			responsesString = responsesString.replace(".", "").replace(":", " ").replace("=", "-").replace("[", "")
-					.replace("]", "").replace("/", "-").replace("\"", "").replace(".", "").replace("{", "")
-					.replace("}", "");
-			System.out.println("Compiled responses: " + responsesString);
-
-			// Build outgoing JSON to DHT
-			JsonOut outgoing = new JsonOut();
-			RequestPubMessage pubMsg = new RequestPubMessage();
-			OutValue outVal = new OutValue();
-			outVal.setTopic("output_co");
-			outVal.setMessage(toDhtString); // Responses
-			pubMsg.setValue(outVal);
-			outgoing.setRequestPubMessage(pubMsg);
-			Gson gsonOut = new Gson();
-			String jsonOut = gsonOut.toJson(outgoing);
-
-			System.out.println("Outgoing JSON: " + jsonOut);
-			return (jsonOut);
-		}
-
-		// String userInput = bufferRead.readLine();
-		// return userInput;
-		return null; // Sent as response to DHT
-		// } catch (IOException e) {
-		// throw new RuntimeException(e);
-		// }
-	}
-
-	@OnClose
-	public void onClose(Session session, CloseReason closeReason) {
-		System.out.println("Session " + session.getId() + " closed because " + closeReason);
-		latch.countDown();
 	}
 
 }

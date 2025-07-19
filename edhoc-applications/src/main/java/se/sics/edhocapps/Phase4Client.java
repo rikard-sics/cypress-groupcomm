@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2023 RISE and others.
+ * Copyright (c) 2025 RISE and others.
  * 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
@@ -20,7 +20,6 @@
 package se.sics.edhocapps;
 
 import java.io.File;
-import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -29,7 +28,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Scanner;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
 
 import org.eclipse.californium.core.CoapClient;
 import org.eclipse.californium.core.CoapHandler;
@@ -44,23 +42,9 @@ import org.eclipse.californium.elements.config.Configuration.DefinitionsProvider
 import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.oscore.HashMapCtxDB;
-import org.glassfish.tyrus.client.ClientManager;
-
-import com.google.gson.Gson;
 import com.upokecenter.cbor.CBORObject;
 
 import jakarta.websocket.ClientEndpoint;
-import jakarta.websocket.CloseReason;
-import jakarta.websocket.DeploymentException;
-import jakarta.websocket.OnClose;
-import jakarta.websocket.OnMessage;
-import jakarta.websocket.OnOpen;
-import jakarta.websocket.Session;
-import se.sics.edhocapps.json.incoming.JsonIn;
-import se.sics.edhocapps.json.outgoing.JsonOut;
-import se.sics.edhocapps.json.outgoing.OutValue;
-import se.sics.edhocapps.json.outgoing.RequestPubMessage;
-
 import org.eclipse.californium.cose.OneKey;
 import org.eclipse.californium.edhoc.AppProfile;
 import org.eclipse.californium.edhoc.ClientEdhocExecutor;
@@ -77,8 +61,6 @@ import org.eclipse.californium.edhoc.Util;
  */
 @ClientEndpoint
 public class Phase4Client {
-
-	private static final int COAP_PORT = Configuration.getStandard().get(CoapConfig.COAP_PORT) + 14;
 
 	private static final File CONFIG_FILE = new File("Californium.properties");
 	private static final String CONFIG_HEADER = "Californium CoAP Properties file for Fileclient";
@@ -113,7 +95,7 @@ public class Phase4Client {
 
 	// The trust model used to validate authentication credentials of other
 	// peers
-	private static int trustModel = Constants.TRUST_MODEL_STRICT;
+	private static int trustModel = Constants.TRUST_MODEL_LEARNING;
 
 	// Authentication credentials of this peer
 	//
@@ -189,10 +171,10 @@ public class Phase4Client {
 	};
 
 	// URI of the EDHOC resource
-	private static String edhocURI = "coap://localhost" + ":" + COAP_PORT + "/.well-known/edhoc";
+	private static String edhocURI;
 
 	// URI of the application resource to target, following an EDHOC execution
-	private static String appRequestURI = "coap://localhost" + ":" + COAP_PORT + "/light";
+	private static String appRequestURI;
 
 	// CoAP method to use for the application request sent after the EDHOC
 	// execution
@@ -209,7 +191,7 @@ public class Phase4Client {
 	// combined request,
 	// conveying both EDHOC message_3 and the first OSCORE-protected application
 	// request
-	private static String edhocCombinedRequestURI = "coap://localhost" + ":" + COAP_PORT + "/light";
+	private static String edhocCombinedRequestURI;
 
 	// CoAP method to use for the application request sent within an EDHOC +
 	// OSCORE combined request
@@ -222,13 +204,6 @@ public class Phase4Client {
 	// Payload of the application request sent within an EDHOC + OSCORE combined
 	// request. It can be null
 	private static byte[] combinedRequestAppPayload = null;
-
-	// Latch for DHT connection
-	private static CountDownLatch latch;
-
-	// Default URI for DHT WebSocket connection. Can be changed using command
-	// line arguments.
-	private static String dhtWebsocketUri = "ws://localhost:3000/ws";
 
 	// Request timeout
 	static int HANDLER_TIMEOUT = 1000;
@@ -244,6 +219,12 @@ public class Phase4Client {
 	// Set of information for this EDHOC endpoint
 	static EdhocEndpointInfo edhocEndpointInfo;
 
+	private static int COAP_PORT;
+
+	static {
+		CoapConfig.register();
+	}
+
 	/**
 	 * Application entry point.
 	 * 
@@ -251,10 +232,14 @@ public class Phase4Client {
 	 */
 	public static void main(String args[]) {
 
+		COAP_PORT = Configuration.getStandard().get(CoapConfig.COAP_PORT) + 14;
+		edhocURI = "coap://localhost" + ":" + COAP_PORT + "/.well-known/edhoc";
+		appRequestURI = "coap://localhost" + ":" + COAP_PORT + "/light";
+		edhocCombinedRequestURI = "coap://localhost" + ":" + COAP_PORT + "/light";
+
 		System.out.println("Starting Phase4Client...");
 
 		// Parse command line arguments
-		boolean useDht = false;
 		for (int i = 0; i < args.length; i++) {
 			if (args[i].equals("-server")) {
 				String serverUri = args[i + 1];
@@ -272,21 +257,6 @@ public class Phase4Client {
 				edhocCombinedRequestURI = serverUri + "/light";
 				i++;
 
-			} else if (args[i].toLowerCase().endsWith("-dht") || args[i].toLowerCase().endsWith("-usedht")) {
-				useDht = true;
-
-				// Check if a WebSocket URI for the DHT is also indicated
-				URI parsed = null;
-				try {
-					parsed = new URI(args[i + 1]);
-				} catch (URISyntaxException | ArrayIndexOutOfBoundsException e) {
-					// No URI indicated
-				}
-				if (parsed != null) {
-					dhtWebsocketUri = parsed.toString();
-					i++;
-				}
-
 			} else if (args[i].toLowerCase().endsWith("-help")) {
 				Support.printHelp();
 				System.exit(0);
@@ -296,8 +266,13 @@ public class Phase4Client {
 		Configuration config = Configuration.createWithFile(CONFIG_FILE, CONFIG_HEADER, DEFAULTS);
 		Configuration.setStandard(config);
 
-		// Insert EdDSA security provider
-		Util.installCryptoProvider();
+		// install needed cryptography providers
+		try {
+			org.eclipse.californium.oscore.InstallCryptoProviders.installProvider();
+		} catch (Exception e) {
+			System.err.println("Failed to install cryptography providers.");
+			e.printStackTrace();
+		}
 
 		// Enable EDHOC stack with EDHOC and OSCORE layers
 		EdhocCoapStackFactory.useAsDefault(db, edhocSessions, peerPublicKeys, peerCredentials, usedConnectionIds,
@@ -360,45 +335,8 @@ public class Phase4Client {
 				edhocSessions, usedConnectionIds, supportedCipherSuites, supportedEADs, eadProductionInput, trustModel,
 				db, edhocURI, OSCORE_REPLAY_WINDOW, MAX_UNFRAGMENTED_SIZE, appProfiles);
 
-		// Wait for DHT to become available
-		if (useDht) {
-			Support.waitForDht(dhtWebsocketUri);
-		}
-
 		// Wait for EDHOC Server to become available
 		Support.waitForEdhocServer(edhocURI);
-
-		// Connect to DHT and continously retry if connection is lost
-		while (useDht) {
-			System.out.println("Using DHT");
-
-			latch = new CountDownLatch(1);
-			ClientManager dhtClient = ClientManager.createClient();
-			try {
-				// wss://socketsbay.com/wss/v2/2/demo/
-				URI uri = new URI(dhtWebsocketUri);
-				try {
-					dhtClient.connectToServer(Phase4Client.class, uri);
-				} catch (IOException e) {
-					System.err.println("Failed to connect to DHT using WebSockets");
-					e.printStackTrace();
-				}
-				latch.await();
-			} catch (DeploymentException | URISyntaxException | InterruptedException e) {
-				System.err.println("Error: Failed to connect to DHT");
-				e.printStackTrace();
-			}
-
-			System.err.println("Connection to DHT lost. Retrying...");
-			try {
-				Thread.sleep(5000);
-			} catch (InterruptedException e) {
-				System.err.println("Error: Failed to sleep when reconnecting to DHT");
-				e.printStackTrace();
-			}
-
-			Support.waitForDht(dhtWebsocketUri);
-		}
 
 		// Command line interface
 		Scanner scanner = new Scanner(System.in);
@@ -444,8 +382,8 @@ public class Phase4Client {
 			} else { // If not first, just send a request
 				sendRequest(command);
 			}
-
 		}
+		scanner.close();
 
 		// Below never happens
 
@@ -1367,114 +1305,5 @@ public class Phase4Client {
 		}
 	}
 
-	// DHT related methods
-
-	@OnOpen
-	public void onOpen(Session session) {
-		System.out.println("--- Connected " + session.getId());
-		// try {
-		// session.getBasicRemote().sendText("start");
-		// } catch (IOException e) {
-		// throw new RuntimeException(e);
-		// }
-	}
-
-	@OnMessage
-	public String onMessage(String message, Session session) {
-		// Topic to listen for messages on
-		String topic = "command_ed";
-
-		// Do nothing if message does not contain the topic
-		if (message.contains(topic) == false) {
-			return null;
-		}
-
-		System.out.println("--- Received " + message);
-
-		// Parse incoming JSON string from DHT
-		Gson gson = new Gson();
-		JsonIn parsed = gson.fromJson(message, JsonIn.class);
-
-		String topicField = parsed.getVolatile().getValue().getTopic();
-		String messageField = parsed.getVolatile().getValue().getMessage();
-
-		// Device 1 filter
-		if (topicField.equals(topic)) {
-			System.out.println("Filter matched message (EDHOC client)!");
-
-			// Send group request and compile responses
-
-			// If this is the first command, run EDHOC which internally sends
-			// first request
-			ArrayList<CoapResponse> responsesList = new ArrayList<CoapResponse>();
-			if (hasRunEdhoc == false) {
-
-				// Prepare the EDHOC executor and start EDHOC as Initiator
-
-				// Set optimized request payload
-				combinedRequestAppPayload = messageField.getBytes();
-
-				ClientEdhocExecutor edhocExecutor = new ClientEdhocExecutor();
-				boolean ret = edhocExecutor.startEdhocExchangeAsInitiator(authenticationMethod,
-						peerSupportedCipherSuites, ownIdCreds, edhocEndpointInfo, OSCORE_EDHOC_COMBINED,
-						edhocCombinedRequestURI, combinedRequestAppCode, combinedRequestAppType,
-						combinedRequestAppPayload);
-				if (ret == false) {
-					System.err.println("Key establishment through EDHOC has failed");
-					System.exit(-1);
-				} else {
-					System.out.println("\nEDHOC successfully completed\n");
-				}
-
-				// Save response to optimized request
-				System.out.println("Sent optimized request to: " + edhocCombinedRequestURI);
-				responsesList.add(edhocExecutor.getAppResponseToCombinedRequest());
-
-				hasRunEdhoc = true;
-
-			} else { // If not first, just send a request
-				responsesList = sendRequest(messageField);
-			}
-
-			// Compile responses to send back to DHT
-			String responsesString = "";
-			String toDhtString = "";
-			for (int i = 0; i < responsesList.size(); i++) {
-				responsesString += Utils.prettyPrint(responsesList.get(i)) + "\n|\n";
-				toDhtString += "Response #" + (i + 1) + ": [" + Support.responseToText(responsesList.get(i)) + "] ";
-			}
-			responsesString = responsesString.replace(".", "").replace(":", " ").replace("=", "-").replace("[", "")
-					.replace("]", "").replace("/", "-").replace("\"", "").replace(".", "").replace("{", "")
-					.replace("}", "");
-			System.out.println("Compiled responses: " + responsesString);
-
-			// Build outgoing JSON to DHT
-			JsonOut outgoing = new JsonOut();
-			RequestPubMessage pubMsg = new RequestPubMessage();
-			OutValue outVal = new OutValue();
-			outVal.setTopic("output_ed");
-			outVal.setMessage(toDhtString); // Responses
-			pubMsg.setValue(outVal);
-			outgoing.setRequestPubMessage(pubMsg);
-			Gson gsonOut = new Gson();
-			String jsonOut = gsonOut.toJson(outgoing);
-
-			System.out.println("Outgoing JSON: " + jsonOut);
-			return (jsonOut);
-		}
-
-		// String userInput = bufferRead.readLine();
-		// return userInput;
-		return null; // Sent as response to DHT
-		// } catch (IOException e) {
-		// throw new RuntimeException(e);
-		// }
-	}
-
-	@OnClose
-	public void onClose(Session session, CloseReason closeReason) {
-		System.out.println("Session " + session.getId() + " closed because " + closeReason);
-		latch.countDown();
-	}
 
 }

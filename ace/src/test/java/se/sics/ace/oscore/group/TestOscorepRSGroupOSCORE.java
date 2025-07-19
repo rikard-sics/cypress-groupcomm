@@ -65,7 +65,7 @@ import se.sics.ace.rs.AsRequestCreationHints;
  * 
  * The RS acts as an OSCORE Group Manager.
  * 
- * @author Marco Tiloca and Rikard Hoeglund
+ * @author Marco Tiloca and Rikard Höglund
  *
  */
 public class TestOscorepRSGroupOSCORE {

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2023 RISE and others.
+ * Copyright (c) 2025 RISE and others.
  * 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
@@ -59,8 +59,6 @@ import com.upokecenter.cbor.CBORObject;
  *
  */
 public class Phase1Server extends CoapServer {
-
-	private static final int COAP_PORT = Configuration.getStandard().get(CoapConfig.COAP_PORT) + 11;
 
 	// private static final int COAP_PORT = 5690;
 
@@ -144,15 +142,28 @@ public class Phase1Server extends CoapServer {
 	// The size to consider for MAX_UNFRAGMENTED SIZE
 	private final static int MAX_UNFRAGMENTED_SIZE = 4096;
 
+	private static int COAP_PORT;
+
+	static {
+		CoapConfig.register();
+	}
+
 	/**
 	 * @param args command line arguments
 	 */
 	public static void main(String[] args) {
 
+		COAP_PORT = Configuration.getStandard().get(CoapConfig.COAP_PORT) + 11;
+
 		System.out.println("Phase1Server starting on port: " + COAP_PORT);
 
-		// Insert EdDSA security provider
-		Util.installCryptoProvider();
+		// install needed cryptography providers
+		try {
+			org.eclipse.californium.oscore.InstallCryptoProviders.installProvider();
+		} catch (Exception e) {
+			System.err.println("Failed to install cryptography providers.");
+			e.printStackTrace();
+		}
 
 		// Enable EDHOC stack with EDHOC and OSCORE layers
 		EdhocCoapStackFactory.useAsDefault(db, edhocSessions, peerPublicKeys, peerCredentials, usedConnectionIds,
@@ -260,7 +271,7 @@ public class Phase1Server extends CoapServer {
 
 		// The trust model used to validate authentication credentials of other
 		// peers
-		int trustModel = Constants.TRUST_MODEL_STRICT;
+		int trustModel = Constants.TRUST_MODEL_LEARNING;
 
 		// prepare the set of information for this EDHOC endpoint
 		EdhocEndpointInfo edhocEndpointInfo = new EdhocEndpointInfo(idCreds, creds, keyPairs, peerPublicKeys,

@@ -87,7 +87,7 @@ import se.sics.ace.oscore.OSCOREInputMaterialObjectParameters;
  * a candidate OSCORE group member acting as ACE Client and
  * an OSCORE Group Manager acting as ACE Resource Server.
  * 
- * @author Marco Tiloca and Rikard Hoeglund
+ * @author Marco Tiloca and Rikard Höglund
  *
  */
 public class TestOscorepClient2RSGroupOSCORE {

@@ -63,7 +63,6 @@ import org.eclipse.californium.oscore.OSCoreCtxDB;
 import org.eclipse.californium.oscore.group.GroupCtx;
 import org.eclipse.californium.oscore.group.MultiKey;
 import org.junit.Assert;
-import org.postgresql.core.Utils;
 
 import com.upokecenter.cbor.CBORObject;
 import com.upokecenter.cbor.CBORType;
