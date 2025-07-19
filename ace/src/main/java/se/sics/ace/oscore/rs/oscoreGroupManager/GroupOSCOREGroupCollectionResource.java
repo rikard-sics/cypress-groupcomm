@@ -1199,18 +1199,22 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
     	
     	final int credFmt = groupConfiguration.get(GroupcommParameters.CRED_FMT).AsInt32();
     	
-    	final AlgorithmID gpEncAlg;
+		AlgorithmID gpEncAlg = null;
     	try {
-			gpEncAlg = AlgorithmID.FromCBOR(groupConfiguration.get(GroupcommParameters.GP_ENC_ALG));
+			if (!groupConfiguration.get(GroupcommParameters.GP_ENC_ALG).isNull()) {
+				gpEncAlg = AlgorithmID.FromCBOR(groupConfiguration.get(GroupcommParameters.GP_ENC_ALG));
+			}
 		} catch (CoseException e) {
 			System.err.println("Error when setting the Group Encryption Algorithm for the OSCORE group with name \"" + groupName + "\"");
 			e.printStackTrace();
 			return false;
 		}
     	
-    	final AlgorithmID signAlg;
+		AlgorithmID signAlg = null;
     	try {
-			signAlg = AlgorithmID.FromCBOR(groupConfiguration.get(GroupcommParameters.SIGN_ALG));
+			if (!groupConfiguration.get(GroupcommParameters.SIGN_ALG).isNull()) {
+				signAlg = AlgorithmID.FromCBOR(groupConfiguration.get(GroupcommParameters.SIGN_ALG));
+			}
 		} catch (CoseException e) {
 			System.err.println("Error when setting the Signature Algorithm for the OSCORE group with name \"" + groupName + "\"");
 			e.printStackTrace();
@@ -1219,18 +1223,22 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
     	
     	final CBORObject signParams = groupConfiguration.get(GroupcommParameters.SIGN_PARAMS);
 
-    	final AlgorithmID alg;
+		AlgorithmID alg = null;
     	try {
-			alg = AlgorithmID.FromCBOR(groupConfiguration.get(GroupcommParameters.ALG));
+			if (!groupConfiguration.get(GroupcommParameters.ALG).isNull()) {
+				alg = AlgorithmID.FromCBOR(groupConfiguration.get(GroupcommParameters.ALG));
+			}
 		} catch (CoseException e) {
 			System.err.println("Error when setting the AEAD Algorithm for the OSCORE group with name \"" + groupName + "\"");
 			e.printStackTrace();
 			return false;
 		}
     	
-    	final AlgorithmID ecdhAlg;
+		AlgorithmID ecdhAlg = null;
     	try {
-			ecdhAlg = AlgorithmID.FromCBOR(groupConfiguration.get(GroupcommParameters.ECDH_ALG));
+			if (!groupConfiguration.get(GroupcommParameters.ECDH_ALG).isNull()) {
+				ecdhAlg = AlgorithmID.FromCBOR(groupConfiguration.get(GroupcommParameters.ECDH_ALG));
+			}
 		} catch (CoseException e) {
 			System.err.println("Error when setting the Pairwise Key Agreement Algorithm for the OSCORE group with name \"" + groupName + "\"");
 			e.printStackTrace();

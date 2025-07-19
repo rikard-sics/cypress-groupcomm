@@ -86,7 +86,6 @@ import se.sics.ace.oscore.rs.oscoreGroupManager.GroupOSCORESubResourcePolicies;
 import se.sics.ace.oscore.rs.oscoreGroupManager.GroupOSCORESubResourceStaleSids;
 import se.sics.ace.oscore.rs.oscoreGroupManager.GroupOSCORESubResourceVerifData;
 import se.sics.ace.rs.AsRequestCreationHints;
-import se.sics.prototype.support.TestConfig;
 
 /**
  * A RS for testing the OSCORE profile of ACE (RFC 9203)

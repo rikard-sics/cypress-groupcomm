@@ -97,8 +97,7 @@ public class OscoreAsRsClient {
 
 	/*
 	 * Information: Clients: Server1, Server2, Server3, Server4, Server5,
-	 * Server6, Client1, Client2 Groups: GroupA (aaaaaa570000), GroupB
-	 * (bbbbbb570000)
+	 * Server6, Client1, Client2 Groups: GroupA & GroupB
 	 */
 
 	// Sets the default GM port to use
@@ -216,14 +215,14 @@ public class OscoreAsRsClient {
 		case "Server1":
 		case "Server2":
 		case "Server3":
-			group = "aaaaaa570000";
+			group = KeyStorage.newGroupName1;
 			multicastIP = groupA_multicastIP;
 			break;
 		case "Client2":
 		case "Server4":
 		case "Server5":
 		case "Server6":
-			group = "bbbbbb570000";
+			group = KeyStorage.newGroupName2;
 			multicastIP = groupB_multicastIP;
 			break;
 		default:

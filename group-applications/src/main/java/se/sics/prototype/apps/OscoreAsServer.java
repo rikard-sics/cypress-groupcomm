@@ -156,8 +156,8 @@ public class OscoreAsServer {
 		scopes.add("foobar");
 
 		// Group OSCORE scopes
-		String groupName1 = "aaaaaa570000";
-		String groupName2 = "bbbbbb570000";
+		String groupName1 = KeyStorage.newGroupName1;
+		String groupName2 = KeyStorage.newGroupName2;
 
 		scopes.add(GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":" + groupName1.length() + ":"
 				+ groupName1 + "_requester");

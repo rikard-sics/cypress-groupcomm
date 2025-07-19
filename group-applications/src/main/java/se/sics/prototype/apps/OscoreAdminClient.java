@@ -43,6 +43,7 @@ import java.util.Set;
 
 import org.eclipse.californium.core.CoapClient;
 import org.eclipse.californium.core.CoapResponse;
+import org.eclipse.californium.core.Utils;
 import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
@@ -384,6 +385,8 @@ public class OscoreAdminClient {
 
 		//
 
+		// System.out.println("Request payload to GM: " +
+		// Utils.toHexString(requestPayloadCbor.EncodeToBytes()));
 		adminReq.setPayload(requestPayloadCbor.EncodeToBytes());
 
 		CoapResponse adminRes = c.advanced(adminReq);
@@ -406,6 +409,35 @@ public class OscoreAdminClient {
 		Util.prettyPrintCborMap(responsePayloadCbor);
 		Assert.assertEquals(3, responsePayloadCbor.size());
 
+		String createdGroupName = responsePayloadCbor.get(GroupcommParameters.GROUP_NAME).AsString();
+
+		System.out.println();
+
+		// Send a GET request to /manage/ for the group name of the first group
+		
+		c = OSCOREProfileRequests.getClient(new InetSocketAddress("coap://" + rsAddr + ":" + portNumberRSnosec + "/"
+				+ groupCollectionResourcePath + "/" + createdGroupName, portNumberRSnosec), ctxDB);
+
+		adminReq = new Request(CoAP.Code.GET);
+		adminReq.getOptions().setOscore(new byte[0]);
+
+		adminRes = c.advanced(adminReq);
+
+		Assert.assertNotNull(adminRes);
+		Assert.assertEquals(ResponseCode.CONTENT, adminRes.getCode());
+		Assert.assertNotNull(adminRes.getPayload());
+
+		responsePayloadCbor = CBORObject.DecodeFromBytes(adminRes.getPayload());
+		Assert.assertNotNull(responsePayloadCbor);
+
+		Assert.assertEquals(CBORType.Map, responsePayloadCbor.getType());
+		System.out.println("Response code: " + adminRes.advanced().getCode());
+		if (adminRes.getOptions().hasContentFormat()) {
+			System.out.println("Response Content-Format: " + adminRes.getOptions().getContentFormat());
+		}
+		System.out.println("Response payload:");
+		Util.prettyPrintCborMap(responsePayloadCbor);
+		 
 		// === Send a POST request to /manage to create the second group ====
 
 		System.out.println();
@@ -462,6 +494,31 @@ public class OscoreAdminClient {
 		System.out.println("Response payload:");
 		Util.prettyPrintCborMap(responsePayloadCbor);
 		Assert.assertEquals(3, responsePayloadCbor.size());
+		
+		// Send a GET request to /manage/ for the group name of the second group
+		
+		c = OSCOREProfileRequests.getClient(new InetSocketAddress("coap://" + rsAddr + ":" + portNumberRSnosec + "/"
+				+ groupCollectionResourcePath + "/" + createdGroupName, portNumberRSnosec), ctxDB);
+
+		adminReq = new Request(CoAP.Code.GET);
+		adminReq.getOptions().setOscore(new byte[0]);
+
+		adminRes = c.advanced(adminReq);
+
+		Assert.assertNotNull(adminRes);
+		Assert.assertEquals(ResponseCode.CONTENT, adminRes.getCode());
+		Assert.assertNotNull(adminRes.getPayload());
+
+		responsePayloadCbor = CBORObject.DecodeFromBytes(adminRes.getPayload());
+		Assert.assertNotNull(responsePayloadCbor);
+
+		Assert.assertEquals(CBORType.Map, responsePayloadCbor.getType());
+		System.out.println("Response code: " + adminRes.advanced().getCode());
+		if (adminRes.getOptions().hasContentFormat()) {
+			System.out.println("Response Content-Format: " + adminRes.getOptions().getContentFormat());
+		}
+		System.out.println("Response payload:");
+		Util.prettyPrintCborMap(responsePayloadCbor);
 
 		return true;
 	}
