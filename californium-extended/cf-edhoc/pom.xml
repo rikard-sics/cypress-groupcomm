@@ -39,7 +39,7 @@
             <groupId>net.i2p.crypto</groupId>
 			<artifactId>eddsa</artifactId>
 			<!-- <version>${eddsa.version}</version> -->
-			<version>0.2.0</version>
+			<version>0.3.0</version>
         </dependency>
         <dependency>
 			<groupId>${project.groupId}</groupId>
