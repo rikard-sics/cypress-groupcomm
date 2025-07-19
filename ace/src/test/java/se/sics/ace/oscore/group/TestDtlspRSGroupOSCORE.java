@@ -448,7 +448,7 @@ public class TestDtlspRSGroupOSCORE {
   	    																			 gmKeyAgreementKeyPairs,
   	    																			 gmKeyAgreementPublicAuthCred,
   	    																			 myScopes,
-  	    																			 valid);
+				valid, "coap://as.example.com/token");
   	    
         // Create the OSCORE Group(s)
         if (!OSCOREGroupCreation(groupName, signKeyCurve, ecdhKeyCurve))

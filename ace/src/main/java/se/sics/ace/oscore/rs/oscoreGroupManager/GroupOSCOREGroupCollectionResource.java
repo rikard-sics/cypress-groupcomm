@@ -105,8 +105,6 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
     // For the inner map, the map key is the cryptographic curve, while the map value is the hex string of the authentication credential
     private Map<Integer,  Map<CBORObject, String>> gmKeyAgreementPublicAuthCred;
     
-	private final String asUri = new String("coap://as.example.com/token");
-	
     private final static String rootGroupMembershipResourcePath = "ace-group";
     
     private final static String groupCollectionResourcePath = "manage";
@@ -114,23 +112,32 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
 	private final int maxRandomGroupNameLength = 20;
 	private final int maxRandomGroupNameAttempts = 1000;
 	private final int maxRandomGroupNameAttemptsPerPattern = 50;
-		
+
+	private String asUri = "";
+
 	/**
-     * Constructor
-     * @param resId  the resource identifier
-     * @param groupOSCORERootGroupMembership  the root group-membership resource
-     * @param groupIdPrefixSize  the size in bytes of the Group ID prefixes
-     * @param usedGroupIdPrefixes  the set of currently used Group ID prefixes
-     * @param prefixMonitorNames  initial part of the node name for monitors
-     * @param nodeNameSeparator  for non-monitor members, separator between the two components of the node name
-     * @param existingGroupInfo  the set of information of the existing OSCORE groups
-     * @param gmSigningKeyPairs  the signing key pairs of the Group Manager
-     * @param gmSigningPublicAuthCred  the signing public authentication credentials of the Group Manager
-     * @param gmKeyAgreementKeyPairs  the key agreement key pairs of the Group Manager
-     * @param gmKeyAgreementPublicAuthCred  the key agreement public authentication credentials of the Group Manager
-     * @param myScopes  the scopes of this OSCORE Group Manager
-     * @param valid  the access validator of this OSCORE Group Manager
-     */
+	 * Constructor
+	 * 
+	 * @param resId the resource identifier
+	 * @param groupOSCORERootGroupMembership the root group-membership resource
+	 * @param groupIdPrefixSize the size in bytes of the Group ID prefixes
+	 * @param usedGroupIdPrefixes the set of currently used Group ID prefixes
+	 * @param prefixMonitorNames initial part of the node name for monitors
+	 * @param nodeNameSeparator for non-monitor members, separator between the
+	 *            two components of the node name
+	 * @param existingGroupInfo the set of information of the existing OSCORE
+	 *            groups
+	 * @param gmSigningKeyPairs the signing key pairs of the Group Manager
+	 * @param gmSigningPublicAuthCred the signing public authentication
+	 *            credentials of the Group Manager
+	 * @param gmKeyAgreementKeyPairs the key agreement key pairs of the Group
+	 *            Manager
+	 * @param gmKeyAgreementPublicAuthCred the key agreement public
+	 *            authentication credentials of the Group Manager
+	 * @param myScopes the scopes of this OSCORE Group Manager
+	 * @param valid the access validator of this OSCORE Group Manager
+	 * @param asUri Uri of the AS Token resource
+	 */
     public GroupOSCOREGroupCollectionResource(String resId,
     										  Resource groupOSCORERootGroupMembership,
     										  final int groupIdPrefixSize,
@@ -143,7 +150,7 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
     										  Map<CBORObject, String> gmKeyAgreementKeyPairs,
     										  Map<Integer,  Map<CBORObject, String>> gmKeyAgreementPublicAuthCred,
     										  Map<String, Map<String, Set<Short>>> myScopes,
-    										  GroupOSCOREValidator valid) {
+			GroupOSCOREValidator valid, String asUri) {
         
         // set resource identifier
         super(resId);
