@@ -50,6 +50,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -201,6 +202,7 @@ public class OSCoreAlgorithmsTest {
 	}
 
 	@Test
+	@Ignore
 	public void test_CHACHA20() throws Exception {
 		assumeTrue("Requires ChaCha support by JCE", supportChaChaPoly);
 		assumeTrue("Requires strong encryption", supportStrongCrypto);

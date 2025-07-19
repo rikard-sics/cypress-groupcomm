@@ -11,8 +11,6 @@ import com.upokecenter.cbor.CBORType;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.junit.Assert;
-
 /**
  * The Signer class is used to implement the COSE_Signer object.
  * This provides the information dealing with a single signature for the SignMessage class.
@@ -197,8 +195,6 @@ public class Signer extends Attribute {
         AlgorithmID alg = AlgorithmID.FromCBOR(findAttribute(HeaderKeys.Algorithm));
         
         rgbSignature = SignCommon.computeSignature(alg, obj.EncodeToBytes(), cnKey);   
-        
-		Assert.assertNotNull("rgbBodyProtected is null!", rgbBodyProtected);
 
         ProcessCounterSignatures();
     }

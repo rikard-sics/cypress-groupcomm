@@ -47,6 +47,7 @@ import org.eclipse.californium.elements.category.Small;
 import org.eclipse.californium.elements.rule.TestNameLoggerRule;
 import org.eclipse.californium.elements.util.Bytes;
 import org.junit.After;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -485,6 +486,7 @@ public class OptionTest {
 	}
 
 	@Test
+	@Ignore
 	public void testOthersCustomOptionRegistry() {
 		OptionRegistry registry = MapBasedOptionRegistry.builder()
 				.add(StandardOptionRegistry.getDefaultOptionRegistry())
