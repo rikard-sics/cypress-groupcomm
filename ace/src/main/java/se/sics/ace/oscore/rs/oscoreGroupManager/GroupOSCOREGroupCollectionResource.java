@@ -515,22 +515,21 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
     		requestCBOR.getKeys().contains(GroupcommParameters.JOINING_URI) ||
     		requestCBOR.getKeys().contains(GroupcommParameters.CONF_FILTER) ||
     		requestCBOR.getKeys().contains(GroupcommParameters.APP_GROUPS_DIFF)) {
-    		errorString = new String("Invalid set of parameters in the request");
+			errorString = new String("Invalid set of parameters in the request");
     		System.err.println(errorString);
     		exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorString);
     		return;
     	}
     	
     	// This Group Manager does not support RSA an signature algorithm
-    	if (requestCBOR.getKeys().contains(GroupcommParameters.SIGN_ALG)) {
+		if (requestCBOR.getKeys().contains(GroupcommParameters.SIGN_ALG)) {
     		CBORObject signAlg = requestCBOR.get(GroupcommParameters.SIGN_ALG);
     		if (signAlg.equals(AlgorithmID.RSA_PSS_256.AsCBOR()) ||
     			signAlg.equals(AlgorithmID.RSA_PSS_384.AsCBOR()) ||
     			signAlg.equals(AlgorithmID.RSA_PSS_512.AsCBOR())) {
     			
-    		}
     		CBORObject myResponse = CBORObject.NewMap();
-    		errorString = new String("RSA is not supported as signature algorithm");
+			errorString = new String("RSA is not supported as signature algorithm");
     		
     		CBORObject aceGroupcommError = CBORObject.NewMap();
     		aceGroupcommError.Add(0, GroupcommErrors.UNSUPPORTED_GROUP_CONF);
@@ -544,7 +543,8 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
     						 Constants.APPLICATION_CONCISE_PROBLEM_DETAILS_CBOR);
     		
     		return;
-    	}
+			}
+		}
     	
     	for (CBORObject key : requestCBOR.getKeys()) {
     		if (!GroupcommParameters.isAdminRequestParameterMeaningful(key, requestCBOR.get(key))) {
@@ -564,6 +564,11 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
     	if (ret.get(1) != null) {
     		int contentFormat = ret.get(1).AsInt32();
         	coapResponse.getOptions().setContentFormat(contentFormat);
+
+			String groupName = ret.get(ret.size() - 1).get(GroupcommParameters.GROUP_NAME).AsString();
+			String locationPath = new String(groupCollectionResourcePath + "/" + groupName);
+
+			coapResponse.getOptions().setLocationPath(locationPath);
     	}
     	byte[] responsePayload = null;
     	if (ret.get(2) == null) {

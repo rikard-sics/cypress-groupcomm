@@ -399,7 +399,7 @@ public class GroupOSCOREGroupConfigurationResource extends CoapResource {
     		requestCBOR.getKeys().contains(GroupcommParameters.GID_REUSE) ||
     		requestCBOR.getKeys().contains(GroupcommParameters.CONF_FILTER) ||
     		requestCBOR.getKeys().contains(GroupcommParameters.APP_GROUPS_DIFF)) {
-    		errorString = new String("Invalid set of parameters in the request");
+			errorString = new String("Invalid set of parameters in the request");
     		System.err.println(errorString);
     		exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorString);
     		return;
@@ -412,9 +412,8 @@ public class GroupOSCOREGroupConfigurationResource extends CoapResource {
     			signAlg.equals(AlgorithmID.RSA_PSS_384.AsCBOR()) ||
     			signAlg.equals(AlgorithmID.RSA_PSS_512.AsCBOR())) {
     			
-    		}
     		CBORObject myResponse = CBORObject.NewMap();
-    		errorString = new String("RSA is not supported as signature algorithm");
+				errorString = new String("RSA is not supported as signature algorithm");
     		
     		CBORObject aceGroupcommError = CBORObject.NewMap();
     		aceGroupcommError.Add(0, GroupcommErrors.UNSUPPORTED_GROUP_CONF);
@@ -428,6 +427,7 @@ public class GroupOSCOREGroupConfigurationResource extends CoapResource {
     						 Constants.APPLICATION_CONCISE_PROBLEM_DETAILS_CBOR);
     		
     		return;
+			}
     	}
     	
     	for (CBORObject key : requestCBOR.getKeys()) {
@@ -1098,7 +1098,8 @@ public class GroupOSCOREGroupConfigurationResource extends CoapResource {
 				if (omit || inconsistentValue) {
 					// The Administrator has specified a parameter that was not supposed to be specified at all,
 					// or a parameter with a value different than the value that must be taken by such a parameter					
-					errorString = new String ("Invalid use of the parameter with abbreviation' " + parameterName + "'");
+					errorString = new String(
+							"1 Invalid use of the parameter with abbreviation' " + parameterName + "'");
 					responseCode = CoAP.ResponseCode.BAD_REQUEST.value;
 					contentFormat = Constants.APPLICATION_CONCISE_PROBLEM_DETAILS_CBOR;
 					
@@ -1117,7 +1118,8 @@ public class GroupOSCOREGroupConfigurationResource extends CoapResource {
 				
 				if (isMeaningful == false) {
 					// The value of the parameter is not valid
-					errorString = new String ("Invalid use of the parameter with abbreviation' " + parameterName + "'");
+					errorString = new String(
+							"2 Invalid use of the parameter with abbreviation' " + parameterName + "'");
 					responseCode = CoAP.ResponseCode.BAD_REQUEST.value;
 					responsePayload = CBORObject.FromObject(errorString);
 					System.err.println(errorString);

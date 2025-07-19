@@ -253,7 +253,7 @@ public class OscoreAdminClient {
 	 * 
 	 * @param memberName name of client/server peer
 	 * @param keyToAS key shared with the AS
-	 * @return the CoAP response from the AS TODO: Update
+	 * @return the CoAP response from the AS
 	 * @throws Exception on failure
 	 */
 	public static Response requestToken(String memberName, byte[] keyToAS) throws Exception {
@@ -351,7 +351,7 @@ public class OscoreAdminClient {
 		Assert.assertNotNull(ctxDB.getContext(
 				"coap://" + rsAddr + ":" + portNumberRSnosec + "/" + groupCollectionResourcePath));
 
-		// Send a POST request to /manage to create the first group
+		// Send a POST request to /manage to create the first group ====
 
 		System.out.println();
 		CoapClient c = OSCOREProfileRequests.getClient(
@@ -371,35 +371,20 @@ public class OscoreAdminClient {
 		requestPayloadCbor.Add(GroupcommParameters.GROUP_MODE, CBORObject.FromObject(true));
 		requestPayloadCbor.Add(GroupcommParameters.PAIRWISE_MODE, CBORObject.FromObject(true));
 
-		requestPayloadCbor.Add(GroupcommParameters.ALG, AlgorithmID.AES_CCM_16_64_128);
+		requestPayloadCbor.Add(GroupcommParameters.ALG, AlgorithmID.AES_CCM_16_64_128.AsCBOR());
 
-		/*
-		 * requestPayloadCbor.Add(GroupcommParameters.HKDF,
-		 * AlgorithmID.HKDF_HMAC_SHA_256);
-		 * requestPayloadCbor.Add(GroupcommParameters.SIGN_ALG,
-		 * AlgorithmID.EDDSA);
-		 * requestPayloadCbor.Add(GroupcommParameters.GP_ENC_ALG,
-		 * AlgorithmID.AES_CCM_16_64_128);
-		 * requestPayloadCbor.Add(GroupcommParameters.ECDH_ALG,
-		 * AlgorithmID.ECDH_SS_HKDF_256);
-		 * 
-		 * 
-		 * requestPayloadCbor.Add(GroupcommParameters.GROUP_DESCRIPTION,
-		 * CBORObject.FromObject("The first group."));
-		 * requestPayloadCbor.Add(GroupcommParameters.MAX_STALE_SETS,
-		 * CBORObject.FromObject(5));
-		 * requestPayloadCbor.Add(GroupcommParameters.GID_REUSE,
-		 * CBORObject.FromObject(false));
-		 * requestPayloadCbor.Add(GroupcommParameters.DET_REQ,
-		 * CBORObject.FromObject(false));
-		 * 
-		 * requestPayloadCbor.Add(GroupcommParameters.JOINING_URI, CBORObject
-		 * .FromObject("coap://" + rsAddr + ":" + portNumberRSnosec + "/" +
-		 * groupCollectionResourcePath));
-		 * requestPayloadCbor.Add(GroupcommParameters.AS_URI,
-		 * CBORObject.FromObject("coap://" + AS_HOST + ":" + AS_PORT +
-		 * "/token"));
-		 */
+		requestPayloadCbor.Add(GroupcommParameters.HKDF, AlgorithmID.HMAC_SHA_256.AsCBOR());
+		requestPayloadCbor.Add(GroupcommParameters.SIGN_ALG, AlgorithmID.EDDSA.AsCBOR());
+		requestPayloadCbor.Add(GroupcommParameters.GP_ENC_ALG, AlgorithmID.AES_CCM_16_64_128.AsCBOR());
+		requestPayloadCbor.Add(GroupcommParameters.ECDH_ALG, AlgorithmID.ECDH_SS_HKDF_256.AsCBOR());
+
+		requestPayloadCbor.Add(GroupcommParameters.GROUP_DESCRIPTION, CBORObject.FromObject("The first group."));
+		requestPayloadCbor.Add(GroupcommParameters.MAX_STALE_SETS, CBORObject.FromObject(5));
+		requestPayloadCbor.Add(GroupcommParameters.GID_REUSE, CBORObject.FromObject(false));
+		requestPayloadCbor.Add(GroupcommParameters.DET_REQ, CBORObject.FromObject(false));
+
+		requestPayloadCbor.Add(GroupcommParameters.AS_URI,
+				CBORObject.FromObject("coap://" + AS_HOST + ":" + AS_PORT + "/token"));
 
 		//
 
@@ -407,6 +392,7 @@ public class OscoreAdminClient {
 
 		CoapResponse adminRes = c.advanced(adminReq);
 		printResponseFromRS(adminRes.advanced());
+		System.out.println("group-configuration resource at: " + adminRes.getOptions().getLocationPath());
 
 		Assert.assertNotNull(adminRes);
 		Assert.assertEquals(ResponseCode.CREATED, adminRes.getCode());
@@ -425,7 +411,6 @@ public class OscoreAdminClient {
 		Assert.assertEquals(3, responsePayloadCbor.size());
 
 		return true;
-
 	}
 
 	/**
