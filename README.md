@@ -67,7 +67,7 @@ Note that MySQL is needed for the ACE parts to run correctly. To install it use:
 sudo apt-get install mysql-server
 ```
 
-Then place a file under ace/db.pwd and group-applications/db.pwd with the database root password.
+Then place a file under ace/db.pwd and group-applications/db.pwd with the database root password and username separated by a newline.
 
 
 ### Updating the JCE (Java Cryptography Extensions)
