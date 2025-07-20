@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OSCoreCtx.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore</a> &gt; <span class="el_source">OSCoreCtx.java</span></div><h1>OSCoreCtx.java</h1><pre class="source lang-java linenums">/*******************************************************************************
- * Copyright (c) 2019 RISE SICS and others.
+ * Copyright (c) 2025 RISE SICS and others.
  * 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
@@ -19,32 +19,29 @@
  ******************************************************************************/
 package org.eclipse.californium.oscore;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.UnsupportedEncodingException;
-import java.security.GeneralSecurityException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.security.Security;
 import java.util.Arrays;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.eclipse.californium.core.coap.CoAP.Code;
 import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.cose.AlgorithmID;
+import org.eclipse.californium.cose.Attribute;
 import org.eclipse.californium.cose.CoseException;
+import org.eclipse.californium.cose.Encrypt0Message;
 import org.eclipse.californium.cose.EncryptCommon;
+import org.eclipse.californium.cose.HeaderKeys;
 import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.elements.config.UdpConfig;
 import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.oscore.group.GroupRecipientCtx;
 import org.eclipse.californium.oscore.group.GroupSenderCtx;
-import org.eclipse.californium.scandium.dtls.cipher.CCMBlockCipher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,10 +55,15 @@ import com.upokecenter.cbor.CBORObject;
  */
 public class OSCoreCtx {
 
+	static {
+<span class="fc" id="L59">		CoapConfig.register();</span>
+<span class="fc" id="L60">		UdpConfig.register();</span>
+	}
+
 	/**
 	 * The logger
 	 */
-<span class="fc" id="L64">	private static final Logger LOGGER = LoggerFactory.getLogger(OSCoreCtx.class);</span>
+<span class="fc" id="L66">	private static final Logger LOGGER = LoggerFactory.getLogger(OSCoreCtx.class);</span>
 
 	private static final byte ZERO = 0;
 	private static final byte ONE = 1;
@@ -76,26 +78,21 @@ public class OSCoreCtx {
 	protected byte[] sender_key;
 	protected int sender_seq;
 
-	protected byte[] recipient_id;
-	protected byte[] recipient_key;
-	protected int recipient_seq;
-	protected int internal_recipient_seq;
-	protected int recipient_replay_window_size;
-	protected int recipient_replay_window;
+	public byte[] recipient_id;
+	public byte[] recipient_key;
+	private int lowest_recipient_seq;
+	private int recipient_replay_window_size;
+	private int recipient_replay_window;
 
 	private AlgorithmID kdf;
 
-<span class="fc" id="L88">	private int rollback_recipient_seq = -1;</span>
-<span class="fc" id="L89">	private int rollback_recipient_replay = -1;</span>
-
-<span class="fc" id="L91">	private byte[] last_block_tag = null;</span>
-<span class="fc" id="L92">	private int seqMax = Integer.MAX_VALUE;</span>
+<span class="fc" id="L89">	private int seqMax = Integer.MAX_VALUE;</span>
 
 	private int id_length;
 	private int iv_length;
 	private int key_length;
 
-<span class="fc" id="L98">	private Code CoAPCode = null;</span>
+<span class="fc" id="L95">	private Code CoAPCode = null;</span>
 
 	/**
 	 * Include the context id in messages generated using this context. This is
@@ -184,8 +181,8 @@ public class OSCoreCtx {
 	 * @throws OSException if the default KDF is not supported
 	 */
 	public OSCoreCtx(byte[] master_secret, boolean client) throws OSException {
-<span class="fc" id="L187">		this(master_secret, client, Configuration.getStandard());</span>
-<span class="fc" id="L188">	}</span>
+<span class="fc" id="L184">		this(master_secret, client, Configuration.getStandard());</span>
+<span class="fc" id="L185">	}</span>
 
 	/**
 	 * Constructor. Generates the context from the base parameters with the
@@ -198,9 +195,17 @@ public class OSCoreCtx {
 	 * @since 3.0
 	 */
 	public OSCoreCtx(byte[] master_secret, boolean client, Configuration configuration) throws OSException {
-<span class="fc" id="L201">		this(master_secret, client, null, null, null, null, null, null, null,</span>
-<span class="fc" id="L202">				configuration.get(CoapConfig.MAX_RESOURCE_BODY_SIZE));</span>
-<span class="fc" id="L203">	}</span>
+<span class="fc" id="L198">		this(master_secret, client, null, null, null, null, null, null, null,</span>
+<span class="fc" id="L199">				configuration.get(CoapConfig.MAX_RESOURCE_BODY_SIZE));</span>
+<span class="fc" id="L200">	}</span>
+
+	public OSCoreCtx(byte[] master_secret, boolean client, AlgorithmID alg, byte[] sender_id, byte[] recipient_id,
+			AlgorithmID kdf, Integer replay_size, byte[] master_salt, byte[] contextId, int maxUnfragmentedSize,
+			boolean appB1Enabled) throws OSException {
+<span class="nc" id="L205">		this(master_secret, client, alg, sender_id, recipient_id, kdf, replay_size, master_salt, contextId,</span>
+				maxUnfragmentedSize);
+<span class="nc" id="L207">		System.out.println(&quot;Appendix B.1 not supported currently&quot;);</span>
+<span class="nc" id="L208">	}</span>
 
 	/**
 	 * Constructor. Generates the context from the base parameters.
@@ -221,196 +226,167 @@ public class OSCoreCtx {
 	 * @since 3.0 (added parameter maxUnfragmentedSize)
 	 */
 	public OSCoreCtx(byte[] master_secret, boolean client, AlgorithmID alg, byte[] sender_id, byte[] recipient_id,
-			AlgorithmID kdf, Integer replay_size, byte[] master_salt, byte[] contextId, int maxUnfragmentedSize) throws OSException {
-<span class="fc" id="L225">		this(master_secret, client, alg, sender_id, recipient_id, kdf, replay_size, master_salt, contextId,</span>
-				maxUnfragmentedSize, false);
-<span class="fc" id="L227">	}</span>
+<span class="fc" id="L229">			AlgorithmID kdf, Integer replay_size, byte[] master_salt, byte[] contextId, int maxUnfragmentedSize) throws OSException {</span>
 
-	/**
-	 * Constructor. Generates the context from the base parameters.
-	 * 
-	 * @param master_secret the master secret
-	 * @param alg the encryption algorithm as defined in COSE
-	 * @param client is this originally the client's context
-	 * @param sender_id the sender id or null for default
-	 * @param recipient_id the recipient id or null for default
-	 * @param kdf the COSE algorithm abbreviation of the kdf or null for the
-	 *            default
-	 * @param replay_size the replay window size or null for the default
-	 * @param master_salt the optional master salt, can be null
-	 * @param contextId the context id, can be null
-	 * @param maxUnfragmentedSize maximum unfragmented size
-	 * @param appB1Enabled usage of Appendix B.1
-	 *
-	 * @throws OSException if the KDF is not supported
-	 * @since 3.0 (added parameter maxUnfragmentedSize)
-	 */
-	public OSCoreCtx(byte[] master_secret, boolean client, AlgorithmID alg, byte[] sender_id, byte[] recipient_id,
-			AlgorithmID kdf, Integer replay_size, byte[] master_salt, byte[] contextId, int maxUnfragmentedSize,
-<span class="fc" id="L250">			boolean appB1Enabled) throws OSException {</span>
-
-<span class="fc bfc" id="L252" title="All 2 branches covered.">		if (alg == null) {</span>
-<span class="fc" id="L253">			this.common_alg = AlgorithmID.AES_CCM_16_64_128;</span>
+<span class="fc bfc" id="L231" title="All 2 branches covered.">		if (alg == null) {</span>
+<span class="fc" id="L232">			this.common_alg = AlgorithmID.AES_CCM_16_64_128;</span>
 		} else {
-<span class="fc" id="L255">			this.common_alg = alg;</span>
+<span class="fc" id="L234">			this.common_alg = alg;</span>
 		}
 
-<span class="fc" id="L258">		setLengths();</span>
+<span class="fc" id="L237">		setLengths();</span>
 
-<span class="fc" id="L260">		this.sender_seq = 0;</span>
-<span class="fc" id="L261">		this.recipient_seq = -1;</span>
-<span class="fc" id="L262">		this.internal_recipient_seq = 0;</span>
-		
-<span class="fc bfc" id="L264" title="All 2 branches covered.">		if (master_secret != null) {</span>
-<span class="fc" id="L265">			this.common_master_secret = master_secret.clone();</span>
-		} else {
-<span class="fc" id="L267">			LOGGER.error(&quot;Input master secret is null&quot;);</span>
-<span class="fc" id="L268">			throw new NullPointerException(&quot;Input master secret is null&quot;);</span>
-		}
-<span class="pc bpc" id="L270" title="1 of 4 branches missed.">		if (sender_id == null || sender_id.length &gt; this.id_length) {</span>
-<span class="fc bfc" id="L271" title="All 2 branches covered.">			this.sender_id = createByteArray(client ? ZERO : ONE);</span>
-		} else {
-<span class="fc" id="L273">			this.sender_id = sender_id.clone();</span>
-		}
+<span class="fc" id="L239">		this.sender_seq = 0;</span>
+<span class="fc" id="L240">		this.lowest_recipient_seq = 0;</span>
 
-<span class="pc bpc" id="L276" title="1 of 4 branches missed.">		if (recipient_id == null || recipient_id.length &gt; this.id_length) {</span>
-<span class="fc bfc" id="L277" title="All 2 branches covered.">			this.recipient_id = createByteArray(client ? ONE : ZERO);</span>
+<span class="fc bfc" id="L242" title="All 2 branches covered.">		if (master_secret != null) {</span>
+<span class="fc" id="L243">			this.common_master_secret = master_secret.clone();</span>
 		} else {
-<span class="fc" id="L279">			this.recipient_id = recipient_id.clone();</span>
+<span class="fc" id="L245">			LOGGER.error(&quot;Input master secret is null&quot;);</span>
+<span class="fc" id="L246">			throw new NullPointerException(&quot;Input master secret is null&quot;);</span>
+		}
+<span class="pc bpc" id="L248" title="1 of 4 branches missed.">		if (sender_id == null || sender_id.length &gt; this.id_length) {</span>
+<span class="fc bfc" id="L249" title="All 2 branches covered.">			this.sender_id = createByteArray(client ? ZERO : ONE);</span>
+		} else {
+<span class="fc" id="L251">			this.sender_id = sender_id.clone();</span>
 		}
 
-<span class="fc bfc" id="L282" title="All 2 branches covered.">		if (kdf == null) {</span>
-<span class="fc" id="L283">			this.kdf = AlgorithmID.HKDF_HMAC_SHA_256;</span>
+<span class="pc bpc" id="L254" title="1 of 4 branches missed.">		if (recipient_id == null || recipient_id.length &gt; this.id_length) {</span>
+<span class="fc bfc" id="L255" title="All 2 branches covered.">			this.recipient_id = createByteArray(client ? ONE : ZERO);</span>
 		} else {
-<span class="fc" id="L285">			this.kdf = kdf;</span>
+<span class="fc" id="L257">			this.recipient_id = recipient_id.clone();</span>
 		}
 
-<span class="fc bfc" id="L288" title="All 2 branches covered.">		if (replay_size == null) {</span>
-<span class="fc" id="L289">			this.recipient_replay_window_size = 32;</span>
+<span class="fc bfc" id="L260" title="All 2 branches covered.">		if (kdf == null) {</span>
+<span class="fc" id="L261">			this.kdf = AlgorithmID.HKDF_HMAC_SHA_256;</span>
 		} else {
-<span class="fc" id="L291">			this.recipient_replay_window_size = replay_size.intValue();</span>
+<span class="fc" id="L263">			this.kdf = kdf;</span>
 		}
-<span class="fc" id="L293">		this.recipient_replay_window = 0;</span>
 
-<span class="fc bfc" id="L295" title="All 2 branches covered.">		if (master_salt == null) {</span>
+<span class="fc bfc" id="L266" title="All 2 branches covered.">		if (replay_size == null) {</span>
+<span class="fc" id="L267">			this.recipient_replay_window_size = 32;</span>
+<span class="pc bpc" id="L268" title="1 of 2 branches missed.">		} else if (replay_size &gt; 32) {</span>
+<span class="nc" id="L269">			LOGGER.warn(&quot;Maximum size of replay window is 32. Setting to 32.&quot;);</span>
+<span class="nc" id="L270">			this.recipient_replay_window_size = 32;</span>
+		} else {
+<span class="fc" id="L272">			this.recipient_replay_window_size = replay_size.intValue();</span>
+		}
+<span class="fc" id="L274">		this.recipient_replay_window = 0;</span>
+
+<span class="fc bfc" id="L276" title="All 2 branches covered.">		if (master_salt == null) {</span>
 			// Default value. Automatically initialized with 0-es.
-<span class="fc" id="L297">			this.common_master_salt = new byte[this.kdf.getKeySize() / Byte.SIZE];</span>
+<span class="fc" id="L278">			this.common_master_salt = new byte[this.kdf.getKeySize() / Byte.SIZE];</span>
 		} else {
-<span class="fc" id="L299">			this.common_master_salt = master_salt.clone();</span>
+<span class="fc" id="L280">			this.common_master_salt = master_salt.clone();</span>
 		}
 
-<span class="fc bfc" id="L302" title="All 2 branches covered.">		if (contextId != null) {</span>
-<span class="fc" id="L303">			this.context_id = contextId.clone();</span>
+<span class="fc bfc" id="L283" title="All 2 branches covered.">		if (contextId != null) {</span>
+<span class="fc" id="L284">			this.context_id = contextId.clone();</span>
 		} else {
-<span class="fc" id="L305">			this.context_id = null;</span>
+<span class="fc" id="L286">			this.context_id = null;</span>
 		}
 
 		// Set default values for these flags
 		//They can be set by the application using their setters
-<span class="fc" id="L310">		includeContextId = false;</span>
-<span class="fc" id="L311">		responsesIncludePartialIV = false;</span>
-<span class="fc" id="L312">		contextRederivationEnabled = false;</span>
+<span class="fc" id="L291">		includeContextId = false;</span>
+<span class="fc" id="L292">		responsesIncludePartialIV = false;</span>
+<span class="fc" id="L293">		contextRederivationEnabled = false;</span>
 
 		//Set string versions of sender ID, recipient ID and Context ID
-<span class="fc" id="L315">		contextIdString = toHex(this.context_id);</span>
-<span class="fc" id="L316">		senderIdString = toHex(this.sender_id);</span>
-<span class="fc" id="L317">		recipientIdString = toHex(this.recipient_id);</span>
+<span class="fc" id="L296">		contextIdString = toHex(this.context_id);</span>
+<span class="fc" id="L297">		senderIdString = toHex(this.sender_id);</span>
+<span class="fc" id="L298">		recipientIdString = toHex(this.recipient_id);</span>
 
 		//Initialize the URI associated with the context
 		//It will be overwritten if this context is added to a HashMapCtxDB
-<span class="fc" id="L321">		uri = &quot;&quot;;</span>
+<span class="fc" id="L302">		uri = &quot;&quot;;</span>
 
-<span class="fc" id="L323">		overrideContextId = null;</span>
-<span class="fc" id="L324">		contextRederivationPhase = ContextRederivation.PHASE.INACTIVE;</span>
+<span class="fc" id="L304">		overrideContextId = null;</span>
+<span class="fc" id="L305">		contextRederivationPhase = ContextRederivation.PHASE.INACTIVE;</span>
 
 		// Set default value of MAX_UNFRAGMENTED_SIZE
-<span class="fc" id="L327">		this.maxUnfragmentedSize = maxUnfragmentedSize;</span>
+<span class="fc" id="L308">		this.maxUnfragmentedSize = maxUnfragmentedSize;</span>
 
 		//Set digest value depending on HKDF
-<span class="fc" id="L330">		String digest = null;</span>
-<span class="pc bpc" id="L331" title="1 of 3 branches missed.">		switch (this.kdf) {</span>
+<span class="fc" id="L311">		String digest = null;</span>
+<span class="pc bpc" id="L312" title="1 of 3 branches missed.">		switch (this.kdf) {</span>
 		case HKDF_HMAC_SHA_256:
-<span class="fc" id="L333">			digest = &quot;SHA256&quot;;</span>
-<span class="fc" id="L334">			break;</span>
+		case HMAC_SHA_256:
+<span class="fc" id="L315">			digest = &quot;SHA256&quot;;</span>
+<span class="fc" id="L316">			break;</span>
 		case HKDF_HMAC_SHA_512:
-<span class="fc" id="L336">			digest = &quot;SHA512&quot;;</span>
-<span class="fc" id="L337">			break;</span>
+		case HMAC_SHA_512:
+<span class="fc" id="L319">			digest = &quot;SHA512&quot;;</span>
+<span class="fc" id="L320">			break;</span>
 		case HKDF_HMAC_AES_128:
 		case HKDF_HMAC_AES_256:
 		default:
-<span class="nc" id="L341">			LOGGER.error(&quot;Requested HKDF algorithm is not supported: &quot; + this.kdf.toString());</span>
-<span class="nc" id="L342">			throw new OSException(&quot;HKDF algorithm not supported&quot;);</span>
+<span class="nc" id="L324">			LOGGER.error(&quot;Requested HKDF algorithm is not supported: {}&quot;, this.kdf);</span>
+<span class="nc" id="L325">			throw new OSException(&quot;HKDF algorithm not supported&quot;);</span>
 		}
 
 		// Derive sender_key
-<span class="fc" id="L346">		CBORObject info = CBORObject.NewArray();</span>
-<span class="fc" id="L347">		info.Add(this.sender_id);</span>
+<span class="fc" id="L329">		CBORObject info = CBORObject.NewArray();</span>
+<span class="fc" id="L330">		info.Add(this.sender_id);</span>
+<span class="fc" id="L331">		info.Add(this.context_id);</span>
+<span class="fc" id="L332">		info.Add(this.common_alg.AsCBOR());</span>
+<span class="fc" id="L333">		info.Add(CBORObject.FromObject(&quot;Key&quot;));</span>
+<span class="fc" id="L334">		info.Add(this.key_length);</span>
+
+		try {
+<span class="fc" id="L337">			this.sender_key = deriveKey(this.common_master_secret, this.common_master_salt, this.key_length, digest,</span>
+<span class="fc" id="L338">					info.EncodeToBytes());</span>
+<span class="nc" id="L339">		} catch (CoseException e) {</span>
+<span class="nc" id="L340">			String details = e.getMessage();</span>
+<span class="nc" id="L341">			LOGGER.error(details);</span>
+<span class="nc" id="L342">			throw new OSException(details);</span>
+<span class="fc" id="L343">		}</span>
+
+		// Derive recipient_key
+<span class="fc" id="L346">		info = CBORObject.NewArray();</span>
+<span class="fc" id="L347">		info.Add(this.recipient_id);</span>
 <span class="fc" id="L348">		info.Add(this.context_id);</span>
 <span class="fc" id="L349">		info.Add(this.common_alg.AsCBOR());</span>
 <span class="fc" id="L350">		info.Add(CBORObject.FromObject(&quot;Key&quot;));</span>
 <span class="fc" id="L351">		info.Add(this.key_length);</span>
 
 		try {
-<span class="fc" id="L354">			this.sender_key = deriveKey(this.common_master_secret, this.common_master_salt, this.key_length, digest,</span>
+<span class="fc" id="L354">			this.recipient_key = deriveKey(this.common_master_secret, this.common_master_salt, this.key_length, digest,</span>
 <span class="fc" id="L355">					info.EncodeToBytes());</span>
 <span class="nc" id="L356">		} catch (CoseException e) {</span>
-<span class="nc" id="L357">			LOGGER.error(e.getMessage());</span>
-<span class="nc" id="L358">			throw new OSException(e.getMessage());</span>
-<span class="fc" id="L359">		}</span>
-
-		// Derive recipient_key
-<span class="fc" id="L362">		info = CBORObject.NewArray();</span>
-<span class="fc" id="L363">		info.Add(this.recipient_id);</span>
-<span class="fc" id="L364">		info.Add(this.context_id);</span>
-<span class="fc" id="L365">		info.Add(this.common_alg.AsCBOR());</span>
-<span class="fc" id="L366">		info.Add(CBORObject.FromObject(&quot;Key&quot;));</span>
-<span class="fc" id="L367">		info.Add(this.key_length);</span>
-
-		try {
-<span class="fc" id="L370">			this.recipient_key = deriveKey(this.common_master_secret, this.common_master_salt, this.key_length, digest,</span>
-<span class="fc" id="L371">					info.EncodeToBytes());</span>
-<span class="nc" id="L372">		} catch (CoseException e) {</span>
-<span class="nc" id="L373">			LOGGER.error(e.getMessage());</span>
-<span class="nc" id="L374">			throw new OSException(e.getMessage());</span>
-<span class="fc" id="L375">		}</span>
+<span class="nc" id="L357">			String details = e.getMessage();</span>
+<span class="nc" id="L358">			LOGGER.error(details);</span>
+<span class="nc" id="L359">			throw new OSException(details);</span>
+<span class="fc" id="L360">		}</span>
 
 		// Derive common_iv
-<span class="fc" id="L378">		info = CBORObject.NewArray();</span>
-<span class="fc" id="L379">		info.Add(Bytes.EMPTY);</span>
-<span class="fc" id="L380">		info.Add(this.context_id);</span>
-<span class="fc" id="L381">		info.Add(this.common_alg.AsCBOR());</span>
-<span class="fc" id="L382">		info.Add(CBORObject.FromObject(&quot;IV&quot;));</span>
-<span class="fc" id="L383">		info.Add(this.iv_length);</span>
+<span class="fc" id="L363">		info = CBORObject.NewArray();</span>
+<span class="fc" id="L364">		info.Add(Bytes.EMPTY);</span>
+<span class="fc" id="L365">		info.Add(this.context_id);</span>
+<span class="fc" id="L366">		info.Add(this.common_alg.AsCBOR());</span>
+<span class="fc" id="L367">		info.Add(CBORObject.FromObject(&quot;IV&quot;));</span>
+<span class="fc" id="L368">		info.Add(this.iv_length);</span>
 
 		try {
-<span class="fc" id="L386">			this.common_iv = deriveKey(this.common_master_secret, this.common_master_salt, this.iv_length, digest,</span>
-<span class="fc" id="L387">					info.EncodeToBytes());</span>
-<span class="nc" id="L388">		} catch (CoseException e) {</span>
-<span class="nc" id="L389">			LOGGER.error(e.getMessage());</span>
-<span class="nc" id="L390">			throw new OSException(e.getMessage());</span>
-<span class="fc" id="L391">		}</span>
+<span class="fc" id="L371">			this.common_iv = deriveKey(this.common_master_secret, this.common_master_salt, this.iv_length, digest,</span>
+<span class="fc" id="L372">					info.EncodeToBytes());</span>
+<span class="nc" id="L373">		} catch (CoseException e) {</span>
+<span class="nc" id="L374">			String details = e.getMessage();</span>
+<span class="nc" id="L375">			LOGGER.error(details);</span>
+<span class="nc" id="L376">			throw new OSException(details);</span>
+<span class="fc" id="L377">		}</span>
 
 		// Initialize cipher object
-<span class="fc" id="L394">		initializeCipher(common_alg);</span>
+<span class="fc" id="L380">		initializeCipher(common_alg);</span>
 
-		// Attempt to restore SSN from previous execution (Appendix B.1)
-<span class="fc" id="L397">		this.useAppB1 = appB1Enabled;</span>
-<span class="pc bpc" id="L398" title="1 of 2 branches missed.">		if (useAppB1) {</span>
-<span class="nc" id="L399">			int resumeSsn = readSsn();</span>
-<span class="nc bnc" id="L400" title="All 2 branches missed.">			if (resumeSsn != -1) {</span>
-<span class="nc" id="L401">				this.sender_seq = resumeSsn;</span>
-<span class="nc" id="L402">				writeSsn();</span>
-<span class="nc" id="L403">				System.out.println(&quot;Resuming from SSN: &quot; + resumeSsn);</span>
-			}
-		}
-<span class="fc" id="L406">	}</span>
+<span class="fc" id="L382">	}</span>
 
 	/**
 	 * Overrides hasCode to provide a functional implementation for this class.
 	 */
 	@Override
 	public int hashCode() {
-<span class="nc" id="L413">		return 31 * Arrays.hashCode(sender_id) + Arrays.hashCode(recipient_id);</span>
+<span class="nc" id="L389">		return 31 * Arrays.hashCode(sender_id) + Arrays.hashCode(recipient_id);</span>
 	}
 
 	/**
@@ -418,115 +394,108 @@ public class OSCoreCtx {
 	 */
 	@Override
 	public boolean equals(Object o) {
-<span class="pc bpc" id="L421" title="1 of 2 branches missed.">		if (!(o instanceof OSCoreCtx)) {</span>
-<span class="nc" id="L422">			return false;</span>
+<span class="pc bpc" id="L397" title="1 of 2 branches missed.">		if (!(o instanceof OSCoreCtx)) {</span>
+<span class="nc" id="L398">			return false;</span>
 		}
-<span class="fc" id="L424">		OSCoreCtx other = (OSCoreCtx) o;</span>
+<span class="fc" id="L400">		OSCoreCtx other = (OSCoreCtx) o;</span>
 
-<span class="pc bpc" id="L426" title="2 of 4 branches missed.">		return Arrays.equals(other.sender_id, sender_id) &amp;&amp; Arrays.equals(other.recipient_id, recipient_id);</span>
+<span class="pc bpc" id="L402" title="2 of 4 branches missed.">		return Arrays.equals(other.sender_id, sender_id) &amp;&amp; Arrays.equals(other.recipient_id, recipient_id);</span>
 	}
 
 	/**
 	 * @return the sender key
 	 */
 	public byte[] getSenderKey() {
-<span class="fc" id="L433">		return sender_key;</span>
+<span class="fc" id="L409">		return sender_key;</span>
 	}
 
 	/**
 	 * @return the recipient key
 	 */
 	public byte[] getRecipientKey() {
-<span class="fc" id="L440">		return recipient_key;</span>
+<span class="fc" id="L416">		return recipient_key;</span>
 	}
 
 	/**
 	 * @return the encryption algorithm
 	 */
 	public AlgorithmID getAlg() {
-<span class="fc" id="L447">		return this.common_alg;</span>
+<span class="fc" id="L423">		return this.common_alg;</span>
 	}
 
 	/**
 	 * @return the sender sequence number
 	 */
 	public synchronized int getSenderSeq() {
-<span class="fc" id="L454">		return sender_seq;</span>
+<span class="fc" id="L430">		return sender_seq;</span>
 	}
 
 	/**
-	 * @return the receiver sequence number
+	 * @return the lowest recipient sequence number in current replay window
 	 */
-	public synchronized int getReceiverSeq() {
-<span class="fc" id="L461">		return recipient_seq;</span>
-	}
-
-	/**
-	 * @return the internal receiver sequence number
-	 */
-	public synchronized int getInternalReceiverSeq() {
-<span class="fc" id="L468">		return internal_recipient_seq;</span>
-	}
-
-	/**
-	 * @return the tag of the last block processed with this context
-	 */
-	public byte[] getLastBlockTag() {
-<span class="nc" id="L475">		return last_block_tag;</span>
+	public synchronized int getLowestRecipientSeq() {
+<span class="fc" id="L437">		return lowest_recipient_seq;</span>
 	}
 
 	/**
 	 * @return the sender's identifier
 	 */
 	public byte[] getSenderId() {
-<span class="fc" id="L482">		return sender_id;</span>
+<span class="fc" id="L444">		return sender_id;</span>
 	}
 
 	/**
 	 * @return the repipient's identifier
 	 */
 	public byte[] getRecipientId() {
-<span class="fc" id="L489">		return recipient_id;</span>
+<span class="fc" id="L451">		return recipient_id;</span>
 	}
 
 	/**
 	 * @return the common_iv
 	 */
 	public byte[] getCommonIV() {
-<span class="fc" id="L496">		return common_iv;</span>
+<span class="fc" id="L458">		return common_iv;</span>
 	}
+
+	/**
+	 * @param common_iv the Common IV to set
+	 */
+	public void setCommonIV(byte[] common_iv) {
+<span class="fc" id="L465">		this.common_iv = common_iv;</span>
+<span class="fc" id="L466">	}</span>
 
 	/**
 	 * @return the set length of IV:s
 	 */
 	public int getIVLength() {
-<span class="fc" id="L503">		return iv_length;</span>
+<span class="fc" id="L472">		return iv_length;</span>
 	}
 
 	/**
 	 * @return size of recipient replay window
 	 */
 	public int getRecipientReplaySize() {
-<span class="fc" id="L510">		return recipient_replay_window_size;</span>
+<span class="fc" id="L479">		return recipient_replay_window_size;</span>
 	}
 
 	/**
 	 * @return recipient replay window
 	 */
 	public int getRecipientReplayWindow() {
-<span class="fc" id="L517">		return recipient_replay_window;</span>
+<span class="fc" id="L486">		return recipient_replay_window;</span>
 	}
 
 	public byte[] getMasterSecret() {
-<span class="fc" id="L521">		return common_master_secret;</span>
+<span class="fc" id="L490">		return common_master_secret;</span>
 	}
 
 	public byte[] getSalt() {
-<span class="fc" id="L525">		return common_master_salt;</span>
+<span class="fc" id="L494">		return common_master_salt;</span>
 	}
 
 	public AlgorithmID getKdf() {
-<span class="fc" id="L529">		return kdf;</span>
+<span class="fc" id="L498">		return kdf;</span>
 	}
 	
 	/**
@@ -535,7 +504,7 @@ public class OSCoreCtx {
 	 * @return Byte array with ID Context
 	 */
 	public byte[] getIdContext() {
-<span class="fc" id="L538">		return context_id;</span>
+<span class="fc" id="L507">		return context_id;</span>
 	}
 
 	/**
@@ -547,10 +516,10 @@ public class OSCoreCtx {
 	 * @return Byte array with ID Context
 	 */
 	public byte[] getMessageIdContext() {
-<span class="fc bfc" id="L550" title="All 2 branches covered.">		if (overrideContextId != null) {</span>
-<span class="fc" id="L551">			return overrideContextId;</span>
+<span class="fc bfc" id="L519" title="All 2 branches covered.">		if (overrideContextId != null) {</span>
+<span class="fc" id="L520">			return overrideContextId;</span>
 		} else {
-<span class="fc" id="L553">			return context_id;</span>
+<span class="fc" id="L522">			return context_id;</span>
 		}
 	}
 
@@ -561,7 +530,7 @@ public class OSCoreCtx {
 	 * @return the includeContextId
 	 */
 	public boolean getIncludeContextId() {
-<span class="fc" id="L564">		return includeContextId;</span>
+<span class="fc" id="L533">		return includeContextId;</span>
 	}
 
 	/**
@@ -575,19 +544,19 @@ public class OSCoreCtx {
 	 * @throws IllegalStateException if a Context ID has not been set for this context
 	 */
 	public void setIncludeContextId(boolean includeContextId) {
-<span class="pc bpc" id="L578" title="3 of 4 branches missed.">		if (context_id == null &amp;&amp; overrideContextId == null) {</span>
-<span class="nc" id="L579">			LOGGER.error(&quot;Context ID cannot be included for a context without one set.&quot;);</span>
-<span class="nc" id="L580">			throw new IllegalStateException(&quot;Context ID cannot be included for a context without one set.&quot;);</span>
+<span class="pc bpc" id="L547" title="3 of 4 branches missed.">		if (context_id == null &amp;&amp; overrideContextId == null) {</span>
+<span class="nc" id="L548">			LOGGER.error(&quot;Context ID cannot be included for a context without one set.&quot;);</span>
+<span class="nc" id="L549">			throw new IllegalStateException(&quot;Context ID cannot be included for a context without one set.&quot;);</span>
 		}
 		
 		// If Context ID is not to be included clear the overriding Context ID
 		// possibly set to be included in messages
-<span class="fc bfc" id="L585" title="All 2 branches covered.">		if (!includeContextId) {</span>
-<span class="fc" id="L586">			this.overrideContextId = null;</span>
+<span class="fc bfc" id="L554" title="All 2 branches covered.">		if (!includeContextId) {</span>
+<span class="fc" id="L555">			this.overrideContextId = null;</span>
 		}
 
-<span class="fc" id="L589">		this.includeContextId = includeContextId;</span>
-<span class="fc" id="L590">	}</span>
+<span class="fc" id="L558">		this.includeContextId = includeContextId;</span>
+<span class="fc" id="L559">	}</span>
 
 	/**
 	 * Indicate as a parameter exactly what Context ID should be included.
@@ -597,9 +566,9 @@ public class OSCoreCtx {
 	 * @param overrideContextId the Context ID to include in messages
 	 */
 	public void setIncludeContextId(byte[] overrideContextId) {
-<span class="fc" id="L600">		this.overrideContextId = overrideContextId.clone();</span>
-<span class="fc" id="L601">		this.setIncludeContextId(true);</span>
-<span class="fc" id="L602">	}</span>
+<span class="fc" id="L569">		this.overrideContextId = overrideContextId.clone();</span>
+<span class="fc" id="L570">		this.setIncludeContextId(true);</span>
+<span class="fc" id="L571">	}</span>
 
 	/**
 	 * Get the flag controlling whether or not to generate a new partial IV for
@@ -608,7 +577,7 @@ public class OSCoreCtx {
 	 * @return the responsesIncludePartialIV
 	 */
 	public boolean getResponsesIncludePartialIV() {
-<span class="fc" id="L611">		return responsesIncludePartialIV;</span>
+<span class="fc" id="L580">		return responsesIncludePartialIV;</span>
 	}
 
 	/**
@@ -618,8 +587,8 @@ public class OSCoreCtx {
 	 * @param responsesIncludePartialIV the responsesIncludePartialIV to set
 	 */
 	public void setResponsesIncludePartialIV(boolean responsesIncludePartialIV) {
-<span class="fc" id="L621">		this.responsesIncludePartialIV = responsesIncludePartialIV;</span>
-<span class="fc" id="L622">	}</span>
+<span class="fc" id="L590">		this.responsesIncludePartialIV = responsesIncludePartialIV;</span>
+<span class="fc" id="L591">	}</span>
 
 	/**
 	 * Get the flag controlling whether or not this context supports the context
@@ -628,7 +597,7 @@ public class OSCoreCtx {
 	 * @return the contextRederivationEnabled
 	 */
 	public boolean getContextRederivationEnabled() {
-<span class="fc" id="L631">		return contextRederivationEnabled;</span>
+<span class="fc" id="L600">		return contextRederivationEnabled;</span>
 	}
 
 	/**
@@ -638,8 +607,8 @@ public class OSCoreCtx {
 	 * @param contextRederivationEnabled the contextRederivationEnabled to set
 	 */
 	public void setContextRederivationEnabled(boolean contextRederivationEnabled) {
-<span class="fc" id="L641">		this.contextRederivationEnabled = contextRederivationEnabled;</span>
-<span class="fc" id="L642">	}</span>
+<span class="fc" id="L610">		this.contextRederivationEnabled = contextRederivationEnabled;</span>
+<span class="fc" id="L611">	}</span>
 
 	/**
 	 * Gets the current value of the MAX_UNFRAGMENTED_SIZE parameter. It is used
@@ -648,7 +617,7 @@ public class OSCoreCtx {
 	 * @return the current value of MAX_UNFRAGMENTED_SIZE
 	 */
 	public int getMaxUnfragmentedSize() {
-<span class="fc" id="L651">		return maxUnfragmentedSize;</span>
+<span class="fc" id="L620">		return maxUnfragmentedSize;</span>
 	}
 
 	/**
@@ -658,8 +627,8 @@ public class OSCoreCtx {
 	 * @param maxUnfragmentedSize the desired value of MAX_UNFRAGMENTED_SIZE
 	 */
 	public void setMaxUnfragmentedSize(int maxUnfragmentedSize) {
-<span class="fc" id="L661">		this.maxUnfragmentedSize = maxUnfragmentedSize;</span>
-<span class="fc" id="L662">	}</span>
+<span class="fc" id="L630">		this.maxUnfragmentedSize = maxUnfragmentedSize;</span>
+<span class="fc" id="L631">	}</span>
 
 	/**
 	 * Get a string representation of the context ID. (A string showing the
@@ -668,7 +637,7 @@ public class OSCoreCtx {
 	 * @return the contextIdString
 	 */
 	public String getContextIdString() {
-<span class="fc" id="L671">		return contextIdString;</span>
+<span class="fc" id="L640">		return contextIdString;</span>
 	}
 
 	/**
@@ -678,7 +647,7 @@ public class OSCoreCtx {
 	 * @return the senderIdString
 	 */
 	public String getSenderIdString() {
-<span class="fc" id="L681">		return senderIdString;</span>
+<span class="fc" id="L650">		return senderIdString;</span>
 	}
 
 	/**
@@ -688,39 +657,31 @@ public class OSCoreCtx {
 	 * @return the recipientIdString
 	 */
 	public String getRecipientIdString() {
-<span class="fc" id="L691">		return recipientIdString;</span>
-	}
-
-    public int rollbackRecipientSeq() {
-<span class="nc" id="L695">		return rollback_recipient_seq;</span>
-	}
-
-	public int rollbackRecipientReplay() {
-<span class="nc" id="L699">		return rollback_recipient_replay;</span>
+<span class="fc" id="L660">		return recipientIdString;</span>
 	}
 
 	/**
 	 * @param seq the sender sequence number to set
 	 */
 	public synchronized void setSenderSeq(int seq) {
-<span class="fc" id="L706">		sender_seq = seq;</span>
-<span class="fc" id="L707">	}</span>
+<span class="fc" id="L667">		sender_seq = seq;</span>
+<span class="fc" id="L668">	}</span>
 
 	/**
 	 * @param seq the recipient sequence number to set
+	 * @since 3.11 (adjust visibility to public)
 	 */
-	public synchronized void setReceiverSeq(int seq) {
-<span class="fc" id="L713">		recipient_seq = seq;</span>
-<span class="fc" id="L714">	}</span>
+	public synchronized void setRecipientSeq(int seq) {
+<span class="fc" id="L675">		lowest_recipient_seq = seq;</span>
+<span class="fc" id="L676">	}</span>
 
 	/**
-	 * Save the tag of the last processed block
-	 * 
-	 * @param tag the tag
+	 * @param window the recipient replay window to set
+	 * @since 3.11
 	 */
-	public void setLastBlockTag(byte[] tag) {
-<span class="nc" id="L722">		last_block_tag = tag.clone();</span>
-<span class="nc" id="L723">	}</span>
+	public synchronized void setRecipientReplayWindow(int window) {
+<span class="nc" id="L683">		recipient_replay_window = window;</span>
+<span class="nc" id="L684">	}</span>
 
 	/**
 	 * Enables setting the sender key
@@ -728,8 +689,8 @@ public class OSCoreCtx {
 	 * @param senderKey the sender key to set
 	 */
 	public void setSenderKey(byte[] senderKey) {
-<span class="fc" id="L731">		this.sender_key = senderKey.clone();</span>
-<span class="fc" id="L732">	}</span>
+<span class="fc" id="L692">		this.sender_key = senderKey.clone();</span>
+<span class="fc" id="L693">	}</span>
 	
 	/**
 	 * Enables setting the recipient key
@@ -737,8 +698,8 @@ public class OSCoreCtx {
 	 * @param recipientKey the recipient key to set
 	 */
 	public void setRecipientKey(byte[] recipientKey) {
-<span class="nc" id="L740">		this.recipient_key = recipientKey.clone();</span>
-<span class="nc" id="L741">	}</span>
+<span class="fc" id="L701">		this.recipient_key = recipientKey.clone();</span>
+<span class="fc" id="L702">	}</span>
 	
 	/**
 	 * Set the maximum sequence number.
@@ -746,8 +707,8 @@ public class OSCoreCtx {
 	 * @param seqMax the maximum sequence number.
 	 */
 	public void setSeqMax(int seqMax) {
-<span class="fc" id="L749">		this.seqMax = seqMax;</span>
-<span class="fc" id="L750">	}</span>
+<span class="fc" id="L710">		this.seqMax = seqMax;</span>
+<span class="fc" id="L711">	}</span>
 
 	/**
 	 * Sets the valid lengths, in bytes, of constrained variables(ids, IVs and
@@ -756,29 +717,29 @@ public class OSCoreCtx {
 	 * @throws RuntimeException if not this.common_alg has been initiated
 	 */
 	private void setLengths() {
-<span class="pc bpc" id="L759" title="1 of 2 branches missed.">		if (common_alg != null) {</span>
+<span class="pc bpc" id="L720" title="1 of 2 branches missed.">		if (common_alg != null) {</span>
 
-<span class="fc" id="L761">			iv_length = EncryptCommon.ivLength(common_alg);</span>
-<span class="fc bfc" id="L762" title="All 2 branches covered.">			if (iv_length &gt; 0) {</span>
-<span class="fc" id="L763">				id_length = iv_length - 6; // RFC section 5.2</span>
-<span class="fc" id="L764">				key_length = common_alg.getKeySize() / 8;</span>
+<span class="fc" id="L722">			iv_length = EncryptCommon.getIvLength(common_alg);</span>
+<span class="fc bfc" id="L723" title="All 2 branches covered.">			if (iv_length &gt; 0) {</span>
+<span class="fc" id="L724">				id_length = iv_length - 6; // RFC section 5.2</span>
+<span class="fc" id="L725">				key_length = common_alg.getKeySize() / 8;</span>
 
 			} else {
-<span class="fc" id="L767">				LOGGER.error(&quot;Unable to set lengths, since algorithm&quot;);</span>
-<span class="fc" id="L768">				throw new RuntimeException(&quot;Unable to set lengths, since algorithm&quot;);</span>
+<span class="fc" id="L728">				LOGGER.error(&quot;Requested AEAD algorithm is not supported: {}&quot;, common_alg);</span>
+<span class="fc" id="L729">				throw new RuntimeException(&quot;AEAD algorithm not supported&quot;);</span>
 			}
 
 		} else {
-<span class="nc" id="L772">			LOGGER.error(&quot;Common_alg has not yet been initiated.&quot;);</span>
-<span class="nc" id="L773">			throw new RuntimeException(&quot;Common_alg has not yet been initiated.&quot;);</span>
+<span class="nc" id="L733">			LOGGER.error(&quot;Common_alg has not yet been initiated.&quot;);</span>
+<span class="nc" id="L734">			throw new RuntimeException(&quot;Common_alg has not yet been initiated.&quot;);</span>
 		}
-<span class="fc" id="L775">	}</span>
+<span class="fc" id="L736">	}</span>
 
 	/**
 	 * @return the URI this context is associated with if any.
 	 */
 	public String getUri() {
-<span class="fc" id="L781">		return uri;</span>
+<span class="fc" id="L742">		return uri;</span>
 	}
 
 	/**
@@ -790,8 +751,8 @@ public class OSCoreCtx {
 	 * @param uri the URI this OSCORE context is associated with
 	 */
 	protected void setUri(String uri) {
-<span class="fc" id="L793">		this.uri = uri;</span>
-<span class="fc" id="L794">	}</span>
+<span class="fc" id="L754">		this.uri = uri;</span>
+<span class="fc" id="L755">	}</span>
 
 	/**
 	 * Get the context re-derivation key.
@@ -799,7 +760,7 @@ public class OSCoreCtx {
 	 * @return the context re-derivation key
 	 */
 	protected byte[] getContextRederivationKey() {
-<span class="fc" id="L802">		return contextRederivationKey;</span>
+<span class="fc" id="L763">		return contextRederivationKey;</span>
 	}
 
 	/**
@@ -808,8 +769,8 @@ public class OSCoreCtx {
 	 * @param contextRederivationKey the context re-derivation key to set
 	 */
 	protected void setContextRederivationKey(byte[] contextRederivationKey) {
-<span class="fc" id="L811">		this.contextRederivationKey = contextRederivationKey;</span>
-<span class="fc" id="L812">	}</span>
+<span class="fc" id="L772">		this.contextRederivationKey = contextRederivationKey;</span>
+<span class="fc" id="L773">	}</span>
 
 	/**
 	 * Check the phase of the context re-derivation process.
@@ -817,7 +778,7 @@ public class OSCoreCtx {
 	 * @return the contextRederivationOngoing
 	 */
 	public ContextRederivation.PHASE getContextRederivationPhase() {
-<span class="fc" id="L820">		return contextRederivationPhase;</span>
+<span class="fc" id="L781">		return contextRederivationPhase;</span>
 	}
 
 	/**
@@ -826,8 +787,8 @@ public class OSCoreCtx {
 	 * @param contextRederivationPhase the contextRederivationPhase to set
 	 */
 	public void setContextRederivationPhase(ContextRederivation.PHASE contextRederivationPhase) {
-<span class="fc" id="L829">		this.contextRederivationPhase = contextRederivationPhase;</span>
-<span class="fc" id="L830">	}</span>
+<span class="fc" id="L790">		this.contextRederivationPhase = contextRederivationPhase;</span>
+<span class="fc" id="L791">	}</span>
 
 	/**
 	 * Increase the sender's sequence number by one
@@ -835,23 +796,18 @@ public class OSCoreCtx {
 	 * @throws OSException if the sequence number wraps
 	 */
 	public synchronized void increaseSenderSeq() throws OSException {
-<span class="fc bfc" id="L838" title="All 2 branches covered.">		if (sender_seq &gt;= seqMax) {</span>
-<span class="fc" id="L839">			LOGGER.error(&quot;Sequence number wrapped, get a new OSCore context&quot;);</span>
-<span class="fc" id="L840">			throw new OSException(&quot;Sequence number wrapped&quot;);</span>
+<span class="fc bfc" id="L799" title="All 2 branches covered.">		if (sender_seq &gt;= seqMax) {</span>
+<span class="fc" id="L800">			LOGGER.error(&quot;Sequence number wrapped, get a new OSCore context&quot;);</span>
+<span class="fc" id="L801">			throw new OSException(&quot;Sequence number wrapped&quot;);</span>
 		}
+<span class="fc" id="L803">		sender_seq++;</span>
+<span class="fc" id="L804">	}</span>
 
-<span class="pc bpc" id="L843" title="3 of 4 branches missed.">		if (useAppB1 &amp;&amp; sender_seq % K == 0) {</span>
-<span class="nc" id="L844">			writeSsn();</span>
-		}
-
-<span class="fc" id="L847">		sender_seq++;</span>
-<span class="fc" id="L848">	}</span>
-
-	// TODO: For interop testing
-<span class="fc" id="L851">	public static boolean DISABLE_REPLAY_CHECKS = false;</span>
+	// For interop testing
+<span class="fc" id="L807">	public static boolean DISABLE_REPLAY_CHECKS = false;</span>
 
 	/**
-	 * Checks and sets the sequence number for incoming messages.
+	 * Checks and validates the sequence number for incoming messages.
 	 * 
 	 * @param seq the incoming sequence number
 	 * 
@@ -859,73 +815,71 @@ public class OSCoreCtx {
 	 */
 	public synchronized void checkIncomingSeq(int seq) throws OSException {
 
-<span class="pc bpc" id="L862" title="1 of 2 branches missed.">		if (DISABLE_REPLAY_CHECKS) {</span>
-<span class="nc" id="L863">			return;</span>
+<span class="fc bfc" id="L818" title="All 2 branches covered.">		if (seq &gt;= seqMax) {</span>
+<span class="fc" id="L819">			LOGGER.error(&quot;Sequence number wrapped, get new OSCore context&quot;);</span>
+<span class="fc" id="L820">			throw new OSException(ErrorDescriptions.REPLAY_DETECT);</span>
 		}
 
-<span class="fc bfc" id="L866" title="All 2 branches covered.">		if (seq &gt;= seqMax) {</span>
-<span class="fc" id="L867">			LOGGER.error(&quot;Sequence number wrapped, get new OSCore context&quot;);</span>
-<span class="fc" id="L868">			throw new OSException(ErrorDescriptions.REPLAY_DETECT);</span>
+<span class="fc bfc" id="L823" title="All 2 branches covered.">		if (seq &lt; lowest_recipient_seq) {</span>
+<span class="fc" id="L824">			LOGGER.error(&quot;Message too old&quot;);</span>
+<span class="fc" id="L825">			throw new OSException(ErrorDescriptions.REPLAY_DETECT);</span>
 		}
 
-<span class="fc bfc" id="L871" title="All 2 branches covered.">		if (seq &lt; internal_recipient_seq) {</span>
-<span class="fc" id="L872">			LOGGER.error(&quot;Message too old&quot;);</span>
-<span class="fc" id="L873">			throw new OSException(ErrorDescriptions.REPLAY_DETECT);</span>
+		// Check validity
+<span class="fc" id="L829">		boolean valid = false;</span>
+<span class="fc bfc" id="L830" title="All 2 branches covered.">		if (seq &gt;= lowest_recipient_seq + recipient_replay_window_size) {</span>
+<span class="fc" id="L831">			valid = true;</span>
+		} else {
+<span class="fc bfc" id="L833" title="All 2 branches covered.">			valid = ((recipient_replay_window &gt;&gt; (seq - lowest_recipient_seq)) &amp; 1) == 0;</span>
+		}
+<span class="pc bpc" id="L835" title="1 of 4 branches missed.">		if (!valid &amp;&amp; DISABLE_REPLAY_CHECKS == false) {</span>
+<span class="fc" id="L836">			LOGGER.error(&quot;Replayed message detected&quot;);</span>
+<span class="fc" id="L837">			throw new OSException(ErrorDescriptions.REPLAY_DETECT);</span>
 		}
 
-<span class="fc bfc" id="L876" title="All 2 branches covered.">		boolean valid = ((recipient_replay_window &gt;&gt; (seq - internal_recipient_seq)) &amp; 1) == 0;</span>
-<span class="fc bfc" id="L877" title="All 2 branches covered.">		if (seq &gt;= internal_recipient_seq + recipient_replay_window_size) {</span>
-<span class="fc" id="L878">			valid = true;</span>
-		}
-<span class="fc bfc" id="L880" title="All 2 branches covered.">		if (!valid) {</span>
-<span class="fc" id="L881">			LOGGER.error(&quot;Replayed message detected&quot;);</span>
-<span class="fc" id="L882">			throw new OSException(ErrorDescriptions.REPLAY_DETECT);</span>
-		}
-
-<span class="fc" id="L885">		recipient_seq = seq;</span>
 		// Update window
-<span class="fc" id="L887">		int shift = seq - (internal_recipient_seq + recipient_replay_window_size - 1);</span>
-<span class="fc bfc" id="L888" title="All 2 branches covered.">		if (shift &gt; 0) {</span>
-<span class="fc" id="L889">			recipient_replay_window &gt;&gt;= shift;</span>
-<span class="fc" id="L890">			internal_recipient_seq += shift;</span>
+<span class="fc" id="L841">		int shift = seq - (lowest_recipient_seq + recipient_replay_window_size - 1);</span>
+<span class="fc bfc" id="L842" title="All 2 branches covered.">		if (shift &gt; 0) {</span>
+<span class="fc" id="L843">			recipient_replay_window &gt;&gt;= shift;</span>
+<span class="fc" id="L844">			lowest_recipient_seq += shift;</span>
 		}
-<span class="fc" id="L892">		recipient_replay_window |= 1 &lt;&lt; (seq - internal_recipient_seq);</span>
-<span class="fc" id="L893">	}</span>
+<span class="fc" id="L846">		recipient_replay_window |= 1 &lt;&lt; (seq - lowest_recipient_seq);</span>
+<span class="fc" id="L847">	}</span>
 
 	public static byte[] deriveKey(byte[] secret, byte[] salt, int cbitKey, String digest, byte[] rgbContext)
 			throws CoseException {
 
-<span class="fc" id="L898">		final String HMAC_ALG_NAME = &quot;Hmac&quot; + digest;</span>
+<span class="fc" id="L852">		final String HMAC_ALG_NAME = &quot;Hmac&quot; + digest;</span>
 
 		try {
-<span class="fc" id="L901">			Mac hmac = Mac.getInstance(HMAC_ALG_NAME);</span>
-<span class="fc" id="L902">			int hashLen = hmac.getMacLength();</span>
+<span class="fc" id="L855">			Mac hmac = Mac.getInstance(HMAC_ALG_NAME);</span>
+<span class="fc" id="L856">			int hashLen = hmac.getMacLength();</span>
 
 			// Perform extract
-<span class="fc" id="L905">			hmac.init(new SecretKeySpec(salt, HMAC_ALG_NAME));</span>
-<span class="fc" id="L906">			byte[] rgbExtract = hmac.doFinal(secret);</span>
+<span class="fc" id="L859">			hmac.init(new SecretKeySpec(salt, HMAC_ALG_NAME));</span>
+<span class="fc" id="L860">			byte[] rgbExtract = hmac.doFinal(secret);</span>
 
 			// Perform expand
-<span class="fc" id="L909">			hmac.init(new SecretKeySpec(rgbExtract, HMAC_ALG_NAME));</span>
-<span class="fc" id="L910">			int c = (cbitKey / hashLen) + 1;</span>
-<span class="fc" id="L911">			byte[] rgbOut = new byte[cbitKey];</span>
-<span class="pc bpc" id="L912" title="1 of 2 branches missed.">			int maxLen = (hashLen * c &gt; cbitKey) ? hashLen * c : cbitKey;</span>
-<span class="fc" id="L913">			byte[] T = new byte[maxLen];</span>
-<span class="fc" id="L914">			byte[] last = new byte[0];</span>
-<span class="fc bfc" id="L915" title="All 2 branches covered.">			for (int i = 0; i &lt; c; i++) {</span>
-<span class="fc" id="L916">				hmac.reset();</span>
-<span class="fc" id="L917">				hmac.update(last);</span>
-<span class="fc" id="L918">				hmac.update(rgbContext);</span>
-<span class="fc" id="L919">				hmac.update((byte) (i + 1));</span>
-<span class="fc" id="L920">				last = hmac.doFinal();</span>
-<span class="fc" id="L921">				System.arraycopy(last, 0, T, i * hashLen, hashLen);</span>
+<span class="fc" id="L863">			hmac.init(new SecretKeySpec(rgbExtract, HMAC_ALG_NAME));</span>
+<span class="fc" id="L864">			int c = (cbitKey / hashLen) + 1;</span>
+<span class="fc" id="L865">			byte[] rgbOut = new byte[cbitKey];</span>
+<span class="pc bpc" id="L866" title="1 of 2 branches missed.">			int maxLen = (hashLen * c &gt; cbitKey) ? hashLen * c : cbitKey;</span>
+<span class="fc" id="L867">			byte[] T = new byte[maxLen];</span>
+<span class="fc" id="L868">			byte[] last = new byte[0];</span>
+<span class="fc bfc" id="L869" title="All 2 branches covered.">			for (int i = 0; i &lt; c; i++) {</span>
+<span class="fc" id="L870">				hmac.reset();</span>
+<span class="fc" id="L871">				hmac.update(last);</span>
+<span class="fc" id="L872">				hmac.update(rgbContext);</span>
+<span class="fc" id="L873">				hmac.update((byte) (i + 1));</span>
+<span class="fc" id="L874">				last = hmac.doFinal();</span>
+<span class="fc" id="L875">				System.arraycopy(last, 0, T, i * hashLen, hashLen);</span>
 			}
-<span class="fc" id="L923">			System.arraycopy(T, 0, rgbOut, 0, cbitKey);</span>
-<span class="fc" id="L924">			return rgbOut;</span>
-<span class="nc" id="L925">		} catch (NoSuchAlgorithmException | InvalidKeyException ex) {</span>
-<span class="nc" id="L926">			throw new CoseException(&quot;Algorithm not supported&quot;, ex);</span>
-<span class="nc" id="L927">		} catch (Exception ex) {</span>
-<span class="nc" id="L928">			throw new CoseException(&quot;Derivation failure&quot;, ex);</span>
+<span class="fc" id="L877">			System.arraycopy(T, 0, rgbOut, 0, cbitKey);</span>
+<span class="fc" id="L878">			return rgbOut;</span>
+<span class="nc" id="L879">		} catch (NoSuchAlgorithmException | InvalidKeyException ex) {</span>
+<span class="nc" id="L880">			throw new CoseException(&quot;Algorithm not supported&quot;, ex);</span>
+<span class="nc" id="L881">		} catch (Exception ex) {</span>
+<span class="nc" id="L882">			throw new CoseException(&quot;Derivation failure&quot;, ex);</span>
 		}
 	}
 
@@ -936,10 +890,10 @@ public class OSCoreCtx {
 	 * @return the string representation
 	 */
 	private String toHex(byte[] bytes) {
-<span class="fc bfc" id="L939" title="All 4 branches covered.">		if(bytes == null || bytes.length == 0) {</span>
-<span class="fc" id="L940">			return &quot;&quot;;</span>
+<span class="fc bfc" id="L893" title="All 4 branches covered.">		if(bytes == null || bytes.length == 0) {</span>
+<span class="fc" id="L894">			return &quot;&quot;;</span>
 		} else {
-<span class="fc" id="L942">			return StringUtil.byteArray2Hex(bytes);</span>
+<span class="fc" id="L896">			return StringUtil.byteArray2Hex(bytes);</span>
 		}
 	}
 
@@ -949,7 +903,7 @@ public class OSCoreCtx {
 	 * @return the coap code
 	 */
 	public Code getCoAPCode() {
-<span class="fc" id="L952">		return CoAPCode;</span>
+<span class="fc" id="L906">		return CoAPCode;</span>
 	}
 
 	/**
@@ -958,44 +912,43 @@ public class OSCoreCtx {
 	 * @param coapCode coap code.
 	 */
 	public void setCoAPCode(Code coapCode) {
-<span class="pc bpc" id="L961" title="1 of 2 branches missed.">		if (coapCode != null) {</span>
-<span class="fc" id="L962">			this.CoAPCode = coapCode;</span>
+<span class="pc bpc" id="L915" title="1 of 2 branches missed.">		if (coapCode != null) {</span>
+<span class="fc" id="L916">			this.CoAPCode = coapCode;</span>
 		}
-<span class="fc" id="L964">	}</span>
+<span class="fc" id="L918">	}</span>
 
 	/**
-	 * Initializes the cipher object by calling CCMBlockCipher.encrypt with
-	 * dummy data. Doing this at creation of the OSCORE context reduces the
-	 * latency for the first request since it would otherwise happen then.
+	 * Initializes the cipher object by calling encrypt on an Encrypt0Message
+	 * object created with dummy data. Doing this at creation of the OSCORE
+	 * context reduces the latency for the first request since it would
+	 * otherwise happen then.
 	 * 
 	 * @param alg the encryption algorithm used
 	 */
 	private void initializeCipher(AlgorithmID alg) {
-<span class="pc bpc" id="L974" title="1 of 2 branches missed.">		switch (alg) {</span>
-		case AES_CCM_16_64_128:
-		case AES_CCM_16_128_128:
-		case AES_CCM_64_64_128:
-		case AES_CCM_64_128_128:
 
-<span class="fc" id="L980">			byte[] key = { (byte) 0xEB, (byte) 0xDE, (byte) 0xBC, (byte) 0x51, (byte) 0xF1, (byte) 0x03,</span>
-					(byte) 0x79, (byte) 0x14, (byte) 0x14, (byte) 0x4F, (byte) 0xC3, (byte) 0xAC, (byte) 0x40,
-					(byte) 0x14, (byte) 0xD2, (byte) 0x4C };
-<span class="fc" id="L983">			byte[] nonce = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };</span>
-
-			try {
-<span class="fc" id="L986">				CCMBlockCipher.encrypt(new SecretKeySpec(key, &quot;AES&quot;), nonce, Bytes.EMPTY,</span>
-						Bytes.EMPTY, 0);
-<span class="nc" id="L988">			} catch (GeneralSecurityException e) {</span>
-<span class="nc" id="L989">				LOGGER.error(&quot;Failed to initialize cipher.&quot;);</span>
-<span class="nc" id="L990">				throw new RuntimeException(&quot;Failed to initialize cipher.&quot;);</span>
-<span class="fc" id="L991">			}</span>
-
-			break;
-
-		default:
-			break;
+<span class="pc bpc" id="L930" title="2 of 4 branches missed.">		if ((alg == AlgorithmID.CHACHA20_POLY1305 || alg == AlgorithmID.CHACHA20)</span>
+<span class="nc bnc" id="L931" title="All 2 branches missed.">				&amp;&amp; Security.getProvider(&quot;BC&quot;) == null) {</span>
+<span class="nc" id="L932">			Security.addProvider(new BouncyCastleProvider());</span>
 		}
-<span class="fc" id="L998">	}</span>
+
+<span class="fc" id="L935">		byte[] key = Arrays.copyOf(sender_id, key_length);</span>
+<span class="fc" id="L936">		byte[] iv = Arrays.copyOf(recipient_id, iv_length);</span>
+<span class="fc" id="L937">		byte[] aad = new byte[10];</span>
+
+<span class="fc" id="L939">		Encrypt0Message enc = new Encrypt0Message(false, true);</span>
+<span class="fc" id="L940">		enc.SetContent(&quot;init&quot;);</span>
+<span class="fc" id="L941">		enc.setExternal(aad);</span>
+
+		try {
+<span class="fc" id="L944">			enc.addAttribute(HeaderKeys.IV, CBORObject.FromObject(iv), Attribute.DO_NOT_SEND);</span>
+<span class="fc" id="L945">			enc.addAttribute(HeaderKeys.Algorithm, alg.AsCBOR(), Attribute.DO_NOT_SEND);</span>
+<span class="fc" id="L946">			enc.encrypt(key);</span>
+<span class="nc" id="L947">		} catch (IllegalStateException | CoseException e) {</span>
+<span class="nc" id="L948">			LOGGER.error(&quot;Failed to initialize cipher for algorithm {}. Ensure that the JCE supports it.&quot;, alg);</span>
+<span class="nc" id="L949">			throw new RuntimeException(&quot;Failed to initialize cipher&quot;);</span>
+<span class="fc" id="L950">		}</span>
+<span class="fc" id="L951">	}</span>
 
 	/**
 	 * Create byte array from values.
@@ -1004,7 +957,31 @@ public class OSCoreCtx {
 	 * @return initialized byte array
 	 */
 	private static byte[] createByteArray(byte... values) {
-<span class="fc" id="L1007">		return values;</span>
+<span class="fc" id="L960">		return values;</span>
+	}
+
+	/**
+	 * Holds nonce to hand over between different Security Contexts during
+	 * execution of Appendix B.2
+	 */
+	private byte[] nonceHandover;
+
+	/**
+	 * Set nonce to hand over during execution of Appendix B.2
+	 * 
+	 * @param nonce the nonce value to hand over
+	 */
+	protected void setNonceHandover(byte[] nonce) {
+<span class="fc" id="L975">		this.nonceHandover = nonce;</span>
+<span class="fc" id="L976">	}</span>
+
+	/**
+	 * Get nonce for hand over during execution of Appendix B.2
+	 * 
+	 * @return the retrieved nonce value
+	 */
+	protected byte[] getNonceHandover() {
+<span class="fc" id="L984">		return nonceHandover;</span>
 	}
 
 	/**
@@ -1013,107 +990,13 @@ public class OSCoreCtx {
 	 * @return if this is a group (Group OSCORE) context
 	 */
 	public boolean isGroupContext() {
-<span class="fc bfc" id="L1016" title="All 4 branches covered.">		return this instanceof GroupSenderCtx || this instanceof GroupRecipientCtx;</span>
+<span class="fc bfc" id="L993" title="All 4 branches covered.">		return this instanceof GroupSenderCtx || this instanceof GroupRecipientCtx;</span>
 	}
 
 	// TODO: Remove?
 	protected GroupSenderCtx getSenderCtx() {
-<span class="nc" id="L1021">		return null;</span>
+<span class="nc" id="L998">		return null;</span>
 	}
 
-	/**
-	 * Save SSN for resumption (Appendix B.1)
-	 */
-	private void writeSsn() {
-
-<span class="nc" id="L1029">		String fileName = getSsnFilePath();</span>
-
-		// Create file and folder if it does not exist
-<span class="nc" id="L1032">		File targetFile = new File(fileName);</span>
-<span class="nc" id="L1033">		File parent = targetFile.getParentFile();</span>
-<span class="nc" id="L1034">		parent.mkdirs();</span>
-
-		// Write file content
-<span class="nc bnc" id="L1037" title="All 2 branches missed.">		if (fileName != null) {</span>
-<span class="nc" id="L1038">			try (PrintWriter writer = new PrintWriter(fileName, &quot;UTF-8&quot;)) {</span>
-<span class="nc" id="L1039">				writer.println(String.valueOf(sender_seq));</span>
-<span class="nc" id="L1040">				writer.close();</span>
-<span class="nc" id="L1041">			} catch (FileNotFoundException | UnsupportedEncodingException e) {</span>
-				// Failed to write SSN for resumption
-<span class="nc" id="L1043">			}</span>
-		}
-
-<span class="nc" id="L1046">	}</span>
-
-	/**
-	 * Control the usage of Appendix B.1
-	 * 
-	 */
-	private final boolean useAppB1;
-
-	/**
-	 * Get filename to use for writing/reading SSN for resumption (Appendix B.1)
-	 * 
-	 * @return the path to the SSN file
-	 */
-	private String getSsnFilePath() {
-
-		// Build unique filename to use
-<span class="nc" id="L1062">		String jarFile = System.getProperty(&quot;java.class.path&quot;);</span>
-<span class="nc bnc" id="L1063" title="All 2 branches missed.">		if (jarFile.length() &gt; 4) {</span>
-<span class="nc" id="L1064">			jarFile = jarFile.substring(0, jarFile.length() - 4);</span>
-		}
-
-<span class="nc" id="L1067">		String recipientId = toHex(recipient_id);</span>
-<span class="nc" id="L1068">		String senderId = toHex(sender_id);</span>
-<span class="nc" id="L1069">		String contextId = toHex(context_id);</span>
-
-		String fileName;
-<span class="nc bnc" id="L1072" title="All 2 branches missed.">		if (jarFile.contains(&quot;:&quot;)) {</span>
-<span class="nc" id="L1073">			fileName = &quot;.&quot; + senderId + &quot;-&quot; + recipientId + &quot;-&quot; + contextId;</span>
-		} else {
-<span class="nc" id="L1075">			fileName = &quot;.&quot; + jarFile + &quot;-&quot; + senderId + &quot;-&quot; + recipientId + &quot;-&quot; + contextId;</span>
-		}
-
-<span class="nc" id="L1078">		return &quot;.resume/&quot; + fileName;</span>
-	}
-
-	/**
-	 * Parameter K for Appendix B.1
-	 */
-<span class="fc" id="L1084">	private static int K = 12;</span>
-
-	/**
-	 * Parameter F for Appendix B.1
-	 */
-<span class="fc" id="L1089">	private static int F = 3;</span>
-
-	/**
-	 * Read SSN for resumption (Appendix B.1)
-	 * 
-	 * @return the SSN to resume from
-	 */
-	private int readSsn() {
-
-<span class="nc" id="L1098">		String filePath = getSsnFilePath();</span>
-
-		// Attempt to read SSN from file
-<span class="nc" id="L1101">		int resumeSsn = -1;</span>
-
-<span class="nc bnc" id="L1103" title="All 2 branches missed.">		if (filePath == null) {</span>
-<span class="nc" id="L1104">			return resumeSsn;</span>
-		}
-
-<span class="nc" id="L1107">		try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {</span>
-<span class="nc" id="L1108">			String line = reader.readLine();</span>
-<span class="nc" id="L1109">			reader.close();</span>
-<span class="nc" id="L1110">			resumeSsn = Integer.parseInt(line);</span>
-<span class="nc" id="L1111">		} catch (IOException e) {</span>
-			// Failed to read or parse from file
-<span class="nc" id="L1113">			return resumeSsn;</span>
-<span class="nc" id="L1114">		}</span>
-
-<span class="nc" id="L1116">		return resumeSsn + K + F;</span>
-	}
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OscoreAS.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.coap.as</a> &gt; <span class="el_source">OscoreAS.java</span></div><h1>OscoreAS.java</h1><pre class="source lang-java linenums">/*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -39,6 +39,7 @@ import java.util.logging.Logger;
 
 import org.eclipse.californium.core.CoapServer;
 import org.eclipse.californium.core.coap.CoAP;
+import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.oscore.OSCoreCoapStackFactory;
 import org.eclipse.californium.oscore.OSCoreCtx;
@@ -72,21 +73,25 @@ import se.sics.ace.coap.rs.oscoreProfile.OscoreCtxDbSingleton;
  */
 public class OscoreAS extends CoapServer implements AutoCloseable {
 
+	static {
+<span class="fc" id="L77">	    CoapConfig.register();</span>
+	}
+	
     /**
      * The logger
      */
-<span class="fc" id="L78">    private static final Logger LOGGER </span>
-<span class="fc" id="L79">        = Logger.getLogger(OscoreAS.class.getName());</span>
+<span class="fc" id="L83">    private static final Logger LOGGER </span>
+<span class="fc" id="L84">        = Logger.getLogger(OscoreAS.class.getName());</span>
     
     /**
      * The token endpoint
      */
-<span class="fc" id="L84">    Token t = null;</span>
+<span class="fc" id="L89">    Token t = null;</span>
     
     /**
      * The introspect endpoint
      */
-<span class="fc" id="L89">    Introspect i = null;</span>
+<span class="fc" id="L94">    Introspect i = null;</span>
 
     private OscoreAceEndpoint token;
 
@@ -116,10 +121,10 @@ public class OscoreAS extends CoapServer implements AutoCloseable {
             Map&lt;String, String&gt; peerIdentitiesToNames,
             Map&lt;String, String&gt; myIdentities) 
                     throws AceException, OSException {
-<span class="nc" id="L119">        this(asId, db, pdp, time, asymmetricKey, &quot;token&quot;, &quot;introspect&quot;, port,</span>
+<span class="nc" id="L124">        this(asId, db, pdp, time, asymmetricKey, &quot;token&quot;, &quot;introspect&quot;, port,</span>
                 null, false, (short)0, false, peerNamesToIdentities,
                 peerIdentitiesToNames, myIdentities);
-<span class="nc" id="L122">    }</span>
+<span class="nc" id="L127">    }</span>
     
     
     /**
@@ -139,10 +144,10 @@ public class OscoreAS extends CoapServer implements AutoCloseable {
             OneKey asymmetricKey, Map&lt;String, String&gt; peerNamesToIdentities,
             Map&lt;String, String&gt; peerIdentitiesToNames,
             Map&lt;String, String&gt; myIdentities) throws AceException, OSException {
-<span class="nc" id="L142">        this(asId, db, pdp, time, asymmetricKey, &quot;token&quot;, &quot;introspect&quot;,</span>
+<span class="nc" id="L147">        this(asId, db, pdp, time, asymmetricKey, &quot;token&quot;, &quot;introspect&quot;,</span>
                 CoAP.DEFAULT_COAP_PORT, null, false, (short)0, false,
                 peerNamesToIdentities, peerIdentitiesToNames, myIdentities);
-<span class="nc" id="L145">    }</span>
+<span class="nc" id="L150">    }</span>
     
     
     /**
@@ -178,29 +183,29 @@ public class OscoreAS extends CoapServer implements AutoCloseable {
             boolean setAudHeader, short masterSaltSize, boolean provideIdContext,
             Map&lt;String, String&gt; peerNamesToIdentities,
             Map&lt;String, String&gt; peerIdentitiesToNames,
-<span class="fc" id="L181">            Map&lt;String, String&gt; myIdentities) throws AceException, OSException {</span>
-<span class="fc" id="L182">        this.t = new Token(asId, pdp, db, time, asymmetricKey, claims, setAudHeader,</span>
+<span class="fc" id="L186">            Map&lt;String, String&gt; myIdentities) throws AceException, OSException {</span>
+<span class="fc" id="L187">        this.t = new Token(asId, pdp, db, time, asymmetricKey, claims, setAudHeader,</span>
         				   masterSaltSize, provideIdContext, peerIdentitiesToNames);
-<span class="fc" id="L184">        this.token = new OscoreAceEndpoint(tokenName, this.t);</span>
-<span class="fc" id="L185">        add(this.token);</span>
+<span class="fc" id="L189">        this.token = new OscoreAceEndpoint(tokenName, this.t);</span>
+<span class="fc" id="L190">        add(this.token);</span>
                 
-<span class="pc bpc" id="L187" title="1 of 2 branches missed.">        if (introspectName != null) {</span>
-<span class="pc bpc" id="L188" title="1 of 2 branches missed.">            if (asymmetricKey == null) {</span>
-<span class="nc" id="L189">                this.i = new Introspect(pdp, db, time, null, peerIdentitiesToNames);</span>
+<span class="pc bpc" id="L192" title="1 of 2 branches missed.">        if (introspectName != null) {</span>
+<span class="pc bpc" id="L193" title="1 of 2 branches missed.">            if (asymmetricKey == null) {</span>
+<span class="nc" id="L194">                this.i = new Introspect(pdp, db, time, null, peerIdentitiesToNames);</span>
             } else {
-<span class="fc" id="L191">                this.i = new Introspect(pdp, db, time, asymmetricKey.PublicKey(), peerIdentitiesToNames);</span>
+<span class="fc" id="L196">                this.i = new Introspect(pdp, db, time, asymmetricKey.PublicKey(), peerIdentitiesToNames);</span>
             }
-<span class="fc" id="L193">            this.introspect = new OscoreAceEndpoint(introspectName, this.i);</span>
-<span class="fc" id="L194">            add(this.introspect);    </span>
+<span class="fc" id="L198">            this.introspect = new OscoreAceEndpoint(introspectName, this.i);</span>
+<span class="fc" id="L199">            add(this.introspect);    </span>
         }
-<span class="fc" id="L196">        this.addEndpoint(new CoapEndpoint.Builder()</span>
-<span class="fc" id="L197">                .setCoapStackFactory(new OSCoreCoapStackFactory())</span>
-<span class="fc" id="L198">                .setPort(port)</span>
-<span class="fc" id="L199">                .setCustomCoapStackArgument(OscoreCtxDbSingleton.getInstance())</span>
-<span class="fc" id="L200">                .build());  </span>
-<span class="fc" id="L201">        loadOscoreCtx(db, peerNamesToIdentities, myIdentities);</span>
+<span class="fc" id="L201">        this.addEndpoint(new CoapEndpoint.Builder()</span>
+<span class="fc" id="L202">                .setCoapStackFactory(new OSCoreCoapStackFactory())</span>
+<span class="fc" id="L203">                .setPort(port)</span>
+<span class="fc" id="L204">                .setCustomCoapStackArgument(OscoreCtxDbSingleton.getInstance())</span>
+<span class="fc" id="L205">                .build());  </span>
+<span class="fc" id="L206">        loadOscoreCtx(db, peerNamesToIdentities, myIdentities);</span>
 
-<span class="fc" id="L203">    }</span>
+<span class="fc" id="L208">    }</span>
 
     /**
      * Load the OSCORE contexts from the database
@@ -216,77 +221,77 @@ public class OscoreAS extends CoapServer implements AutoCloseable {
     private static void loadOscoreCtx(CoapDBConnector db,
     								  Map&lt;String, String&gt; peerNamesToIdentities,
     								  Map&lt;String, String&gt; myIdentities) throws AceException, OSException {
-<span class="fc" id="L219">        Set&lt;String&gt; ids = db.getRSS();</span>
-<span class="fc" id="L220">        ids.addAll(db.getClients());</span>
+<span class="fc" id="L224">        Set&lt;String&gt; ids = db.getRSS();</span>
+<span class="fc" id="L225">        ids.addAll(db.getClients());</span>
         
-<span class="fc bfc" id="L222" title="All 2 branches covered.">        for (String id : ids) {</span>
-<span class="fc" id="L223">            byte[] key = db.getKey(new PskPublicInformation(id)).getEncoded();</span>
+<span class="fc bfc" id="L227" title="All 2 branches covered.">        for (String id : ids) {</span>
+<span class="fc" id="L228">            byte[] key = db.getKey(new PskPublicInformation(id)).getEncoded();</span>
                         
             // The identity that this AS uses with this peer
-<span class="fc" id="L226">            String identity = myIdentities.get(id);</span>
-<span class="fc" id="L227">            IdPair idPair = new IdPair(identity);</span>
-<span class="pc bpc" id="L228" title="1 of 2 branches missed.">            if (idPair.getSenderId() == null) {</span>
+<span class="fc" id="L231">            String identity = myIdentities.get(id);</span>
+<span class="fc" id="L232">            IdPair idPair = new IdPair(identity);</span>
+<span class="pc bpc" id="L233" title="1 of 2 branches missed.">            if (idPair.getSenderId() == null) {</span>
             	// This identity is malformed; proceed to the next one
             }
-<span class="fc" id="L231">            byte[] senderId = idPair.getSenderId();</span>
-<span class="fc" id="L232">            byte[] contextId = idPair.getContextId();</span>
+<span class="fc" id="L236">            byte[] senderId = idPair.getSenderId();</span>
+<span class="fc" id="L237">            byte[] contextId = idPair.getContextId();</span>
             
             // The identity that this peer uses with this AS
-<span class="fc" id="L235">            identity = peerNamesToIdentities.get(id);</span>
-<span class="fc" id="L236">            idPair = new IdPair(identity);</span>
-<span class="pc bpc" id="L237" title="1 of 2 branches missed.">            if (idPair.getSenderId() == null) {</span>
+<span class="fc" id="L240">            identity = peerNamesToIdentities.get(id);</span>
+<span class="fc" id="L241">            idPair = new IdPair(identity);</span>
+<span class="pc bpc" id="L242" title="1 of 2 branches missed.">            if (idPair.getSenderId() == null) {</span>
             	// This identity is malformed; proceed to the next one
             }
-<span class="fc" id="L240">            byte[] recipientId = idPair.getSenderId();</span>
-<span class="fc" id="L241">            byte[] contextIdBis = idPair.getContextId();</span>
+<span class="fc" id="L245">            byte[] recipientId = idPair.getSenderId();</span>
+<span class="fc" id="L246">            byte[] contextIdBis = idPair.getContextId();</span>
             
             // This are all error conditions; skipped this peer and proceed to the next one
-<span class="pc bpc" id="L244" title="1 of 2 branches missed.">            if (!Arrays.equals(contextId, contextIdBis)) {</span>
-<span class="nc" id="L245">            	continue;</span>
+<span class="pc bpc" id="L249" title="1 of 2 branches missed.">            if (!Arrays.equals(contextId, contextIdBis)) {</span>
+<span class="nc" id="L250">            	continue;</span>
             }
             
-<span class="fc" id="L248">            OSCoreCtx ctx = new OSCoreCtx(key, false, null, senderId, </span>
+<span class="fc" id="L253">            OSCoreCtx ctx = new OSCoreCtx(key, false, null, senderId, </span>
             		recipientId, null, null, null, contextId, MAX_UNFRAGMENTED_SIZE);
-<span class="fc" id="L250">            OscoreCtxDbSingleton.getInstance().addContext(ctx);</span>
+<span class="fc" id="L255">            OscoreCtxDbSingleton.getInstance().addContext(ctx);</span>
             
-<span class="fc" id="L252">        }</span>
-<span class="fc" id="L253">        LOGGER.finest(&quot;Loaded OSCORE contexts&quot;);</span>
-<span class="fc" id="L254">    }</span>
+<span class="fc" id="L257">        }</span>
+<span class="fc" id="L258">        LOGGER.finest(&quot;Loaded OSCORE contexts&quot;);</span>
+<span class="fc" id="L259">    }</span>
 
     @Override
     public void close() throws Exception {
-<span class="nc" id="L258">        LOGGER.info(&quot;Closing down OscoreAS ...&quot;);</span>
-<span class="nc" id="L259">        this.token.close();</span>
-<span class="nc" id="L260">        this.introspect.close();       </span>
-<span class="nc" id="L261">    }</span>
+<span class="nc" id="L263">        LOGGER.info(&quot;Closing down OscoreAS ...&quot;);</span>
+<span class="nc" id="L264">        this.token.close();</span>
+<span class="nc" id="L265">        this.introspect.close();       </span>
+<span class="nc" id="L266">    }</span>
     
     public static class IdPair {
     	
     	private byte[] senderId;
     	private byte[] contextId;
     	
-<span class="fc" id="L268">    	public IdPair(String identity) {</span>
+<span class="fc" id="L273">    	public IdPair(String identity) {</span>
     		
-<span class="fc" id="L270">    		senderId = null;</span>
-<span class="fc" id="L271">    		contextId = null;</span>
+<span class="fc" id="L275">    		senderId = null;</span>
+<span class="fc" id="L276">    		contextId = null;</span>
     		
-<span class="fc" id="L273">    		int index = identity.indexOf(&quot;:&quot;);</span>
+<span class="fc" id="L278">    		int index = identity.indexOf(&quot;:&quot;);</span>
     		
-<span class="pc bpc" id="L275" title="1 of 2 branches missed.">    		if (index != -1) {</span>
+<span class="pc bpc" id="L280" title="1 of 2 branches missed.">    		if (index != -1) {</span>
     			// The Context ID is present
-<span class="nc" id="L277">    			contextId = Base64.getDecoder().decode(identity.substring(0, index));</span>
+<span class="nc" id="L282">    			contextId = Base64.getDecoder().decode(identity.substring(0, index));</span>
     		}
-<span class="fc" id="L279">    		index++; // This becomes 0 if the Context ID was not present</span>
-<span class="fc" id="L280">    		senderId = Base64.getDecoder().decode(identity.substring(index, identity.length()));</span>
+<span class="fc" id="L284">    		index++; // This becomes 0 if the Context ID was not present</span>
+<span class="fc" id="L285">    		senderId = Base64.getDecoder().decode(identity.substring(index, identity.length()));</span>
     		
-<span class="fc" id="L282">    	}</span>
+<span class="fc" id="L287">    	}</span>
     	
     	public byte[] getSenderId() {
-<span class="fc" id="L285">    		return senderId;</span>
+<span class="fc" id="L290">    		return senderId;</span>
     	}
     	
     	public byte[] getContextId() {
-<span class="fc" id="L289">    		return contextId;</span>
+<span class="fc" id="L294">    		return contextId;</span>
     	}
     	
     }

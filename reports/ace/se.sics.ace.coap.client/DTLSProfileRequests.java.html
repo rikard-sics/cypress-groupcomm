@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DTLSProfileRequests.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.coap.client</a> &gt; <span class="el_source">DTLSProfileRequests.java</span></div><h1>DTLSProfileRequests.java</h1><pre class="source lang-java linenums">/*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -55,8 +55,8 @@ import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.CertificateType;
 import org.eclipse.californium.scandium.dtls.PskPublicInformation;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
-import org.eclipse.californium.scandium.dtls.pskstore.AdvancedMultiPskStore;
-import org.eclipse.californium.scandium.dtls.x509.AsyncNewAdvancedCertificateVerifier;
+import org.eclipse.californium.scandium.dtls.pskstore.MultiPskStore;
+import org.eclipse.californium.scandium.dtls.x509.AsyncCertificateVerifier;
 import org.eclipse.californium.scandium.dtls.x509.SingleCertificateProvider;
 
 import com.upokecenter.cbor.CBORObject;
@@ -126,9 +126,9 @@ import se.sics.ace.Util;
 <span class="nc" id="L126">            String keyId = new String(</span>
 <span class="nc" id="L127">                    key.get(KeyKeys.KeyId).GetByteString(),</span>
                     Constants.charset);
-<span class="nc" id="L129">            AdvancedMultiPskStore pskStore = new AdvancedMultiPskStore();</span>
+<span class="nc" id="L129">            MultiPskStore pskStore = new MultiPskStore();</span>
 <span class="nc" id="L130">            pskStore.setKey(keyId, key.get(KeyKeys.Octet_K).GetByteString());</span>
-<span class="nc" id="L131">            builder.setAdvancedPskStore(pskStore);</span>
+<span class="nc" id="L131">            builder.setPskStore(pskStore);</span>
 <span class="nc bnc" id="L132" title="All 4 branches missed.">        } else if (type.equals(KeyKeys.KeyType_EC2) || type.equals(KeyKeys.KeyType_OKP)){</span>
             try {
 <span class="nc" id="L134">                builder.setCertificateIdentityProvider(</span>
@@ -156,12 +156,10 @@ import se.sics.ace.Util;
 <span class="nc" id="L156">            throw new AceException(e.getMessage());</span>
 <span class="nc" id="L157">        }</span>
         try {
-<span class="nc" id="L159">            return client.post(</span>
-<span class="nc" id="L160">                    payload.EncodeToBytes(), </span>
-                    Constants.APPLICATION_ACE_CBOR);
-<span class="nc" id="L162">        } catch (ConnectorException | IOException e) {</span>
-<span class="nc" id="L163">            LOGGER.severe(&quot;DTLSConnector error: &quot; + e.getMessage());</span>
-<span class="nc" id="L164">            throw new AceException(e.getMessage());</span>
+<span class="nc" id="L159">            return client.post(payload.EncodeToBytes(), Constants.APPLICATION_ACE_CBOR);</span>
+<span class="nc" id="L160">        } catch (ConnectorException | IOException e) {</span>
+<span class="nc" id="L161">            LOGGER.severe(&quot;DTLSConnector error: &quot; + e.getMessage());</span>
+<span class="nc" id="L162">            throw new AceException(e.getMessage());</span>
         }
     }
     
@@ -180,61 +178,78 @@ import se.sics.ace.Util;
      * @throws AceException 
      */
     public static CoapResponse postToken(String rsAddr, CBORObject payload, OneKey key) throws AceException {
-<span class="pc bpc" id="L183" title="1 of 2 branches missed.">        if (payload == null) {</span>
-<span class="nc" id="L184">            throw new AceException(</span>
+<span class="fc" id="L181">    	return postToken(rsAddr, payload, Constants.APPLICATION_CWT, key);</span>
+    }
+    
+    /**
+     * Sends a POST request to the /authz-info endpoint of the RS to submit an
+     * access token.
+     * 
+     * @param rsAddr  the full address of the /authz-info endpoint
+     *  (including scheme and hostname, and port if not default)
+     * @param contentFormat  the CoAP content format to use for this message
+     * @param payload  the token received from the getToken() method
+     * @param key  an asymmetric key-pair to use with DTLS in a raw-public 
+     *  key handshake
+     * 
+     * @return  the response 
+     *
+     * @throws AceException 
+     */
+    public static CoapResponse postToken(String rsAddr, CBORObject payload, int contentFormat, OneKey key) throws AceException {
+<span class="pc bpc" id="L200" title="1 of 2 branches missed.">        if (payload == null) {</span>
+<span class="nc" id="L201">            throw new AceException(</span>
                     &quot;Payload cannot be null when POSTing to authz-info&quot;);
         }
-<span class="fc" id="L187">        Connector c = null;</span>
-<span class="fc bfc" id="L188" title="All 2 branches covered.">        if (key != null) {</span>
-<span class="fc" id="L189">        	Configuration dtlsConfig = Configuration.getStandard();</span>
-<span class="fc" id="L190">        	dtlsConfig.set(DtlsConfig.DTLS_USE_SERVER_NAME_INDICATION,  false);</span>
-<span class="fc" id="L191">        	dtlsConfig.set(DtlsConfig.DTLS_CIPHER_SUITES, Collections.singletonList(CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8));</span>
-<span class="fc" id="L192">        	dtlsConfig.set(DtlsConfig.DTLS_CLIENT_AUTHENTICATION_MODE, CertificateAuthenticationMode.NEEDED);</span>
-<span class="fc" id="L193">            DtlsConnectorConfig.Builder builder </span>
-<span class="fc" id="L194">                = new DtlsConnectorConfig.Builder(dtlsConfig).setAddress(</span>
+<span class="fc" id="L204">        Connector c = null;</span>
+<span class="fc bfc" id="L205" title="All 2 branches covered.">        if (key != null) {</span>
+<span class="fc" id="L206">        	Configuration dtlsConfig = Configuration.getStandard();</span>
+<span class="fc" id="L207">        	dtlsConfig.set(DtlsConfig.DTLS_USE_SERVER_NAME_INDICATION,  false);</span>
+<span class="fc" id="L208">        	dtlsConfig.set(DtlsConfig.DTLS_CIPHER_SUITES, Collections.singletonList(CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8));</span>
+<span class="fc" id="L209">        	dtlsConfig.set(DtlsConfig.DTLS_CLIENT_AUTHENTICATION_MODE, CertificateAuthenticationMode.NEEDED);</span>
+<span class="fc" id="L210">            DtlsConnectorConfig.Builder builder </span>
+<span class="fc" id="L211">                = new DtlsConnectorConfig.Builder(dtlsConfig).setAddress(</span>
                         new InetSocketAddress(0));
 
             try {
-<span class="fc" id="L198">                builder.setCertificateIdentityProvider(</span>
-<span class="fc" id="L199">                        new SingleCertificateProvider(key.AsPrivateKey(), key.AsPublicKey()));</span>
-<span class="nc" id="L200">            } catch (CoseException e) {</span>
-<span class="nc" id="L201">                LOGGER.severe(&quot;Key is invalid: &quot; + e.getMessage());</span>
-<span class="nc" id="L202">               throw new AceException(&quot;Aborting, key invalid: &quot; </span>
-<span class="nc" id="L203">                       + e.getMessage());</span>
-<span class="fc" id="L204">            }</span>
+<span class="fc" id="L215">                builder.setCertificateIdentityProvider(</span>
+<span class="fc" id="L216">                        new SingleCertificateProvider(key.AsPrivateKey(), key.AsPublicKey()));</span>
+<span class="nc" id="L217">            } catch (CoseException e) {</span>
+<span class="nc" id="L218">                LOGGER.severe(&quot;Key is invalid: &quot; + e.getMessage());</span>
+<span class="nc" id="L219">               throw new AceException(&quot;Aborting, key invalid: &quot; </span>
+<span class="nc" id="L220">                       + e.getMessage());</span>
+<span class="fc" id="L221">            }</span>
 
-<span class="fc" id="L206">            ArrayList&lt;CertificateType&gt; certTypes = new ArrayList&lt;CertificateType&gt;();</span>
-<span class="fc" id="L207">            certTypes.add(CertificateType.RAW_PUBLIC_KEY);</span>
-<span class="fc" id="L208">            AsyncNewAdvancedCertificateVerifier verifier = new AsyncNewAdvancedCertificateVerifier(</span>
+<span class="fc" id="L223">            ArrayList&lt;CertificateType&gt; certTypes = new ArrayList&lt;CertificateType&gt;();</span>
+<span class="fc" id="L224">            certTypes.add(CertificateType.RAW_PUBLIC_KEY);</span>
+<span class="fc" id="L225">            AsyncCertificateVerifier verifier = new AsyncCertificateVerifier(</span>
                     new X509Certificate[0], new RawPublicKeyIdentity[0], certTypes);
-<span class="fc" id="L210">            builder.setAdvancedCertificateVerifier(verifier);</span>
+<span class="fc" id="L227">            builder.setCertificateVerifier(verifier);</span>
 
-<span class="fc" id="L212">            c = new DTLSConnector(builder.build());</span>
-<span class="fc" id="L213">        } else {</span>
-<span class="fc" id="L214">            c = new UDPConnector(new InetSocketAddress(0), Configuration.getStandard());</span>
+<span class="fc" id="L229">            c = new DTLSConnector(builder.build());</span>
+<span class="fc" id="L230">        } else {</span>
+<span class="fc" id="L231">            c = new UDPConnector(new InetSocketAddress(0), Configuration.getStandard());</span>
         }
-<span class="fc" id="L216">        CoapEndpoint e = new CoapEndpoint.Builder().setConnector(c)</span>
-<span class="fc" id="L217">                .setConfiguration(Configuration.getStandard()).build();</span>
-<span class="fc" id="L218">        CoapClient client = new CoapClient(rsAddr);</span>
-<span class="fc" id="L219">        client.setEndpoint(e);   </span>
+<span class="fc" id="L233">        CoapEndpoint e = new CoapEndpoint.Builder().setConnector(c)</span>
+<span class="fc" id="L234">                .setConfiguration(Configuration.getStandard()).build();</span>
+<span class="fc" id="L235">        CoapClient client = new CoapClient(rsAddr);</span>
+<span class="fc" id="L236">        client.setEndpoint(e);   </span>
         try {
-<span class="fc" id="L221">            e.start();</span>
-<span class="nc" id="L222">        } catch (IOException ex) {</span>
-<span class="nc" id="L223">            LOGGER.severe(&quot;Failed to start DTLSConnector: &quot; + ex.getMessage());</span>
-<span class="nc" id="L224">            throw new AceException(ex.getMessage());</span>
-<span class="fc" id="L225">        }</span>
-<span class="fc" id="L226">               LOGGER.finest(&quot;Sending request payload: &quot; + payload);</span>
-<span class="fc" id="L227">        CoapResponse r = null;</span>
+<span class="fc" id="L238">            e.start();</span>
+<span class="nc" id="L239">        } catch (IOException ex) {</span>
+<span class="nc" id="L240">            LOGGER.severe(&quot;Failed to start DTLSConnector: &quot; + ex.getMessage());</span>
+<span class="nc" id="L241">            throw new AceException(ex.getMessage());</span>
+<span class="fc" id="L242">        }</span>
+<span class="fc" id="L243">               LOGGER.finest(&quot;Sending request payload: &quot; + payload);</span>
+<span class="fc" id="L244">        CoapResponse r = null;</span>
         try {
-<span class="fc" id="L229">            r = client.post(</span>
-<span class="fc" id="L230">                    payload.EncodeToBytes(), </span>
-                    Constants.APPLICATION_ACE_CBOR);
-<span class="nc" id="L232">        } catch (ConnectorException | IOException ex) {</span>
-<span class="nc" id="L233">            LOGGER.severe(&quot;DTLSConnector error: &quot; + ex.getMessage());</span>
-<span class="nc" id="L234">            throw new AceException(ex.getMessage());</span>
-<span class="fc" id="L235">        }</span>
-<span class="fc" id="L236">        e.stop();</span>
-<span class="fc" id="L237">        return r;</span>
+<span class="fc" id="L246">            r = client.post(payload.EncodeToBytes(), contentFormat);</span>
+<span class="nc" id="L247">        } catch (ConnectorException | IOException ex) {</span>
+<span class="nc" id="L248">            LOGGER.severe(&quot;DTLSConnector error: &quot; + ex.getMessage());</span>
+<span class="nc" id="L249">            throw new AceException(ex.getMessage());</span>
+<span class="fc" id="L250">        }</span>
+<span class="fc" id="L251">        e.stop();</span>
+<span class="fc" id="L252">        return r;</span>
     }
     
     /**
@@ -244,30 +259,47 @@ import se.sics.ace.Util;
      * @param rsAddr  the full address of the /authz-info endpoint
      *  (including scheme and hostname, and port if not default)
      * @param payload  the token received from the getToken() method
-     * @param key  an asymmetric key-pair to use with DTLS in a raw-public 
-     *  key handshake
+     * @param c  the CoAP client posting the access token
      * 
      * @return  the response 
      *
      * @throws AceException 
      */
     public static CoapResponse postTokenUpdate(String rsAddr, CBORObject payload, CoapClient c) throws AceException {
-<span class="pc bpc" id="L255" title="1 of 2 branches missed.">        if (payload == null) {</span>
-<span class="nc" id="L256">            throw new AceException(</span>
+<span class="fc" id="L269">    	return postTokenUpdate(rsAddr, payload, Constants.APPLICATION_CWT, c);</span>
+    }
+    
+    /**
+     * Sends a POST request to the /authz-info endpoint of the RS to submit an
+     * access token for updating access rights.
+     * 
+     * @param rsAddr  the full address of the /authz-info endpoint
+     *  (including scheme and hostname, and port if not default)
+     * @param payload  the token received from the getToken() method
+     * @param contentFormat  the CoAP content format to use for this message
+     * @param c  the CoAP client posting the access token
+     * 
+     * @return  the response 
+     *
+     * @throws AceException 
+     */
+    public static CoapResponse postTokenUpdate(String rsAddr, CBORObject payload, int contentFormat, CoapClient c) throws AceException {
+<span class="pc bpc" id="L287" title="1 of 2 branches missed.">        if (payload == null) {</span>
+<span class="nc" id="L288">            throw new AceException(</span>
                     &quot;Payload cannot be null when POSTing to authz-info&quot;);
         }
 
         //Submit the new token
-<span class="fc" id="L261">        c.setURI(rsAddr);</span>
-<span class="fc" id="L262">        CoapResponse tokenPostResp = null;</span>
+<span class="fc" id="L293">        c.setURI(rsAddr);</span>
+<span class="fc" id="L294">        CoapResponse tokenPostResp = null;</span>
         try {
-<span class="fc" id="L264">        	tokenPostResp = c.post(payload.EncodeToBytes(), Constants.APPLICATION_ACE_CBOR);</span>
-<span class="nc" id="L265">        } catch (ConnectorException | IOException ex) {</span>
-<span class="nc" id="L266">            LOGGER.severe(&quot;DTLSConnector error: &quot; + ex.getMessage());</span>
-<span class="nc" id="L267">            throw new AceException(ex.getMessage());</span>
-<span class="fc" id="L268">        }</span>
+<span class="fc" id="L296">        	tokenPostResp = c.post(payload.EncodeToBytes(), contentFormat);</span>
+<span class="nc" id="L297">        } catch (ConnectorException | IOException ex) {</span>
+<span class="nc" id="L298">            LOGGER.severe(&quot;DTLSConnector error: &quot; + ex.getMessage());</span>
+<span class="nc" id="L299">            throw new AceException(ex.getMessage());</span>
+<span class="fc" id="L300">        }</span>
         
-<span class="fc" id="L270">        return tokenPostResp;</span>
+<span class="fc" id="L302">        return tokenPostResp;</span>
     }
         
     /**
@@ -283,46 +315,46 @@ import se.sics.ace.Util;
      */
     public static CoapClient getPskClient(InetSocketAddress serverAddress,
             CBORObject token, OneKey key) {
-<span class="pc bpc" id="L286" title="2 of 4 branches missed.">        if (serverAddress == null || serverAddress.getHostString() == null) {</span>
-<span class="nc" id="L287">            throw new IllegalArgumentException(</span>
+<span class="pc bpc" id="L318" title="2 of 4 branches missed.">        if (serverAddress == null || serverAddress.getHostString() == null) {</span>
+<span class="nc" id="L319">            throw new IllegalArgumentException(</span>
                     &quot;Client requires a non-null server address&quot;);
         }
-<span class="pc bpc" id="L290" title="1 of 2 branches missed.">        if (token == null) {</span>
-<span class="nc" id="L291">            throw new IllegalArgumentException(</span>
+<span class="pc bpc" id="L322" title="1 of 2 branches missed.">        if (token == null) {</span>
+<span class="nc" id="L323">            throw new IllegalArgumentException(</span>
                     &quot;PSK client requires a non-null access token&quot;);
         }
-<span class="pc bpc" id="L294" title="2 of 4 branches missed.">        if (key == null || key.get(KeyKeys.Octet_K) == null) {</span>
-<span class="nc" id="L295">            throw new IllegalArgumentException(</span>
+<span class="pc bpc" id="L326" title="2 of 4 branches missed.">        if (key == null || key.get(KeyKeys.Octet_K) == null) {</span>
+<span class="nc" id="L327">            throw new IllegalArgumentException(</span>
                     &quot;PSK  client requires a non-null symmetric key&quot;);
         }
         
-<span class="fc" id="L299">        Configuration dtlsConfig = Configuration.getStandard();</span>
-<span class="fc" id="L300">        dtlsConfig.set(DtlsConfig.DTLS_USE_SERVER_NAME_INDICATION,  false);</span>
-<span class="fc" id="L301">        dtlsConfig.set(DtlsConfig.DTLS_CIPHER_SUITES, Collections.singletonList(CipherSuite.TLS_PSK_WITH_AES_128_CCM_8));</span>
-<span class="fc" id="L302">        dtlsConfig.set(DtlsConfig.DTLS_SIGNATURE_AND_HASH_ALGORITHMS, null);</span>
-<span class="fc" id="L303">        dtlsConfig.set(DtlsConfig.DTLS_CURVES, null);</span>
+<span class="fc" id="L331">        Configuration dtlsConfig = Configuration.getStandard();</span>
+<span class="fc" id="L332">        dtlsConfig.set(DtlsConfig.DTLS_USE_SERVER_NAME_INDICATION,  false);</span>
+<span class="fc" id="L333">        dtlsConfig.set(DtlsConfig.DTLS_CIPHER_SUITES, Collections.singletonList(CipherSuite.TLS_PSK_WITH_AES_128_CCM_8));</span>
+<span class="fc" id="L334">        dtlsConfig.set(DtlsConfig.DTLS_SIGNATURE_AND_HASH_ALGORITHMS, null);</span>
+<span class="fc" id="L335">        dtlsConfig.set(DtlsConfig.DTLS_CURVES, null);</span>
     	
-<span class="fc" id="L305">        DtlsConnectorConfig.Builder builder </span>
-<span class="fc" id="L306">            = new DtlsConnectorConfig.Builder(dtlsConfig).setAddress(</span>
+<span class="fc" id="L337">        DtlsConnectorConfig.Builder builder </span>
+<span class="fc" id="L338">            = new DtlsConnectorConfig.Builder(dtlsConfig).setAddress(</span>
                     new InetSocketAddress(0));
         
-<span class="fc" id="L309">        AdvancedMultiPskStore store = new AdvancedMultiPskStore();</span>
+<span class="fc" id="L341">        MultiPskStore store = new MultiPskStore();</span>
         
-<span class="fc" id="L311">        LOGGER.finest(&quot;Adding key for: &quot; + serverAddress.toString());</span>
+<span class="fc" id="L343">        LOGGER.finest(&quot;Adding key for: &quot; + serverAddress.toString());</span>
         
-<span class="fc" id="L313">        byte[] identityBytes = token.EncodeToBytes();</span>
-<span class="fc" id="L314">        String identityStr = Base64.getEncoder().encodeToString(identityBytes);</span>
-<span class="fc" id="L315">        PskPublicInformation pskInfo = new PskPublicInformation(identityStr, identityBytes);</span>
-<span class="fc" id="L316">        store.addKnownPeer(serverAddress, pskInfo, key.get(KeyKeys.Octet_K).GetByteString());</span>
+<span class="fc" id="L345">        byte[] identityBytes = token.EncodeToBytes();</span>
+<span class="fc" id="L346">        String identityStr = Base64.getEncoder().encodeToString(identityBytes);</span>
+<span class="fc" id="L347">        PskPublicInformation pskInfo = new PskPublicInformation(identityStr, identityBytes);</span>
+<span class="fc" id="L348">        store.addKnownPeer(serverAddress, pskInfo, key.get(KeyKeys.Octet_K).GetByteString());</span>
                 
-<span class="fc" id="L318">        builder.setAdvancedPskStore(store);</span>
-<span class="fc" id="L319">        Connector c = new DTLSConnector(builder.build());</span>
-<span class="fc" id="L320">        CoapEndpoint e = new CoapEndpoint.Builder().setConnector(c)</span>
-<span class="fc" id="L321">                .setConfiguration(Configuration.getStandard()).build();</span>
-<span class="fc" id="L322">        CoapClient client = new CoapClient(serverAddress.getHostString());</span>
-<span class="fc" id="L323">        client.setEndpoint(e);   </span>
+<span class="fc" id="L350">        builder.setPskStore(store);</span>
+<span class="fc" id="L351">        Connector c = new DTLSConnector(builder.build());</span>
+<span class="fc" id="L352">        CoapEndpoint e = new CoapEndpoint.Builder().setConnector(c)</span>
+<span class="fc" id="L353">                .setConfiguration(Configuration.getStandard()).build();</span>
+<span class="fc" id="L354">        CoapClient client = new CoapClient(serverAddress.getHostString());</span>
+<span class="fc" id="L355">        client.setEndpoint(e);   </span>
 
-<span class="fc" id="L325">        return client;    </span>
+<span class="fc" id="L357">        return client;    </span>
     }
     
     
@@ -341,46 +373,46 @@ import se.sics.ace.Util;
      */
     public static CoapClient getPskClient(InetSocketAddress serverAddress,
             byte[] kid, OneKey key) {
-<span class="pc bpc" id="L344" title="2 of 4 branches missed.">        if (serverAddress == null || serverAddress.getHostString() == null) {</span>
-<span class="nc" id="L345">            throw new IllegalArgumentException(</span>
+<span class="pc bpc" id="L376" title="2 of 4 branches missed.">        if (serverAddress == null || serverAddress.getHostString() == null) {</span>
+<span class="nc" id="L377">            throw new IllegalArgumentException(</span>
                     &quot;Client requires a non-null server address&quot;);
         }
-<span class="pc bpc" id="L348" title="1 of 2 branches missed.">        if (kid == null) {</span>
-<span class="nc" id="L349">            throw new IllegalArgumentException(</span>
+<span class="pc bpc" id="L380" title="1 of 2 branches missed.">        if (kid == null) {</span>
+<span class="nc" id="L381">            throw new IllegalArgumentException(</span>
                     &quot;PSK client requires a non-null kid&quot;);
         }
-<span class="pc bpc" id="L352" title="2 of 4 branches missed.">        if (key == null || key.get(KeyKeys.Octet_K) == null) {</span>
-<span class="nc" id="L353">            throw new IllegalArgumentException(</span>
+<span class="pc bpc" id="L384" title="2 of 4 branches missed.">        if (key == null || key.get(KeyKeys.Octet_K) == null) {</span>
+<span class="nc" id="L385">            throw new IllegalArgumentException(</span>
                     &quot;PSK  client requires a non-null symmetric key&quot;);
         }
         
-<span class="fc" id="L357">        Configuration dtlsConfig = Configuration.getStandard();</span>
-<span class="fc" id="L358">        dtlsConfig.set(DtlsConfig.DTLS_USE_SERVER_NAME_INDICATION, false);</span>
-<span class="fc" id="L359">        dtlsConfig.set(DtlsConfig.DTLS_CIPHER_SUITES, Arrays.asList(CipherSuite.TLS_PSK_WITH_AES_128_CCM_8));</span>
-<span class="fc" id="L360">        dtlsConfig.set(DtlsConfig.DTLS_SIGNATURE_AND_HASH_ALGORITHMS, null);</span>
-<span class="fc" id="L361">        dtlsConfig.set(DtlsConfig.DTLS_CURVES, null);</span>
+<span class="fc" id="L389">        Configuration dtlsConfig = Configuration.getStandard();</span>
+<span class="fc" id="L390">        dtlsConfig.set(DtlsConfig.DTLS_USE_SERVER_NAME_INDICATION, false);</span>
+<span class="fc" id="L391">        dtlsConfig.set(DtlsConfig.DTLS_CIPHER_SUITES, Arrays.asList(CipherSuite.TLS_PSK_WITH_AES_128_CCM_8));</span>
+<span class="fc" id="L392">        dtlsConfig.set(DtlsConfig.DTLS_SIGNATURE_AND_HASH_ALGORITHMS, null);</span>
+<span class="fc" id="L393">        dtlsConfig.set(DtlsConfig.DTLS_CURVES, null);</span>
         
-<span class="fc" id="L363">        DtlsConnectorConfig.Builder builder </span>
-<span class="fc" id="L364">            = new DtlsConnectorConfig.Builder(dtlsConfig).setAddress(</span>
+<span class="fc" id="L395">        DtlsConnectorConfig.Builder builder </span>
+<span class="fc" id="L396">            = new DtlsConnectorConfig.Builder(dtlsConfig).setAddress(</span>
                 new InetSocketAddress(0));
         
-<span class="fc" id="L367">        AdvancedMultiPskStore store = new AdvancedMultiPskStore();</span>
+<span class="fc" id="L399">        MultiPskStore store = new MultiPskStore();</span>
 
-<span class="fc" id="L369">        LOGGER.finest(&quot;Adding key for: &quot; + serverAddress.toString());</span>
+<span class="fc" id="L401">        LOGGER.finest(&quot;Adding key for: &quot; + serverAddress.toString());</span>
         
-<span class="fc" id="L371">        byte[] identityBytes = Util.buildDtlsPskIdentity(kid);</span>
-<span class="fc" id="L372">        String identityStr = Base64.getEncoder().encodeToString(identityBytes);</span>
-<span class="fc" id="L373">        PskPublicInformation pskInfo = new PskPublicInformation(identityStr, identityBytes);</span>
-<span class="fc" id="L374">        store.addKnownPeer(serverAddress, pskInfo, key.get(KeyKeys.Octet_K).GetByteString());</span>
+<span class="fc" id="L403">        byte[] identityBytes = Util.buildDtlsPskIdentity(kid);</span>
+<span class="fc" id="L404">        String identityStr = Base64.getEncoder().encodeToString(identityBytes);</span>
+<span class="fc" id="L405">        PskPublicInformation pskInfo = new PskPublicInformation(identityStr, identityBytes);</span>
+<span class="fc" id="L406">        store.addKnownPeer(serverAddress, pskInfo, key.get(KeyKeys.Octet_K).GetByteString());</span>
         
-<span class="fc" id="L376">        builder.setAdvancedPskStore(store);</span>
-<span class="fc" id="L377">        Connector c = new DTLSConnector(builder.build());</span>
-<span class="fc" id="L378">        CoapEndpoint e = new CoapEndpoint.Builder().</span>
-<span class="fc" id="L379">                setConfiguration(Configuration.getStandard()).setConnector(c).build();</span>
-<span class="fc" id="L380">        CoapClient client = new CoapClient(serverAddress.getHostString());</span>
-<span class="fc" id="L381">        client.setEndpoint(e);   </span>
+<span class="fc" id="L408">        builder.setPskStore(store);</span>
+<span class="fc" id="L409">        Connector c = new DTLSConnector(builder.build());</span>
+<span class="fc" id="L410">        CoapEndpoint e = new CoapEndpoint.Builder().</span>
+<span class="fc" id="L411">                setConfiguration(Configuration.getStandard()).setConnector(c).build();</span>
+<span class="fc" id="L412">        CoapClient client = new CoapClient(serverAddress.getHostString());</span>
+<span class="fc" id="L413">        client.setEndpoint(e);   </span>
 
-<span class="fc" id="L383">        return client;    </span>
+<span class="fc" id="L415">        return client;    </span>
     }
     
     /**
@@ -395,33 +427,33 @@ import se.sics.ace.Util;
     public static CoapClient getRpkClient(OneKey clientKey, OneKey rsPublicKey) 
             throws CoseException {
     	
-<span class="fc" id="L398">        Configuration dtlsConfig = Configuration.getStandard();</span>
-<span class="fc" id="L399">        dtlsConfig.set(DtlsConfig.DTLS_USE_SERVER_NAME_INDICATION,  false);</span>
-<span class="fc" id="L400">        dtlsConfig.set(DtlsConfig.DTLS_CIPHER_SUITES, Collections.singletonList(CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8));</span>
+<span class="fc" id="L430">        Configuration dtlsConfig = Configuration.getStandard();</span>
+<span class="fc" id="L431">        dtlsConfig.set(DtlsConfig.DTLS_USE_SERVER_NAME_INDICATION,  false);</span>
+<span class="fc" id="L432">        dtlsConfig.set(DtlsConfig.DTLS_CIPHER_SUITES, Collections.singletonList(CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8));</span>
     	
-<span class="fc" id="L402">        DtlsConnectorConfig.Builder builder </span>
-<span class="fc" id="L403">            = new DtlsConnectorConfig.Builder(dtlsConfig).setAddress(</span>
+<span class="fc" id="L434">        DtlsConnectorConfig.Builder builder </span>
+<span class="fc" id="L435">            = new DtlsConnectorConfig.Builder(dtlsConfig).setAddress(</span>
                     new InetSocketAddress(0));
 
-<span class="fc" id="L406">        builder.setCertificateIdentityProvider(</span>
-<span class="fc" id="L407">                new SingleCertificateProvider(clientKey.AsPrivateKey(), clientKey.AsPublicKey()));</span>
-<span class="pc bpc" id="L408" title="1 of 2 branches missed.">        if (rsPublicKey != null) {</span>
+<span class="fc" id="L438">        builder.setCertificateIdentityProvider(</span>
+<span class="fc" id="L439">                new SingleCertificateProvider(clientKey.AsPrivateKey(), clientKey.AsPublicKey()));</span>
+<span class="pc bpc" id="L440" title="1 of 2 branches missed.">        if (rsPublicKey != null) {</span>
 
-<span class="fc" id="L410">            RawPublicKeyIdentity[] identities = new RawPublicKeyIdentity[1];</span>
-<span class="fc" id="L411">            identities[0] = new RawPublicKeyIdentity(rsPublicKey.AsPublicKey());</span>
-<span class="fc" id="L412">            AsyncNewAdvancedCertificateVerifier verifier = new AsyncNewAdvancedCertificateVerifier(</span>
+<span class="fc" id="L442">            RawPublicKeyIdentity[] identities = new RawPublicKeyIdentity[1];</span>
+<span class="fc" id="L443">            identities[0] = new RawPublicKeyIdentity(rsPublicKey.AsPublicKey());</span>
+<span class="fc" id="L444">            AsyncCertificateVerifier verifier = new AsyncCertificateVerifier(</span>
                     new X509Certificate[0], identities, null);
 
-<span class="fc" id="L415">            builder.setAdvancedCertificateVerifier(verifier);</span>
+<span class="fc" id="L447">            builder.setCertificateVerifier(verifier);</span>
         }
         
-<span class="fc" id="L418">        Connector c = new DTLSConnector(builder.build());</span>
-<span class="fc" id="L419">        CoapEndpoint e = new CoapEndpoint.Builder().setConnector(c)</span>
-<span class="fc" id="L420">                .setConfiguration(Configuration.getStandard()).build();</span>
-<span class="fc" id="L421">        CoapClient client = new CoapClient();</span>
-<span class="fc" id="L422">        client.setEndpoint(e);   </span>
+<span class="fc" id="L450">        Connector c = new DTLSConnector(builder.build());</span>
+<span class="fc" id="L451">        CoapEndpoint e = new CoapEndpoint.Builder().setConnector(c)</span>
+<span class="fc" id="L452">                .setConfiguration(Configuration.getStandard()).build();</span>
+<span class="fc" id="L453">        CoapClient client = new CoapClient();</span>
+<span class="fc" id="L454">        client.setEndpoint(e);   </span>
         
-<span class="fc" id="L424">        return client;    </span>
+<span class="fc" id="L456">        return client;    </span>
     }    
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

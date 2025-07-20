@@ -12,6 +12,7 @@
 + * 
 + * Contributors:
 + *    Bosch Software Innovations GmbH - initial implementation. 
++ *    Rikard Höglund (RISE)           - OSCORE TCP stack creation
 + ******************************************************************************/
 package org.eclipse.californium.oscore;
 
@@ -22,44 +23,55 @@ import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.network.CoapStackFactory;
 import org.eclipse.californium.core.network.Outbox;
 import org.eclipse.californium.core.network.stack.CoapStack;
+import org.eclipse.californium.elements.EndpointContextMatcher;
 import org.eclipse.californium.elements.config.Configuration;
 
 /**
- * Coap stack factory creating a {@link OSCoreStack} including a
- * {@link ObjectSecurityLayer}.
+ * Coap stack factory creating a {@link OSCoreUdpStack} or
+ * {@link OSCoreTcpStack} including a {@link ObjectSecurityLayer}.
  */
-<span class="fc" id="L31">public class OSCoreCoapStackFactory implements CoapStackFactory {</span>
+<span class="fc" id="L33">public class OSCoreCoapStackFactory implements CoapStackFactory {</span>
 
-<span class="fc" id="L33">	private static AtomicBoolean init = new AtomicBoolean();</span>
+<span class="fc" id="L35">	private static AtomicBoolean init = new AtomicBoolean();</span>
 	private static volatile OSCoreCtxDB defaultCtxDb;
 
 	@Override
-	public CoapStack createCoapStack(String protocol, String tag, Configuration config, Outbox outbox, Object customStackArgument) {
-<span class="pc bpc" id="L38" title="1 of 2 branches missed.">		if (CoAP.isTcpProtocol(protocol)) {</span>
-<span class="nc" id="L39">			throw new IllegalArgumentException(&quot;protocol \&quot;&quot; + protocol + &quot;\&quot; is not supported!&quot;);</span>
+	public CoapStack createCoapStack(String protocol, String tag, Configuration config,
+			EndpointContextMatcher matchingStrategy, Outbox outbox, Object customStackArgument) {
+
+<span class="fc" id="L42">		OSCoreCtxDB ctxDb = defaultCtxDb;</span>
+<span class="fc bfc" id="L43" title="All 2 branches covered.">		if (customStackArgument != null) {</span>
+<span class="pc bpc" id="L44" title="1 of 2 branches missed.">			if (!(customStackArgument instanceof OSCoreCtxDB)) {</span>
+<span class="nc" id="L45">				throw new IllegalArgumentException(</span>
+<span class="nc" id="L46">						&quot;custom argument must be a OSCoreCtxDB, not &quot; + customStackArgument.getClass() + &quot;!&quot;);</span>
+			}
+<span class="fc" id="L48">			ctxDb = (OSCoreCtxDB) customStackArgument;</span>
 		}
-<span class="fc" id="L41">		OSCoreCtxDB ctxDb = defaultCtxDb;</span>
-<span class="fc bfc" id="L42" title="All 2 branches covered.">		if (customStackArgument != null) {</span>
-<span class="fc" id="L43">			ctxDb = (OSCoreCtxDB) customStackArgument;</span>
+
+<span class="pc bpc" id="L51" title="1 of 2 branches missed.">		if (CoAP.isTcpProtocol(protocol)) {</span>
+<span class="nc" id="L52">			return new OSCoreTcpStack(tag, config, matchingStrategy, outbox, ctxDb);</span>
+		} else {
+<span class="fc" id="L54">			return new OSCoreUdpStack(tag, config, matchingStrategy, outbox, ctxDb);</span>
 		}
-<span class="fc" id="L45">		return new OSCoreStack(tag, config, outbox, ctxDb);</span>
 	}
 
 	/**
-	 * Use {@link OSCoreStack} as default for {@link CoapEndpoint}.
+	 * Use {@link OSCoreUdpStack} or {@link OSCoreTcpStack} as default for
+	 * {@link CoapEndpoint}.
 	 * 
 	 * Note: the factory is only applied once with the first call, the
 	 * {@link #defaultCtxDb} is update on every call.
 	 * 
-	 * @param defaultCtxDb default context DB. Passed in as default argument for {@link OSCoreStack}
+	 * @param defaultCtxDb default context DB. Passed in as default argument for
+	 *            {@link OSCoreUdpStack} and {@link OSCoreTcpStack}
 	 * 
 	 * @see CoapEndpoint#setDefaultCoapStackFactory(CoapStackFactory)
 	 */
 	public static void useAsDefault(OSCoreCtxDB defaultCtxDb) {
-<span class="fc bfc" id="L59" title="All 2 branches covered.">		if (init.compareAndSet(false, true)) {</span>
-<span class="fc" id="L60">			CoapEndpoint.setDefaultCoapStackFactory(new OSCoreCoapStackFactory());</span>
+<span class="fc bfc" id="L71" title="All 2 branches covered.">		if (init.compareAndSet(false, true)) {</span>
+<span class="fc" id="L72">			CoapEndpoint.setDefaultCoapStackFactory(new OSCoreCoapStackFactory());</span>
 		}
-<span class="fc" id="L62">		OSCoreCoapStackFactory.defaultCtxDb = defaultCtxDb;</span>
-<span class="fc" id="L63">	}</span>
+<span class="fc" id="L74">		OSCoreCoapStackFactory.defaultCtxDb = defaultCtxDb;</span>
+<span class="fc" id="L75">	}</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

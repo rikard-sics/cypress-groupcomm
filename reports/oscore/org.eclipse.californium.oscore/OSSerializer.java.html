@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OSSerializer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore</a> &gt; <span class="el_source">OSSerializer.java</span></div><h1>OSSerializer.java</h1><pre class="source lang-java linenums">/*******************************************************************************
- * Copyright (c) 2018 RISE SICS and others.
+ * Copyright (c) 2025 RISE SICS and others.
  * 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
@@ -279,7 +279,7 @@ import net.i2p.crypto.eddsa.Utils;
 	public static byte[] updateAADForGroup(OSCoreCtx ctx, byte[] aadBytes, Message message) {
 
 		CBORObject algSign;
-		CBORObject algSignEnc;
+		CBORObject algGroupEnc;
 		CBORObject algKeyAgreement;
 
 		byte[] senderPublicKey;
@@ -288,14 +288,14 @@ import net.i2p.crypto.eddsa.Utils;
 <span class="fc bfc" id="L288" title="All 2 branches covered.">		if (ctx instanceof GroupRecipientCtx) {</span>
 <span class="fc" id="L289">			GroupRecipientCtx recipientCtx = (GroupRecipientCtx) ctx;</span>
 <span class="fc" id="L290">			algSign = recipientCtx.getAlgSign().AsCBOR();</span>
-<span class="fc" id="L291">			algSignEnc = recipientCtx.getAlgSignEnc().AsCBOR();</span>
+<span class="fc" id="L291">			algGroupEnc = recipientCtx.getAlgGroupEnc().AsCBOR();</span>
 <span class="fc" id="L292">			algKeyAgreement = recipientCtx.getAlgKeyAgreement().AsCBOR();</span>
 <span class="fc" id="L293">			senderPublicKey = recipientCtx.getPublicKeyRaw();</span>
 <span class="fc" id="L294">			gmPublicKey = recipientCtx.getCommonCtx().getGmPublicKey();</span>
 <span class="fc" id="L295">		} else {</span>
 <span class="fc" id="L296">			GroupSenderCtx senderCtx = (GroupSenderCtx) ctx;</span>
 <span class="fc" id="L297">			algSign = senderCtx.getAlgSign().AsCBOR();</span>
-<span class="fc" id="L298">			algSignEnc = senderCtx.getAlgSignEnc().AsCBOR();</span>
+<span class="fc" id="L298">			algGroupEnc = senderCtx.getAlgGroupEnc().AsCBOR();</span>
 <span class="fc" id="L299">			algKeyAgreement = senderCtx.getAlgKeyAgreement().AsCBOR();</span>
 <span class="fc" id="L300">			senderPublicKey = senderCtx.getPublicKeyRaw();</span>
 <span class="fc" id="L301">			gmPublicKey = senderCtx.getCommonCtx().getGmPublicKey();</span>
@@ -305,7 +305,7 @@ import net.i2p.crypto.eddsa.Utils;
 
 		// Build index 1 which holds the algorithms array
 <span class="fc" id="L307">		CBORObject algorithms = groupAadEnc.get(1);</span>
-<span class="fc" id="L308">		algorithms.Add(algSignEnc);</span>
+<span class="fc" id="L308">		algorithms.Add(algGroupEnc);</span>
 <span class="fc" id="L309">		algorithms.Add(algSign);</span>
 <span class="fc" id="L310">		algorithms.Add(algKeyAgreement);</span>
 
@@ -347,7 +347,7 @@ import net.i2p.crypto.eddsa.Utils;
 <span class="fc" id="L347">		groupAadEnc.Add(CBORObject.FromObject(senderPublicKey));</span>
 
 		// Add the Group Manager's public key
-		// System.out.println(&quot;gmPublicKey: &quot; + Utils.bytesToHex(gmPublicKey));
+<span class="fc" id="L350">		System.out.println(&quot;gmPublicKey: &quot; + Utils.bytesToHex(gmPublicKey));</span>
 <span class="pc bpc" id="L351" title="1 of 4 branches missed.">		if (gmPublicKey == null || gmPublicKey.length == 0) {</span>
 <span class="fc" id="L352">			groupAadEnc.Add(CBORObject.Null);</span>
 		} else {

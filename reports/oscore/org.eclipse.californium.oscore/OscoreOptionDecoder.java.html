@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OscoreOptionDecoder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore</a> &gt; <span class="el_source">OscoreOptionDecoder.java</span></div><h1>OscoreOptionDecoder.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2025 RISE and others.
+ * 
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * and Eclipse Distribution License v1.0 which accompany this distribution.
+ * 
+ * The Eclipse Public License is available at
+ *    http://www.eclipse.org/legal/epl-v20.html
+ * and the Eclipse Distribution License is available at
+ *    http://www.eclipse.org/org/documents/edl-v10.html.
+ * 
+ * Contributors:
+ *    Rikard Höglund (RISE)
+ *    
+ ******************************************************************************/
+package org.eclipse.californium.oscore;
+
+import java.util.Arrays;
+
+import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+import org.eclipse.californium.elements.util.DatagramReader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Class for decoding the bytes of an OSCORE CoAP option.
+ * 
+ * See the structure of the option:
+ * https://datatracker.ietf.org/doc/html/rfc8613#section-6.1
+ * 
+ */
+public class OscoreOptionDecoder {
+
+	/**
+	 * The logger
+	 */
+<span class="fc" id="L38">	private static final Logger LOGGER = LoggerFactory.getLogger(OscoreOptionDecoder.class);</span>
+
+	private byte[] encodedBytes;
+
+	private byte[] idContext;
+	private byte[] partialIV;
+	private byte[] kid;
+
+	private int n;
+	private int k;
+	private int h;
+
+	/**
+	 * Initialize the OSCORE option with a certain array of bytes and decode
+	 * them into the parameters of the option.
+	 * 
+	 * @param encodedBytes the encoded bytes of the option
+	 * @throws CoapOSException if the option is malformed
+	 */
+<span class="fc" id="L57">	public OscoreOptionDecoder(byte[] encodedBytes) throws CoapOSException {</span>
+<span class="fc" id="L58">		this.encodedBytes = encodedBytes;</span>
+<span class="fc" id="L59">		decode();</span>
+<span class="fc" id="L60">	}</span>
+
+	/**
+	 * Set the OSCORE option to a certain array of bytes and decode them into
+	 * the parameters of the option.
+	 * 
+	 * @param encodedBytes the encoded bytes of the option
+	 * @throws CoapOSException if the option is malformed
+	 */
+	public void setBytes(byte[] encodedBytes) throws CoapOSException {
+<span class="nc" id="L70">		this.encodedBytes = encodedBytes;</span>
+<span class="nc" id="L71">		decode();</span>
+<span class="nc" id="L72">	}</span>
+
+	/**
+	 * Performs the decoding of the option and stores the resulting parameters
+	 * in this object.
+	 * 
+	 * @throws CoapOSException if the option is malformed
+	 */
+	private void decode() throws CoapOSException {
+<span class="fc" id="L81">		byte[] total = encodedBytes;</span>
+
+		/**
+		 * If the OSCORE option value is a zero length byte array it represents
+		 * a byte array of length 1 with a byte 0x00 See
+		 * https://tools.ietf.org/html/draft-ietf-core-object-security-16#section-2
+		 */
+<span class="fc bfc" id="L88" title="All 2 branches covered.">		if (total.length == 0) {</span>
+<span class="fc" id="L89">			total = new byte[] { 0x00 };</span>
+		}
+
+<span class="fc" id="L92">		byte flagByte = total[0];</span>
+
+<span class="fc" id="L94">		int n = flagByte &amp; 0x07;</span>
+<span class="fc" id="L95">		int k = (flagByte &amp; 0x08) &gt;&gt; 3;</span>
+<span class="fc" id="L96">		int h = (flagByte &amp; 0x10) &gt;&gt; 4;</span>
+
+<span class="fc" id="L98">		byte[] partialIV = null;</span>
+<span class="fc" id="L99">		byte[] kid = null;</span>
+<span class="fc" id="L100">		byte[] kidContext = null;</span>
+<span class="fc" id="L101">		int index = 1;</span>
+
+		try {
+			// Parsing Partial IV
+<span class="fc bfc" id="L105" title="All 2 branches covered.">			if (n &gt; 0) {</span>
+<span class="fc" id="L106">				partialIV = Arrays.copyOfRange(total, index, index + n);</span>
+<span class="fc" id="L107">				index += n;</span>
+			}
+<span class="nc" id="L109">		} catch (Exception e) {</span>
+<span class="nc" id="L110">			LOGGER.error(&quot;Failed to parse Partial IV in OSCORE option.&quot;);</span>
+<span class="nc" id="L111">			throw new CoapOSException(ErrorDescriptions.FAILED_TO_DECODE_COSE, ResponseCode.BAD_OPTION);</span>
+<span class="fc" id="L112">		}</span>
+
+		try {
+			// Parsing KID Context
+<span class="fc bfc" id="L116" title="All 2 branches covered.">			if (h != 0) {</span>
+<span class="fc" id="L117">				int s = total[index++];</span>
+
+<span class="fc" id="L119">				kidContext = Arrays.copyOfRange(total, index, index + s);</span>
+
+<span class="fc" id="L121">				index += s;</span>
+			}
+<span class="nc" id="L123">		} catch (Exception e) {</span>
+<span class="nc" id="L124">			LOGGER.error(&quot;Failed to parse KID Context in OSCORE option.&quot;);</span>
+<span class="nc" id="L125">			throw new CoapOSException(ErrorDescriptions.FAILED_TO_DECODE_COSE, ResponseCode.BAD_OPTION);</span>
+<span class="fc" id="L126">		}</span>
+
+		try {
+			// Parsing KID
+<span class="fc bfc" id="L130" title="All 2 branches covered.">			if (k != 0) {</span>
+<span class="fc" id="L131">				kid = Arrays.copyOfRange(total, index, total.length);</span>
+			}
+<span class="nc" id="L133">		} catch (Exception e) {</span>
+<span class="nc" id="L134">			LOGGER.error(&quot;Failed to parse KID in OSCORE option.&quot;);</span>
+<span class="nc" id="L135">			throw new CoapOSException(ErrorDescriptions.FAILED_TO_DECODE_COSE, ResponseCode.BAD_OPTION);</span>
+<span class="fc" id="L136">		}</span>
+
+		// Check option length consistency
+<span class="pc bpc" id="L139" title="1 of 4 branches missed.">		if (k == 0 &amp;&amp; index != total.length) {</span>
+			// If KID is not present there should be no further data
+<span class="nc" id="L141">			LOGGER.error(&quot;Extranous data at end of OSCORE option.&quot;);</span>
+<span class="nc" id="L142">			throw new CoapOSException(ErrorDescriptions.FAILED_TO_DECODE_COSE, ResponseCode.BAD_OPTION);</span>
+		}
+
+		// Store parsed data in this object
+<span class="fc" id="L146">		this.n = n;</span>
+<span class="fc" id="L147">		this.k = k;</span>
+<span class="fc" id="L148">		this.h = h;</span>
+<span class="fc" id="L149">		this.partialIV = partialIV;</span>
+<span class="fc" id="L150">		this.kid = kid;</span>
+<span class="fc" id="L151">		this.idContext = kidContext;</span>
+<span class="fc" id="L152">	}</span>
+
+	/**
+	 * Retrieve the ID Context
+	 * 
+	 * @return the ID Context (kid context)
+	 */
+	public byte[] getIdContext() {
+<span class="fc" id="L160">		return idContext;</span>
+	}
+
+	/**
+	 * Retrieve the Partial IV
+	 * 
+	 * @return the Partial IV
+	 */
+	public byte[] getPartialIV() {
+<span class="fc" id="L169">		return partialIV;</span>
+	}
+
+	/**
+	 * Retrieve the sequence number
+	 * 
+	 * @return the sequence number (based on the Partial IV)
+	 */
+	public int getSequenceNumber() {
+<span class="pc bpc" id="L178" title="1 of 2 branches missed.">		if (partialIV == null) {</span>
+<span class="nc" id="L179">			return 0;</span>
+		}
+
+<span class="fc" id="L182">		return new DatagramReader(partialIV, false).read(partialIV.length * Byte.SIZE);</span>
+	}
+
+	/**
+	 * Retrieve the KID
+	 * 
+	 * @return the KID
+	 */
+	public byte[] getKid() {
+<span class="fc" id="L191">		return kid;</span>
+	}
+
+	/**
+	 * Retrieve the n flag bit
+	 * 
+	 * @return the n bit (length of Partial IV)
+	 */
+	public int getN() {
+<span class="fc" id="L200">		return n;</span>
+	}
+
+	/**
+	 * Retrieve the k flag bit
+	 * 
+	 * @return the k bit (if KID is present)
+	 */
+	public int getK() {
+<span class="fc" id="L209">		return k;</span>
+	}
+
+	/**
+	 * Retrieve the h flag bit
+	 * 
+	 * @return the h bit (if ID Context is present)
+	 */
+	public int getH() {
+<span class="fc" id="L218">		return h;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

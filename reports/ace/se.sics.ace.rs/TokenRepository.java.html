@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TokenRepository.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.rs</a> &gt; <span class="el_source">TokenRepository.java</span></div><h1>TokenRepository.java</h1><pre class="source lang-java linenums">/*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -130,7 +130,7 @@ public class TokenRepository implements AutoCloseable {
 <span class="fc" id="L130">    private boolean closed = true;</span>
     
 	/**
-	 * Maps the base64 encoded cti to the claims of the corresponding token
+	 * Map the base64 encoded cti to the claims of the corresponding token
 	 */
 	private Map&lt;String, Map&lt;Short, CBORObject&gt;&gt; cti2claims;
 	
@@ -172,6 +172,12 @@ public class TokenRepository implements AutoCloseable {
 	private Map&lt;String, String&gt; sid2rsnonce;
 	
 	/**
+	 * Map a subject identity to the cnonce provided by a Client.
+	 * This is relevant when joining an OSCORE Group, with the RS acting as Group Manager
+	 */
+	private Map&lt;String, String&gt; sid2cnonce;
+	
+	/**
 	 * The scope validator
 	 */
 	private ScopeValidator scopeValidator;
@@ -199,7 +205,7 @@ public class TokenRepository implements AutoCloseable {
 	/**
 	 * The singleton instance
 	 */
-<span class="fc" id="L202">	private static TokenRepository singleton = null;</span>
+<span class="fc" id="L208">	private static TokenRepository singleton = null;</span>
 	
 	/**
 	 * The identifier of the Resource Server.
@@ -224,7 +230,7 @@ public class TokenRepository implements AutoCloseable {
 	 * @return  the singleton repository
 	 */
 	public static TokenRepository getInstance() {
-<span class="fc" id="L227">	    return singleton;</span>
+<span class="fc" id="L233">	    return singleton;</span>
 	}
 	
 	/**
@@ -248,11 +254,11 @@ public class TokenRepository implements AutoCloseable {
 	public static void create(ScopeValidator scopeValidator, 
             String tokenFile, CwtCryptoCtx ctx, byte[] keyDerivationKey, int derivedKeySize, TimeProvider time, String rsId)
                     throws AceException, IOException {
-<span class="pc bpc" id="L251" title="1 of 2 branches missed.">	    if (singleton != null) {</span>
-<span class="nc" id="L252">	        throw new AceException(&quot;Token repository already exists&quot;);</span>
+<span class="pc bpc" id="L257" title="1 of 2 branches missed.">	    if (singleton != null) {</span>
+<span class="nc" id="L258">	        throw new AceException(&quot;Token repository already exists&quot;);</span>
 	    }
-<span class="fc" id="L254">	    singleton = new TokenRepository(scopeValidator, tokenFile, ctx, keyDerivationKey, derivedKeySize, time, rsId);</span>
-<span class="fc" id="L255">	}</span>
+<span class="fc" id="L260">	    singleton = new TokenRepository(scopeValidator, tokenFile, ctx, keyDerivationKey, derivedKeySize, time, rsId);</span>
+<span class="fc" id="L261">	}</span>
 	
 	/**
 	 * Creates a new token repository and loads the existing tokens
@@ -274,61 +280,62 @@ public class TokenRepository implements AutoCloseable {
 	 */
 	protected TokenRepository(ScopeValidator scopeValidator, 
 	        String tokenFile, CwtCryptoCtx ctx, byte[] keyDerivationKey, int derivedKeySize, TimeProvider time, String rsId) 
-<span class="fc" id="L277">			        throws IOException, AceException {</span>
-<span class="fc" id="L278">	    this.closed = false;</span>
-<span class="fc" id="L279">	    this.cti2claims = new HashMap&lt;&gt;();</span>
-<span class="fc" id="L280">	    this.kid2key = new HashMap&lt;&gt;();</span>
-<span class="fc" id="L281">	    this.cti2kid = new HashMap&lt;&gt;();</span>
-<span class="fc" id="L282">	    this.sid2kid = new HashMap&lt;&gt;();</span>
-<span class="fc" id="L283">	    this.sid2cti = new HashMap&lt;&gt;();</span>
-<span class="fc" id="L284">	    this.id2cti = new HashMap&lt;&gt;();</span>
-<span class="fc" id="L285">	    this.sid2id = new HashMap&lt;&gt;();</span>
-<span class="fc" id="L286">	    this.sid2rsnonce = new HashMap&lt;&gt;();</span>
-<span class="fc" id="L287">	    this.scopeValidator = scopeValidator;</span>
-<span class="fc" id="L288">	    this.time = time;</span>
-<span class="fc" id="L289">	    this.keyDerivationKey = keyDerivationKey;</span>
-<span class="fc" id="L290">	    this.derivedKeySize = derivedKeySize;</span>
-<span class="fc" id="L291">		this.topExiSequenceNumber = -1;</span>
-<span class="fc" id="L292">		this.rsId = rsId;</span>
+<span class="fc" id="L283">			        throws IOException, AceException {</span>
+<span class="fc" id="L284">	    this.closed = false;</span>
+<span class="fc" id="L285">	    this.cti2claims = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L286">	    this.kid2key = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L287">	    this.cti2kid = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L288">	    this.sid2kid = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L289">	    this.sid2cti = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L290">	    this.id2cti = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L291">	    this.sid2id = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L292">	    this.sid2rsnonce = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L293">	    this.sid2cnonce = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L294">	    this.scopeValidator = scopeValidator;</span>
+<span class="fc" id="L295">	    this.time = time;</span>
+<span class="fc" id="L296">	    this.keyDerivationKey = keyDerivationKey;</span>
+<span class="fc" id="L297">	    this.derivedKeySize = derivedKeySize;</span>
+<span class="fc" id="L298">		this.topExiSequenceNumber = -1;</span>
+<span class="fc" id="L299">		this.rsId = rsId;</span>
 
-<span class="pc bpc" id="L294" title="1 of 2 branches missed.">	    if (tokenFile == null) {</span>
-<span class="nc" id="L295">	        throw new IllegalArgumentException(&quot;Must provide a token file path&quot;);</span>
+<span class="pc bpc" id="L301" title="1 of 2 branches missed.">	    if (tokenFile == null) {</span>
+<span class="nc" id="L302">	        throw new IllegalArgumentException(&quot;Must provide a token file path&quot;);</span>
 	    }
-<span class="fc" id="L297">	    this.tokenFile = tokenFile;</span>
-<span class="fc" id="L298">	    File f = new File(this.tokenFile);</span>
-<span class="fc bfc" id="L299" title="All 2 branches covered.">	    if (!f.exists()) {</span>
-<span class="fc" id="L300">	        return; //File will be created if tokens are added</span>
+<span class="fc" id="L304">	    this.tokenFile = tokenFile;</span>
+<span class="fc" id="L305">	    File f = new File(this.tokenFile);</span>
+<span class="fc bfc" id="L306" title="All 2 branches covered.">	    if (!f.exists()) {</span>
+<span class="fc" id="L307">	        return; //File will be created if tokens are added</span>
 	    }
-<span class="fc" id="L302">	    FileInputStream fis = new FileInputStream(f);</span>
-<span class="fc" id="L303">        Scanner scanner = new Scanner(fis, &quot;UTF-8&quot;);</span>
-<span class="fc" id="L304">        Scanner s = scanner.useDelimiter(&quot;\\A&quot;);</span>
-<span class="pc bpc" id="L305" title="1 of 2 branches missed.">        String configStr = s.hasNext() ? s.next() : &quot;&quot;;</span>
-<span class="fc" id="L306">        s.close();</span>
-<span class="fc" id="L307">        scanner.close();</span>
-<span class="fc" id="L308">        fis.close();</span>
-<span class="fc" id="L309">        JSONArray config = null;</span>
-<span class="pc bpc" id="L310" title="1 of 2 branches missed.">        if (!configStr.isEmpty()) {</span>
-<span class="fc" id="L311">            config = new JSONArray(configStr);</span>
-<span class="fc" id="L312">            Iterator&lt;Object&gt; iter = config.iterator();</span>
-<span class="fc bfc" id="L313" title="All 2 branches covered.">            while (iter.hasNext()) {</span>
-<span class="fc" id="L314">                Object foo = iter.next();</span>
-<span class="pc bpc" id="L315" title="1 of 2 branches missed.">                if (!(foo instanceof JSONObject)) {</span>
-<span class="nc" id="L316">                    throw new AceException(&quot;Token file is malformed&quot;);</span>
+<span class="fc" id="L309">	    FileInputStream fis = new FileInputStream(f);</span>
+<span class="fc" id="L310">        Scanner scanner = new Scanner(fis, &quot;UTF-8&quot;);</span>
+<span class="fc" id="L311">        Scanner s = scanner.useDelimiter(&quot;\\A&quot;);</span>
+<span class="pc bpc" id="L312" title="1 of 2 branches missed.">        String configStr = s.hasNext() ? s.next() : &quot;&quot;;</span>
+<span class="fc" id="L313">        s.close();</span>
+<span class="fc" id="L314">        scanner.close();</span>
+<span class="fc" id="L315">        fis.close();</span>
+<span class="fc" id="L316">        JSONArray config = null;</span>
+<span class="pc bpc" id="L317" title="1 of 2 branches missed.">        if (!configStr.isEmpty()) {</span>
+<span class="fc" id="L318">            config = new JSONArray(configStr);</span>
+<span class="fc" id="L319">            Iterator&lt;Object&gt; iter = config.iterator();</span>
+<span class="fc bfc" id="L320" title="All 2 branches covered.">            while (iter.hasNext()) {</span>
+<span class="fc" id="L321">                Object foo = iter.next();</span>
+<span class="pc bpc" id="L322" title="1 of 2 branches missed.">                if (!(foo instanceof JSONObject)) {</span>
+<span class="nc" id="L323">                    throw new AceException(&quot;Token file is malformed&quot;);</span>
                 }
-<span class="fc" id="L318">                JSONObject token =  (JSONObject)foo;</span>
-<span class="fc" id="L319">                Iterator&lt;String&gt; iterToken = token.keys();</span>
-<span class="fc" id="L320">                Map&lt;Short, CBORObject&gt; params = new HashMap&lt;&gt;();</span>
-<span class="fc bfc" id="L321" title="All 2 branches covered.">                while (iterToken.hasNext()) {</span>
-<span class="fc" id="L322">                    String key = iterToken.next();  </span>
-<span class="fc" id="L323">                    params.put(Short.parseShort(key), </span>
-<span class="fc" id="L324">                            CBORObject.DecodeFromBytes(</span>
-<span class="fc" id="L325">                                    Base64.getDecoder().decode(</span>
-<span class="fc" id="L326">                                            token.getString((key)))));</span>
-<span class="fc" id="L327">                }</span>
-<span class="fc" id="L328">                this.addToken(null, params, ctx, null, -1);</span>
-<span class="fc" id="L329">            }</span>
+<span class="fc" id="L325">                JSONObject token =  (JSONObject)foo;</span>
+<span class="fc" id="L326">                Iterator&lt;String&gt; iterToken = token.keys();</span>
+<span class="fc" id="L327">                Map&lt;Short, CBORObject&gt; params = new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L328" title="All 2 branches covered.">                while (iterToken.hasNext()) {</span>
+<span class="fc" id="L329">                    String key = iterToken.next();  </span>
+<span class="fc" id="L330">                    params.put(Short.parseShort(key), </span>
+<span class="fc" id="L331">                            CBORObject.DecodeFromBytes(</span>
+<span class="fc" id="L332">                                    Base64.getDecoder().decode(</span>
+<span class="fc" id="L333">                                            token.getString((key)))));</span>
+<span class="fc" id="L334">                }</span>
+<span class="fc" id="L335">                this.addToken(null, params, ctx, null, -1);</span>
+<span class="fc" id="L336">            }</span>
         }
-<span class="fc" id="L331">	}</span>
+<span class="fc" id="L338">	}</span>
 
 	/**
 	 * Add a new Access Token to the repo.  Note that this method DOES NOT 
@@ -355,44 +362,44 @@ public class TokenRepository implements AutoCloseable {
 	public synchronized CBORObject addToken(CBORObject token, Map&lt;Short, CBORObject&gt; claims, 
 	        CwtCryptoCtx ctx, String sid, int exiSeqNum) throws AceException {
 	    
-<span class="fc" id="L358">		CBORObject so = claims.get(Constants.SCOPE);</span>
-<span class="fc bfc" id="L359" title="All 2 branches covered.">		if (so == null) {</span>
-<span class="fc" id="L360">			throw new AceException(&quot;Token has no scope&quot;);</span>
+<span class="fc" id="L365">		CBORObject so = claims.get(Constants.SCOPE);</span>
+<span class="fc bfc" id="L366" title="All 2 branches covered.">		if (so == null) {</span>
+<span class="fc" id="L367">			throw new AceException(&quot;Token has no scope&quot;);</span>
 		}
 
-<span class="fc" id="L363">		CBORObject cticb = claims.get(Constants.CTI);</span>
-<span class="fc" id="L364">		String cti = null;</span>
-<span class="fc bfc" id="L365" title="All 2 branches covered.">		if (cticb == null) {</span>
-<span class="fc" id="L366">		    cticb = CBORObject.FromObject(</span>
-<span class="fc" id="L367">		            buffer.putInt(0, claims.hashCode()).array());</span>
-<span class="fc" id="L368">			cti = Base64.getEncoder().encodeToString(cticb.GetByteString());</span>
-<span class="fc" id="L369">			claims.put(Constants.CTI, cticb);</span>
-<span class="fc bfc" id="L370" title="All 2 branches covered.">		} else if (!cticb.getType().equals(CBORType.ByteString)) {</span>
-<span class="fc" id="L371">		    LOGGER.info(&quot;Token's cti in not a ByteString&quot;);</span>
-<span class="fc" id="L372">            throw new AceException(&quot;Cti has invalid format&quot;);</span>
+<span class="fc" id="L370">		CBORObject cticb = claims.get(Constants.CTI);</span>
+<span class="fc" id="L371">		String cti = null;</span>
+<span class="fc bfc" id="L372" title="All 2 branches covered.">		if (cticb == null) {</span>
+<span class="fc" id="L373">		    cticb = CBORObject.FromObject(</span>
+<span class="fc" id="L374">		            buffer.putInt(0, claims.hashCode()).array());</span>
+<span class="fc" id="L375">			cti = Base64.getEncoder().encodeToString(cticb.GetByteString());</span>
+<span class="fc" id="L376">			claims.put(Constants.CTI, cticb);</span>
+<span class="fc bfc" id="L377" title="All 2 branches covered.">		} else if (!cticb.getType().equals(CBORType.ByteString)) {</span>
+<span class="fc" id="L378">		    LOGGER.info(&quot;Token's cti in not a ByteString&quot;);</span>
+<span class="fc" id="L379">            throw new AceException(&quot;Cti has invalid format&quot;);</span>
         } else {		
-<span class="fc" id="L374">		    cti = Base64.getEncoder().encodeToString(cticb.GetByteString());</span>
+<span class="fc" id="L381">		    cti = Base64.getEncoder().encodeToString(cticb.GetByteString());</span>
 		}
 
 		//Store the pop-key
-<span class="fc" id="L378">		boolean storeKey = true;</span>
-<span class="fc" id="L379">		CBORObject cnf = claims.get(Constants.CNF);</span>
-<span class="fc bfc" id="L380" title="All 2 branches covered.">        if (cnf == null) {</span>
-<span class="fc" id="L381">            LOGGER.severe(&quot;Token has not cnf&quot;);</span>
-<span class="fc" id="L382">            throw new AceException(&quot;Token has no cnf&quot;);</span>
+<span class="fc" id="L385">		boolean storeKey = true;</span>
+<span class="fc" id="L386">		CBORObject cnf = claims.get(Constants.CNF);</span>
+<span class="fc bfc" id="L387" title="All 2 branches covered.">        if (cnf == null) {</span>
+<span class="fc" id="L388">            LOGGER.severe(&quot;Token has not cnf&quot;);</span>
+<span class="fc" id="L389">            throw new AceException(&quot;Token has no cnf&quot;);</span>
         }
-<span class="pc bpc" id="L384" title="1 of 2 branches missed.">        if (!cnf.getType().equals(CBORType.Map)) {</span>
-<span class="nc" id="L385">            LOGGER.severe(&quot;Malformed cnf in token&quot;);</span>
-<span class="nc" id="L386">            throw new AceException(&quot;cnf claim malformed in token&quot;);</span>
+<span class="pc bpc" id="L391" title="1 of 2 branches missed.">        if (!cnf.getType().equals(CBORType.Map)) {</span>
+<span class="nc" id="L392">            LOGGER.severe(&quot;Malformed cnf in token&quot;);</span>
+<span class="nc" id="L393">            throw new AceException(&quot;cnf claim malformed in token&quot;);</span>
         }
         
 		//Check for duplicate cti
-<span class="fc" id="L390">        boolean repostedOscoreToken = false;</span>
-<span class="fc" id="L391">        byte[] oldOscoreRecipientId = null;</span>
-<span class="fc" id="L392">        byte[] oldOscoreContextId = null;</span>
-<span class="fc bfc" id="L393" title="All 2 branches covered.">		if (this.cti2claims.containsKey(cti)) {</span>
+<span class="fc" id="L397">        boolean repostedOscoreToken = false;</span>
+<span class="fc" id="L398">        byte[] oldOscoreRecipientId = null;</span>
+<span class="fc" id="L399">        byte[] oldOscoreContextId = null;</span>
+<span class="fc bfc" id="L400" title="All 2 branches covered.">		if (this.cti2claims.containsKey(cti)) {</span>
 			
-<span class="pc bpc" id="L395" title="1 of 4 branches missed.">			if (cnf.getKeys().contains(Constants.OSCORE_Input_Material) &amp;&amp; sid == null) {</span>
+<span class="pc bpc" id="L402" title="1 of 4 branches missed.">			if (cnf.getKeys().contains(Constants.OSCORE_Input_Material) &amp;&amp; sid == null) {</span>
 				
 				// This is a re-POST of the same Token through an insecure request under the OSCORE profile.
 				//
@@ -400,164 +407,166 @@ public class TokenRepository implements AutoCloseable {
 				// establishment of a new OSCORE Security Context, which /authz-info already takes care of. 
 				
 				// The already stored token must also have been related to OSCORE
-<span class="fc" id="L403">				CBORObject storedCnf = this.cti2claims.get(cti).get(Constants.CNF);</span>
-<span class="pc bpc" id="L404" title="1 of 2 branches missed.">				if (storedCnf.getKeys().contains(Constants.OSCORE_Input_Material) == false) {</span>
-<span class="nc" id="L405">					throw new AceException(&quot;Duplicate cti&quot;);</span>
+<span class="fc" id="L410">				CBORObject storedCnf = this.cti2claims.get(cti).get(Constants.CNF);</span>
+<span class="pc bpc" id="L411" title="1 of 2 branches missed.">				if (storedCnf.getKeys().contains(Constants.OSCORE_Input_Material) == false) {</span>
+<span class="nc" id="L412">					throw new AceException(&quot;Duplicate cti&quot;);</span>
 				}
 				
 				// This same Token remains. Later on, it has to be associated with the new
 				// client identity and the old OSCORE Security Context has to be deleted.
-<span class="fc" id="L410">				repostedOscoreToken = true;</span>
-<span class="fc" id="L411">				oldOscoreRecipientId = storedCnf.get(Constants.OSCORE_Input_Material).</span>
-<span class="fc" id="L412">									   get(Constants.OS_CLIENTID).GetByteString();</span>
-<span class="fc" id="L413">				oldOscoreContextId = storedCnf.get(Constants.OSCORE_Input_Material).</span>
-<span class="fc" id="L414">						   			   get(Constants.OS_CONTEXTID).GetByteString();</span>
+<span class="fc" id="L417">				repostedOscoreToken = true;</span>
+<span class="fc" id="L418">				oldOscoreRecipientId = storedCnf.get(Constants.OSCORE_Input_Material).</span>
+<span class="fc" id="L419">									   get(Constants.OS_CLIENTID).GetByteString();</span>
+<span class="pc bpc" id="L420" title="1 of 2 branches missed.">				if (storedCnf.get(Constants.OSCORE_Input_Material).getKeys().contains(Constants.OS_CONTEXTID)) {</span>
+<span class="fc" id="L421">				    oldOscoreContextId = storedCnf.get(Constants.OSCORE_Input_Material).</span>
+<span class="fc" id="L422">				                       get(Constants.OS_CONTEXTID).GetByteString();</span>
+				}
 				
-<span class="fc" id="L416">			}</span>
+<span class="fc" id="L425">			}</span>
 			else {
-<span class="fc" id="L418">				throw new AceException(&quot;Duplicate cti&quot;);</span>
+<span class="fc" id="L427">				throw new AceException(&quot;Duplicate cti&quot;);</span>
 			}
 			
 		}
         
-<span class="fc bfc" id="L423" title="All 2 branches covered.">        if (cnf.getKeys().contains(Constants.COSE_KEY_CBOR)) {</span>
-<span class="fc" id="L424">            CBORObject ckey = cnf.get(Constants.COSE_KEY_CBOR);</span>
+<span class="fc bfc" id="L432" title="All 2 branches covered.">        if (cnf.getKeys().contains(Constants.COSE_KEY_CBOR)) {</span>
+<span class="fc" id="L433">            CBORObject ckey = cnf.get(Constants.COSE_KEY_CBOR);</span>
             
             try {            	
               
               // The PoP key is symmetric but only its 'kid' is specified (e.g., as in the DTLS profile).
     		  
-<span class="pc bpc" id="L430" title="1 of 2 branches missed.">              if (ckey.getKeys().contains(KeyKeys.KeyType.AsCBOR()) &amp;&amp;</span>
-<span class="fc bfc" id="L431" title="All 2 branches covered.">            	  ckey.get(KeyKeys.KeyType.AsCBOR()).equals(KeyKeys.KeyType_Octet) &amp;&amp;</span>
-<span class="fc bfc" id="L432" title="All 2 branches covered.">                  ckey.getKeys().contains(KeyKeys.Octet_K.AsCBOR()) == false) {</span>
+<span class="pc bpc" id="L439" title="1 of 2 branches missed.">              if (ckey.getKeys().contains(KeyKeys.KeyType.AsCBOR()) &amp;&amp;</span>
+<span class="fc bfc" id="L440" title="All 2 branches covered.">            	  ckey.get(KeyKeys.KeyType.AsCBOR()).equals(KeyKeys.KeyType_Octet) &amp;&amp;</span>
+<span class="fc bfc" id="L441" title="All 2 branches covered.">                  ckey.getKeys().contains(KeyKeys.Octet_K.AsCBOR()) == false) {</span>
         		  
-<span class="fc bfc" id="L434" title="All 2 branches covered.">            	  if (sid == null) {</span>
+<span class="fc bfc" id="L443" title="All 2 branches covered.">            	  if (sid == null) {</span>
             		  
                       // The Token has been posted to /authz-info through an unprotected message.
                       // The actual PoP key has to be derived using the key derivation key shared with the AS
             		  
-<span class="pc bpc" id="L439" title="1 of 2 branches missed.">	            	  if (ckey.getKeys().contains(KeyKeys.KeyId.AsCBOR()) == false) {</span>
-<span class="nc" id="L440">	                      LOGGER.severe(&quot;Error while parsing cnf element: expected 'kid' in 'COSE_Key was not found&quot;);</span>
-<span class="nc" id="L441">	                      throw new AceException(&quot;Invalid cnf element: expected 'kid' in 'COSE_Key was not found&quot;);</span>
+<span class="pc bpc" id="L448" title="1 of 2 branches missed.">	            	  if (ckey.getKeys().contains(KeyKeys.KeyId.AsCBOR()) == false) {</span>
+<span class="nc" id="L449">	                      LOGGER.severe(&quot;Error while parsing cnf element: expected 'kid' in 'COSE_Key was not found&quot;);</span>
+<span class="nc" id="L450">	                      throw new AceException(&quot;Invalid cnf element: expected 'kid' in 'COSE_Key was not found&quot;);</span>
 	            	  }
 	            	  
 	            	  // Check also that a PoP key with the same received 'kid' is not already stored.
 	            	  //
 	            	  // That would be fine for a Token posted to update access rights,
 	            	  // which must however happen through a secure POST to /authz-info
-<span class="fc" id="L448">		      	      CBORObject kidC = ckey.get(KeyKeys.KeyId.AsCBOR());</span>
-<span class="pc bpc" id="L449" title="1 of 2 branches missed.">		    	      if (kidC == null) {</span>
-<span class="nc" id="L450">		    	    	  LOGGER.severe(&quot;kid not found in COSE_Key&quot;);</span>
-<span class="nc" id="L451">		    	          throw new AceException(&quot;COSE_Key is missing kid&quot;);</span>
-<span class="pc bpc" id="L452" title="1 of 2 branches missed.">		    	      } else if (kidC.getType().equals(CBORType.ByteString)) {</span>
-<span class="fc" id="L453">		    	    	  String kid = Base64.getEncoder().encodeToString(kidC.GetByteString());</span>
+<span class="fc" id="L457">		      	      CBORObject kidC = ckey.get(KeyKeys.KeyId.AsCBOR());</span>
+<span class="pc bpc" id="L458" title="1 of 2 branches missed.">		    	      if (kidC == null) {</span>
+<span class="nc" id="L459">		    	    	  LOGGER.severe(&quot;kid not found in COSE_Key&quot;);</span>
+<span class="nc" id="L460">		    	          throw new AceException(&quot;COSE_Key is missing kid&quot;);</span>
+<span class="pc bpc" id="L461" title="1 of 2 branches missed.">		    	      } else if (kidC.getType().equals(CBORType.ByteString)) {</span>
+<span class="fc" id="L462">		    	    	  String kid = Base64.getEncoder().encodeToString(kidC.GetByteString());</span>
 		    	    	  
-<span class="fc bfc" id="L455" title="All 2 branches covered.">		    	          if (kid2key.containsKey(kid) == true) {</span>
-<span class="fc" id="L456">			    	    	  LOGGER.severe(&quot;A symmetric PoP key with the specified 'kid' is already stored&quot;);</span>
-<span class="fc" id="L457">			    	          throw new AceException(&quot;A symmetric PoP key with the specified 'kid' is already stored&quot;);</span>
+<span class="fc bfc" id="L464" title="All 2 branches covered.">		    	          if (kid2key.containsKey(kid) == true) {</span>
+<span class="fc" id="L465">			    	    	  LOGGER.severe(&quot;A symmetric PoP key with the specified 'kid' is already stored&quot;);</span>
+<span class="fc" id="L466">			    	          throw new AceException(&quot;A symmetric PoP key with the specified 'kid' is already stored&quot;);</span>
 		    	          }
-<span class="fc" id="L459">		    	      } else {</span>
-<span class="nc" id="L460">		    	          LOGGER.severe(&quot;kid is not a byte string&quot;);</span>
-<span class="nc" id="L461">		    	          throw new AceException(&quot;COSE_Key contains invalid kid&quot;);</span>
+<span class="fc" id="L468">		    	      } else {</span>
+<span class="nc" id="L469">		    	          LOGGER.severe(&quot;kid is not a byte string&quot;);</span>
+<span class="nc" id="L470">		    	          throw new AceException(&quot;COSE_Key contains invalid kid&quot;);</span>
 		    	      }
 	            	  
 	                  // The salt as empty byte string has to be an array of bytes with all its
 	                  // elements set to 0x00 and with the same size of the hash output in bytes
-<span class="fc" id="L466">	                  byte[] salt = new byte[Hkdf.getHashLen()];</span>
-<span class="fc" id="L467">	                  Arrays.fill(salt, (byte) 0);</span>
+<span class="fc" id="L475">	                  byte[] salt = new byte[Hkdf.getHashLen()];</span>
+<span class="fc" id="L476">	                  Arrays.fill(salt, (byte) 0);</span>
 	            	  
 	            	  // The 'info' structure
-<span class="fc" id="L470">	            	  byte[] derivedKey = null;</span>
-<span class="fc" id="L471">	            	  CBORObject info = CBORObject.NewArray();</span>
-<span class="fc" id="L472">	            	  info.Add(&quot;ACE-CoAP-DTLS-key-derivation&quot;);</span>
-<span class="fc" id="L473">	            	  info.Add(derivedKeySize);</span>
-<span class="fc" id="L474">	            	  info.Add(token.EncodeToBytes()); // The content of the &quot;access_token&quot; field, as transferred</span>
+<span class="fc" id="L479">	            	  byte[] derivedKey = null;</span>
+<span class="fc" id="L480">	            	  CBORObject info = CBORObject.NewArray();</span>
+<span class="fc" id="L481">	            	  info.Add(&quot;ACE-CoAP-DTLS-key-derivation&quot;);</span>
+<span class="fc" id="L482">	            	  info.Add(derivedKeySize);</span>
+<span class="fc" id="L483">	            	  info.Add(token.EncodeToBytes()); // The content of the &quot;access_token&quot; field, as transferred</span>
 	            	                                   // from the authorization server to the resource server.
 	
 	            	  try {
-<span class="fc" id="L478">						derivedKey = Hkdf.extractExpand(salt, keyDerivationKey, info.EncodeToBytes(), derivedKeySize);</span>
-<span class="nc" id="L479">					  } catch (InvalidKeyException e) {</span>
-<span class="nc" id="L480">			              LOGGER.severe(&quot;Error while deriving a symmetric PoP key: &quot; </span>
-<span class="nc" id="L481">			                      + e.getMessage());</span>
-<span class="nc" id="L482">			              throw new AceException(&quot;Error while deriving a symmetric PoP key: &quot; </span>
-<span class="nc" id="L483">			                      + e.getMessage());</span>
-<span class="nc" id="L484">					  } catch (NoSuchAlgorithmException e) {</span>
-<span class="nc" id="L485">			              LOGGER.severe(&quot;Error while deriving a symmetric PoP key: &quot; </span>
-<span class="nc" id="L486">			                      + e.getMessage());</span>
-<span class="nc" id="L487">			              throw new AceException(&quot;Error while deriving a symmetric PoP key: &quot; </span>
-<span class="nc" id="L488">			                      + e.getMessage());</span>
-<span class="fc" id="L489">					  }</span>
-<span class="fc" id="L490">	            	  ckey.Add(KeyKeys.Octet_K.AsCBOR(), CBORObject.FromObject(derivedKey));</span>
+<span class="fc" id="L487">						derivedKey = Hkdf.extractExpand(salt, keyDerivationKey, info.EncodeToBytes(), derivedKeySize);</span>
+<span class="nc" id="L488">					  } catch (InvalidKeyException e) {</span>
+<span class="nc" id="L489">			              LOGGER.severe(&quot;Error while deriving a symmetric PoP key: &quot; </span>
+<span class="nc" id="L490">			                      + e.getMessage());</span>
+<span class="nc" id="L491">			              throw new AceException(&quot;Error while deriving a symmetric PoP key: &quot; </span>
+<span class="nc" id="L492">			                      + e.getMessage());</span>
+<span class="nc" id="L493">					  } catch (NoSuchAlgorithmException e) {</span>
+<span class="nc" id="L494">			              LOGGER.severe(&quot;Error while deriving a symmetric PoP key: &quot; </span>
+<span class="nc" id="L495">			                      + e.getMessage());</span>
+<span class="nc" id="L496">			              throw new AceException(&quot;Error while deriving a symmetric PoP key: &quot; </span>
+<span class="nc" id="L497">			                      + e.getMessage());</span>
+<span class="fc" id="L498">					  }</span>
+<span class="fc" id="L499">	            	  ckey.Add(KeyKeys.Octet_K.AsCBOR(), CBORObject.FromObject(derivedKey));</span>
 
-<span class="fc" id="L492">              	  }</span>
+<span class="fc" id="L501">              	  }</span>
             	  else {
             		  // Since there is a non-null identity, either:
             		  //  i) the Token has been posted through a protected message to /authz-info , to update access rights; or
             		  // ii) the Token has been specified in the DTLS handshake message, as &quot;psk_identity&quot;
             		  
             		  // Case (i), i.e. the current Token for this security association must be superseded
-<span class="pc bpc" id="L499" title="2 of 4 branches missed.">            		  if (sid2kid.containsKey(sid) &amp;&amp; sid2cti.containsKey(sid)) {</span>
+<span class="pc bpc" id="L508" title="2 of 4 branches missed.">            		  if (sid2kid.containsKey(sid) &amp;&amp; sid2cti.containsKey(sid)) {</span>
             			  
-<span class="pc bpc" id="L501" title="1 of 2 branches missed.">    	            	  if (ckey.getKeys().contains(KeyKeys.KeyId.AsCBOR()) == false) {</span>
-<span class="nc" id="L502">    	                      LOGGER.severe(&quot;Error while parsing cnf element: expected 'kid' in 'COSE_Key was not found&quot;);</span>
-<span class="nc" id="L503">    	                      throw new AceException(&quot;Invalid cnf element: expected 'kid' in 'COSE_Key was not found&quot;);</span>
+<span class="pc bpc" id="L510" title="1 of 2 branches missed.">    	            	  if (ckey.getKeys().contains(KeyKeys.KeyId.AsCBOR()) == false) {</span>
+<span class="nc" id="L511">    	                      LOGGER.severe(&quot;Error while parsing cnf element: expected 'kid' in 'COSE_Key was not found&quot;);</span>
+<span class="nc" id="L512">    	                      throw new AceException(&quot;Invalid cnf element: expected 'kid' in 'COSE_Key was not found&quot;);</span>
     	            	  }
     	            	  
 	    	              	// Check if there is a stored Token associated to this subject ID 
-<span class="fc" id="L507">	    	              	String storedCti = sid2cti.get(sid);</span>
+<span class="fc" id="L516">	    	              	String storedCti = sid2cti.get(sid);</span>
 	    	              	
 	    	              	// A Token was found - This implies that the corresponding security association
 	    	              	// is the same one used to protect the received Token POST request
-<span class="pc bpc" id="L511" title="1 of 2 branches missed.">	    	              	if (storedCti != null) {</span>
+<span class="pc bpc" id="L520" title="1 of 2 branches missed.">	    	              	if (storedCti != null) {</span>
 	
 	    	                      // Now check that the stored Token is actually bound to a key with that 'kid'
-<span class="fc" id="L514">	      	              		  String retrievedKid = cti2kid.get(storedCti);</span>
-<span class="fc" id="L515">	      	              		  byte[] receivedKidBytes = ckey.get(KeyKeys.KeyId.AsCBOR()).GetByteString();</span>
+<span class="fc" id="L523">	      	              		  String retrievedKid = cti2kid.get(storedCti);</span>
+<span class="fc" id="L524">	      	              		  byte[] receivedKidBytes = ckey.get(KeyKeys.KeyId.AsCBOR()).GetByteString();</span>
 	      	              		  
-<span class="fc" id="L517">	      	              		  String receivedKid = Base64.getEncoder().encodeToString(receivedKidBytes);</span>
+<span class="fc" id="L526">	      	              		  String receivedKid = Base64.getEncoder().encodeToString(receivedKidBytes);</span>
 	      	              		  
-<span class="pc bpc" id="L519" title="2 of 4 branches missed.">	    	                      if (!retrievedKid.equals(sid2kid.get(sid)) || !retrievedKid.equals(receivedKid)) {	    	                    	  	</span>
-<span class="nc" id="L520">	      	                            LOGGER.severe(&quot;Impossible to retrieve a Token to supersede&quot;);</span>
-<span class="nc" id="L521">	      	                            throw new AceException(&quot;Impossible to retrieve a Token to supersede&quot;);</span>
+<span class="pc bpc" id="L528" title="2 of 4 branches missed.">	    	                      if (!retrievedKid.equals(sid2kid.get(sid)) || !retrievedKid.equals(receivedKid)) {	    	                    	  	</span>
+<span class="nc" id="L529">	      	                            LOGGER.severe(&quot;Impossible to retrieve a Token to supersede&quot;);</span>
+<span class="nc" id="L530">	      	                            throw new AceException(&quot;Impossible to retrieve a Token to supersede&quot;);</span>
 	    	              		  }
 	    	                    	
 			                      // Everything has matched - This Token is intended to update access rights, while
 			                      // preserving the same security association used to protect this Token POST and
 			                      // associated to the Token to supersede
 			                      
-<span class="fc" id="L528">	      	              		  Map&lt;Short, CBORObject&gt; storedClaims = cti2claims.get(storedCti);</span>
-<span class="fc" id="L529">	      	              		  CBORObject storedCnf = storedClaims.get(Constants.CNF);</span>
+<span class="fc" id="L537">	      	              		  Map&lt;Short, CBORObject&gt; storedClaims = cti2claims.get(storedCti);</span>
+<span class="fc" id="L538">	      	              		  CBORObject storedCnf = storedClaims.get(Constants.CNF);</span>
 	      	              		
 	      	              		  // The following should never happen, being this an already stored Token
-<span class="pc bpc" id="L532" title="1 of 2 branches missed.">	      	                      if (storedCnf == null) {</span>
-<span class="nc" id="L533">	      	                          LOGGER.severe(&quot;The retrieved stored token has not cnf&quot;);</span>
-<span class="nc" id="L534">	      	                          throw new AceException(&quot;The retrieved stored token has no cnf&quot;);</span>
+<span class="pc bpc" id="L541" title="1 of 2 branches missed.">	      	                      if (storedCnf == null) {</span>
+<span class="nc" id="L542">	      	                          LOGGER.severe(&quot;The retrieved stored token has not cnf&quot;);</span>
+<span class="nc" id="L543">	      	                          throw new AceException(&quot;The retrieved stored token has no cnf&quot;);</span>
 	      	                      }
-<span class="pc bpc" id="L536" title="1 of 2 branches missed.">	      	                      if (!storedCnf.getType().equals(CBORType.Map)) {</span>
-<span class="nc" id="L537">	      	                          LOGGER.severe(&quot;Malformed cnf in the retrieved stored token&quot;);</span>
-<span class="nc" id="L538">	      	                          throw new AceException(&quot;cnf claim malformed in the retrieved stored token&quot;);</span>
+<span class="pc bpc" id="L545" title="1 of 2 branches missed.">	      	                      if (!storedCnf.getType().equals(CBORType.Map)) {</span>
+<span class="nc" id="L546">	      	                          LOGGER.severe(&quot;Malformed cnf in the retrieved stored token&quot;);</span>
+<span class="nc" id="L547">	      	                          throw new AceException(&quot;cnf claim malformed in the retrieved stored token&quot;);</span>
 	      	                      }
 	    	                      
 			                      // Copy the &quot;full&quot; 'cnf' claim of the Token to replace into the new Token to store.
 			                      // This will overwrite the orginal 'cnf' considered above in the new Token to store.
-<span class="fc" id="L543">			                      claims.put(Constants.CNF, storedCnf);</span>
+<span class="fc" id="L552">			                      claims.put(Constants.CNF, storedCnf);</span>
 			                      	
 			                      // Store the association between the CTI of the new Token and the same current kid
-<span class="fc" id="L546">			                      this.cti2kid.put(cti, receivedKid);</span>
+<span class="fc" id="L555">			                      this.cti2kid.put(cti, receivedKid);</span>
 			                      
 			                      // Store the association between the same current subjectId and the CTI of the new Token
-<span class="fc" id="L549">			                      this.sid2cti.put(sid, cti);</span>
+<span class="fc" id="L558">			                      this.sid2cti.put(sid, cti);</span>
 			                      
 			                      // The same PoP key remains in use
-<span class="fc" id="L552">			                      storeKey = false;</span>
+<span class="fc" id="L561">			                      storeKey = false;</span>
 			                      
 			                      // Delete the Token to be replaced
-<span class="fc" id="L555">			                      removeToken(storedCti);</span>
+<span class="fc" id="L564">			                      removeToken(storedCti);</span>
 	    	                      	
-<span class="fc" id="L557">	    	              	}</span>
+<span class="fc" id="L566">	    	              	}</span>
 	    	              	else {
-<span class="nc" id="L559">	    	                      LOGGER.severe(&quot;Impossible to retrieve the stored Token to supersede&quot;);</span>
-<span class="nc" id="L560">	    	                      throw new AceException(&quot;Impossible to retrieve the stored Token to supersede&quot;);</span>
+<span class="nc" id="L568">	    	                      LOGGER.severe(&quot;Impossible to retrieve the stored Token to supersede&quot;);</span>
+<span class="nc" id="L569">	    	                      throw new AceException(&quot;Impossible to retrieve the stored Token to supersede&quot;);</span>
 	    	              	}
             			  
                   	  }
@@ -566,83 +575,83 @@ public class TokenRepository implements AutoCloseable {
             	  }
             	  
               }
-<span class="fc bfc" id="L569" title="All 2 branches covered.">              if (storeKey) {</span>
-<span class="fc" id="L570">	              OneKey key = new OneKey(ckey);</span>
-<span class="fc" id="L571">	              processKey(key, sid, cti);</span>
+<span class="fc bfc" id="L578" title="All 2 branches covered.">              if (storeKey) {</span>
+<span class="fc" id="L579">	              OneKey key = new OneKey(ckey);</span>
+<span class="fc" id="L580">	              processKey(key, sid, cti);</span>
               }
             }
-<span class="nc" id="L574">            catch (CoseException e) {</span>
-<span class="nc" id="L575">                LOGGER.severe(&quot;Error while parsing cnf element: &quot; + e.getMessage());</span>
-<span class="nc" id="L576">                throw new AceException(&quot;Invalid cnf element: &quot; + e.getMessage());</span>
-<span class="fc" id="L577">            }</span>
-<span class="fc" id="L578">        }</span>
+<span class="nc" id="L583">            catch (CoseException e) {</span>
+<span class="nc" id="L584">                LOGGER.severe(&quot;Error while parsing cnf element: &quot; + e.getMessage());</span>
+<span class="nc" id="L585">                throw new AceException(&quot;Invalid cnf element: &quot; + e.getMessage());</span>
+<span class="fc" id="L586">            }</span>
+<span class="fc" id="L587">        }</span>
         
-<span class="fc bfc" id="L580" title="All 2 branches covered.">        else if (cnf.getKeys().contains(Constants.COSE_ENCRYPTED_CBOR)) {</span>
-<span class="fc" id="L581">            Encrypt0Message msg = new Encrypt0Message();</span>
-<span class="fc" id="L582">            CBORObject encC = cnf.get(Constants.COSE_ENCRYPTED_CBOR);</span>
+<span class="fc bfc" id="L589" title="All 2 branches covered.">        else if (cnf.getKeys().contains(Constants.COSE_ENCRYPTED_CBOR)) {</span>
+<span class="fc" id="L590">            Encrypt0Message msg = new Encrypt0Message();</span>
+<span class="fc" id="L591">            CBORObject encC = cnf.get(Constants.COSE_ENCRYPTED_CBOR);</span>
           try {
-<span class="fc" id="L584">              msg.DecodeFromCBORObject(encC);</span>
-<span class="fc" id="L585">              msg.decrypt(ctx.getKey());</span>
-<span class="fc" id="L586">              CBORObject keyData = CBORObject.DecodeFromBytes(msg.GetContent());</span>
-<span class="fc" id="L587">              OneKey key = new OneKey(keyData);</span>
-<span class="fc" id="L588">              processKey(key, sid, cti);</span>
-<span class="fc" id="L589">          } catch (CoseException e) {</span>
-<span class="fc" id="L590">              LOGGER.severe(&quot;Error while decrypting a cnf claim: &quot;</span>
-<span class="fc" id="L591">                      + e.getMessage());</span>
-<span class="fc" id="L592">              throw new AceException(&quot;Error while decrypting a cnf claim&quot;);</span>
-<span class="fc" id="L593">          }</span>
-<span class="fc" id="L594">        }</span>
+<span class="fc" id="L593">              msg.DecodeFromCBORObject(encC);</span>
+<span class="fc" id="L594">              msg.decrypt(ctx.getKey());</span>
+<span class="fc" id="L595">              CBORObject keyData = CBORObject.DecodeFromBytes(msg.GetContent());</span>
+<span class="fc" id="L596">              OneKey key = new OneKey(keyData);</span>
+<span class="fc" id="L597">              processKey(key, sid, cti);</span>
+<span class="fc" id="L598">          } catch (CoseException e) {</span>
+<span class="fc" id="L599">              LOGGER.severe(&quot;Error while decrypting a cnf claim: &quot;</span>
+<span class="fc" id="L600">                      + e.getMessage());</span>
+<span class="fc" id="L601">              throw new AceException(&quot;Error while decrypting a cnf claim&quot;);</span>
+<span class="fc" id="L602">          }</span>
+<span class="fc" id="L603">        }</span>
         
-<span class="fc bfc" id="L596" title="All 2 branches covered.">        else if (cnf.getKeys().contains(Constants.COSE_KID_CBOR)) {</span>
-<span class="fc" id="L597">            String kid = null;</span>
-<span class="fc" id="L598">            CBORObject kidC = cnf.get(Constants.COSE_KID_CBOR);</span>
+<span class="fc bfc" id="L605" title="All 2 branches covered.">        else if (cnf.getKeys().contains(Constants.COSE_KID_CBOR)) {</span>
+<span class="fc" id="L606">            String kid = null;</span>
+<span class="fc" id="L607">            CBORObject kidC = cnf.get(Constants.COSE_KID_CBOR);</span>
             
-<span class="fc bfc" id="L600" title="All 2 branches covered.">            if (kidC.getType().equals(CBORType.ByteString)) {            	</span>
-<span class="fc" id="L601">            	kid = Base64.getEncoder().encodeToString(kidC.GetByteString());</span>
+<span class="fc bfc" id="L609" title="All 2 branches covered.">            if (kidC.getType().equals(CBORType.ByteString)) {            	</span>
+<span class="fc" id="L610">            	kid = Base64.getEncoder().encodeToString(kidC.GetByteString());</span>
             } else {
-<span class="fc" id="L603">                LOGGER.severe(&quot;kid is not a byte string&quot;);</span>
-<span class="fc" id="L604">                throw new AceException(&quot;cnf contains invalid kid&quot;);</span>
+<span class="fc" id="L612">                LOGGER.severe(&quot;kid is not a byte string&quot;);</span>
+<span class="fc" id="L613">                throw new AceException(&quot;cnf contains invalid kid&quot;);</span>
             }
             
             // The Token POST is protected
-<span class="fc bfc" id="L608" title="All 2 branches covered.">            if (sid != null) {</span>
+<span class="fc bfc" id="L617" title="All 2 branches covered.">            if (sid != null) {</span>
                 
             	// The Token POST can be protected with OSCORE, for
             	// updating access rights as per the OSCORE profile
             	
             	// Check if there is a stored Token associated to this subject ID 
-<span class="fc" id="L614">            	String storedCti = sid2cti.get(sid);</span>
+<span class="fc" id="L623">            	String storedCti = sid2cti.get(sid);</span>
             	
             	// A Token was found - This implies that the corresponding security association
             	// is the same one used to protect the received Token POST request
-<span class="pc bpc" id="L618" title="1 of 2 branches missed.">            	if (storedCti != null) {</span>
+<span class="pc bpc" id="L627" title="1 of 2 branches missed.">            	if (storedCti != null) {</span>
             		// Now check that the stored Token is actually
             		// associated to an OSCORE Security Context 
             		
-<span class="fc" id="L622">            		Map&lt;Short, CBORObject&gt; storedClaims = cti2claims.get(storedCti);</span>
-<span class="fc" id="L623">            		CBORObject storedCnf = storedClaims.get(Constants.CNF);</span>
+<span class="fc" id="L631">            		Map&lt;Short, CBORObject&gt; storedClaims = cti2claims.get(storedCti);</span>
+<span class="fc" id="L632">            		CBORObject storedCnf = storedClaims.get(Constants.CNF);</span>
             		
             		// The following should never happen, being this an already stored Token
-<span class="pc bpc" id="L626" title="1 of 2 branches missed.">                    if (storedCnf == null) {</span>
-<span class="nc" id="L627">                        LOGGER.severe(&quot;The retrieved stored token has not cnf&quot;);</span>
-<span class="nc" id="L628">                        throw new AceException(&quot;The retrieved stored token has no cnf&quot;);</span>
+<span class="pc bpc" id="L635" title="1 of 2 branches missed.">                    if (storedCnf == null) {</span>
+<span class="nc" id="L636">                        LOGGER.severe(&quot;The retrieved stored token has not cnf&quot;);</span>
+<span class="nc" id="L637">                        throw new AceException(&quot;The retrieved stored token has no cnf&quot;);</span>
                     }
-<span class="pc bpc" id="L630" title="1 of 2 branches missed.">                    if (!storedCnf.getType().equals(CBORType.Map)) {</span>
-<span class="nc" id="L631">                        LOGGER.severe(&quot;Malformed cnf in the retrieved stored token&quot;);</span>
-<span class="nc" id="L632">                        throw new AceException(&quot;cnf claim malformed in the retrieved stored token&quot;);</span>
+<span class="pc bpc" id="L639" title="1 of 2 branches missed.">                    if (!storedCnf.getType().equals(CBORType.Map)) {</span>
+<span class="nc" id="L640">                        LOGGER.severe(&quot;Malformed cnf in the retrieved stored token&quot;);</span>
+<span class="nc" id="L641">                        throw new AceException(&quot;cnf claim malformed in the retrieved stored token&quot;);</span>
                     }
             		
-<span class="pc bpc" id="L635" title="1 of 2 branches missed.">                    if (storedCnf.getKeys().contains(Constants.OSCORE_Input_Material)) {</span>
+<span class="pc bpc" id="L644" title="1 of 2 branches missed.">                    if (storedCnf.getKeys().contains(Constants.OSCORE_Input_Material)) {</span>
                     	
-<span class="fc" id="L637">                    	byte[] storedIdBytes = storedCnf.get(Constants.OSCORE_Input_Material).</span>
-<span class="fc" id="L638">                    					                     get(Constants.OS_ID).GetByteString();</span>
+<span class="fc" id="L646">                    	byte[] storedIdBytes = storedCnf.get(Constants.OSCORE_Input_Material).</span>
+<span class="fc" id="L647">                    					                     get(Constants.OS_ID).GetByteString();</span>
                     	
-<span class="fc" id="L640">                    	String storedId = Base64.getEncoder().encodeToString(storedIdBytes);</span>
-<span class="fc" id="L641">                    	String recoveredCti = id2cti.get(storedId);</span>
+<span class="fc" id="L649">                    	String storedId = Base64.getEncoder().encodeToString(storedIdBytes);</span>
+<span class="fc" id="L650">                    	String recoveredCti = id2cti.get(storedId);</span>
                     	
-<span class="pc bpc" id="L643" title="2 of 4 branches missed.">                    	if (!storedCti.equals(recoveredCti) || !storedId.equals(kid) ) {</span>
-<span class="nc" id="L644">                            LOGGER.severe(&quot;Impossible to retrieve an OSCORE-related Token to supersede&quot;);</span>
-<span class="nc" id="L645">                            throw new AceException(&quot;Impossible to retrieve an OSCORE-related Token to supersede&quot;);</span>
+<span class="pc bpc" id="L652" title="2 of 4 branches missed.">                    	if (!storedCti.equals(recoveredCti) || !storedId.equals(kid) ) {</span>
+<span class="nc" id="L653">                            LOGGER.severe(&quot;Impossible to retrieve an OSCORE-related Token to supersede&quot;);</span>
+<span class="nc" id="L654">                            throw new AceException(&quot;Impossible to retrieve an OSCORE-related Token to supersede&quot;);</span>
                     	}
                     	
                     	// Everything has matched - This Token is intended to update access rights, while
@@ -651,167 +660,167 @@ public class TokenRepository implements AutoCloseable {
                     	
                     	// Copy the &quot;full&quot; 'cnf' claim of the Token to replace into the new Token to store.
                     	// This will overwrite the original 'cnf' considered above in the new Token to store.
-<span class="fc" id="L654">                    	claims.put(Constants.CNF, storedCnf);</span>
+<span class="fc" id="L663">                    	claims.put(Constants.CNF, storedCnf);</span>
                     	
                     	// Store the association between the same current subjectId and the CTI of the new Token
-<span class="fc" id="L657">                    	this.sid2cti.put(sid, cti);</span>
+<span class="fc" id="L666">                    	this.sid2cti.put(sid, cti);</span>
                     	
                     	// Store the association between the CTI of the new Token and kid, with kid equal to the subjectId 
-<span class="fc" id="L660">                        this.cti2kid.put(cti, sid);</span>
+<span class="fc" id="L669">                        this.cti2kid.put(cti, sid);</span>
 
                     	// Store the association between the immutable identifier of the OSCORE input material
                     	// and the base64 encoded cti of this Access Token; this will be updated in case a new
                     	// Access Token with updated access rights (and a new cti) is posted as still associated
                     	// to this OSCORE input material identifier and hence to the same kid
-<span class="fc" id="L666">                    	this.id2cti.put(kid, cti);</span>
+<span class="fc" id="L675">                    	this.id2cti.put(kid, cti);</span>
                     	
                     	// Delete the old Token that has been replaced
-<span class="fc" id="L669">                    	removeToken(storedCti);</span>
+<span class="fc" id="L678">                    	removeToken(storedCti);</span>
                     	
-<span class="fc" id="L671">                    }</span>
+<span class="fc" id="L680">                    }</span>
                     else {
                 		// The only admitted situation for 'cnf' of 'kid' type for a protected Token POST
                 		// is the one described in the OSCORE profile for the update of access rights.
                 		// Any other case should be treated as an error at the moment.
-<span class="nc" id="L676">                        LOGGER.severe(&quot;A Token to supersede through 'cnf' of type 'kid' must be&quot;</span>
+<span class="nc" id="L685">                        LOGGER.severe(&quot;A Token to supersede through 'cnf' of type 'kid' must be &quot;</span>
                         			   + &quot;related to an OSCORE Security Context&quot;);
-<span class="nc" id="L678">                        throw new AceException(&quot;A Token to supersede through 'cnf' of type 'kid' must be&quot;</span>
+<span class="nc" id="L687">                        throw new AceException(&quot;A Token to supersede through 'cnf' of type 'kid' must be &quot;</span>
                         		                + &quot;related to an OSCORE Security Context&quot;);
                     }
                     
-<span class="fc" id="L682">            	}</span>
+<span class="fc" id="L691">            	}</span>
             	else {
-<span class="nc" id="L684">                    LOGGER.severe(&quot;Impossible to retrieve the stored Token to supersede&quot;);</span>
-<span class="nc" id="L685">                    throw new AceException(&quot;Impossible to retrieve the stored Token to supersede&quot;);</span>
+<span class="nc" id="L693">                    LOGGER.severe(&quot;Impossible to retrieve the stored Token to supersede&quot;);</span>
+<span class="nc" id="L694">                    throw new AceException(&quot;Impossible to retrieve the stored Token to supersede&quot;);</span>
             	}
             	
-<span class="fc" id="L688">            }</span>
+<span class="fc" id="L697">            }</span>
             
             // The Token POST is not protected
             else {	            
-<span class="fc bfc" id="L692" title="All 2 branches covered.">	            if (!this.kid2key.containsKey(kid)) {</span>
-<span class="fc" id="L693">	                LOGGER.info(&quot;Token refers to unknown kid&quot;);</span>
-<span class="fc" id="L694">	                throw new AceException(&quot;Token refers to unknown kid&quot;);</span>
+<span class="fc bfc" id="L701" title="All 2 branches covered.">	            if (!this.kid2key.containsKey(kid)) {</span>
+<span class="fc" id="L702">	                LOGGER.info(&quot;Token refers to unknown kid&quot;);</span>
+<span class="fc" id="L703">	                throw new AceException(&quot;Token refers to unknown kid&quot;);</span>
 	            }
 	            //Store the association between token and known key
-<span class="fc" id="L697">	            this.cti2kid.put(cti, kid);</span>
+<span class="fc" id="L706">	            this.cti2kid.put(cti, kid);</span>
 	            
 	            // Since the Token POST is not protected, there is no Subject ID available
 	            // at all for the moment, to store the associations sid2kid and sid2cti
 	            // NOTE: Current profiles do not support this case
             }
-<span class="fc" id="L703">        }</span>
+<span class="fc" id="L712">        }</span>
         
-<span class="fc bfc" id="L705" title="All 2 branches covered.">        else if (cnf.getKeys().contains(Constants.OSCORE_Input_Material)) {</span>
+<span class="fc bfc" id="L714" title="All 2 branches covered.">        else if (cnf.getKeys().contains(Constants.OSCORE_Input_Material)) {</span>
         	// Coming from the /authz-info endpoint, it is ensured that
         	// this Token has been posted through an unprotected request
         	
-<span class="fc" id="L709">            OscoreSecurityContext osc = new OscoreSecurityContext(cnf);</span>
-<span class="fc" id="L710">            String kid = Base64.getEncoder().encodeToString(osc.getClientId());</span>
+<span class="fc" id="L718">            OscoreSecurityContext osc = new OscoreSecurityContext(cnf);</span>
+<span class="fc" id="L719">            String kid = Base64.getEncoder().encodeToString(osc.getClientId());</span>
 
             // The subject ID stored in the Token Repository has format: i) IdContext:SenderID;
             // or ii) SenderID, if the IdContext is not in the OSCORE Security Context Object
-<span class="fc" id="L714">        	String subjectId = &quot;&quot;;</span>
-<span class="fc" id="L715">        	String kidContext = null;</span>
-<span class="fc" id="L716">        	byte[] kidContextBytes = osc.getContextId();</span>
+<span class="fc" id="L723">        	String subjectId = &quot;&quot;;</span>
+<span class="fc" id="L724">        	String kidContext = null;</span>
+<span class="fc" id="L725">        	byte[] kidContextBytes = osc.getContextId();</span>
         	
-<span class="pc bpc" id="L718" title="1 of 4 branches missed.">        	if (kidContextBytes != null &amp;&amp; kidContextBytes.length != 0) {</span>
-<span class="fc" id="L719">        		kidContext = Base64.getEncoder().encodeToString(kidContextBytes);        		</span>
-<span class="fc" id="L720">        		subjectId = kidContext + &quot;:&quot;;</span>
+<span class="pc bpc" id="L727" title="1 of 4 branches missed.">        	if (kidContextBytes != null &amp;&amp; kidContextBytes.length != 0) {</span>
+<span class="fc" id="L728">        		kidContext = Base64.getEncoder().encodeToString(kidContextBytes);        		</span>
+<span class="fc" id="L729">        		subjectId = kidContext + &quot;:&quot;;</span>
         	}
-<span class="fc" id="L722">        	subjectId += kid;</span>
+<span class="fc" id="L731">        	subjectId += kid;</span>
         	
         	// Store the association between subjectId and kid, with kid equal to the subjectId
-<span class="fc" id="L725">        	this.sid2kid.put(subjectId, subjectId);</span>
+<span class="fc" id="L734">        	this.sid2kid.put(subjectId, subjectId);</span>
         	
         	// Store the association between subjectId and the Token CTI
-<span class="fc" id="L728">        	this.sid2cti.put(subjectId, cti);</span>
+<span class="fc" id="L737">        	this.sid2cti.put(subjectId, cti);</span>
         	
         	// Store the association between CTI and kid, with kid equal to the subjectId
-<span class="fc" id="L731">            this.cti2kid.put(cti, subjectId);</span>
+<span class="fc" id="L740">            this.cti2kid.put(cti, subjectId);</span>
             
-<span class="fc bfc" id="L733" title="All 2 branches covered.">            if (repostedOscoreToken == true) {</span>
+<span class="fc bfc" id="L742" title="All 2 branches covered.">            if (repostedOscoreToken == true) {</span>
             	// The same Token has been reposted through an unprotected request
             	
             	// Delete the old OSCORE Security Context
-<span class="fc" id="L737">            	OSCoreCtxDB db = OscoreCtxDbSingleton.getInstance();</span>
-<span class="fc" id="L738">            	OSCoreCtx oscCtx = null;</span>
-<span class="pc bpc" id="L739" title="1 of 2 branches missed.">            	if (oldOscoreContextId == null) {</span>
-<span class="nc" id="L740">            		oscCtx = db.getContext(oldOscoreRecipientId);</span>
+<span class="fc" id="L746">            	OSCoreCtxDB db = OscoreCtxDbSingleton.getInstance();</span>
+<span class="fc" id="L747">            	OSCoreCtx oscCtx = null;</span>
+<span class="pc bpc" id="L748" title="1 of 2 branches missed.">            	if (oldOscoreContextId == null) {</span>
+<span class="nc" id="L749">            		oscCtx = db.getContext(oldOscoreRecipientId);</span>
             	}
             	else {
             		try {
-<span class="fc" id="L744">						oscCtx = db.getContext(oldOscoreRecipientId, oldOscoreContextId);</span>
-<span class="nc" id="L745">					} catch (CoapOSException e) {</span>
-<span class="nc" id="L746">						e.printStackTrace();</span>
-<span class="nc" id="L747">			            LOGGER.severe(&quot;Unable to retrieve the OSCORE Security Context to delete&quot;);</span>
-<span class="nc" id="L748">			            throw new AceException(&quot;Unable to retrieve the OSCORE Security Context to delete&quot;);</span>
-<span class="fc" id="L749">					}</span>
+<span class="fc" id="L753">						oscCtx = db.getContext(oldOscoreRecipientId, oldOscoreContextId);</span>
+<span class="nc" id="L754">					} catch (CoapOSException e) {</span>
+<span class="nc" id="L755">						e.printStackTrace();</span>
+<span class="nc" id="L756">			            LOGGER.severe(&quot;Unable to retrieve the OSCORE Security Context to delete&quot;);</span>
+<span class="nc" id="L757">			            throw new AceException(&quot;Unable to retrieve the OSCORE Security Context to delete&quot;);</span>
+<span class="fc" id="L758">					}</span>
             	}
-<span class="pc bpc" id="L751" title="1 of 2 branches missed.">            	if (oscCtx != null) {</span>
-<span class="fc" id="L752">            		db.removeContext(oscCtx);</span>
+<span class="pc bpc" id="L760" title="1 of 2 branches missed.">            	if (oscCtx != null) {</span>
+<span class="fc" id="L761">            		db.removeContext(oscCtx);</span>
             	}
             	else {
-<span class="nc" id="L755">		            LOGGER.severe(&quot;Unable to retrieve the OSCORE Security Context to delete&quot;);</span>
-<span class="nc" id="L756">		            throw new AceException(&quot;Unable to retrieve the OSCORE Security Context to delete&quot;);</span>
+<span class="nc" id="L764">		            LOGGER.severe(&quot;Unable to retrieve the OSCORE Security Context to delete&quot;);</span>
+<span class="nc" id="L765">		            throw new AceException(&quot;Unable to retrieve the OSCORE Security Context to delete&quot;);</span>
             	}
             	
-<span class="fc" id="L759">            }</span>
+<span class="fc" id="L768">            }</span>
             else {
                 // Store the association between the immutable identifier of the OSCORE input material
                 // and the base64 encoded cti of this Access Token; this will be updated in case a new
                 // Access Token with updated access rights (and a new cti) is posted as still associated
                 // to this OSCORE input material identifier and hence to the same kid
-<span class="fc" id="L765">            	String id = Base64.getEncoder().encodeToString(osc.getId());</span>
-<span class="fc" id="L766">	            this.id2cti.put(id, cti);</span>
+<span class="fc" id="L774">            	String id = Base64.getEncoder().encodeToString(osc.getId());</span>
+<span class="fc" id="L775">	            this.id2cti.put(id, cti);</span>
 	            
                 // Store the association between the subjectId and
 	            // the immutable identifier of the OSCORE input material
-<span class="fc" id="L770">	            this.sid2id.put(subjectId, id);</span>
+<span class="fc" id="L779">	            this.sid2id.put(subjectId, id);</span>
 	            
             }
             
-<span class="fc" id="L774">        }</span>
+<span class="fc" id="L783">        }</span>
         
         else {
-<span class="fc" id="L777">            LOGGER.severe(&quot;Malformed cnf claim in token&quot;);</span>
-<span class="fc" id="L778">            throw new AceException(&quot;Malformed cnf claim in token&quot;);</span>
+<span class="fc" id="L786">            LOGGER.severe(&quot;Malformed cnf claim in token&quot;);</span>
+<span class="fc" id="L787">            throw new AceException(&quot;Malformed cnf claim in token&quot;);</span>
         }
 
         // If the Access Token includes the 'exi' claim, update the stored
         // highest Sequence Number values used to track the Access Tokens
         // with the 'exi' claim issues to this Resource Server
-<span class="fc bfc" id="L784" title="All 2 branches covered.">	    if (claims.containsKey(Constants.EXI)) {</span>
+<span class="fc bfc" id="L793" title="All 2 branches covered.">	    if (claims.containsKey(Constants.EXI)) {</span>
 	    	
-<span class="pc bpc" id="L786" title="1 of 2 branches missed.">	    	if (exiSeqNum &gt;= 0) {</span>
+<span class="pc bpc" id="L795" title="1 of 2 branches missed.">	    	if (exiSeqNum &gt;= 0) {</span>
 	    		// The Access Token has been just posted to authz-info
-<span class="fc" id="L788">	    		TokenRepository.getInstance().setTopExiSequenceNumber(exiSeqNum);</span>
+<span class="fc" id="L797">	    		TokenRepository.getInstance().setTopExiSequenceNumber(exiSeqNum);</span>
 	    	}
-<span class="nc bnc" id="L790" title="All 2 branches missed.">	    	else if (exiSeqNum == -1) {</span>
+<span class="nc bnc" id="L799" title="All 2 branches missed.">	    	else if (exiSeqNum == -1) {</span>
 	    		// The Access Token has been retrieved from a local file
 	    		
-<span class="nc" id="L793">	    		exiSeqNum = getExiSeqNumFromCti(cticb.GetByteString());</span>
+<span class="nc" id="L802">	    		exiSeqNum = getExiSeqNumFromCti(cticb.GetByteString());</span>
 	    		
-<span class="nc bnc" id="L795" title="All 2 branches missed.">	    		if (exiSeqNum &lt; 0) {</span>
+<span class="nc bnc" id="L804" title="All 2 branches missed.">	    		if (exiSeqNum &lt; 0) {</span>
 	    			// This should never happen, since the Access Token retrieved from the local file
 	    			// should have been issued by the AS as including a 'cti' claim with the intended format
-<span class="nc" id="L798">	                LOGGER.severe(&quot;Malformed cti claim in token including an exi claim and restored from a local file&quot;);</span>
-<span class="nc" id="L799">	                throw new AceException(&quot;Malformed cti claim in token including an exi claim and restored from a local file&quot;);</span>
+<span class="nc" id="L807">	                LOGGER.severe(&quot;Malformed cti claim in token including an exi claim and restored from a local file&quot;);</span>
+<span class="nc" id="L808">	                throw new AceException(&quot;Malformed cti claim in token including an exi claim and restored from a local file&quot;);</span>
 	    		}
 	    		
-<span class="nc" id="L802">	    		TokenRepository.getInstance().setTopExiSequenceNumber(exiSeqNum);</span>
+<span class="nc" id="L811">	    		TokenRepository.getInstance().setTopExiSequenceNumber(exiSeqNum);</span>
 	    	}
 	    		
 	    } 
         
         //Now store the claims. Need deep copy here
-<span class="fc" id="L808">        Map&lt;Short, CBORObject&gt; foo = new HashMap&lt;&gt;();</span>
-<span class="fc" id="L809">        foo.putAll(claims);</span>
-<span class="fc" id="L810">        this.cti2claims.put(cti, foo);</span>
+<span class="fc" id="L817">        Map&lt;Short, CBORObject&gt; foo = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L818">        foo.putAll(claims);</span>
+<span class="fc" id="L819">        this.cti2claims.put(cti, foo);</span>
 	    
-<span class="fc" id="L812">        persist();</span>
+<span class="fc" id="L821">        persist();</span>
         
-<span class="fc" id="L814">        return cticb;</span>
+<span class="fc" id="L823">        return cticb;</span>
 	}
 	
     /**
@@ -827,62 +836,62 @@ public class TokenRepository implements AutoCloseable {
 	private void processKey(OneKey key, String sid, String cti) 
 	        throws AceException, CoseException {
 	    
-<span class="fc" id="L830">	    String kid = null;</span>
-<span class="fc" id="L831">	    CBORObject kidC = null;</span>
+<span class="fc" id="L839">	    String kid = null;</span>
+<span class="fc" id="L840">	    CBORObject kidC = null;</span>
 	    
-<span class="fc bfc" id="L833" title="All 2 branches covered.">	    if (key.get(KeyKeys.KeyType).equals(KeyKeys.KeyType_Octet)) {</span>
-<span class="fc" id="L834">	        kidC = key.get(KeyKeys.KeyId);</span>
+<span class="fc bfc" id="L842" title="All 2 branches covered.">	    if (key.get(KeyKeys.KeyType).equals(KeyKeys.KeyType_Octet)) {</span>
+<span class="fc" id="L843">	        kidC = key.get(KeyKeys.KeyId);</span>
 	        
-<span class="pc bpc" id="L836" title="1 of 2 branches missed.">	        if (kidC == null) {</span>
-<span class="nc" id="L837">	            LOGGER.severe(&quot;kid not found in COSE_Key&quot;);</span>
-<span class="nc" id="L838">	            throw new AceException(&quot;COSE_Key is missing kid&quot;);</span>
-<span class="pc bpc" id="L839" title="1 of 2 branches missed.">	        } else if (kidC.getType().equals(CBORType.ByteString)) {	            </span>
-<span class="fc" id="L840">	        	kid = Base64.getEncoder().encodeToString(kidC.GetByteString());</span>
+<span class="pc bpc" id="L845" title="1 of 2 branches missed.">	        if (kidC == null) {</span>
+<span class="nc" id="L846">	            LOGGER.severe(&quot;kid not found in COSE_Key&quot;);</span>
+<span class="nc" id="L847">	            throw new AceException(&quot;COSE_Key is missing kid&quot;);</span>
+<span class="pc bpc" id="L848" title="1 of 2 branches missed.">	        } else if (kidC.getType().equals(CBORType.ByteString)) {	            </span>
+<span class="fc" id="L849">	        	kid = Base64.getEncoder().encodeToString(kidC.GetByteString());</span>
 	        } else {
-<span class="nc" id="L842">	            LOGGER.severe(&quot;kid is not a byte string&quot;);</span>
-<span class="nc" id="L843">	            throw new AceException(&quot;COSE_Key contains invalid kid&quot;);</span>
+<span class="nc" id="L851">	            LOGGER.severe(&quot;kid is not a byte string&quot;);</span>
+<span class="nc" id="L852">	            throw new AceException(&quot;COSE_Key contains invalid kid&quot;);</span>
 	        }
 	    }
 	    
 	    else { //Key type is EC2
-<span class="fc" id="L848">	        RawPublicKeyIdentity rpk = new RawPublicKeyIdentity(key.AsPublicKey());</span>
-<span class="fc" id="L849">	        kid = Base64.getEncoder().encodeToString(rpk.getName().getBytes());</span>
+<span class="fc" id="L857">	        RawPublicKeyIdentity rpk = new RawPublicKeyIdentity(key.AsPublicKey());</span>
+<span class="fc" id="L858">	        kid = Base64.getEncoder().encodeToString(rpk.getName().getBytes());</span>
 	    }
 	    
-<span class="fc bfc" id="L852" title="All 2 branches covered.">        if (sid != null) {</span>
+<span class="fc bfc" id="L861" title="All 2 branches covered.">        if (sid != null) {</span>
         	// Receiving a new PoP key through an already identifiable peer should
         	// happen only in the DTLS profile, and only when the whole Token conveying
         	// a symmetric PoP key is transported within the DTLS handshake message.
         	
         	// Add the new subject ID only if it is actually new, i.e. this is
         	// not an attempt to update access rights of an already stored Token
-<span class="pc bpc" id="L859" title="1 of 4 branches missed.">        	if (!sid2kid.containsKey(sid) &amp;&amp; !sid2cti.containsKey(sid)) {</span>
-<span class="fc" id="L860">	            this.sid2kid.put(sid, kid);</span>
-<span class="fc" id="L861">	        	this.sid2cti.put(sid, cti);</span>
+<span class="pc bpc" id="L868" title="1 of 4 branches missed.">        	if (!sid2kid.containsKey(sid) &amp;&amp; !sid2cti.containsKey(sid)) {</span>
+<span class="fc" id="L869">	            this.sid2kid.put(sid, kid);</span>
+<span class="fc" id="L870">	        	this.sid2cti.put(sid, cti);</span>
         	}
         	else {
-<span class="fc" id="L864">	            LOGGER.severe(&quot;A new PoP key must be provided through an unprotected Token POST&quot;);</span>
-<span class="fc" id="L865">	            throw new AceException(&quot;A new PoP key must be provided through an unprotected Token POST&quot;);</span>
+<span class="fc" id="L873">	            LOGGER.severe(&quot;A new PoP key must be provided through an unprotected Token POST&quot;);</span>
+<span class="fc" id="L874">	            throw new AceException(&quot;A new PoP key must be provided through an unprotected Token POST&quot;);</span>
         	}
         }
         
-<span class="fc bfc" id="L869" title="All 2 branches covered.">        else if (key.get(KeyKeys.KeyType).equals(KeyKeys.KeyType_EC2) ||</span>
-<span class="pc bpc" id="L870" title="1 of 2 branches missed.">        		 key.get(KeyKeys.KeyType).equals(KeyKeys.KeyType_OKP)) {</span>
+<span class="fc bfc" id="L878" title="All 2 branches covered.">        else if (key.get(KeyKeys.KeyType).equals(KeyKeys.KeyType_EC2) ||</span>
+<span class="pc bpc" id="L879" title="1 of 2 branches missed.">        		 key.get(KeyKeys.KeyType).equals(KeyKeys.KeyType_OKP)) {</span>
             //Scandium needs a special mapping for raw public keys
-<span class="fc" id="L872">            RawPublicKeyIdentity rpk  = new RawPublicKeyIdentity(key.AsPublicKey());</span>
+<span class="fc" id="L881">            RawPublicKeyIdentity rpk  = new RawPublicKeyIdentity(key.AsPublicKey());</span>
             
-<span class="fc" id="L874">            this.sid2kid.put(rpk.getName(), kid);</span>
-<span class="fc" id="L875">        	this.sid2cti.put(rpk.getName(), cti);</span>
-<span class="fc" id="L876">        }</span>
+<span class="fc" id="L883">            this.sid2kid.put(rpk.getName(), kid);</span>
+<span class="fc" id="L884">        	this.sid2cti.put(rpk.getName(), cti);</span>
+<span class="fc" id="L885">        }</span>
         
         else { //Take the kid as sid
-<span class="fc" id="L879">            this.sid2kid.put(kid, kid);</span>
-<span class="fc" id="L880">        	this.sid2cti.put(kid, cti);</span>
+<span class="fc" id="L888">            this.sid2kid.put(kid, kid);</span>
+<span class="fc" id="L889">        	this.sid2cti.put(kid, cti);</span>
         }  
         
-<span class="fc" id="L883">        this.cti2kid.put(cti, kid);</span>
-<span class="fc" id="L884">        this.kid2key.put(kid, key);</span>
-<span class="fc" id="L885">    }</span>
+<span class="fc" id="L892">        this.cti2kid.put(cti, kid);</span>
+<span class="fc" id="L893">        this.kid2key.put(kid, key);</span>
+<span class="fc" id="L894">    }</span>
 
     /**
 	 * Remove an existing token from the repository.
@@ -891,108 +900,108 @@ public class TokenRepository implements AutoCloseable {
 	 * @throws AceException 
 	 */
 	public synchronized void removeToken(String cti) throws AceException {
-<span class="pc bpc" id="L894" title="1 of 2 branches missed.">	    if (cti == null) {</span>
-<span class="nc" id="L895">            throw new AceException(&quot;Cti is null&quot;);</span>
+<span class="pc bpc" id="L903" title="1 of 2 branches missed.">	    if (cti == null) {</span>
+<span class="nc" id="L904">            throw new AceException(&quot;Cti is null&quot;);</span>
         } 
 	    
         // Remove the claims
-<span class="fc" id="L899">        this.cti2claims.remove(cti);</span>
+<span class="fc" id="L908">        this.cti2claims.remove(cti);</span>
  
 		// Remove the mapping to the pop key
-<span class="fc" id="L902">		this.cti2kid.remove(cti);</span>
+<span class="fc" id="L911">		this.cti2kid.remove(cti);</span>
 		
 		// Remove unused keys
-<span class="fc" id="L905">		Set&lt;String&gt; remove = new HashSet&lt;&gt;();</span>
-<span class="fc bfc" id="L906" title="All 2 branches covered.">		for (String kid : this.kid2key.keySet()) {</span>
-<span class="fc bfc" id="L907" title="All 2 branches covered.">		    if (!this.cti2kid.containsValue(kid)) {</span>
-<span class="fc" id="L908">		        remove.add(kid);</span>
+<span class="fc" id="L914">		Set&lt;String&gt; remove = new HashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L915" title="All 2 branches covered.">		for (String kid : this.kid2key.keySet()) {</span>
+<span class="fc bfc" id="L916" title="All 2 branches covered.">		    if (!this.cti2kid.containsValue(kid)) {</span>
+<span class="fc" id="L917">		        remove.add(kid);</span>
 		    }
-<span class="fc" id="L910">		}</span>
-<span class="fc bfc" id="L911" title="All 2 branches covered.">		for (String kid : remove) {</span>
-<span class="fc" id="L912">		    this.kid2key.remove(kid);</span>
-<span class="fc" id="L913">		}</span>
+<span class="fc" id="L919">		}</span>
+<span class="fc bfc" id="L920" title="All 2 branches covered.">		for (String kid : remove) {</span>
+<span class="fc" id="L921">		    this.kid2key.remove(kid);</span>
+<span class="fc" id="L922">		}</span>
 		
 		// Remove the mapping from the subject ID to cti
-<span class="fc" id="L916">		remove = new HashSet&lt;&gt;();</span>
-<span class="fc bfc" id="L917" title="All 2 branches covered.">		for (String sid : this.sid2cti.keySet()) {</span>
-<span class="fc bfc" id="L918" title="All 2 branches covered.">			if (this.sid2cti.get(sid).equals(cti)) {</span>
-<span class="fc" id="L919">				remove.add(sid);</span>
+<span class="fc" id="L925">		remove = new HashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L926" title="All 2 branches covered.">		for (String sid : this.sid2cti.keySet()) {</span>
+<span class="fc bfc" id="L927" title="All 2 branches covered.">			if (this.sid2cti.get(sid).equals(cti)) {</span>
+<span class="fc" id="L928">				remove.add(sid);</span>
 		    }
-<span class="fc" id="L921">		}</span>
-<span class="fc bfc" id="L922" title="All 2 branches covered.">		for (String sid : remove) {</span>
-<span class="fc" id="L923">			this.sid2cti.remove(sid);</span>
-<span class="fc" id="L924">		}</span>
+<span class="fc" id="L930">		}</span>
+<span class="fc bfc" id="L931" title="All 2 branches covered.">		for (String sid : remove) {</span>
+<span class="fc" id="L932">			this.sid2cti.remove(sid);</span>
+<span class="fc" id="L933">		}</span>
 				
 		// Remove unused kids
-<span class="fc" id="L927">		remove = new HashSet&lt;&gt;();</span>
-<span class="fc bfc" id="L928" title="All 2 branches covered.">		for (String sid : this.sid2kid.keySet()) {</span>
-<span class="fc bfc" id="L929" title="All 2 branches covered.">		    if (!this.sid2cti.containsKey(sid)) {</span>
-<span class="fc" id="L930">		        remove.add(sid);</span>
+<span class="fc" id="L936">		remove = new HashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L937" title="All 2 branches covered.">		for (String sid : this.sid2kid.keySet()) {</span>
+<span class="fc bfc" id="L938" title="All 2 branches covered.">		    if (!this.sid2cti.containsKey(sid)) {</span>
+<span class="fc" id="L939">		        remove.add(sid);</span>
 		    }
-<span class="fc" id="L932">		}</span>
-<span class="fc bfc" id="L933" title="All 2 branches covered.">		for (String sid : remove) {</span>
-<span class="fc" id="L934">		    this.sid2kid.remove(sid);</span>
-<span class="fc" id="L935">		}</span>
+<span class="fc" id="L941">		}</span>
+<span class="fc bfc" id="L942" title="All 2 branches covered.">		for (String sid : remove) {</span>
+<span class="fc" id="L943">		    this.sid2kid.remove(sid);</span>
+<span class="fc" id="L944">		}</span>
 		
 		// Remove unused rs nonces
 		// Relevant when joining an OSCORE Group, with the RS acting as Group Manager
-<span class="fc" id="L939">		remove = new HashSet&lt;&gt;();</span>
-<span class="fc bfc" id="L940" title="All 2 branches covered.">		for (String sid : this.sid2rsnonce.keySet()) {</span>
-<span class="pc bpc" id="L941" title="1 of 2 branches missed.">		    if (!this.sid2cti.containsKey(sid)) {</span>
-<span class="nc" id="L942">		        remove.add(sid);</span>
+<span class="fc" id="L948">		remove = new HashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L949" title="All 2 branches covered.">		for (String sid : this.sid2rsnonce.keySet()) {</span>
+<span class="pc bpc" id="L950" title="1 of 2 branches missed.">		    if (!this.sid2cti.containsKey(sid)) {</span>
+<span class="nc" id="L951">		        remove.add(sid);</span>
 		    }
-<span class="fc" id="L944">		}</span>
-<span class="pc bpc" id="L945" title="1 of 2 branches missed.">		for (String sid : remove) {</span>
-<span class="nc" id="L946">		    this.sid2rsnonce.remove(sid);</span>
-<span class="nc" id="L947">		}</span>
+<span class="fc" id="L953">		}</span>
+<span class="pc bpc" id="L954" title="1 of 2 branches missed.">		for (String sid : remove) {</span>
+<span class="nc" id="L955">		    this.sid2rsnonce.remove(sid);</span>
+<span class="nc" id="L956">		}</span>
 		
 		// Remove the mapping from an OSCORE ID to cti,
 		// if the Token was established with the OSCORE profile
-<span class="fc" id="L951">		remove = new HashSet&lt;&gt;();</span>
-<span class="fc bfc" id="L952" title="All 2 branches covered.">		for (String id : this.id2cti.keySet()) {</span>
-<span class="pc bpc" id="L953" title="1 of 2 branches missed.">			if (this.id2cti.get(id).equals(cti)) {</span>
-<span class="nc" id="L954">				remove.add(id);</span>
+<span class="fc" id="L960">		remove = new HashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L961" title="All 2 branches covered.">		for (String id : this.id2cti.keySet()) {</span>
+<span class="pc bpc" id="L962" title="1 of 2 branches missed.">			if (this.id2cti.get(id).equals(cti)) {</span>
+<span class="nc" id="L963">				remove.add(id);</span>
 		    }
-<span class="fc" id="L956">		}</span>
-<span class="pc bpc" id="L957" title="1 of 2 branches missed.">		for (String id : remove) {</span>
-<span class="nc" id="L958">	    	this.id2cti.remove(id);</span>
+<span class="fc" id="L965">		}</span>
+<span class="pc bpc" id="L966" title="1 of 2 branches missed.">		for (String id : remove) {</span>
+<span class="nc" id="L967">	    	this.id2cti.remove(id);</span>
 	    	
 	    	// Remove the mapping from the subject ID to the OSCORE Input Material ID
-<span class="nc" id="L961">	    	Set&lt;String&gt; sidsToRemove = new HashSet&lt;&gt;();</span>
-<span class="nc bnc" id="L962" title="All 2 branches missed.">	    	for (String sid: sid2id.keySet()) {</span>
-<span class="nc bnc" id="L963" title="All 2 branches missed.">	    	      if (sid2id.get(sid).equals(id)) {</span>
-<span class="nc" id="L964">	    	         sidsToRemove.add(sid);</span>
+<span class="nc" id="L970">	    	Set&lt;String&gt; sidsToRemove = new HashSet&lt;&gt;();</span>
+<span class="nc bnc" id="L971" title="All 2 branches missed.">	    	for (String sid: sid2id.keySet()) {</span>
+<span class="nc bnc" id="L972" title="All 2 branches missed.">	    	      if (sid2id.get(sid).equals(id)) {</span>
+<span class="nc" id="L973">	    	         sidsToRemove.add(sid);</span>
 	    	      }
-<span class="nc" id="L966">	    	}	    	</span>
-<span class="nc bnc" id="L967" title="All 2 branches missed.">	    	for (String sid: sidsToRemove) {</span>
-<span class="nc" id="L968">				sid2id.remove(sid);</span>
+<span class="nc" id="L975">	    	}	    	</span>
+<span class="nc bnc" id="L976" title="All 2 branches missed.">	    	for (String sid: sidsToRemove) {</span>
+<span class="nc" id="L977">				sid2id.remove(sid);</span>
 
 				// Remove the OSCORE Security Context
-<span class="nc" id="L971">				int index = sid.indexOf(&quot;:&quot;);</span>
-<span class="nc" id="L972">				byte[] idContext = null;</span>
-<span class="nc bnc" id="L973" title="All 2 branches missed.">				if (index &gt;= 0) {</span>
+<span class="nc" id="L980">				int index = sid.indexOf(&quot;:&quot;);</span>
+<span class="nc" id="L981">				byte[] idContext = null;</span>
+<span class="nc bnc" id="L982" title="All 2 branches missed.">				if (index &gt;= 0) {</span>
 					// Extract the OSCORE ID Context
-<span class="nc" id="L975">					String idContextString = sid.substring(0, index);</span>
-<span class="nc" id="L976">					idContext = Base64.getDecoder().decode(idContextString);</span>
+<span class="nc" id="L984">					String idContextString = sid.substring(0, index);</span>
+<span class="nc" id="L985">					idContext = Base64.getDecoder().decode(idContextString);</span>
 				}
-<span class="nc" id="L978">				String recipientIdString = sid.substring(index+1, sid.length());</span>
-<span class="nc" id="L979">				byte[] recipientId = Base64.getDecoder().decode(recipientIdString);</span>
+<span class="nc" id="L987">				String recipientIdString = sid.substring(index+1, sid.length());</span>
+<span class="nc" id="L988">				byte[] recipientId = Base64.getDecoder().decode(recipientIdString);</span>
 
-<span class="nc" id="L981">				OSCoreCtxDB db = OscoreCtxDbSingleton.getInstance();</span>
+<span class="nc" id="L990">				OSCoreCtxDB db = OscoreCtxDbSingleton.getInstance();</span>
 				try {
-<span class="nc" id="L983">					OSCoreCtx ctx = db.getContext(recipientId, idContext);</span>
-<span class="nc" id="L984">					db.removeContext(ctx);</span>
-<span class="nc" id="L985">				} catch (CoapOSException e) {</span>
-<span class="nc" id="L986">					e.printStackTrace();</span>
-<span class="nc" id="L987">					LOGGER.severe(&quot;Unable to retrieve the OSCORE Security Context to delete&quot;);</span>
-<span class="nc" id="L988">					throw new AceException(&quot;Unable to retrieve the OSCORE Security Context to delete&quot;);</span>
-<span class="nc" id="L989">				}</span>
-<span class="nc" id="L990">	    	}</span>
+<span class="nc" id="L992">					OSCoreCtx ctx = db.getContext(recipientId, idContext);</span>
+<span class="nc" id="L993">					db.removeContext(ctx);</span>
+<span class="nc" id="L994">				} catch (CoapOSException e) {</span>
+<span class="nc" id="L995">					e.printStackTrace();</span>
+<span class="nc" id="L996">					LOGGER.severe(&quot;Unable to retrieve the OSCORE Security Context to delete&quot;);</span>
+<span class="nc" id="L997">					throw new AceException(&quot;Unable to retrieve the OSCORE Security Context to delete&quot;);</span>
+<span class="nc" id="L998">				}</span>
+<span class="nc" id="L999">	    	}</span>
 	    	
-<span class="nc" id="L992">		}</span>
+<span class="nc" id="L1001">		}</span>
 		
-<span class="fc" id="L994">		persist();</span>
-<span class="fc" id="L995">	}</span>
+<span class="fc" id="L1003">		persist();</span>
+<span class="fc" id="L1004">	}</span>
 	
 	/**
 	 * Poll the stored tokens and expunge those that have expired.
@@ -1008,66 +1017,66 @@ public class TokenRepository implements AutoCloseable {
 		// - The Access Token is not expired, but: it includes the 'exi' claim; and
 		//   its associated Sequence Number is smaller than the highest Sequence Number
 		//   among the expired Access Tokens to remove that include the 'exi' claim 
-<span class="fc" id="L1011">	    HashSet&lt;String&gt; tokenToRemove = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L1020">	    HashSet&lt;String&gt; tokenToRemove = new HashSet&lt;&gt;();</span>
 	    
 	    // Set of non-expired Access Tokens that include the 'exi' claim
-<span class="fc" id="L1014">	    HashSet&lt;String&gt; tokenWithExiNotExpired = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L1023">	    HashSet&lt;String&gt; tokenWithExiNotExpired = new HashSet&lt;&gt;();</span>
 	    
 	    // Highest Sequence Number among the expired
 	    // Access Tokens to remove that include the 'exi' claim 
-<span class="fc" id="L1018">	    int highestExiSeqNum = -1;</span>
+<span class="fc" id="L1027">	    int highestExiSeqNum = -1;</span>
 	    
 	    
 	    // Phase 1: identify and delete the expired Access Tokens
 	    
-<span class="fc bfc" id="L1023" title="All 2 branches covered.">		for (Map.Entry&lt;String, Map&lt;Short, CBORObject&gt;&gt; foo : this.cti2claims.entrySet()) {</span>
-<span class="pc bpc" id="L1024" title="1 of 2 branches missed.">		    if (foo.getValue() != null) {</span>
+<span class="fc bfc" id="L1032" title="All 2 branches covered.">		for (Map.Entry&lt;String, Map&lt;Short, CBORObject&gt;&gt; foo : this.cti2claims.entrySet()) {</span>
+<span class="pc bpc" id="L1033" title="1 of 2 branches missed.">		    if (foo.getValue() != null) {</span>
 		    	
-<span class="fc" id="L1026">		    	CBORObject exi = foo.getValue().get(Constants.EXI);</span>
-<span class="fc" id="L1027">		        CBORObject exp = foo.getValue().get(Constants.EXP);</span>
+<span class="fc" id="L1035">		    	CBORObject exi = foo.getValue().get(Constants.EXI);</span>
+<span class="fc" id="L1036">		        CBORObject exp = foo.getValue().get(Constants.EXP);</span>
 		        
-<span class="fc bfc" id="L1029" title="All 2 branches covered.">		        if (exp == null) {</span>
-<span class="fc" id="L1030">		            continue; //This token never expires</span>
+<span class="fc bfc" id="L1038" title="All 2 branches covered.">		        if (exp == null) {</span>
+<span class="fc" id="L1039">		            continue; //This token never expires</span>
 		        }
-<span class="pc bpc" id="L1032" title="2 of 4 branches missed.">		        if (!(exp.isNumber() &amp;&amp; exp.AsNumber().IsInteger())) {</span>
-<span class="nc" id="L1033">		            throw new AceException(&quot;Expiration time is in wrong format&quot;);</span>
+<span class="pc bpc" id="L1041" title="2 of 4 branches missed.">		        if (!(exp.isNumber() &amp;&amp; exp.AsNumber().IsInteger())) {</span>
+<span class="nc" id="L1042">		            throw new AceException(&quot;Expiration time is in wrong format&quot;);</span>
 		        }
 		        
-<span class="fc bfc" id="L1036" title="All 2 branches covered.">		        if (this.time.getCurrentTime() &gt; exp.AsNumber().ToInt64Checked()) {</span>
+<span class="fc bfc" id="L1045" title="All 2 branches covered.">		        if (this.time.getCurrentTime() &gt; exp.AsNumber().ToInt64Checked()) {</span>
 		        	// This Access Token is expired and has to be removed
-<span class="fc" id="L1038">		            tokenToRemove.add(foo.getKey());</span>
+<span class="fc" id="L1047">		            tokenToRemove.add(foo.getKey());</span>
 		            
-<span class="pc bpc" id="L1040" title="1 of 2 branches missed.">		            if (exi != null) {</span>
+<span class="pc bpc" id="L1049" title="1 of 2 branches missed.">		            if (exi != null) {</span>
 		            	// This expired Access Token has an 'exi' claim 
 		            	
-<span class="nc" id="L1043">		            	CBORObject cticb = foo.getValue().get(Constants.CTI);</span>
-<span class="nc" id="L1044">			    		int exiSeqNum = getExiSeqNumFromCti(cticb.GetByteString());</span>
-<span class="nc bnc" id="L1045" title="All 2 branches missed.">			    		if (exiSeqNum &lt; 0) {</span>
+<span class="nc" id="L1052">		            	CBORObject cticb = foo.getValue().get(Constants.CTI);</span>
+<span class="nc" id="L1053">			    		int exiSeqNum = getExiSeqNumFromCti(cticb.GetByteString());</span>
+<span class="nc bnc" id="L1054" title="All 2 branches missed.">			    		if (exiSeqNum &lt; 0) {</span>
 			    			// This should never happen, since an accepted and stored Access Token
 			    			// should have been validated as including a 'cti' claim with the intended format
-<span class="nc" id="L1048">			                LOGGER.severe(&quot;Malformed cti claim in stored token including an exi claim&quot;);</span>
-<span class="nc" id="L1049">			                throw new AceException(&quot;Malformed cti claim in stored token including an exi claim&quot;);</span>
+<span class="nc" id="L1057">			                LOGGER.severe(&quot;Malformed cti claim in stored token including an exi claim&quot;);</span>
+<span class="nc" id="L1058">			                throw new AceException(&quot;Malformed cti claim in stored token including an exi claim&quot;);</span>
 			    		}
 			    		// Track the highest Sequence Number among the expired Access Tokens with the 'exi' claim 
-<span class="nc bnc" id="L1052" title="All 2 branches missed.">			    		if (exiSeqNum &gt; highestExiSeqNum) {</span>
-<span class="nc" id="L1053">			    			highestExiSeqNum = exiSeqNum;</span>
+<span class="nc bnc" id="L1061" title="All 2 branches missed.">			    		if (exiSeqNum &gt; highestExiSeqNum) {</span>
+<span class="nc" id="L1062">			    			highestExiSeqNum = exiSeqNum;</span>
 			    		}
-<span class="nc" id="L1055">		            }</span>
+<span class="nc" id="L1064">		            }</span>
 
 				}
-<span class="fc bfc" id="L1058" title="All 2 branches covered.">		        else if (exi != null) {</span>
+<span class="fc bfc" id="L1067" title="All 2 branches covered.">		        else if (exi != null) {</span>
 	            	// The Access Token is not expired, but it includes the 'exi' claim
 		        	// and thus will require further inspection for possible deletion
-<span class="fc" id="L1061">		        	tokenWithExiNotExpired.add(foo.getKey());</span>
+<span class="fc" id="L1070">		        	tokenWithExiNotExpired.add(foo.getKey());</span>
 	            }
 		        
 			}
-<span class="fc" id="L1065">		}</span>
+<span class="fc" id="L1074">		}</span>
 		
 		// Delete the expired Access Tokens
-<span class="fc bfc" id="L1068" title="All 2 branches covered.">		for (String cti : tokenToRemove) {</span>
-<span class="fc" id="L1069">		    removeToken(cti);</span>
-<span class="fc" id="L1070">		}</span>
+<span class="fc bfc" id="L1077" title="All 2 branches covered.">		for (String cti : tokenToRemove) {</span>
+<span class="fc" id="L1078">		    removeToken(cti);</span>
+<span class="fc" id="L1079">		}</span>
 		
 		
 	    // Phase 2: identify and delete the non-expired Access Tokens that include the 'exi' claim and that
@@ -1076,41 +1085,41 @@ public class TokenRepository implements AutoCloseable {
 		// This can be skipped altogether if any of the two following conditions holds:
 		// - There are no non-expired Access Tokens that include the 'exi' claim; OR
 		// - No expired Access Tokens including the 'exi' claim were found and deleted
-<span class="pc bpc" id="L1079" title="1 of 4 branches missed.">		if (!tokenWithExiNotExpired.isEmpty() || highestExiSeqNum != -1) {</span>
-<span class="fc" id="L1080">			tokenToRemove = new HashSet&lt;&gt;();	</span>
+<span class="pc bpc" id="L1088" title="1 of 4 branches missed.">		if (!tokenWithExiNotExpired.isEmpty() || highestExiSeqNum != -1) {</span>
+<span class="fc" id="L1089">			tokenToRemove = new HashSet&lt;&gt;();	</span>
 			
-<span class="fc bfc" id="L1082" title="All 2 branches covered.">			for (Map.Entry&lt;String, Map&lt;Short, CBORObject&gt;&gt; foo : this.cti2claims.entrySet()) {</span>
-<span class="pc bpc" id="L1083" title="1 of 2 branches missed.">			    if (foo.getValue() != null) {</span>
+<span class="fc bfc" id="L1091" title="All 2 branches covered.">			for (Map.Entry&lt;String, Map&lt;Short, CBORObject&gt;&gt; foo : this.cti2claims.entrySet()) {</span>
+<span class="pc bpc" id="L1092" title="1 of 2 branches missed.">			    if (foo.getValue() != null) {</span>
 			    	
-<span class="fc bfc" id="L1085" title="All 2 branches covered.">			    	if (tokenWithExiNotExpired.contains(foo.getKey())) {</span>
-<span class="fc" id="L1086">				    	int exiSeqNum = -1;</span>
-<span class="fc" id="L1087">		            	CBORObject cticb = foo.getValue().get(Constants.CTI);</span>
-<span class="fc" id="L1088">			    		exiSeqNum = getExiSeqNumFromCti(cticb.GetByteString());</span>
+<span class="fc bfc" id="L1094" title="All 2 branches covered.">			    	if (tokenWithExiNotExpired.contains(foo.getKey())) {</span>
+<span class="fc" id="L1095">				    	int exiSeqNum = -1;</span>
+<span class="fc" id="L1096">		            	CBORObject cticb = foo.getValue().get(Constants.CTI);</span>
+<span class="fc" id="L1097">			    		exiSeqNum = getExiSeqNumFromCti(cticb.GetByteString());</span>
 			    		
-<span class="pc bpc" id="L1090" title="1 of 2 branches missed.">			    		if (exiSeqNum &lt; 0) {</span>
+<span class="pc bpc" id="L1099" title="1 of 2 branches missed.">			    		if (exiSeqNum &lt; 0) {</span>
 			    			// This should never happen, since an accepted and stored Access Token
 			    			// should have been validated as including a 'cti' claim with the intended format
-<span class="nc" id="L1093">			                LOGGER.severe(&quot;Malformed cti claim in stored token including an exi claim&quot;);</span>
-<span class="nc" id="L1094">			                throw new AceException(&quot;Malformed cti claim in stored token including an exi claim&quot;);</span>
+<span class="nc" id="L1102">			                LOGGER.severe(&quot;Malformed cti claim in stored token including an exi claim&quot;);</span>
+<span class="nc" id="L1103">			                throw new AceException(&quot;Malformed cti claim in stored token including an exi claim&quot;);</span>
 			    		}
-<span class="pc bpc" id="L1096" title="1 of 2 branches missed.">			    		if (exiSeqNum &lt;= highestExiSeqNum) {</span>
+<span class="pc bpc" id="L1105" title="1 of 2 branches missed.">			    		if (exiSeqNum &lt;= highestExiSeqNum) {</span>
 			    			// This non-expired Access Tokens includes the 'exi' claim and
 			    			// its Sequence Number is smaller than the highest Sequence Number
 			    			// previously identified. Hence, it must also be removed.
-<span class="nc" id="L1100">			    			tokenToRemove.add(foo.getKey());</span>
+<span class="nc" id="L1109">			    			tokenToRemove.add(foo.getKey());</span>
 			    		}
 			    	}
 			    }
-<span class="fc" id="L1104">			}</span>
+<span class="fc" id="L1113">			}</span>
 			
 			// Delete the non-expired Access Tokens including the 'exi' claim
-<span class="pc bpc" id="L1107" title="1 of 2 branches missed.">			for (String cti : tokenToRemove) {</span>
-<span class="nc" id="L1108">			    removeToken(cti);</span>
-<span class="nc" id="L1109">			}</span>
+<span class="pc bpc" id="L1116" title="1 of 2 branches missed.">			for (String cti : tokenToRemove) {</span>
+<span class="nc" id="L1117">			    removeToken(cti);</span>
+<span class="nc" id="L1118">			}</span>
 			
 		}
 				
-<span class="fc" id="L1113">	}</span>
+<span class="fc" id="L1122">	}</span>
 	
 	/**
 	 * Check if there is a token allowing access.
@@ -1130,102 +1139,102 @@ public class TokenRepository implements AutoCloseable {
 	        short action, IntrospectionHandler intro) 
 			        throws AceException, IntrospectionException {
 	    //Expunge expired tokens
-<span class="fc" id="L1133">	    purgeTokens();</span>
+<span class="fc" id="L1142">	    purgeTokens();</span>
 	    
 	    //Check if we have tokens for this pop-key
-<span class="fc bfc" id="L1136" title="All 2 branches covered.">	    if (!this.cti2kid.containsValue(kid)) {</span>
-<span class="fc" id="L1137">	        return UNAUTHZ; //No tokens for this pop-key</span>
+<span class="fc bfc" id="L1145" title="All 2 branches covered.">	    if (!this.cti2kid.containsValue(kid)) {</span>
+<span class="fc" id="L1146">	        return UNAUTHZ; //No tokens for this pop-key</span>
 	    }
 	    
 	    //Collect the token id's of matching tokens
-<span class="fc" id="L1141">	    Set&lt;String&gt; ctis = new HashSet&lt;&gt;();</span>
-<span class="fc bfc" id="L1142" title="All 2 branches covered.">	    for (String cti : this.cti2kid.keySet()) {</span>
-<span class="fc bfc" id="L1143" title="All 2 branches covered.">	        if (this.cti2kid.get(cti).equals(kid)) {</span>
-<span class="fc" id="L1144">	            ctis.add(cti);   </span>
+<span class="fc" id="L1150">	    Set&lt;String&gt; ctis = new HashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L1151" title="All 2 branches covered.">	    for (String cti : this.cti2kid.keySet()) {</span>
+<span class="fc bfc" id="L1152" title="All 2 branches covered.">	        if (this.cti2kid.get(cti).equals(kid)) {</span>
+<span class="fc" id="L1153">	            ctis.add(cti);   </span>
 	        }
-<span class="fc" id="L1146">	    }</span>
+<span class="fc" id="L1155">	    }</span>
 	 
-<span class="fc" id="L1148">	    boolean methodNA = false;   </span>
-<span class="fc bfc" id="L1149" title="All 2 branches covered.">	    for (String cti : ctis) { //All tokens linked to that pop key</span>
+<span class="fc" id="L1157">	    boolean methodNA = false;   </span>
+<span class="fc bfc" id="L1158" title="All 2 branches covered.">	    for (String cti : ctis) { //All tokens linked to that pop key</span>
 	        //Check if we have the claims for that cti
 	        //Get the claims
-<span class="fc" id="L1152">            Map&lt;Short, CBORObject&gt; claims = this.cti2claims.get(cti);</span>
-<span class="pc bpc" id="L1153" title="2 of 4 branches missed.">            if (claims == null || claims.isEmpty()) {</span>
+<span class="fc" id="L1161">            Map&lt;Short, CBORObject&gt; claims = this.cti2claims.get(cti);</span>
+<span class="pc bpc" id="L1162" title="2 of 4 branches missed.">            if (claims == null || claims.isEmpty()) {</span>
                 //No claims found
-<span class="nc" id="L1155">                continue;</span>
+<span class="nc" id="L1164">                continue;</span>
             }
             
           //Check if the subject matches
-<span class="fc" id="L1159">            CBORObject subO = claims.get(Constants.SUB);</span>
-<span class="pc bpc" id="L1160" title="1 of 2 branches missed.">            if (subO != null) {</span>
-<span class="nc bnc" id="L1161" title="All 2 branches missed.">                if (subject == null) {</span>
+<span class="fc" id="L1168">            CBORObject subO = claims.get(Constants.SUB);</span>
+<span class="pc bpc" id="L1169" title="1 of 2 branches missed.">            if (subO != null) {</span>
+<span class="nc bnc" id="L1170" title="All 2 branches missed.">                if (subject == null) {</span>
                     //Token requires subject, but none provided
-<span class="nc" id="L1163">                    continue;</span>
+<span class="nc" id="L1172">                    continue;</span>
                 }
-<span class="nc bnc" id="L1165" title="All 2 branches missed.">                if (!subO.AsString().equals(subject)) {</span>
+<span class="nc bnc" id="L1174" title="All 2 branches missed.">                if (!subO.AsString().equals(subject)) {</span>
                     //Token doesn't match subject
-<span class="nc" id="L1167">                    continue;</span>
+<span class="nc" id="L1176">                    continue;</span>
                 }
             }
             
             //Check if the token is expired
-<span class="fc" id="L1172">            CBORObject exp = claims.get(Constants.EXP); </span>
-<span class="pc bpc" id="L1173" title="2 of 6 branches missed.">             if (exp != null &amp;&amp; !(exp.isNumber() &amp;&amp; exp.AsNumber().IsInteger())) {</span>
-<span class="nc" id="L1174">                    throw new AceException(</span>
+<span class="fc" id="L1181">            CBORObject exp = claims.get(Constants.EXP); </span>
+<span class="pc bpc" id="L1182" title="2 of 6 branches missed.">             if (exp != null &amp;&amp; !(exp.isNumber() &amp;&amp; exp.AsNumber().IsInteger())) {</span>
+<span class="nc" id="L1183">                    throw new AceException(</span>
                             &quot;Expiration time is in wrong format&quot;);
              }
-<span class="pc bpc" id="L1177" title="1 of 4 branches missed.">             if (exp != null &amp;&amp; exp.AsNumber().ToInt64Checked() &lt; this.time.getCurrentTime()) {</span>
+<span class="pc bpc" id="L1186" title="1 of 4 branches missed.">             if (exp != null &amp;&amp; exp.AsNumber().ToInt64Checked() &lt; this.time.getCurrentTime()) {</span>
                  //Token is expired
-<span class="nc" id="L1179">                 continue;</span>
+<span class="nc" id="L1188">                 continue;</span>
              }
             
              //Check nbf
-<span class="fc" id="L1183">             CBORObject nbf = claims.get(Constants.NBF);</span>
-<span class="pc bpc" id="L1184" title="5 of 6 branches missed.">             if (nbf != null &amp;&amp;  !(nbf.isNumber() &amp;&amp; nbf.AsNumber().IsInteger())) {</span>
-<span class="nc" id="L1185">                 throw new AceException(&quot;NotBefore time is in wrong format&quot;);</span>
+<span class="fc" id="L1192">             CBORObject nbf = claims.get(Constants.NBF);</span>
+<span class="pc bpc" id="L1193" title="5 of 6 branches missed.">             if (nbf != null &amp;&amp;  !(nbf.isNumber() &amp;&amp; nbf.AsNumber().IsInteger())) {</span>
+<span class="nc" id="L1194">                 throw new AceException(&quot;NotBefore time is in wrong format&quot;);</span>
              }
-<span class="pc bpc" id="L1187" title="3 of 4 branches missed.">             if (nbf != null &amp;&amp; nbf.AsNumber().ToInt64Checked() &gt; this.time.getCurrentTime()) {</span>
+<span class="pc bpc" id="L1196" title="3 of 4 branches missed.">             if (nbf != null &amp;&amp; nbf.AsNumber().ToInt64Checked() &gt; this.time.getCurrentTime()) {</span>
                  //Token not valid yet
-<span class="nc" id="L1189">                 continue;</span>
+<span class="nc" id="L1198">                 continue;</span>
              }
              
 	        //Check the scope
-<span class="fc" id="L1193">             CBORObject scope = claims.get(Constants.SCOPE);</span>
-<span class="pc bpc" id="L1194" title="1 of 2 branches missed.">             if (scope == null) {</span>
-<span class="nc" id="L1195">                 LOGGER.severe(&quot;Token: &quot; + cti + &quot; has no scope&quot;);</span>
-<span class="nc" id="L1196">                 throw new AceException(&quot;Token: &quot; + cti + &quot; has no scope&quot;);</span>
+<span class="fc" id="L1202">             CBORObject scope = claims.get(Constants.SCOPE);</span>
+<span class="pc bpc" id="L1203" title="1 of 2 branches missed.">             if (scope == null) {</span>
+<span class="nc" id="L1204">                 LOGGER.severe(&quot;Token: &quot; + cti + &quot; has no scope&quot;);</span>
+<span class="nc" id="L1205">                 throw new AceException(&quot;Token: &quot; + cti + &quot; has no scope&quot;);</span>
                  
              }
-             
-<span class="fc bfc" id="L1200" title="All 2 branches covered.">             if (this.scopeValidator.scopeMatchResource(scope, resource)) {</span>
-            	 
-<span class="fc bfc" id="L1202" title="All 2 branches covered.">                 if (this.scopeValidator.scopeMatch(scope, resource, action)) {</span>
+
+<span class="fc bfc" id="L1209" title="All 2 branches covered.">             if (this.scopeValidator.scopeMatchResource(scope, resource)) {</span>
+
+<span class="fc bfc" id="L1211" title="All 2 branches covered.">                 if (this.scopeValidator.scopeMatch(scope, resource, action)) {</span>
                 	 
                      //Check if we should introspect this token
-<span class="pc bpc" id="L1205" title="1 of 2 branches missed.">                     if (intro != null) {</span>
-<span class="nc" id="L1206">                         byte[] ctiB = Base64.getDecoder().decode(cti);</span>
-<span class="nc" id="L1207">                         Map&lt;Short,CBORObject&gt; introspect = intro.getParams(ctiB);</span>
-<span class="nc bnc" id="L1208" title="All 2 branches missed.">                         if (introspect != null </span>
-<span class="nc bnc" id="L1209" title="All 2 branches missed.">                                 &amp;&amp; introspect.get(Constants.ACTIVE) == null) {</span>
-<span class="nc" id="L1210">                             throw new AceException(&quot;Token introspection didn't &quot;</span>
+<span class="pc bpc" id="L1214" title="1 of 2 branches missed.">                     if (intro != null) {</span>
+<span class="nc" id="L1215">                         byte[] ctiB = Base64.getDecoder().decode(cti);</span>
+<span class="nc" id="L1216">                         Map&lt;Short,CBORObject&gt; introspect = intro.getParams(ctiB);</span>
+<span class="nc bnc" id="L1217" title="All 2 branches missed.">                         if (introspect != null </span>
+<span class="nc bnc" id="L1218" title="All 2 branches missed.">                                 &amp;&amp; introspect.get(Constants.ACTIVE) == null) {</span>
+<span class="nc" id="L1219">                             throw new AceException(&quot;Token introspection didn't &quot;</span>
                                      + &quot;return an 'active' parameter&quot;);
                          }
-<span class="nc bnc" id="L1213" title="All 2 branches missed.">                         if (introspect != null &amp;&amp; introspect.get(</span>
-<span class="nc bnc" id="L1214" title="All 2 branches missed.">                                 Constants.ACTIVE).isTrue()) {</span>
-<span class="nc" id="L1215">                             return OK; // Token is active and passed all other tests</span>
+<span class="nc bnc" id="L1222" title="All 2 branches missed.">                         if (introspect != null &amp;&amp; introspect.get(</span>
+<span class="nc bnc" id="L1223" title="All 2 branches missed.">                                 Constants.ACTIVE).isTrue()) {</span>
+<span class="nc" id="L1224">                             return OK; // Token is active and passed all other tests</span>
                          }
-<span class="nc" id="L1217">                     } else {</span>
+<span class="nc" id="L1226">                     } else {</span>
                        //We didn't introspect, but the token is ok otherwise
-<span class="fc" id="L1219">                         return OK;</span>
+<span class="fc" id="L1228">                         return OK;</span>
                      }
                      
                  }
-<span class="fc" id="L1223">                 methodNA = true; //scope did match resource but not action</span>
+<span class="fc" id="L1232">                 methodNA = true; //scope did match resource but not action</span>
                  
              }
-<span class="fc" id="L1226">	    }</span>
+<span class="fc" id="L1235">	    }</span>
 
-<span class="fc bfc" id="L1228" title="All 2 branches covered.">	    return ((methodNA) ? METHODNA : FORBID); </span>
+<span class="fc bfc" id="L1237" title="All 2 branches covered.">	    return ((methodNA) ? METHODNA : FORBID); </span>
 	}
 
 	/**
@@ -1233,27 +1242,27 @@ public class TokenRepository implements AutoCloseable {
 	 * @throws AceException 
 	 */
 	private void persist() throws AceException {
-<span class="fc" id="L1236">	    JSONArray config = new JSONArray();</span>
-<span class="fc bfc" id="L1237" title="All 2 branches covered.">	    for (String cti : this.cti2claims.keySet()) {</span>
-<span class="fc" id="L1238">	        Map&lt;Short, CBORObject&gt; claims = this.cti2claims.get(cti);</span>
-<span class="fc" id="L1239">	        JSONObject token = new JSONObject();</span>
-<span class="fc bfc" id="L1240" title="All 2 branches covered.">	        for (Map.Entry&lt;Short,CBORObject&gt; entry : claims.entrySet()) {</span>
-<span class="fc" id="L1241">	            token.put(entry.getKey().toString(), </span>
-<span class="fc" id="L1242">	                    Base64.getEncoder().encodeToString(</span>
-<span class="fc" id="L1243">	                            entry.getValue().EncodeToBytes()));</span>
-<span class="fc" id="L1244">	        }</span>
-<span class="fc" id="L1245">	        config.put(token);</span>
-<span class="fc" id="L1246">	    }</span>
+<span class="fc" id="L1245">	    JSONArray config = new JSONArray();</span>
+<span class="fc bfc" id="L1246" title="All 2 branches covered.">	    for (String cti : this.cti2claims.keySet()) {</span>
+<span class="fc" id="L1247">	        Map&lt;Short, CBORObject&gt; claims = this.cti2claims.get(cti);</span>
+<span class="fc" id="L1248">	        JSONObject token = new JSONObject();</span>
+<span class="fc bfc" id="L1249" title="All 2 branches covered.">	        for (Map.Entry&lt;Short,CBORObject&gt; entry : claims.entrySet()) {</span>
+<span class="fc" id="L1250">	            token.put(entry.getKey().toString(), </span>
+<span class="fc" id="L1251">	                    Base64.getEncoder().encodeToString(</span>
+<span class="fc" id="L1252">	                            entry.getValue().EncodeToBytes()));</span>
+<span class="fc" id="L1253">	        }</span>
+<span class="fc" id="L1254">	        config.put(token);</span>
+<span class="fc" id="L1255">	    }</span>
 
-<span class="fc" id="L1248">        try (FileOutputStream fos </span>
+<span class="fc" id="L1257">        try (FileOutputStream fos </span>
                 = new FileOutputStream(this.tokenFile, false)) {
-<span class="fc" id="L1250">            fos.write(config.toString(4).getBytes(Constants.charset));</span>
-<span class="fc" id="L1251">            fos.close();</span>
-<span class="nc" id="L1252">        } catch (JSONException | IOException e) {</span>
-<span class="nc" id="L1253">            throw new AceException(e.getMessage());</span>
-<span class="fc" id="L1254">        }</span>
+<span class="fc" id="L1259">            fos.write(config.toString(4).getBytes(Constants.charset));</span>
+<span class="fc" id="L1260">            fos.close();</span>
+<span class="nc" id="L1261">        } catch (JSONException | IOException e) {</span>
+<span class="nc" id="L1262">            throw new AceException(e.getMessage());</span>
+<span class="fc" id="L1263">        }</span>
         
-<span class="fc" id="L1256">	}</span>
+<span class="fc" id="L1265">	}</span>
 	
 	/**
 	 * Get the proof-of-possession key of a token identified by its 'cti'.
@@ -1264,19 +1273,19 @@ public class TokenRepository implements AutoCloseable {
 	 * @throws AceException 
 	 */
 	public OneKey getPoP(String cti) throws AceException {
-<span class="pc bpc" id="L1267" title="1 of 2 branches missed.">	    if (cti != null) {</span>
-<span class="fc" id="L1268">	        purgeTokens();</span>
-<span class="fc" id="L1269">	        String kid = this.cti2kid.get(cti);</span>
-<span class="fc" id="L1270">	        OneKey key = this.kid2key.get(kid);</span>
-<span class="fc bfc" id="L1271" title="All 2 branches covered.">	        if (key == null) {</span>
-<span class="fc" id="L1272">	            LOGGER.finest(&quot;Token with cti: &quot; + cti </span>
+<span class="pc bpc" id="L1276" title="1 of 2 branches missed.">	    if (cti != null) {</span>
+<span class="fc" id="L1277">	        purgeTokens();</span>
+<span class="fc" id="L1278">	        String kid = this.cti2kid.get(cti);</span>
+<span class="fc" id="L1279">	        OneKey key = this.kid2key.get(kid);</span>
+<span class="fc bfc" id="L1280" title="All 2 branches covered.">	        if (key == null) {</span>
+<span class="fc" id="L1281">	            LOGGER.finest(&quot;Token with cti: &quot; + cti </span>
 	                    + &quot; not found in getPoP()&quot;);
-<span class="fc" id="L1274">	            return null;</span>
+<span class="fc" id="L1283">	            return null;</span>
 	        }
-<span class="fc" id="L1276">	        return key;</span>
+<span class="fc" id="L1285">	        return key;</span>
 	    }
-<span class="nc" id="L1278">        LOGGER.severe(&quot;getCnf() called with null cti&quot;);</span>
-<span class="nc" id="L1279">        throw new AceException(&quot;Must supply non-null cti to get cnf&quot;);</span>
+<span class="nc" id="L1287">        LOGGER.severe(&quot;getCnf() called with null cti&quot;);</span>
+<span class="nc" id="L1288">        throw new AceException(&quot;Must supply non-null cti to get cnf&quot;);</span>
 	}
 
 	/**
@@ -1289,17 +1298,17 @@ public class TokenRepository implements AutoCloseable {
      * @throws AceException 
      */
 	public OneKey getKey(String kid) throws AceException {
-<span class="pc bpc" id="L1292" title="1 of 2 branches missed.">        if (kid != null) {</span>
-<span class="fc" id="L1293">            OneKey key = this.kid2key.get(kid);</span>
-<span class="fc bfc" id="L1294" title="All 2 branches covered.">            if (key == null) {</span>
-<span class="fc" id="L1295">                LOGGER.finest(&quot;Key with kid: &quot; + kid </span>
+<span class="pc bpc" id="L1301" title="1 of 2 branches missed.">        if (kid != null) {</span>
+<span class="fc" id="L1302">            OneKey key = this.kid2key.get(kid);</span>
+<span class="fc bfc" id="L1303" title="All 2 branches covered.">            if (key == null) {</span>
+<span class="fc" id="L1304">                LOGGER.finest(&quot;Key with kid: &quot; + kid </span>
                         + &quot; not found in getKey()&quot;);
-<span class="fc" id="L1297">                return null;</span>
+<span class="fc" id="L1306">                return null;</span>
             }
-<span class="fc" id="L1299">            return key;</span>
+<span class="fc" id="L1308">            return key;</span>
         }
-<span class="nc" id="L1301">        LOGGER.severe(&quot;getKey() called with null kid&quot;);</span>
-<span class="nc" id="L1302">        throw new AceException(&quot;Must supply non-null kid to get key&quot;);     </span>
+<span class="nc" id="L1310">        LOGGER.severe(&quot;getKey() called with null kid&quot;);</span>
+<span class="nc" id="L1311">        throw new AceException(&quot;Must supply non-null kid to get key&quot;);     </span>
     }
 	
 	
@@ -1311,27 +1320,27 @@ public class TokenRepository implements AutoCloseable {
 	 * @return  the kid this subject uses
 	 */
 	public String getKid(String sid) {
-<span class="pc bpc" id="L1314" title="1 of 2 branches missed.">	    if (sid != null) {</span>
-<span class="fc" id="L1315">	        return this.sid2kid.get(sid);</span>
+<span class="pc bpc" id="L1323" title="1 of 2 branches missed.">	    if (sid != null) {</span>
+<span class="fc" id="L1324">	        return this.sid2kid.get(sid);</span>
 	    }
-<span class="nc" id="L1317">	    LOGGER.finest(&quot;Key-Id for Subject-Id: &quot; + sid + &quot; not found&quot;);</span>
-<span class="nc" id="L1318">	    return null;</span>
+<span class="nc" id="L1326">	    LOGGER.finest(&quot;Key-Id for Subject-Id: &quot; + sid + &quot; not found&quot;);</span>
+<span class="nc" id="L1327">	    return null;</span>
 	}
 	
 	
 	/**
 	 * Get the kid by the CTI.
 	 * 
-	 * @param sid  the CTI
+	 * @param cti  the CTI
 	 * 
 	 * @return  the kid associated to this CTI
 	 */
 	public String getKidByCti(String cti) {
-<span class="pc bpc" id="L1330" title="1 of 2 branches missed.">	    if (cti != null) {</span>
-<span class="fc" id="L1331">	        return this.cti2kid.get(cti);</span>
+<span class="pc bpc" id="L1339" title="1 of 2 branches missed.">	    if (cti != null) {</span>
+<span class="fc" id="L1340">	        return this.cti2kid.get(cti);</span>
 	    }
-<span class="nc" id="L1333">	    LOGGER.finest(&quot;Key-Id for CTI: &quot; + cti + &quot; not found&quot;);</span>
-<span class="nc" id="L1334">	    return null;</span>
+<span class="nc" id="L1342">	    LOGGER.finest(&quot;Key-Id for CTI: &quot; + cti + &quot; not found&quot;);</span>
+<span class="nc" id="L1343">	    return null;</span>
 	}
 	
 
@@ -1343,14 +1352,14 @@ public class TokenRepository implements AutoCloseable {
 	 * @return  the subject id
 	 */
 	public String getSid(String kid) {
-<span class="pc bpc" id="L1346" title="1 of 2 branches missed.">	    if (kid != null) {</span>
-<span class="pc bpc" id="L1347" title="1 of 2 branches missed.">	    	for (String foo : this.sid2kid.keySet()) {</span>
-<span class="fc bfc" id="L1348" title="All 2 branches covered.">    			if (this.sid2kid.get(foo).equals(kid)) {</span>
-<span class="fc" id="L1349">    				return foo;</span>
+<span class="pc bpc" id="L1355" title="1 of 2 branches missed.">	    if (kid != null) {</span>
+<span class="pc bpc" id="L1356" title="1 of 2 branches missed.">	    	for (String foo : this.sid2kid.keySet()) {</span>
+<span class="fc bfc" id="L1357" title="All 2 branches covered.">    			if (this.sid2kid.get(foo).equals(kid)) {</span>
+<span class="fc" id="L1358">    				return foo;</span>
     			}
-<span class="fc" id="L1351">    		}</span>
+<span class="fc" id="L1360">    		}</span>
 	    }
-<span class="nc" id="L1353">	    return null;</span>
+<span class="nc" id="L1362">	    return null;</span>
 	}
 	
 	
@@ -1362,10 +1371,10 @@ public class TokenRepository implements AutoCloseable {
 	 * @return  the CTI associated to the subject id
 	 */
 	public String getCti(String sid) {
-<span class="nc bnc" id="L1365" title="All 2 branches missed.">	    if (sid != null) {</span>
-<span class="nc" id="L1366">	    		return sid2cti.get(sid);</span>
+<span class="nc bnc" id="L1374" title="All 2 branches missed.">	    if (sid != null) {</span>
+<span class="nc" id="L1375">	    		return sid2cti.get(sid);</span>
 	    }
-<span class="nc" id="L1368">	    return null;</span>
+<span class="nc" id="L1377">	    return null;</span>
 	}
 	
 	
@@ -1377,51 +1386,87 @@ public class TokenRepository implements AutoCloseable {
 	 * @return  the OSCORE Input Material ID
 	 */
 	public String getOscoreId(String sid) {
-<span class="pc bpc" id="L1380" title="1 of 2 branches missed.">	    if (sid != null) {</span>
-<span class="fc" id="L1381">	    		return sid2id.get(sid);</span>
+<span class="pc bpc" id="L1389" title="1 of 2 branches missed.">	    if (sid != null) {</span>
+<span class="fc" id="L1390">	    		return sid2id.get(sid);</span>
 	    }
-<span class="nc" id="L1383">	    return null;</span>
+<span class="nc" id="L1392">	    return null;</span>
 	}
 	
 	
 	/**
-	 * FIXME 
-	 * @param sid  FIXME
-	 * @param rsNonce  FIXME
+	 * Store a nonce generated by the Resource Server and associated with a certain Client
+	 * @param sid  The Subject ID of the Client
+	 * @param rsNonce  The nonce generated by the Resource Server and associated with the Client
 	 */
 	public synchronized void setRsnonce(String sid, String rsNonce) {
-<span class="pc bpc" id="L1393" title="2 of 4 branches missed.">		if (sid != null &amp;&amp; rsNonce != null) {</span>
-<span class="fc" id="L1394">	        this.sid2rsnonce.put(sid, rsNonce);</span>
+<span class="pc bpc" id="L1402" title="2 of 4 branches missed.">		if (sid != null &amp;&amp; rsNonce != null) {</span>
+<span class="fc" id="L1403">	        this.sid2rsnonce.put(sid, rsNonce);</span>
 	    }
-<span class="fc" id="L1396">	}</span>
+<span class="fc" id="L1405">	}</span>
 	
 	/**
-	 * FIXME
-	 * @param sid  FIXME
-	 * @return  FIXME
+	 * Retrieve the latest nonce generated by the Resource Server and associated with a certain Client
+	 * @param sid  The Subject ID of the Client
+	 * @return  The latest nonce generated by the Resource Server and associated with the Client
 	 */
 	public synchronized String getRsnonce(String sid) {
-<span class="pc bpc" id="L1404" title="1 of 2 branches missed.">		if (sid != null) {</span>
-<span class="fc" id="L1405">	        return this.sid2rsnonce.get(sid);</span>
+<span class="pc bpc" id="L1413" title="1 of 2 branches missed.">		if (sid != null) {</span>
+<span class="fc" id="L1414">	        return this.sid2rsnonce.get(sid);</span>
 	    }
-<span class="nc" id="L1407">	    LOGGER.finest(&quot;rsnonce for Subject-Id: &quot; + sid + &quot; not found&quot;);</span>
-<span class="nc" id="L1408">	    return null;</span>
+<span class="nc" id="L1416">	    LOGGER.finest(&quot;rsnonce for Subject-Id: &quot; + sid + &quot; not found&quot;);</span>
+<span class="nc" id="L1417">	    return null;</span>
 	}
 	
+	/**
+	 * Store a nonce generated by a certain Client
+	 * @param sid  The Subject ID of the Client
+	 * @param cnonce  The nonce generated by the Client
+	 */
+	public synchronized void setCnonce(String sid, String cnonce) {
+<span class="pc bpc" id="L1426" title="2 of 4 branches missed.">		if (sid != null &amp;&amp; cnonce != null) {</span>
+<span class="fc" id="L1427">	        this.sid2cnonce.put(sid, cnonce);</span>
+	    }
+<span class="fc" id="L1429">	}</span>
+	
+	/**
+	 * Retrieve the latest nonce generated by a certain Client
+	 * @param sid  The Subject ID of the Client
+	 * @return  The latest nonce generated by the Client
+	 */
+	public synchronized String getCnonce(String sid) {
+<span class="pc bpc" id="L1437" title="1 of 2 branches missed.">		if (sid != null) {</span>
+<span class="fc" id="L1438">	        return this.sid2cnonce.get(sid);</span>
+	    }
+<span class="nc" id="L1440">	    LOGGER.finest(&quot;cnonce for Subject-Id: &quot; + sid + &quot; not found&quot;);</span>
+<span class="nc" id="L1441">	    return null;</span>
+	}
+
+	/**
+	 * Delete the latest cnonce and rsnonce associated with a certain Client
+	 * @param sid  The Subject ID of the Client
+	 */
+	public synchronized void deleteNonces(String sid) {
+<span class="pc bpc" id="L1449" title="1 of 2 branches missed.">		if (sid != null) {</span>
+<span class="fc" id="L1450">			this.sid2rsnonce.remove(sid);</span>
+<span class="fc" id="L1451">			this.sid2cnonce.remove(sid);</span>
+	    }
+<span class="fc" id="L1453">	    LOGGER.finest(&quot;cnonce and rsnonce for Subject-Id: &quot; + sid + &quot; not found&quot;);</span>
+<span class="fc" id="L1454">	}</span>
+
     @Override
     public synchronized void close() throws AceException {
-<span class="pc bpc" id="L1413" title="1 of 2 branches missed.">        if (!this.closed) {</span>
-<span class="fc" id="L1414">            this.closed = true;   </span>
-<span class="fc" id="L1415">            persist();</span>
-<span class="fc" id="L1416">            singleton = null;</span>
+<span class="pc bpc" id="L1458" title="1 of 2 branches missed.">        if (!this.closed) {</span>
+<span class="fc" id="L1459">            this.closed = true;   </span>
+<span class="fc" id="L1460">            persist();</span>
+<span class="fc" id="L1461">            singleton = null;</span>
         }
-<span class="fc" id="L1418">    }</span>
+<span class="fc" id="L1463">    }</span>
     
     /**
      * @return  a set of all token ids (cti) stored in this repository
      */
     public Set&lt;String&gt; getCtis() {
-<span class="nc" id="L1424">        return new HashSet&lt;&gt;(this.cti2claims.keySet());</span>
+<span class="nc" id="L1469">        return new HashSet&lt;&gt;(this.cti2claims.keySet());</span>
     }
 
     /**
@@ -1431,18 +1476,18 @@ public class TokenRepository implements AutoCloseable {
     public Set&lt;String&gt; getCtis(String kid) {
     	
 	    //Check if we have tokens for this pop-key
-<span class="pc bpc" id="L1434" title="1 of 2 branches missed.">	    if (!this.cti2kid.containsValue(kid)) {</span>
-<span class="nc" id="L1435">	        return null; //No tokens for this pop-key</span>
+<span class="pc bpc" id="L1479" title="1 of 2 branches missed.">	    if (!this.cti2kid.containsValue(kid)) {</span>
+<span class="nc" id="L1480">	        return null; //No tokens for this pop-key</span>
 	    }
 	    
 	    //Collect the token id's of matching tokens
-<span class="fc" id="L1439">	    Set&lt;String&gt; ctis = new HashSet&lt;&gt;();</span>
-<span class="fc bfc" id="L1440" title="All 2 branches covered.">	    for (String cti : this.cti2kid.keySet()) {</span>
-<span class="fc bfc" id="L1441" title="All 2 branches covered.">	        if (this.cti2kid.get(cti).equals(kid)) {</span>
-<span class="fc" id="L1442">	            ctis.add(cti);</span>
+<span class="fc" id="L1484">	    Set&lt;String&gt; ctis = new HashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L1485" title="All 2 branches covered.">	    for (String cti : this.cti2kid.keySet()) {</span>
+<span class="fc bfc" id="L1486" title="All 2 branches covered.">	        if (this.cti2kid.get(cti).equals(kid)) {</span>
+<span class="fc" id="L1487">	            ctis.add(cti);</span>
 	        }
-<span class="fc" id="L1444">	    }</span>
-<span class="fc" id="L1445">	    return ctis;</span>
+<span class="fc" id="L1489">	    }</span>
+<span class="fc" id="L1490">	    return ctis;</span>
     }
 	    
     /**
@@ -1453,7 +1498,7 @@ public class TokenRepository implements AutoCloseable {
      * @throws AceException 
      */
     public boolean checkScope(CBORObject scope) throws AceException {
-<span class="fc" id="L1456">        return this.scopeValidator.isScopeMeaningful(scope);</span>
+<span class="fc" id="L1501">        return this.scopeValidator.isScopeMeaningful(scope);</span>
     }
     
     /**
@@ -1465,7 +1510,7 @@ public class TokenRepository implements AutoCloseable {
      * @return  the scope necessary to perform the action on the resource
      */
     public CBORObject getScope(String resource, short action) {
-<span class="nc" id="L1468">        return this.scopeValidator.getScope(resource, action);</span>
+<span class="nc" id="L1513">        return this.scopeValidator.getScope(resource, action);</span>
     }
 
     /**
@@ -1477,7 +1522,7 @@ public class TokenRepository implements AutoCloseable {
      * @throws AceException 
      */
     public boolean checkScope(CBORObject scope, String aud) throws AceException {
-<span class="fc" id="L1480">        return this.scopeValidator.isScopeMeaningful(scope, aud);</span>
+<span class="fc" id="L1525">        return this.scopeValidator.isScopeMeaningful(scope, aud);</span>
     }
     
 	/**
@@ -1488,7 +1533,7 @@ public class TokenRepository implements AutoCloseable {
 	 * @return  the claims of the token
 	 */
     public Map&lt;Short, CBORObject&gt; getClaims(String cti) {
-<span class="fc" id="L1491">    	return this.cti2claims.get(cti);</span>
+<span class="fc" id="L1536">    	return this.cti2claims.get(cti);</span>
     }
     
     /**
@@ -1506,35 +1551,35 @@ public class TokenRepository implements AutoCloseable {
         //  - the identifier of the Resource Server
         //  - the text-encoded Sequence Number used for this Access Token,
         //    as issued to this Resource Server and including the 'exi' claim 
-<span class="fc" id="L1509">        String rawCti = new String(cti);</span>
+<span class="fc" id="L1554">        String rawCti = new String(cti);</span>
         
         // Check that the retrieved 'cti' value has a minimum length
-<span class="fc" id="L1512">        int rawCtiLen = rawCti.length();</span>
-<span class="fc" id="L1513">        int rsIdLen = this.rsId.length();</span>
-<span class="pc bpc" id="L1514" title="1 of 2 branches missed.">        if (rawCtiLen &lt; (rsIdLen + 1)) {</span>
+<span class="fc" id="L1557">        int rawCtiLen = rawCti.length();</span>
+<span class="fc" id="L1558">        int rsIdLen = this.rsId.length();</span>
+<span class="pc bpc" id="L1559" title="1 of 2 branches missed.">        if (rawCtiLen &lt; (rsIdLen + 1)) {</span>
         	// The 'cti' claim is malformed - It is too short in size
-<span class="nc" id="L1516">        	return -1;</span>
+<span class="nc" id="L1561">        	return -1;</span>
         }
         
         // Check that the first part of the retrieved 'cti' coincides with the identifier of the Resource Server
-<span class="fc" id="L1520">        String receivedRsId = rawCti.substring(0, rsIdLen);</span>
-<span class="pc bpc" id="L1521" title="1 of 2 branches missed.">        if (receivedRsId.compareTo(this.rsId) != 0) {</span>
+<span class="fc" id="L1565">        String receivedRsId = rawCti.substring(0, rsIdLen);</span>
+<span class="pc bpc" id="L1566" title="1 of 2 branches missed.">        if (receivedRsId.compareTo(this.rsId) != 0) {</span>
         	// The 'cti' claim is malformed - The Resource Server Identifier does not match with the expected one
-<span class="nc" id="L1523">        	return -1;</span>
+<span class="nc" id="L1568">        	return -1;</span>
         }
         
         // Check that the text-encoded Sequence Number is not greater than the stored highest Sequence Number
         int seqNum;
-<span class="fc" id="L1528">        String seqNumStr = rawCti.substring(rsIdLen, rawCtiLen);</span>
+<span class="fc" id="L1573">        String seqNumStr = rawCti.substring(rsIdLen, rawCtiLen);</span>
         try {
-<span class="fc" id="L1530">        	seqNum = Integer.parseInt(seqNumStr);</span>
+<span class="fc" id="L1575">        	seqNum = Integer.parseInt(seqNumStr);</span>
         }
-<span class="nc" id="L1532">        catch (NumberFormatException e) {</span>
+<span class="nc" id="L1577">        catch (NumberFormatException e) {</span>
         	// The 'cti' claim is malformed - The Sequence Number is not encoded as a parsable integer
-<span class="nc" id="L1534">        	return -1;</span>
-<span class="fc" id="L1535">	    }</span>
+<span class="nc" id="L1579">        	return -1;</span>
+<span class="fc" id="L1580">	    }</span>
         
-<span class="fc" id="L1537">        return seqNum;</span>
+<span class="fc" id="L1582">        return seqNum;</span>
     	
     }
     
@@ -1544,7 +1589,7 @@ public class TokenRepository implements AutoCloseable {
      * 
      */
     public synchronized int getTopExiSequenceNumber() {
-<span class="fc" id="L1547">    	return this.topExiSequenceNumber;</span>
+<span class="fc" id="L1592">    	return this.topExiSequenceNumber;</span>
     }
     
     /**
@@ -1554,10 +1599,10 @@ public class TokenRepository implements AutoCloseable {
      * @param seqNum   The new highest Exi Sequence Number value
      */
     private synchronized void setTopExiSequenceNumber(int seqNum) {
-<span class="pc bpc" id="L1557" title="1 of 2 branches missed.">    	if (seqNum &gt; this.topExiSequenceNumber) {</span>
-<span class="fc" id="L1558">    		this.topExiSequenceNumber = seqNum;</span>
+<span class="pc bpc" id="L1602" title="1 of 2 branches missed.">    	if (seqNum &gt; this.topExiSequenceNumber) {</span>
+<span class="fc" id="L1603">    		this.topExiSequenceNumber = seqNum;</span>
     	}
-<span class="fc" id="L1560">    }</span>
+<span class="fc" id="L1605">    }</span>
         
 }
 

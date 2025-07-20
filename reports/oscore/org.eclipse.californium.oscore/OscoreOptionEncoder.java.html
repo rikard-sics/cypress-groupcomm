@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OscoreOptionEncoder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore</a> &gt; <span class="el_source">OscoreOptionEncoder.java</span></div><h1>OscoreOptionEncoder.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2025 RISE and others.
+ * 
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * and Eclipse Distribution License v1.0 which accompany this distribution.
+ * 
+ * The Eclipse Public License is available at
+ *    http://www.eclipse.org/legal/epl-v20.html
+ * and the Eclipse Distribution License is available at
+ *    http://www.eclipse.org/org/documents/edl-v10.html.
+ * 
+ * Contributors:
+ *    Rikard Höglund (RISE)
+ *    
+ ******************************************************************************/
+package org.eclipse.californium.oscore;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+
+import org.eclipse.californium.elements.util.Bytes;
+
+/**
+ * Class for encoding the bytes of an OSCORE CoAP option.
+ * 
+ * See the structure of the option:
+ * https://datatracker.ietf.org/doc/html/rfc8613#section-6.1
+ * 
+ */
+<span class="fc" id="L31">public class OscoreOptionEncoder {</span>
+
+	private boolean encoded;
+	private byte[] encodedBytes;
+
+	private byte[] idContext;
+	private byte[] partialIV;
+	private byte[] kid;
+	boolean groupFlag;
+
+	/**
+	 * Retrieve the encoded bytes of the OSCORE option.
+	 * 
+	 * @return the encoded OSCORE option bytes
+	 */
+	public byte[] getBytes() {
+<span class="pc bpc" id="L47" title="1 of 2 branches missed.">		if (!encoded) {</span>
+<span class="fc" id="L48">			encodedBytes = encode();</span>
+		}
+
+<span class="fc" id="L51">		return encodedBytes;</span>
+	}
+
+	/**
+	 * Encode the set parameters into the bytes of the OSCORE option.
+	 * 
+	 * @return the bytes of the OSCORE option
+	 */
+	private byte[] encode() {
+<span class="fc" id="L60">		int firstByte = 0x00;</span>
+<span class="fc" id="L61">		ByteArrayOutputStream bRes = new ByteArrayOutputStream();</span>
+
+<span class="fc bfc" id="L63" title="All 2 branches covered.">		boolean hasContextID = this.idContext != null;</span>
+<span class="fc bfc" id="L64" title="All 2 branches covered.">		boolean hasPartialIV = this.partialIV != null;</span>
+<span class="fc bfc" id="L65" title="All 2 branches covered.">		boolean hasKid = this.kid != null;</span>
+
+		// If the Context ID should be included, set its bit
+<span class="fc bfc" id="L68" title="All 2 branches covered.">		if (hasContextID) {</span>
+<span class="fc" id="L69">			firstByte = firstByte | 0x10;</span>
+		}
+
+		// If the KID should be included, set its bit
+<span class="fc bfc" id="L73" title="All 2 branches covered.">		if (hasKid) {</span>
+<span class="fc" id="L74">			firstByte = firstByte | 0x08; // Set the KID bit</span>
+		}
+
+		// If the Group Flag is set, set its bit
+<span class="fc bfc" id="L78" title="All 2 branches covered.">		if (groupFlag) {</span>
+<span class="fc" id="L79">			firstByte = firstByte | 0x20;</span>
+		}
+
+		// If the Partial IV should be included, encode it
+<span class="fc bfc" id="L83" title="All 2 branches covered.">		if (hasPartialIV) {</span>
+<span class="fc" id="L84">			byte[] partialIV = this.partialIV;</span>
+<span class="fc" id="L85">			firstByte = firstByte | (partialIV.length &amp; 0x07);</span>
+
+<span class="fc" id="L87">			bRes.write(firstByte);</span>
+			try {
+<span class="fc" id="L89">				bRes.write(partialIV);</span>
+<span class="nc" id="L90">			} catch (IOException e) {</span>
+<span class="nc" id="L91">				e.printStackTrace();</span>
+<span class="fc" id="L92">			}</span>
+<span class="fc" id="L93">		} else {</span>
+<span class="fc" id="L94">			bRes.write(firstByte);</span>
+		}
+
+		// Encode the Context ID length and value if to be included
+<span class="fc bfc" id="L98" title="All 2 branches covered.">		if (hasContextID) {</span>
+			try {
+<span class="fc" id="L100">				bRes.write(this.idContext.length);</span>
+<span class="fc" id="L101">				bRes.write(this.idContext);</span>
+<span class="nc" id="L102">			} catch (IOException e) {</span>
+<span class="nc" id="L103">				e.printStackTrace();</span>
+<span class="fc" id="L104">			}</span>
+		}
+
+		// Encode Sender ID (KID)
+<span class="fc bfc" id="L108" title="All 2 branches covered.">		if (hasKid) {</span>
+			try {
+<span class="fc" id="L110">				bRes.write(this.kid);</span>
+<span class="nc" id="L111">			} catch (IOException e) {</span>
+<span class="nc" id="L112">				e.printStackTrace();</span>
+<span class="fc" id="L113">			}</span>
+		}
+
+		// Set the option as encoded
+<span class="fc" id="L117">		encoded = true;</span>
+
+		// If the OSCORE option is length 1 and 0x00, it should be empty
+		// https://tools.ietf.org/html/draft-ietf-core-object-security-16#section-2
+<span class="fc" id="L121">		byte[] optionBytes = bRes.toByteArray();</span>
+<span class="pc bpc" id="L122" title="1 of 4 branches missed.">		if (optionBytes.length == 1 &amp;&amp; optionBytes[0] == 0x00) {</span>
+<span class="fc" id="L123">			return Bytes.EMPTY;</span>
+		} else {
+<span class="fc" id="L125">			return optionBytes;</span>
+		}
+	}
+
+	/**
+	 * Retrieve the set ID Context
+	 * 
+	 * @return the ID Context (kid context)
+	 */
+	public byte[] getIdContext() {
+<span class="nc" id="L135">		return idContext;</span>
+	}
+
+	/**
+	 * Set the ID Context
+	 * 
+	 * @param idContext the ID Context (kid context) to set
+	 */
+	public void setIdContext(byte[] idContext) {
+<span class="fc" id="L144">		encoded = false;</span>
+<span class="fc" id="L145">		this.idContext = idContext;</span>
+<span class="fc" id="L146">	}</span>
+
+	/**
+	 * Retrieve the set Partial IV
+	 * 
+	 * @return the Partial IV
+	 */
+	public byte[] getPartialIV() {
+<span class="nc" id="L154">		return partialIV;</span>
+	}
+
+	/**
+	 * Set the Partial IV
+	 * 
+	 * @param partialIV the Partial IV to set
+	 */
+	public void setPartialIV(byte[] partialIV) {
+<span class="fc" id="L163">		encoded = false;</span>
+<span class="fc" id="L164">		this.partialIV = partialIV;</span>
+<span class="fc" id="L165">	}</span>
+
+	/**
+	 * Set the Partial IV (based on an integer sequence number)
+	 * 
+	 * @param senderSeq the sequence number to set as Partial IV
+	 */
+	public void setPartialIV(int senderSeq) {
+<span class="fc" id="L173">		encoded = false;</span>
+<span class="fc" id="L174">		this.partialIV = OSSerializer.processPartialIV(senderSeq);</span>
+<span class="fc" id="L175">	}</span>
+
+	/**
+	 * Retrieve the set KID
+	 * 
+	 * @return the KID
+	 */
+	public byte[] getKid() {
+<span class="nc" id="L183">		return kid;</span>
+	}
+
+	/**
+	 * Set the KID
+	 * 
+	 * @param kid the KID to set
+	 */
+	public void setKid(byte[] kid) {
+<span class="fc" id="L192">		encoded = false;</span>
+<span class="fc" id="L193">		this.kid = kid;</span>
+<span class="fc" id="L194">	}</span>
+
+	/**
+	 * Retrieve the value of the Group Mode bit
+	 * 
+	 * @return the KID
+	 */
+	public boolean getGroupFlag() {
+<span class="nc" id="L202">		return groupFlag;</span>
+	}
+
+	/**
+	 * Set the Group Mode bit in the flag bytes
+	 * 
+	 * @param b the value of the bit to set
+	 */
+	public void setGroupFlag(boolean b) {
+<span class="fc" id="L211">		encoded = false;</span>
+<span class="fc" id="L212">		this.groupFlag = b;</span>
+
+<span class="fc" id="L214">	}</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

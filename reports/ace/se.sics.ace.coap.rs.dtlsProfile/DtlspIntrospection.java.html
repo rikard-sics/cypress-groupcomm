@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DtlspIntrospection.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.coap.rs.dtlsProfile</a> &gt; <span class="el_source">DtlspIntrospection.java</span></div><h1>DtlspIntrospection.java</h1><pre class="source lang-java linenums">/*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -57,7 +57,7 @@ import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.CertificateType;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
-import org.eclipse.californium.scandium.dtls.x509.AsyncNewAdvancedCertificateVerifier;
+import org.eclipse.californium.scandium.dtls.x509.AsyncCertificateVerifier;
 import org.eclipse.californium.scandium.dtls.x509.SingleCertificateProvider;
 
 import com.upokecenter.cbor.CBORObject;
@@ -123,9 +123,9 @@ public class DtlspIntrospection implements IntrospectionHandler {
 <span class="fc" id="L123">        ArrayList&lt;CertificateType&gt; certTypes = new ArrayList&lt;CertificateType&gt;();</span>
 <span class="fc" id="L124">        certTypes.add(CertificateType.RAW_PUBLIC_KEY);</span>
 <span class="fc" id="L125">        certTypes.add(CertificateType.X_509);</span>
-<span class="fc" id="L126">        AsyncNewAdvancedCertificateVerifier verifier = new AsyncNewAdvancedCertificateVerifier(new X509Certificate[0],</span>
+<span class="fc" id="L126">        AsyncCertificateVerifier verifier = new AsyncCertificateVerifier(new X509Certificate[0],</span>
                 new RawPublicKeyIdentity[0], certTypes);
-<span class="fc" id="L128">        builder.setAdvancedCertificateVerifier(verifier);</span>
+<span class="fc" id="L128">        builder.setCertificateVerifier(verifier);</span>
 
 <span class="fc" id="L130">        DTLSConnector dtlsConnector = new DTLSConnector(builder.build());</span>
 <span class="fc" id="L131">        CoapEndpoint e = new CoapEndpoint.Builder()</span>
@@ -172,7 +172,7 @@ public class DtlspIntrospection implements IntrospectionHandler {
 <span class="fc" id="L172">                .setAddress(new InetSocketAddress(0));</span>
 <span class="fc" id="L173">        BksStore keystore = new BksStore(</span>
                 keystoreLocation, keystorePwd, addr2idFile);
-<span class="fc" id="L175">        builder.setAdvancedPskStore(keystore);</span>
+<span class="fc" id="L175">        builder.setPskStore(keystore);</span>
 
         
 <span class="fc" id="L178">        CBORObject rpkData = CBORObject.NewMap();</span>
@@ -187,11 +187,11 @@ public class DtlspIntrospection implements IntrospectionHandler {
 <span class="fc" id="L187">        ArrayList&lt;CertificateType&gt; certTypes = new ArrayList&lt;CertificateType&gt;();</span>
 <span class="fc" id="L188">        certTypes.add(CertificateType.RAW_PUBLIC_KEY);</span>
 <span class="fc" id="L189">        certTypes.add(CertificateType.X_509);</span>
-<span class="fc" id="L190">        AsyncNewAdvancedCertificateVerifier verifier = new AsyncNewAdvancedCertificateVerifier(</span>
+<span class="fc" id="L190">        AsyncCertificateVerifier verifier = new AsyncCertificateVerifier(</span>
                                                             new X509Certificate[0],
                                                             new RawPublicKeyIdentity[0],
                                                             certTypes);
-<span class="fc" id="L194">        builder.setAdvancedCertificateVerifier(verifier);</span>
+<span class="fc" id="L194">        builder.setCertificateVerifier(verifier);</span>
         
         
 <span class="fc" id="L197">        DTLSConnector dtlsConnector = new DTLSConnector(builder.build());</span>
@@ -213,7 +213,7 @@ public class DtlspIntrospection implements IntrospectionHandler {
 <span class="fc" id="L213">        LOGGER.info(&quot;Sending introspection request on &quot; + tokenReference);</span>
 <span class="fc" id="L214">        Map&lt;Short, CBORObject&gt; params = new HashMap&lt;&gt;();</span>
 <span class="fc" id="L215">        params.put(Constants.TOKEN, CBORObject.FromObject(CBORObject.FromObject(tokenReference).EncodeToBytes()));</span>
-<span class="fc" id="L216">        params.put(Constants.TOKEN_TYPE_HINT, CBORObject.FromObject(&quot;pop&quot;)); </span>
+<span class="fc" id="L216">        params.put(Constants.TOKEN_TYPE_HINT, CBORObject.FromObject(Constants.POP)); </span>
         CoapResponse response;
         try {
 <span class="fc" id="L219">            response = this.client.post(</span>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CoapAuthzInfo.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.coap.rs</a> &gt; <span class="el_source">CoapAuthzInfo.java</span></div><h1>CoapAuthzInfo.java</h1><pre class="source lang-java linenums">/*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -40,6 +40,10 @@ import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.elements.EndpointContext;
 
+import com.upokecenter.cbor.CBORException;
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+
 import se.sics.ace.AceException;
 import se.sics.ace.Constants;
 import se.sics.ace.Message;
@@ -59,8 +63,8 @@ public class CoapAuthzInfo extends CoapResource {
     /**
      * The logger
      */
-<span class="fc" id="L62">    private static final Logger LOGGER </span>
-<span class="fc" id="L63">        = Logger.getLogger(CoapAuthzInfo.class.getName());</span>
+<span class="fc" id="L66">    private static final Logger LOGGER </span>
+<span class="fc" id="L67">        = Logger.getLogger(CoapAuthzInfo.class.getName());</span>
     
     /**
      * The underlying authz-info library
@@ -73,43 +77,57 @@ public class CoapAuthzInfo extends CoapResource {
     * @param ai  the internal authorization information handler 
     */ 
     public CoapAuthzInfo(AuthzInfo ai) {
-<span class="fc" id="L76">        super(&quot;authz-info&quot;);</span>
-<span class="fc" id="L77">        this.ai = ai;</span>
-<span class="fc" id="L78">    }</span>
+<span class="fc" id="L80">        super(&quot;authz-info&quot;);</span>
+<span class="fc" id="L81">        this.ai = ai;</span>
+<span class="fc" id="L82">    }</span>
     
     @Override
     public void handlePOST(CoapExchange exchange) {
-<span class="fc" id="L82">        exchange.accept();</span>
-<span class="fc" id="L83">        Request req = new Request(exchange.getRequestCode());</span>
-<span class="fc" id="L84">        req.setPayload(exchange.getRequestPayload());</span>
+<span class="fc" id="L86">        exchange.accept();</span>
+<span class="fc" id="L87">        Request req = new Request(exchange.getRequestCode());</span>
+<span class="fc" id="L88">        req.setPayload(exchange.getRequestPayload());</span>
         
         // The Token POST may be protected, i.e. when updating access rights
         //
         // To cover this case, copy the information from the traversed security layer
         // into the request to process at the underlying authz-info library
-<span class="fc" id="L90">        EndpointContext ctx = exchange.advanced().getRequest().getSourceContext();</span>
-<span class="fc" id="L91">        req.setSourceContext(ctx);</span>
+<span class="fc" id="L94">        EndpointContext ctx = exchange.advanced().getRequest().getSourceContext();</span>
+<span class="fc" id="L95">        req.setSourceContext(ctx);</span>
         
         // Re-include the CoAP options from the received request.
         //
         // When then OSCORE profile is used, this enables the RS
         // to check that the content-format application/ace+cbor is used.
-<span class="fc" id="L97">        OptionSet options = exchange.advanced().getRequest().getOptions();</span>
-<span class="fc" id="L98">        req.setOptions(options);</span>
+<span class="fc" id="L101">        OptionSet options = exchange.advanced().getRequest().getOptions();</span>
+<span class="fc" id="L102">        req.setOptions(options);</span>
         
         try {
-<span class="fc" id="L101">            CoapReq msg = CoapReq.getInstance(req);</span>
-<span class="fc" id="L102">            Message reply = this.ai.processMessage(msg);</span>
+<span class="fc" id="L105">            CoapReq msg = CoapReq.getInstance(req);</span>
+<span class="fc" id="L106">            Message reply = this.ai.processMessage(msg);</span>
             //Safe to cast, since CoapReq only ever renders a CoapRes
-<span class="fc" id="L104">            CoapRes response = (CoapRes)reply;</span>
-<span class="fc" id="L105">            exchange.respond(response.getCode(), response.getRawPayload(),</span>
-            		Constants.APPLICATION_ACE_CBOR);
-<span class="nc" id="L107">        } catch (AceException e) {</span>
-<span class="nc" id="L108">            LOGGER.severe(&quot;Error while handling incoming POST: &quot; </span>
-<span class="nc" id="L109">                    + e.getMessage());</span>
-<span class="nc" id="L110">            exchange.respond(ResponseCode.BAD_REQUEST);</span>
-<span class="nc" id="L111">            return;</span>
-<span class="fc" id="L112">        }  </span>
-<span class="fc" id="L113">    }</span>
+<span class="fc" id="L108">            CoapRes response = (CoapRes)reply;</span>
+            
+<span class="fc bfc" id="L110" title="All 2 branches covered.">            if (response.getRawPayload().length != 0) {</span>
+<span class="fc" id="L111">            	CBORObject obj = null;</span>
+            	try {
+<span class="fc" id="L113">            		obj = CBORObject.DecodeFromBytes(response.getRawPayload());</span>
+<span class="pc bpc" id="L114" title="1 of 2 branches missed.">            		if (obj.getType() == CBORType.Map) {</span>
+            			// The payload is a CBOR map, including parameters consistent with the CoAP content format application/ace+cbor
+<span class="fc" id="L116">            			exchange.respond(response.getCode(), response.getRawPayload(), Constants.APPLICATION_ACE_CBOR);</span>
+            		}
+            	}
+<span class="pc" id="L119">            	catch (CBORException e) {}</span>
+            }
+            // The payload is empty or it has an unspecified CoAP Content-Format 
+<span class="fc" id="L122">            exchange.respond(response.getCode(), response.getRawPayload());</span>
+            
+            
+<span class="nc" id="L125">        } catch (AceException e) {</span>
+<span class="nc" id="L126">            LOGGER.severe(&quot;Error while handling incoming POST: &quot; </span>
+<span class="nc" id="L127">                    + e.getMessage());</span>
+<span class="nc" id="L128">            exchange.respond(ResponseCode.BAD_REQUEST);</span>
+<span class="nc" id="L129">            return;</span>
+<span class="fc" id="L130">        }  </span>
+<span class="fc" id="L131">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

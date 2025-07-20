@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EdhocStack.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-EDHOC</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.edhoc</a> &gt; <span class="el_source">EdhocStack.java</span></div><h1>EdhocStack.java</h1><pre class="source lang-java linenums">/*******************************************************************************
- * Copyright (c) 2020 RISE and others.
+ * Copyright (c) 2025 RISE and others.
  * 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
@@ -30,6 +30,7 @@ import org.eclipse.californium.core.network.stack.ExchangeCleanupLayer;
 import org.eclipse.californium.core.network.stack.Layer;
 import org.eclipse.californium.core.network.stack.ObserveLayer;
 import org.eclipse.californium.cose.OneKey;
+import org.eclipse.californium.elements.EndpointContextMatcher;
 import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.oscore.OSCoreCtxDB;
 import org.eclipse.californium.oscore.ObjectSecurityContextLayer;
@@ -56,21 +57,22 @@ public class EdhocStack extends BaseCoapStack {
 	 * @param usedConnectionIds list containing the used EDHOC connection IDs
 	 * @param OSCORE_REPLAY_WINDOW size of the Replay Window to use in an OSCORE Recipient Context
 	 * @param MAX_UNFRAGMENTED_SIZE size of MAX_UNFRAGMENTED_SIZE to use in an OSCORE Security Context
+	 * @param matchingStrategy endpoint context matcher to relate responses with requests
 	 * 
 	 */
 	public EdhocStack(String tag, final Configuration config, final Outbox outbox, final OSCoreCtxDB ctxDb,
 			HashMap&lt;CBORObject, EdhocSession&gt; edhocSessions, HashMap&lt;CBORObject, OneKey&gt; peerPublicKeys,
 			HashMap&lt;CBORObject, CBORObject&gt; peerCredentials, Set&lt;CBORObject&gt; usedConnectionIds,
-			int OSCORE_REPLAY_WINDOW, int MAX_UNFRAGMENTED_SIZE) {
-<span class="fc" id="L65">		super(outbox);</span>
+			int OSCORE_REPLAY_WINDOW, int MAX_UNFRAGMENTED_SIZE, EndpointContextMatcher matchingStrategy) {
+<span class="fc" id="L67">		super(outbox);</span>
 
-<span class="fc" id="L67">		Layer layers[] = new Layer[] { new ObjectSecurityContextLayer(ctxDb), new ExchangeCleanupLayer(config),</span>
-				new ObserveLayer(config), new BlockwiseLayer(tag, false, config),
-<span class="fc" id="L69">				CongestionControlLayer.newImplementation(tag, config), new ObjectSecurityLayer(ctxDb),</span>
+<span class="fc" id="L69">		Layer layers[] = new Layer[] { new ObjectSecurityContextLayer(ctxDb), new ExchangeCleanupLayer(config),</span>
+				new ObserveLayer(config), new BlockwiseLayer(tag, false, config, matchingStrategy),
+<span class="fc" id="L71">				CongestionControlLayer.newImplementation(tag, config), new ObjectSecurityLayer(ctxDb),</span>
 				new EdhocLayer(ctxDb, edhocSessions, peerPublicKeys, peerCredentials,
 						       usedConnectionIds, OSCORE_REPLAY_WINDOW, MAX_UNFRAGMENTED_SIZE) };
-<span class="fc" id="L72">		setLayers(layers);</span>
-<span class="fc" id="L73">	}</span>
+<span class="fc" id="L74">		setLayers(layers);</span>
+<span class="fc" id="L75">	}</span>
 	
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

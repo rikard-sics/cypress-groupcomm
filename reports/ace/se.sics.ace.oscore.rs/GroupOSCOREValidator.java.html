@@ -1,0 +1,767 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GroupOSCOREValidator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.oscore.rs</a> &gt; <span class="el_source">GroupOSCOREValidator.java</span></div><h1>GroupOSCOREValidator.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2025, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.oscore.rs;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+
+import se.sics.ace.AceException;
+import se.sics.ace.GroupcommParameters;
+import se.sics.ace.Util;
+import se.sics.ace.rs.AudienceValidator;
+import se.sics.ace.rs.ScopeValidator;
+
+/**
+ * Audience and scope validator for testing purposes.
+ * 
+ * This validator expects the scopes to be either Strings as in OAuth 2.0, or
+ * Byte Arrays for operations at the OSCORE Group Manager as per
+ * draft-ietf-ace-key-groupcomm-oscore and draft-ietf-ace-oscore-gm-admin
+ * 
+ * The actions are expected to be integers corresponding to the 
+ * values for RESTful actions in &lt;code&gt;Constants&lt;/code&gt;.
+ * 
+ * @author Marco Tiloca
+ *
+ */
+public class GroupOSCOREValidator implements AudienceValidator, ScopeValidator {
+
+    /**
+     * The audiences we recognize
+     */
+	private Set&lt;String&gt; myAudiences;
+	
+	/**
+     * The audiences acting as OSCORE Group Managers
+     * Each of these audiences is also included in the main set &quot;myAudiences&quot;
+     */
+	private Set&lt;String&gt; myGMAudiences;
+	
+	/**
+     * The group-membership resources exported by the OSCORE Group Manager to access an OSCORE group.
+     * 
+     * Each entry of the list contains the full path to a group-membership resource and the last
+     * path segment is the name of the associated OSCORE group, e.g., ace-group/GROUPNAME
+     */
+	private Set&lt;String&gt; myGroupMembershipResources;
+	
+	/**
+     * The group-collections and group-configuration resources
+     * exported by the OSCORE Group Manager for managing OSCORE groups.
+     * 
+     * Each entry of the list contains the full path to a group-collection or a group-configuration resource.
+     * For a group-configuration resource, the last path segment is the name of the associated OSCORE group, e.g., admin/GROUPNAME
+     */
+	private Set&lt;String&gt; myGroupAdminResources;
+	
+	private String rootGroupMembershipResourcePath;
+	
+	private String groupCollectionResourcePath;
+	
+	/**
+	 * Maps the scopes to a map that maps the scope's resources to the actions 
+	 * allowed on that resource
+	 */
+	private Map&lt;String, Map&lt;String, Set&lt;Short&gt;&gt;&gt; myScopes;
+	
+	/**
+	 * Constructor.
+	 * 
+	 * @param myAudiences  the audiences that this validator should accept
+	 * @param myScopes  the scopes that this validator should accept
+	 * @param rootGroupMembershipResource  the path of the root Group Membership Resource, i.e., &quot;ace-group&quot;
+	 * @param groupCollectionResource  the path of the Group Collection Resource, i.e., &quot;manage&quot;
+	 */
+	public GroupOSCOREValidator(Set&lt;String&gt; myAudiences,
+	        Map&lt;String, Map&lt;String, Set&lt;Short&gt;&gt;&gt; myScopes,
+	        String rootGroupMembershipResourcePath,
+<span class="fc" id="L113">	        String groupCollectionResourcePath) {</span>
+<span class="fc" id="L114">		this.myAudiences = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L115">		this.myGMAudiences = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L116">		this.myGroupMembershipResources = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L117">		this.myGroupAdminResources = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L118">		this.myScopes = new HashMap&lt;&gt;();</span>
+<span class="pc bpc" id="L119" title="1 of 2 branches missed.">		if (myAudiences != null) {</span>
+<span class="fc" id="L120">		    this.myAudiences = myAudiences;</span>
+		    
+		} else {
+<span class="nc" id="L123">		    this.myAudiences = Collections.emptySet();</span>
+		}
+<span class="pc bpc" id="L125" title="1 of 2 branches missed.">		if (myScopes != null) {</span>
+<span class="fc" id="L126">			this.myScopes = myScopes;</span>
+		} else {
+<span class="nc" id="L128">		    this.myScopes = Collections.emptyMap();</span>
+		}
+<span class="fc" id="L130">    	this.rootGroupMembershipResourcePath = rootGroupMembershipResourcePath;</span>
+<span class="fc" id="L131">    	this.groupCollectionResourcePath = groupCollectionResourcePath;</span>
+<span class="fc" id="L132">	}</span>
+	
+	/**
+	 * Get a string including the common URI path to all group-membership
+	 * resources, i.e. the full URI path minus the group name
+	 * 
+	 * @return the common URI path to all group-membership resources
+	 */
+	public String getRootGroupMembershipResource() {
+<span class="fc" id="L141">        return this.rootGroupMembershipResourcePath;</span>
+	}
+	
+	/**
+	 * Get a string including the URI path of the group-collection resource
+	 * 
+	 * @return the URI path of the group-collection resource
+	 */
+	public String getGroupCollectionResource() {
+<span class="nc" id="L150">        return this.groupCollectionResourcePath;</span>
+	}
+	
+	/**
+	 * Get the list of audiences acting as OSCORE Group Managers.
+	 * 
+	 * @return the audiences that this validator considers as OSCORE Group Managers
+	 */
+	public synchronized Set&lt;String&gt; getAllGMAudiences() {
+<span class="pc bpc" id="L159" title="1 of 2 branches missed.">		if (this.myGMAudiences != null) {</span>
+<span class="fc" id="L160">			return this.myGMAudiences;</span>
+		}
+<span class="nc" id="L162">        return Collections.emptySet();</span>
+	}
+	
+	/**
+	 * Set the list of audiences acting as OSCORE Group Managers.
+	 * Check that each of those audiences are in the main set &quot;myAudiences&quot;.
+	 * 
+	 * @param myGMAudiences  the audiences that this validator considers as OSCORE Group Managers
+	 * 
+	 * @throws AceException  if the group manager is not an accepted audience
+	 */
+	public synchronized void setGMAudiences(Set&lt;String&gt; myGMAudiences) throws AceException {
+<span class="pc bpc" id="L174" title="1 of 2 branches missed.">		if (myGMAudiences != null) {</span>
+<span class="fc bfc" id="L175" title="All 2 branches covered.">			for (String foo : myGMAudiences) {</span>
+<span class="pc bpc" id="L176" title="1 of 2 branches missed.">				if (!this.myAudiences.contains(foo)) {</span>
+<span class="nc" id="L177">					throw new AceException(&quot;This OSCORE Group Manager is not an accepted audience&quot;);</span>
+				}
+<span class="fc" id="L179">                this.myGMAudiences.add(foo);</span>
+<span class="fc" id="L180">			}</span>
+		} else {
+<span class="nc" id="L182">		    this.myGMAudiences = Collections.emptySet();</span>
+		}
+<span class="fc" id="L184">	}</span>
+
+	/**
+	 * Remove an audience acting as OSCORE Group Manager from &quot;myGMAudiences&quot;.
+	 * This method does not remove the audience from the main set &quot;myAudiences&quot;.
+	 * 
+	 * @param GMAudience  the audience acting as OSCORE Group Manager to be removed
+	 * 
+	 * @return true if the specified audience was included and has been removed, false otherwise.
+	 */
+	public synchronized boolean removeGMAudience(String GMAudience){
+<span class="nc bnc" id="L195" title="All 2 branches missed.">		if (GMAudience != null)</span>
+<span class="nc" id="L196">			return this.myGMAudiences.remove(GMAudience);</span>
+<span class="nc" id="L197">		return false;</span>
+	}
+	
+	/**
+	 * Remove all the audiences acting as OSCORE Group Manager from &quot;myGMAudiences&quot;.
+	 * This method does not remove the audiences from the main set &quot;myAudiences&quot;.
+	 * 
+	 */
+	public synchronized void removeAllGMAudiences(){
+<span class="nc" id="L206">		this.myGMAudiences.clear();</span>
+<span class="nc" id="L207">	}</span>
+	
+	/**
+	 * Get the list of group-membership resources to access an OSCORE group.
+	 * 
+	 * Each entry of the list contains the full path to a group-membership resource, and the last
+     * path segment is the name of the associated OSCORE group, e.g., ace-group/GROUPNAME
+	 * 
+	 * @return the resources that this validator considers as group-membership resources to access an OSCORE group
+	 */
+	public synchronized Set&lt;String&gt; getAllGroupMembershipResources() {
+<span class="pc bpc" id="L218" title="1 of 2 branches missed.">		if (this.myGroupMembershipResources != null) {</span>
+<span class="fc" id="L219">			return this.myGroupMembershipResources;</span>
+		}
+<span class="nc" id="L221">        return Collections.emptySet();</span>
+	}
+	
+	/**
+	 * Set the list of group-membership resources to access an OSCORE group.
+	 * 
+	 * Each entry of the list contains the full path to a group-membership resource, and the last
+     * path segment is the name of the associated OSCORE group, e.g., ace-group/GROUPNAME
+     * 
+	 * @param myGroupMembershipResources  the resources that this validator considers as group-membership resources to access an OSCORE group
+	 * .
+	 * @throws AceException FIXME: when thrown?
+	 */
+	public synchronized void setGroupMembershipResources(Set&lt;String&gt; myGroupMembershipResources) throws AceException {
+<span class="pc bpc" id="L235" title="1 of 2 branches missed.">		if (myGroupMembershipResources != null) {</span>
+<span class="fc bfc" id="L236" title="All 2 branches covered.">			for (String foo : myGroupMembershipResources)</span>
+<span class="fc" id="L237">				this.myGroupMembershipResources.add(foo);</span>
+		} else {
+<span class="nc" id="L239">		    this.myGroupMembershipResources = Collections.emptySet();</span>
+		}
+<span class="fc" id="L241">	}</span>
+	
+	/**
+	 * Remove a group-membership resource to access an OSCORE group from &quot;myGroupMembershipResources&quot;.
+	 * 
+	 * The group-membership resource to remove is specified by its full path, where the last
+     * path segment is the name of the associated OSCORE group, e.g., ace-group/GROUPNAME
+	 * 
+	 * @param groupMembershipResource  the group-membership resource to remove.
+	 * 
+	 * @return true if the specified resource was included and has been removed, false otherwise.
+	 */
+	public synchronized boolean removeGroupMembershipResource(String groupMembershipResource){
+<span class="nc bnc" id="L254" title="All 2 branches missed.">		if (groupMembershipResource != null)</span>
+<span class="nc" id="L255">			return this.myGroupMembershipResources.remove(groupMembershipResource);</span>
+<span class="nc" id="L256">		return false;</span>
+	}
+	
+	/**
+	 * Remove all the group-membership resources to access an OSCORE group from &quot;myGroupMembershipResources&quot;.
+	 * 
+	 */
+	public synchronized void removeAllGroupMembershipResources(){
+<span class="nc" id="L264">		this.myGroupMembershipResources.clear();</span>
+<span class="nc" id="L265">	}</span>
+	
+	/**
+	 * Get the list of group-collection and group-configuration resources for managing OSCORE groups
+	 * 
+     * Each entry of the list contains the full path to a group-collection or a group-configuration resource.
+     * For a group-configuration resource, the last path segment is the name of the associated OSCORE group, e.g., admin/GROUPNAME
+	 * 
+	 * @return the resources that this validator considers as group-collection or group-configuration resources
+	 */
+	public synchronized Set&lt;String&gt; getAllGroupAdminResources() {
+<span class="nc bnc" id="L276" title="All 2 branches missed.">		if (this.myGroupAdminResources != null) {</span>
+<span class="nc" id="L277">			return this.myGroupAdminResources;</span>
+		}
+<span class="nc" id="L279">        return Collections.emptySet();</span>
+	}
+	
+	/**
+	 * Set the list of group-collection and group-configuration resources for managing OSCORE groups
+	 * 
+     * Each entry of the list contains the full path to a group-collection or a group-configuration resource.
+     * For a group-configuration resource, the last path segment is the name of the associated OSCORE group, e.g., admin/GROUPNAME
+     * 
+	 * @param myGroupAdminResources  the resources that this validator considers as group-collection or group-configuration resources
+	 * .
+	 * @throws AceException FIXME: when thrown?
+	 */
+	public synchronized void setGroupAdminResources(Set&lt;String&gt; myGroupAdminResources) throws AceException {
+<span class="pc bpc" id="L293" title="1 of 2 branches missed.">		if (myGroupAdminResources != null) {</span>
+<span class="fc bfc" id="L294" title="All 2 branches covered.">			for (String foo : myGroupAdminResources)</span>
+<span class="fc" id="L295">				this.myGroupAdminResources.add(foo);</span>
+		} else {
+<span class="nc" id="L297">		    this.myGroupAdminResources = Collections.emptySet();</span>
+		}
+<span class="fc" id="L299">	}</span>
+	
+	/**
+	 * Remove a group-collection or group-configuration resource from &quot;myGroupAdminResources&quot;.
+	 * 
+	 * The group-collection or group-configuration resource to remove is specified by its full path.
+	 * For a group-configuration resource, the last path segment is the name of the associated OSCORE group, e.g., admin/GROUPNAME
+	 * 
+	 * @param groupAdminResource  the group-collection or group-configuration resource to remove.
+	 * 
+	 * @return true if the specified resource was included and has been removed, false otherwise.
+	 */
+	public synchronized boolean removeGroupAdminResource(String groupAdminResource){
+<span class="nc bnc" id="L312" title="All 2 branches missed.">		if (groupAdminResource != null)</span>
+<span class="nc" id="L313">			return this.myGroupAdminResources.remove(groupAdminResource);</span>
+<span class="nc" id="L314">		return false;</span>
+	}
+	
+	/**
+	 * Remove all the group-configuration and group-collection resources from &quot;myGroupAdminResources&quot;.
+	 * 
+	 */
+	public synchronized void removeAllGroupAdminResources(){
+<span class="nc" id="L322">		this.myGroupAdminResources.clear();</span>
+<span class="nc" id="L323">	}</span>
+		
+	@Override
+	public boolean match(String aud) {
+<span class="fc" id="L327">		return this.myAudiences.contains(aud);</span>
+	}
+
+    @Override
+    public boolean scopeMatch(CBORObject scope, String resourceId, Object actionId)
+            throws AceException {
+    	
+<span class="pc bpc" id="L334" title="1 of 4 branches missed.">        if (!scope.getType().equals(CBORType.TextString) &amp;&amp; !scope.getType().equals(CBORType.ByteString)) {</span>
+<span class="nc" id="L335">            throw new AceException(&quot;Scope must be a Text String or a Byte String&quot;);</span>
+        }
+        
+        String scopeStr;
+<span class="fc" id="L339">        boolean isGroupMembershipResource = false;</span>
+<span class="fc" id="L340">        boolean isGroupAdminResource = false;</span>
+<span class="fc" id="L341">    	boolean scopeMustBeBinary = false;</span>
+<span class="fc" id="L342">    	boolean scopeForOscoreGroupManager = false;</span>
+    	
+<span class="fc bfc" id="L344" title="All 2 branches covered.">    	if (this.myGroupMembershipResources.contains(resourceId))</span>
+<span class="fc" id="L345">    		isGroupMembershipResource = true;</span>
+    	
+<span class="fc bfc" id="L347" title="All 2 branches covered.">    	if (this.myGroupAdminResources.contains(resourceId))</span>
+<span class="fc" id="L348">    		isGroupAdminResource = true;</span>
+    	
+<span class="fc" id="L350">    	scopeMustBeBinary = isGroupMembershipResource | isGroupAdminResource;</span>
+<span class="fc" id="L351">    	scopeForOscoreGroupManager = isGroupMembershipResource | isGroupAdminResource;</span>
+        
+<span class="fc bfc" id="L353" title="All 2 branches covered.">    	if (scope.getType().equals(CBORType.TextString)) {</span>
+<span class="pc bpc" id="L354" title="1 of 2 branches missed.">        	if (scopeMustBeBinary)</span>
+<span class="nc" id="L355">        		return false;</span>
+    	
+<span class="fc" id="L357">        	String[] scopes = scope.AsString().split(&quot; &quot;);</span>
+<span class="fc bfc" id="L358" title="All 2 branches covered.">            for (String subscope : scopes) {</span>
+<span class="fc" id="L359">                Map&lt;String, Set&lt;Short&gt;&gt; resources = this.myScopes.get(subscope);</span>
+<span class="pc bpc" id="L360" title="1 of 2 branches missed.">                if (resources == null) {</span>
+<span class="nc" id="L361">                    continue;</span>
+                }
+<span class="pc bpc" id="L363" title="1 of 2 branches missed.">                if (resources.containsKey(resourceId)) {</span>
+<span class="fc bfc" id="L364" title="All 2 branches covered.">                    if (resources.get(resourceId).contains(actionId)) {</span>
+<span class="fc" id="L365">                        return true;</span>
+                    }
+                }
+            }
+<span class="fc" id="L369">            return false;</span>
+    	}
+    	
+<span class="pc bpc" id="L372" title="2 of 4 branches missed.">    	else if (scope.getType().equals(CBORType.ByteString) &amp;&amp; scopeForOscoreGroupManager) {</span>
+    		
+<span class="fc" id="L374">        	byte[] rawScope = scope.GetByteString();</span>
+<span class="fc" id="L375">        	CBORObject cborScope = CBORObject.DecodeFromBytes(rawScope);</span>
+        	
+<span class="pc bpc" id="L377" title="1 of 2 branches missed.">        	if (!cborScope.getType().equals(CBORType.Array)) {</span>
+<span class="nc" id="L378">                throw new AceException(&quot;Invalid scope format for the AIF-OSCORE-GROUPCOMM data model&quot;);</span>
+            }
+        	
+<span class="pc bpc" id="L381" title="1 of 2 branches missed.">        	for (int entryIndex = 0; entryIndex &lt; cborScope.size(); entryIndex++) {</span>
+        	
+<span class="fc" id="L383">        		CBORObject scopeEntry = cborScope.get(entryIndex);</span>
+	        
+<span class="pc bpc" id="L385" title="1 of 2 branches missed.">	      	  	if (!scopeEntry.getType().equals(CBORType.Array)) {</span>
+<span class="nc" id="L386">	                throw new AceException(&quot;Invalid scope for entry the AIF-OSCORE-GROUPCOMM data model&quot;);</span>
+	      	  	}
+        		
+<span class="pc bpc" id="L389" title="1 of 2 branches missed.">	        	if (scopeEntry.size() != 2)</span>
+<span class="nc" id="L390">	        		throw new AceException(&quot;A scope entry must have two elements, i.e., Toid and Tperm&quot;);</span>
+	        	
+<span class="pc bpc" id="L392" title="1 of 2 branches missed.">      	  		if (scopeEntry.get(1).getType() != CBORType.Integer) {</span>
+<span class="nc" id="L393">      	  			throw new AceException(&quot;Tperm must be a CBOR integer&quot;);</span>
+      	  		}
+      	  		
+<span class="fc" id="L396">      	  		int tperm = scopeEntry.get(1).AsInt32();</span>
+<span class="pc bpc" id="L397" title="1 of 2 branches missed.">	      	  	if (tperm &lt;= 0) {</span>
+<span class="nc" id="L398">	  	  			throw new AceException(&quot;Tperm must have a positive integer value&quot;);</span>
+	  	  		}
+	        	
+<span class="fc bfc" id="L401" title="All 2 branches covered.">	        	if ((tperm % 2) == 0) {</span>
+	        		// This is a user scope entry
+	        		
+		        	// Retrieve the group name of the OSCORE group
+<span class="fc" id="L405">		      	  	CBORObject scopeElement = scopeEntry.get(0);</span>
+<span class="pc bpc" id="L406" title="1 of 2 branches missed.">		      	  	if (scopeElement.getType().equals(CBORType.TextString)) {</span>
+<span class="fc" id="L407">		      	  		scopeStr = scopeElement.AsString();</span>
+		      	  	}
+		      	  	else {
+<span class="nc" id="L410">		      	  		throw new AceException(&quot;The group name must be a CBOR Text String&quot;);</span>
+		      	  	}
+		        	
+		      	  	// Retrieve the role or list of roles
+<span class="fc" id="L414">	        		Set&lt;Integer&gt; roleIdSet = Util.getGroupOSCORERoles(tperm);</span>
+<span class="fc bfc" id="L415" title="All 2 branches covered.">	        		for (Integer elem : roleIdSet) {</span>
+<span class="pc bpc" id="L416" title="1 of 2 branches missed.">	        			if (elem.intValue() &lt; GroupcommParameters.GROUP_OSCORE_ROLES.length)</span>
+<span class="fc" id="L417">	        				continue;</span>
+	        			else {
+<span class="nc" id="L419">	        				throw new AceException(&quot;Unrecognized role&quot;);</span>
+	        			}
+	        		}
+			      	  	
+<span class="fc" id="L423">		      	  	Map&lt;String, Set&lt;Short&gt;&gt; resources = this.myScopes.get(rootGroupMembershipResourcePath + &quot;/&quot; + scopeStr);</span>
+		      	  		      	  	
+<span class="pc bpc" id="L425" title="1 of 4 branches missed.">		      	  	if (resources != null &amp;&amp; resources.containsKey(resourceId)) {</span>
+<span class="pc bpc" id="L426" title="1 of 2 branches missed.">		      	  		if (resources.get(resourceId).contains(actionId)) {</span>
+<span class="fc" id="L427">		      	  			return true;</span>
+		      	  		}
+		      	  	}
+	      	  	
+<span class="fc" id="L431">	        	} // end of handling a user scope entry</span>
+	        	
+	        	else {
+	        		// This is an admin scope entry
+	        		
+<span class="pc bpc" id="L436" title="1 of 2 branches missed.">      	  			if (cborScope.get(entryIndex).get(0).getType() != CBORType.TextString &amp;&amp;</span>
+<span class="nc bnc" id="L437" title="All 2 branches missed.">      	  				cborScope.get(entryIndex).get(0).equals(CBORObject.True) == false) {</span>
+<span class="nc" id="L438">      	  				throw new AceException(&quot;Toid must be a CBOR text string or the CBOR simple value true&quot;);</span>
+    	      	  	}
+      	  			
+		      	  	// Retrieve the list of admin permissions
+<span class="fc" id="L442">	        		Set&lt;Integer&gt; permissionIdSet = Util.getGroupOSCOREAdminPermissions(tperm);</span>
+<span class="fc bfc" id="L443" title="All 2 branches covered.">	        		for (Integer elem : permissionIdSet) {</span>
+<span class="pc bpc" id="L444" title="1 of 2 branches missed.">	        			if (elem.intValue() &lt; GroupcommParameters.GROUP_OSCORE_ADMIN_PERMISSIONS.length) {</span>
+<span class="fc" id="L445">	        				continue;</span>
+	        			}
+	        			else {
+<span class="nc" id="L448">	        				throw new AceException(&quot;Unrecognized admin permission&quot;);</span>
+	        			}
+	        		}
+	        		
+<span class="fc" id="L452">		      	  	Map&lt;String, Set&lt;Short&gt;&gt; resources = this.myScopes.get(groupCollectionResourcePath);</span>
+	  		      	  	
+<span class="pc bpc" id="L454" title="2 of 4 branches missed.">		      	  	if (resources != null &amp;&amp; resources.containsKey(resourceId)) {</span>
+<span class="pc bpc" id="L455" title="1 of 2 branches missed.">		      	  		if (resources.get(resourceId).contains(actionId)) {</span>
+<span class="fc" id="L456">		      	  			return true;</span>
+		      	  		}
+		      	  	}
+	        		
+	        	} // end of handling an admin scope entry
+	      	  	
+        	} // end of checking all the scope entries in the scope claim of the access token
+      	  	
+<span class="nc" id="L464">      	  	return false;</span>
+      	  	
+        }
+        
+    	// This includes the case where the scope is encoded as a CBOR Byte String,
+    	// but the targeted resource is not a group-membership resource, a group-collection resource or a group-configuration resource.
+    	// In fact, no processing for byte string scopes are defined, other than the one implemented above according to
+    	// draft-ietf-ace-key-groupcomm-oscore and draft-ietf-ace-oscore-gm-admin
+<span class="nc bnc" id="L472" title="All 2 branches missed.">        else if (scope.getType().equals(CBORType.ByteString)) {</span>
+<span class="nc" id="L473">        	throw new AceException(&quot;Unknown processing for this byte string scope&quot;);</span>
+        }
+        
+<span class="nc" id="L476">        return false;</span>
+    	
+    }
+
+    @Override
+    public boolean scopeMatchResource(CBORObject scope, String resourceId)
+            throws AceException {
+    	
+<span class="pc bpc" id="L484" title="1 of 4 branches missed.">        if (!scope.getType().equals(CBORType.TextString) &amp;&amp; !scope.getType().equals(CBORType.ByteString)) {</span>
+<span class="nc" id="L485">            throw new AceException(&quot;Scope must be a Text String or a Byte String&quot;);</span>
+        }
+        
+        String scopeStr;
+<span class="fc" id="L489">        boolean isGroupMembershipResource = false;</span>
+<span class="fc" id="L490">        boolean isGroupAdminResource = false;</span>
+<span class="fc" id="L491">    	boolean scopeMustBeBinary = false;</span>
+<span class="fc" id="L492">    	boolean scopeForOscoreGroupManager = false;</span>
+    	
+<span class="fc bfc" id="L494" title="All 2 branches covered.">    	if (this.myGroupMembershipResources.contains(resourceId))</span>
+<span class="fc" id="L495">    		isGroupMembershipResource = true;</span>
+    	
+<span class="fc bfc" id="L497" title="All 2 branches covered.">    	if (this.myGroupAdminResources.contains(resourceId))</span>
+<span class="fc" id="L498">    		isGroupAdminResource = true;</span>
+    	
+<span class="fc" id="L500">    	scopeMustBeBinary = isGroupMembershipResource | isGroupAdminResource;</span>
+<span class="fc" id="L501">    	scopeForOscoreGroupManager = isGroupMembershipResource | isGroupAdminResource;</span>
+    	
+<span class="fc bfc" id="L503" title="All 2 branches covered.">    	if (scope.getType().equals(CBORType.TextString)) {</span>
+<span class="pc bpc" id="L504" title="1 of 2 branches missed.">        	if (scopeMustBeBinary)</span>
+<span class="nc" id="L505">        		return false;</span>
+        
+<span class="fc" id="L507">        	String[] scopes = scope.AsString().split(&quot; &quot;);</span>
+<span class="fc bfc" id="L508" title="All 2 branches covered.">            for (String subscope : scopes) {           </span>
+<span class="fc" id="L509">                Map&lt;String, Set&lt;Short&gt;&gt; resources = this.myScopes.get(subscope);</span>
+<span class="pc bpc" id="L510" title="1 of 2 branches missed.">                if (resources == null) {</span>
+<span class="nc" id="L511">                    continue;</span>
+                }
+<span class="fc bfc" id="L513" title="All 2 branches covered.">                if (resources.containsKey(resourceId)) {</span>
+<span class="fc" id="L514">                    return true;</span>
+                }
+            }
+<span class="fc" id="L517">            return false;</span>
+        	
+    	}
+    	
+<span class="pc bpc" id="L521" title="2 of 4 branches missed.">    	else if (scope.getType().equals(CBORType.ByteString) &amp;&amp; scopeForOscoreGroupManager) {</span>
+    		
+<span class="fc" id="L523">        	byte[] rawScope = scope.GetByteString();</span>
+<span class="fc" id="L524">        	CBORObject cborScope = CBORObject.DecodeFromBytes(rawScope);</span>
+        	
+<span class="pc bpc" id="L526" title="1 of 2 branches missed.">        	if (!cborScope.getType().equals(CBORType.Array)) {</span>
+<span class="nc" id="L527">                throw new AceException(&quot;Invalid scope format for the AIF-OSCORE-GROUPCOMM data model&quot;);</span>
+            }
+        	
+<span class="pc bpc" id="L530" title="1 of 2 branches missed.">        	for (int entryIndex = 0; entryIndex &lt; cborScope.size(); entryIndex++) {</span>
+        	
+<span class="fc" id="L532">        		CBORObject scopeEntry = cborScope.get(entryIndex);</span>
+        		
+<span class="pc bpc" id="L534" title="1 of 2 branches missed.">	      	  	if (!scopeEntry.getType().equals(CBORType.Array)) {</span>
+<span class="nc" id="L535">	                throw new AceException(&quot;Invalid scope for entry the AIF-OSCORE-GROUPCOMM data model&quot;);</span>
+	      	  	}
+        		
+<span class="pc bpc" id="L538" title="1 of 2 branches missed.">	        	if (scopeEntry.size() != 2)</span>
+<span class="nc" id="L539">	        		throw new AceException(&quot;A scope entry must have two elements, i.e., Toid and Tperm&quot;);</span>
+	        	
+<span class="pc bpc" id="L541" title="1 of 2 branches missed.">      	  		if (scopeEntry.get(1).getType() != CBORType.Integer) {</span>
+<span class="nc" id="L542">      	  			throw new AceException(&quot;Tperm must be a CBOR integer&quot;);</span>
+      	  		}
+	        	
+<span class="fc" id="L545">      	  		int tperm = scopeEntry.get(1).AsInt32();</span>
+<span class="pc bpc" id="L546" title="1 of 2 branches missed.">	      	  	if (tperm &lt;= 0) {</span>
+<span class="nc" id="L547">	  	  			throw new AceException(&quot;Tperm must have a positive integer value&quot;);</span>
+	  	  		}
+
+<span class="fc bfc" id="L550" title="All 2 branches covered.">	        	if ((tperm % 2) == 0) {</span>
+	        		// This is a user scope entry
+
+		        	// Retrieve the group name of the OSCORE group
+<span class="fc" id="L554">		      	  	CBORObject scopeElement = scopeEntry.get(0);</span>
+<span class="pc bpc" id="L555" title="1 of 2 branches missed.">		      	  	if (scopeElement.getType().equals(CBORType.TextString)) {</span>
+<span class="fc" id="L556">		      	  		scopeStr = scopeElement.AsString();</span>
+		      	  	}
+		      	  	else {
+<span class="nc" id="L559">		      	  		throw new AceException(&quot;The group name must be a CBOR Text String&quot;);</span>
+		      	  	}
+		        	
+		      	  	// Retrieve the role or list of roles
+<span class="fc" id="L563">	        		Set&lt;Integer&gt; roleIdSet = Util.getGroupOSCORERoles(tperm);</span>
+<span class="fc bfc" id="L564" title="All 2 branches covered.">	        		for (Integer elem : roleIdSet) {</span>
+<span class="pc bpc" id="L565" title="1 of 2 branches missed.">	        			if (elem.intValue() &lt; GroupcommParameters.GROUP_OSCORE_ROLES.length) {</span>
+<span class="fc" id="L566">	        				continue;</span>
+	        			}
+	        			else {
+<span class="nc" id="L569">	        				throw new AceException(&quot;Unrecognized role&quot;);</span>
+	        			}
+	        		}
+		        	
+<span class="fc" id="L573">		      	  	Map&lt;String, Set&lt;Short&gt;&gt; resources = this.myScopes.get(rootGroupMembershipResourcePath + &quot;/&quot; + scopeStr);</span>
+		      	  	
+<span class="pc bpc" id="L575" title="1 of 4 branches missed.">		      	  	if (resources != null &amp;&amp; resources.containsKey(resourceId)) {</span>
+<span class="fc" id="L576">		      	  			return true;</span>
+		      	  	}
+	      	  	
+<span class="fc" id="L579">	        	}  // end of handling a user scope entry</span>
+	      	  	
+	        	else {
+	        		// This is an admin scope entry
+	        		
+<span class="pc bpc" id="L584" title="1 of 2 branches missed.">      	  			if (cborScope.get(entryIndex).get(0).getType() != CBORType.TextString &amp;&amp;</span>
+<span class="nc bnc" id="L585" title="All 2 branches missed.">      	  				cborScope.get(entryIndex).get(0).equals(CBORObject.True) == false) {</span>
+<span class="nc" id="L586">      	  				throw new AceException(&quot;Toid must be a CBOR text string or the CBOR simple value true&quot;);</span>
+    	      	  	}
+      	  			
+		      	  	// Retrieve the list of admin permissions
+<span class="fc" id="L590">	        		Set&lt;Integer&gt; permissionIdSet = Util.getGroupOSCOREAdminPermissions(tperm);</span>
+<span class="fc bfc" id="L591" title="All 2 branches covered.">	        		for (Integer elem : permissionIdSet) {</span>
+<span class="pc bpc" id="L592" title="1 of 2 branches missed.">	        			if (elem.intValue() &lt; GroupcommParameters.GROUP_OSCORE_ADMIN_PERMISSIONS.length)</span>
+<span class="fc" id="L593">	        				continue;</span>
+	        			else {
+<span class="nc" id="L595">	        				throw new AceException(&quot;Unrecognized admin permission&quot;);</span>
+	        			}
+	        		}
+	        		
+<span class="fc" id="L599">		      	  	Map&lt;String, Set&lt;Short&gt;&gt; resources = this.myScopes.get(groupCollectionResourcePath);</span>
+	  		      	
+<span class="pc bpc" id="L601" title="2 of 4 branches missed.">		      	  	if (resources != null &amp;&amp; resources.containsKey(resourceId)) {</span>
+<span class="fc" id="L602">		      	  			return true;</span>
+		      	  	}
+
+	        	} // end of handling an admin scope entry
+	        	
+        	} // end of checking all the scope entries in the scope claim of the access token
+      	  	
+<span class="nc" id="L609">      	  	return false;</span>
+      	  	
+        }
+        
+    	// This includes the case where the scope is encoded as a CBOR Byte String,
+    	// but the targeted resource is not a group-membership resource, a group-collection resource or a group-configuration resource.
+    	// In fact, no processing for byte string scopes are defined, other than the one implemented above according to
+    	// draft-ietf-ace-key-groupcomm-oscore and draft-ietf-ace-oscore-gm-admin
+<span class="nc bnc" id="L617" title="All 2 branches missed.">        else if (scope.getType().equals(CBORType.ByteString)) {</span>
+<span class="nc" id="L618">        	throw new AceException(&quot;Unknown processing for this byte string scope&quot;);</span>
+        }
+    	
+<span class="nc" id="L621">    	return false;</span>
+    }
+
+    @Override
+    public boolean isScopeMeaningful(CBORObject scope) throws AceException {
+<span class="pc bpc" id="L626" title="1 of 2 branches missed.">        if (!scope.getType().equals(CBORType.TextString)) {</span>
+<span class="nc" id="L627">            throw new AceException(&quot;Scope must be a String if no audience is specified&quot;);</span>
+        }
+<span class="fc" id="L629">        return this.myScopes.containsKey(scope.AsString());</span>
+    }
+    
+    @Override
+    public boolean isScopeMeaningful(CBORObject scope, String aud) throws AceException {
+    	
+<span class="pc bpc" id="L635" title="2 of 4 branches missed.">        if (!scope.getType().equals(CBORType.TextString) &amp;&amp; !scope.getType().equals(CBORType.ByteString)) {</span>
+<span class="nc" id="L636">            throw new AceException(&quot;Scope must be a Text String or a Byte String&quot;);</span>
+        }
+        
+        String scopeStr;
+<span class="fc" id="L640">    	boolean scopeMustBeBinary = false;</span>
+<span class="fc" id="L641">    	boolean rsOSCOREGroupManager = false;</span>
+    	
+<span class="pc bpc" id="L643" title="1 of 2 branches missed.">    	if (this.myGMAudiences.contains(aud)) {</span>
+<span class="fc" id="L644">    		rsOSCOREGroupManager = true;</span>
+    	}
+    	
+<span class="fc" id="L647">    	scopeMustBeBinary = rsOSCOREGroupManager;</span>
+           	
+<span class="pc bpc" id="L649" title="1 of 2 branches missed.">        if (scope.getType().equals(CBORType.TextString)) {</span>
+<span class="nc bnc" id="L650" title="All 2 branches missed.">        	if (scopeMustBeBinary)</span>
+<span class="nc" id="L651">        		return false;</span>
+        	
+<span class="nc" id="L653">        	return this.myScopes.containsKey(scope.AsString());</span>
+        	// The audiences are silently ignored
+        }
+        	
+<span class="pc bpc" id="L657" title="2 of 4 branches missed.">        else if (scope.getType().equals(CBORType.ByteString) &amp;&amp; rsOSCOREGroupManager) {</span>
+        	        	
+<span class="fc" id="L659">        	byte[] rawScope = scope.GetByteString();</span>
+<span class="fc" id="L660">        	CBORObject cborScope = CBORObject.DecodeFromBytes(rawScope);</span>
+        	
+<span class="pc bpc" id="L662" title="1 of 2 branches missed.">        	if (!cborScope.getType().equals(CBORType.Array)) {</span>
+<span class="nc" id="L663">                throw new AceException(&quot;Invalid scope format for the AIF-OSCORE-GROUPCOMM data model&quot;);</span>
+            }
+        	
+<span class="fc bfc" id="L666" title="All 2 branches covered.">      	  	for (int entryIndex = 0; entryIndex &lt; cborScope.size(); entryIndex++) {</span>
+        	
+<span class="fc" id="L668">      	  		CBORObject scopeEntry = cborScope.get(entryIndex);</span>
+	      	  		
+<span class="pc bpc" id="L670" title="1 of 2 branches missed.">	      	  	if (!scopeEntry.getType().equals(CBORType.Array)) {</span>
+<span class="nc" id="L671">	                throw new AceException(&quot;Invalid scope for entry the AIF-OSCORE-GROUPCOMM data model&quot;);</span>
+	            }
+      	  		
+<span class="pc bpc" id="L674" title="1 of 2 branches missed.">	        	if (scopeEntry.size() != 2)</span>
+<span class="nc" id="L675">	        		throw new AceException(&quot;A scope entry must have two elements, i.e., Toid and Tperm&quot;);</span>
+	        	
+<span class="pc bpc" id="L677" title="1 of 2 branches missed.">      	  		if (scopeEntry.get(1).getType() != CBORType.Integer) {</span>
+<span class="nc" id="L678">      	  			throw new AceException(&quot;Tperm must be a CBOR integer&quot;);</span>
+      	  		}
+      	  		
+<span class="fc" id="L681">      	  		int tperm = scopeEntry.get(1).AsInt32();</span>
+<span class="pc bpc" id="L682" title="1 of 2 branches missed.">	      	  	if (tperm &lt;= 0) {</span>
+<span class="nc" id="L683">	  	  			throw new AceException(&quot;Tperm must have a positive integer value&quot;);</span>
+	  	  		}
+	        	
+<span class="fc bfc" id="L686" title="All 2 branches covered.">	        	if ((tperm % 2) == 0) {</span>
+	        		// This is a user scope entry
+	        		
+		        	// Retrieve the group name of the OSCORE group
+<span class="fc" id="L690">		      	  	CBORObject scopeElement = scopeEntry.get(0);</span>
+<span class="pc bpc" id="L691" title="1 of 2 branches missed.">		      	  	if (scopeElement.getType().equals(CBORType.TextString)) {</span>
+<span class="fc" id="L692">		      	  		scopeStr = scopeElement.AsString();</span>
+		      	  	}
+		      	  	else {
+<span class="nc" id="L695">		      	  		throw new AceException(&quot;The group name must be a CBOR Text String&quot;);</span>
+		      	  	}
+		        	  
+		         	// Retrieve the role or list of roles
+<span class="fc" id="L699">	        	    Set&lt;Integer&gt; roleIdSet = Util.getGroupOSCORERoles(tperm);</span>
+<span class="fc bfc" id="L700" title="All 2 branches covered.">	    	  	    for (Integer elem : roleIdSet) {</span>
+<span class="pc bpc" id="L701" title="1 of 2 branches missed.">	    	  		    if (elem.intValue() &lt; GroupcommParameters.GROUP_OSCORE_ROLES.length) {</span>
+<span class="fc" id="L702">	    	  			    continue;</span>
+	    	  		    }
+	    	  		    else {
+<span class="nc" id="L705">	    				    throw new AceException(&quot;Unrecognized role&quot;);</span>
+	    			    }
+	    		    }
+		    	  			    	    
+<span class="pc bpc" id="L709" title="1 of 2 branches missed.">		        	if (this.myScopes.containsKey(rootGroupMembershipResourcePath + &quot;/&quot; + scopeStr) == false) {</span>
+<span class="nc" id="L710">		        		return false;</span>
+		        	}
+	        	
+<span class="fc" id="L713">      	  		} // end of handling a user scope entry</span>
+	        	
+	        	else {
+	        		// This is an admin scope entry
+	        		
+<span class="pc bpc" id="L718" title="1 of 2 branches missed.">      	  			if (cborScope.get(entryIndex).get(0).getType() != CBORType.TextString &amp;&amp;</span>
+<span class="nc bnc" id="L719" title="All 2 branches missed.">      	  				cborScope.get(entryIndex).get(0).equals(CBORObject.True) == false) {</span>
+<span class="nc" id="L720">      	  				throw new AceException(&quot;Toid must be a CBOR text string or the CBOR simple value true&quot;);</span>
+    	      	  	}
+      	  			
+		      	  	// Retrieve the list of admin permissions
+<span class="fc" id="L724">	        		Set&lt;Integer&gt; permissionIdSet = Util.getGroupOSCOREAdminPermissions(tperm);</span>
+<span class="fc bfc" id="L725" title="All 2 branches covered.">	        		for (Integer elem : permissionIdSet) {</span>
+<span class="pc bpc" id="L726" title="1 of 2 branches missed.">	        			if (elem.intValue() &lt; GroupcommParameters.GROUP_OSCORE_ADMIN_PERMISSIONS.length)</span>
+<span class="fc" id="L727">	        				continue;</span>
+	        			else {
+<span class="nc" id="L729">	        				throw new AceException(&quot;Unrecognized admin permission&quot;);</span>
+	        			}
+	        		}
+	        		
+<span class="pc bpc" id="L733" title="1 of 2 branches missed.">		        	if (this.myScopes.containsKey(groupCollectionResourcePath) == false) {</span>
+		        		// More fine-grained checks are not possible at this point in time
+		        		// (i.e., upon checking an uploaded access token), since the list of valid
+		        		// scopes may not comprise OSCORE groups whose name matches with the Toid
+		        		// of some scope entries in the access token, but still have to be created
+<span class="nc" id="L738">		        		return false;</span>
+		        	}
+		      	  	
+	        	} // end of handling an admin scope entry
+	        	
+      	  	} // end of checking all the scope entries in the scope claim of the access token
+      	  	
+<span class="fc" id="L745">      	  	return true;</span>
+      	  	
+        }
+        
+    	// This includes the case where the scope is encoded as a CBOR Byte String,
+    	// but the targeted resource is not a group-membership resource, a group-collection resource or a group-configuration resource.
+    	// In fact, no processing for byte string scopes are defined, other than the one implemented above according to
+    	// draft-ietf-ace-key-groupcomm-oscore and draft-ietf-ace-oscore-gm-admin
+<span class="nc bnc" id="L753" title="All 2 branches missed.">        else if (scope.getType().equals(CBORType.ByteString)) {</span>
+<span class="nc" id="L754">        	throw new AceException(&quot;Unknown processing for this byte string scope&quot;);</span>
+        }
+        
+<span class="nc" id="L757">        return false;</span>
+        
+    }
+
+    @Override
+    public CBORObject getScope(String resource, short action) {
+        // TODO Auto-generated method stub
+<span class="nc" id="L764">        return null;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

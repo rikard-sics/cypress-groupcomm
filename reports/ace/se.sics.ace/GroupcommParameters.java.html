@@ -1,0 +1,664 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GroupcommParameters.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace</a> &gt; <span class="el_source">GroupcommParameters.java</span></div><h1>GroupcommParameters.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2025, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace;
+
+import java.util.HashSet;
+import java.util.Set;
+
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+
+import org.eclipse.californium.cose.AlgorithmID;
+import org.eclipse.californium.cose.KeyKeys;
+
+/**
+ * Constants for use with ACE Groupcomm
+ * 
+ * @author Marco Tiloca
+ *
+ */
+
+<span class="nc" id="L50">public class GroupcommParameters {</span>
+	
+    /**
+	 * Group OSCORE abbreviations =================================
+	 */
+
+	/*
+	 * The prefixes used at the AS to internally represent scopes as text strings
+	 */
+	// This is relevant only for an admin scope entry,
+	// where Toid is the wildcard group name pattern
+	public static final String GROUP_OSCORE_AS_SCOPE_WILDCARD_PREFIX = &quot;oscgm0&quot;;
+
+	// This is relevant for an admin or user scope entry,
+	// where Toid is a literal group name pattern (i.e., a specific group name)
+	public static final String GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX = &quot;oscgm1&quot;;
+
+	// This is relevant only for an admin scope entry,
+	// where Toid is a complex group name pattern (e.g., a regular expression)
+	public static final String GROUP_OSCORE_AS_SCOPE_COMPLEX_PREFIX = &quot;oscgm2&quot;;
+	
+    /**
+     * The OSCORE group uses only the group mode
+     */
+    public static final short GROUP_OSCORE_GROUP_MODE_ONLY = 1;
+    
+    /**
+     * The OSCORE group uses both the group mode and the pairwise mode
+     */
+    public static final short GROUP_OSCORE_GROUP_PAIRWISE_MODE = 2;
+    
+    /**
+     * The OSCORE group uses only the pairwise mode
+     */
+    public static final short GROUP_OSCORE_PAIRWISE_MODE_ONLY = 3;
+    
+    
+    /**
+     * Requester role
+     */
+    public static final short GROUP_OSCORE_REQUESTER = 1;
+    
+    /**
+     * Responder role
+     */
+    public static final short GROUP_OSCORE_RESPONDER = 2;
+    
+    /**
+     * Monitor role
+     */
+    public static final short GROUP_OSCORE_MONITOR = 3;
+    
+    /**
+     * Verifier role
+     */
+    public static final short GROUP_OSCORE_VERIFIER = 4;
+    
+    /**
+     * Roles as strings
+     */
+<span class="fc" id="L110">    public static final String[] GROUP_OSCORE_ROLES = {&quot;reserved&quot;, &quot;requester&quot;, &quot;responder&quot;, &quot;monitor&quot;, &quot;verifier&quot;};</span>
+    
+    /**
+     * Return a set of integers including the valid Group OSCORE role combinations
+	 *
+     * @return  the set of valid Group OSCORE combinations
+     */
+    public static Set&lt;Integer&gt; getValidGroupOSCORERoleCombinations() {
+
+<span class="fc" id="L119">    	Set&lt;Integer&gt; validRoleCombinations = new HashSet&lt;Integer&gt;();</span>
+    	
+        // Set the valid combinations of roles in a Joining Request
+        // Combinations are expressed with the AIF specific data model AIF-OSCORE-GROUPCOMM
+<span class="fc" id="L123">        validRoleCombinations.add(1 &lt;&lt; GROUP_OSCORE_REQUESTER);   // Requester (2)</span>
+<span class="fc" id="L124">        validRoleCombinations.add(1 &lt;&lt; GROUP_OSCORE_RESPONDER);   // Responder (4)</span>
+<span class="fc" id="L125">        validRoleCombinations.add((1 &lt;&lt; GROUP_OSCORE_REQUESTER) +</span>
+        		                  (1 &lt;&lt; GROUP_OSCORE_RESPONDER)); // Requester+Responder (6)
+<span class="fc" id="L127">        validRoleCombinations.add(1 &lt;&lt; GROUP_OSCORE_MONITOR);     // Monitor (8)</span>
+    	
+<span class="fc" id="L129">    	return validRoleCombinations;</span>
+    }
+	
+    /**
+     * Admin permission &quot;List&quot;
+     */
+    public static final short GROUP_OSCORE_ADMIN_LIST = 0;
+    
+    /**
+     * Admin permission &quot;Create&quot;
+     */
+    public static final short GROUP_OSCORE_ADMIN_CREATE = 1;
+    
+    /**
+     * Admin permission &quot;Read&quot;
+     */
+    public static final short GROUP_OSCORE_ADMIN_READ = 2;
+    
+    /**
+     * Admin permission &quot;Write&quot;
+     */
+    public static final short GROUP_OSCORE_ADMIN_WRITE = 3;
+    
+    /**
+     * Admin permission &quot;Delete&quot;
+     */
+    public static final short GROUP_OSCORE_ADMIN_DELETE = 4;
+    
+    /**
+     * Admin permissions as strings
+     */
+<span class="fc" id="L160">    public static final String[] GROUP_OSCORE_ADMIN_PERMISSIONS = {&quot;list&quot;, &quot;create&quot;, &quot;read&quot;, &quot;write&quot;, &quot;delete&quot;};</span>
+    
+    
+    /**
+     * Value for the application profile &quot;coap_group_oscore_app&quot;
+     */
+    public static final short COAP_GROUP_OSCORE_APP = 1; // provisional
+    
+    
+    /**
+     * Value for the group key type &quot;Group_OSCORE_Input_Material object&quot;
+     */
+    public static final short GROUP_OSCORE_INPUT_MATERIAL_OBJECT = 1; // provisional
+        
+    
+    /**
+	 * CBOR abbreviations for the CoAP Content-Format application/ace-groupcomm+cbor =================================
+	 */
+<span class="fc" id="L178">    public static final CBORObject GID = CBORObject.FromObject(0);</span>
+    
+<span class="fc" id="L180">    public static final CBORObject GNAME = CBORObject.FromObject(1);</span>
+    
+<span class="fc" id="L182">    public static final CBORObject GURI = CBORObject.FromObject(2);</span>
+    
+<span class="fc" id="L184">    public static final CBORObject SCOPE = CBORObject.FromObject(3);</span>
+    
+<span class="fc" id="L186">    public static final CBORObject GET_CREDS = CBORObject.FromObject(4);</span>
+    
+<span class="fc" id="L188">    public static final CBORObject CLIENT_CRED = CBORObject.FromObject(5);</span>
+    
+<span class="fc" id="L190">    public static final CBORObject CNONCE = CBORObject.FromObject(6);</span>
+    
+<span class="fc" id="L192">    public static final CBORObject GKTY = CBORObject.FromObject(7);</span>
+    
+<span class="fc" id="L194">    public static final CBORObject KEY = CBORObject.FromObject(8);</span>
+    
+<span class="fc" id="L196">    public static final CBORObject NUM = CBORObject.FromObject(9);</span>
+    
+<span class="fc" id="L198">    public static final CBORObject ACE_GROUPCOMM_PROFILE = CBORObject.FromObject(10);</span>
+    
+<span class="fc" id="L200">    public static final CBORObject EXP = CBORObject.FromObject(11);</span>
+    
+<span class="fc" id="L202">    public static final CBORObject EXI = CBORObject.FromObject(12);</span>
+    
+<span class="fc" id="L204">    public static final CBORObject CREDS = CBORObject.FromObject(13);</span>
+    
+<span class="fc" id="L206">    public static final CBORObject PEER_ROLES = CBORObject.FromObject(14);</span>
+    
+<span class="fc" id="L208">    public static final CBORObject PEER_IDENTIFIERS = CBORObject.FromObject(15);</span>
+    
+<span class="fc" id="L210">    public static final CBORObject GROUP_POLICIES = CBORObject.FromObject(16);</span>
+    
+<span class="fc" id="L212">    public static final CBORObject KDC_CRED = CBORObject.FromObject(17);</span>
+    
+<span class="fc" id="L214">    public static final CBORObject KDC_NONCE = CBORObject.FromObject(18);</span>
+    
+<span class="fc" id="L216">    public static final CBORObject KDC_CRED_VERIFY = CBORObject.FromObject(19);</span>
+    
+<span class="fc" id="L218">    public static final CBORObject REKEYING_SCHEME = CBORObject.FromObject(20);</span>
+    
+<span class="fc" id="L220">    public static final CBORObject CLIENT_CRED_VERIFY = CBORObject.FromObject(24);</span>
+    
+<span class="fc" id="L222">    public static final CBORObject CREDS_REPO = CBORObject.FromObject(25);</span>
+    
+<span class="fc" id="L224">    public static final CBORObject CONTROL_URI = CBORObject.FromObject(26);</span>
+    
+<span class="fc" id="L226">    public static final CBORObject MGT_KEY_MATERIAL = CBORObject.FromObject(27);</span>
+    
+<span class="fc" id="L228">    public static final CBORObject CONTROL_GROUP_URI = CBORObject.FromObject(28);</span>
+    
+<span class="fc" id="L230">    public static final CBORObject SIGN_INFO = CBORObject.FromObject(29);</span>
+    
+<span class="fc" id="L232">    public static final CBORObject KDCCHALLENGE = CBORObject.FromObject(30);</span>
+
+    
+    // Defined in draft-ietf-ace-key-groupcomm-oscore
+    
+<span class="fc" id="L237">    public static final CBORObject GROUP_SENDER_ID = CBORObject.FromObject(21); // provisional</span>
+    
+<span class="fc" id="L239">    public static final CBORObject ECDH_INFO = CBORObject.FromObject(31); // provisional</span>
+    
+<span class="fc" id="L241">    public static final CBORObject KDC_DH_CREDS = CBORObject.FromObject(32); // provisional</span>
+    
+<span class="fc" id="L243">    public static final CBORObject SIGN_ENC_KEY = CBORObject.FromObject(33); // provisional</span>
+    
+<span class="fc" id="L245">    public static final CBORObject STALE_NODE_IDS = CBORObject.FromObject(34); // provisional</span>
+    
+   
+    // Defined in draft-ietf-ace-oscore-gm-admin
+    
+<span class="fc" id="L250">    public static final CBORObject HKDF = CBORObject.FromObject(-1); // provisional</span>
+    
+<span class="fc" id="L252">    public static final CBORObject CRED_FMT = CBORObject.FromObject(-2); // provisional</span>
+    
+<span class="fc" id="L254">    public static final CBORObject GROUP_MODE = CBORObject.FromObject(-3); // provisional</span>
+    
+<span class="fc" id="L256">    public static final CBORObject GP_ENC_ALG = CBORObject.FromObject(-4); // provisional</span>
+    
+<span class="fc" id="L258">    public static final CBORObject SIGN_ALG = CBORObject.FromObject(-5); // provisional</span>
+    
+<span class="fc" id="L260">    public static final CBORObject SIGN_PARAMS = CBORObject.FromObject(-6); // provisional</span>
+    
+<span class="fc" id="L262">    public static final CBORObject PAIRWISE_MODE = CBORObject.FromObject(-7); // provisional</span>
+    
+<span class="fc" id="L264">    public static final CBORObject ALG = CBORObject.FromObject(-8); // provisional</span>
+    
+<span class="fc" id="L266">    public static final CBORObject ECDH_ALG = CBORObject.FromObject(-9); // provisional</span>
+    
+<span class="fc" id="L268">    public static final CBORObject ECDH_PARAMS = CBORObject.FromObject(-10); // provisional</span>
+        
+<span class="fc" id="L270">    public static final CBORObject RT = CBORObject.FromObject(-11); // provisional</span>
+    
+<span class="fc" id="L272">    public static final CBORObject ACTIVE = CBORObject.FromObject(-12); // provisional</span>
+    
+<span class="fc" id="L274">    public static final CBORObject GROUP_NAME = CBORObject.FromObject(-13); // provisional</span>
+    
+<span class="fc" id="L276">    public static final CBORObject GROUP_DESCRIPTION = CBORObject.FromObject(-14); // provisional</span>
+    
+<span class="fc" id="L278">    public static final CBORObject MAX_STALE_SETS = CBORObject.FromObject(-15); // provisional</span>
+    
+<span class="fc" id="L280">    public static final CBORObject GID_REUSE = CBORObject.FromObject(-16); // provisional</span>
+    
+<span class="fc" id="L282">    public static final CBORObject APP_GROUPS = CBORObject.FromObject(-17); // provisional</span>
+    
+<span class="fc" id="L284">    public static final CBORObject JOINING_URI = CBORObject.FromObject(-18); // provisional</span>
+    
+<span class="fc" id="L286">    public static final CBORObject AS_URI = CBORObject.FromObject(-19); // provisional</span>
+    
+<span class="fc" id="L288">    public static final CBORObject DET_REQ = CBORObject.FromObject(-25); // provisional</span>
+    
+<span class="fc" id="L290">    public static final CBORObject DET_HASH_ALG = CBORObject.FromObject(-26); // provisional</span>
+    
+<span class="fc" id="L292">    public static final CBORObject CONF_FILTER = CBORObject.FromObject(-27); // provisional</span>
+    
+<span class="fc" id="L294">    public static final CBORObject APP_GROUPS_DIFF = CBORObject.FromObject(-28); // provisional</span>
+    
+	/**
+     * Check whether the specified parameter is meaningful, i.e., it is of the expected CBOR type
+     * and it has the right value if it is of CBOR type simple value.
+     * 
+     * @param name  the CBOR abbreviation of the parameter to be checked
+     * @param value  the value of the parameter to be checked
+     * @return  true if the parameter is meaningful, or false if not meaningful or not recognized
+     */
+    public static boolean isAdminRequestParameterMeaningful(CBORObject name, CBORObject value) {
+    	
+<span class="fc" id="L306">		CBORType type = value.getType();</span>
+    	
+<span class="pc bpc" id="L308" title="1 of 2 branches missed.">    	if (name.equals(HKDF)) {</span>
+<span class="nc" id="L309">    		CBORType expectedType1 = CBORType.TextString;</span>
+<span class="nc" id="L310">    		CBORType expectedType2 = CBORType.Integer;</span>
+<span class="nc bnc" id="L311" title="All 4 branches missed.">    		if ((type == expectedType1) || (type == expectedType2)) return true;</span>
+<span class="nc" id="L312">    		else return false;</span>
+    	}
+    	
+<span class="pc bpc" id="L315" title="1 of 2 branches missed.">    	if (name.equals(CRED_FMT)) {</span>
+<span class="nc" id="L316">    		CBORType expectedType = CBORType.Integer;</span>
+<span class="nc bnc" id="L317" title="All 2 branches missed.">    		if (type == expectedType) return true;</span>
+<span class="nc" id="L318">    		else return false;</span>
+    	}
+    	
+<span class="pc bpc" id="L321" title="1 of 2 branches missed.">    	if (name.equals(GROUP_MODE)) {</span>
+<span class="nc" id="L322">    		CBORObject expectedValue1 = CBORObject.True;</span>
+<span class="nc" id="L323">    		CBORObject expectedValue2 = CBORObject.False;</span>
+<span class="nc bnc" id="L324" title="All 4 branches missed.">    		if (value.equals(expectedValue1) || value.equals(expectedValue2)) return true;</span>
+<span class="nc" id="L325">    		else return false;</span>
+    	}
+    	
+<span class="pc bpc" id="L328" title="1 of 2 branches missed.">    	if (name.equals(GP_ENC_ALG)) {</span>
+<span class="nc" id="L329">    		CBORType expectedType1 = CBORType.TextString;</span>
+<span class="nc" id="L330">    		CBORType expectedType2 = CBORType.Integer;</span>
+<span class="nc" id="L331">    		CBORObject expectedValue = CBORObject.Null;</span>
+<span class="nc bnc" id="L332" title="All 6 branches missed.">    		if ((type == expectedType1) || (type == expectedType2) || value.equals(expectedValue)) return true;</span>
+<span class="nc" id="L333">    		else return false;</span>
+    	}
+    	
+<span class="pc bpc" id="L336" title="1 of 2 branches missed.">    	if (name.equals(SIGN_ALG)) {</span>
+<span class="nc" id="L337">    		CBORType expectedType1 = CBORType.TextString;</span>
+<span class="nc" id="L338">    		CBORType expectedType2 = CBORType.Integer;</span>
+<span class="nc" id="L339">    		CBORObject expectedValue = CBORObject.Null;</span>
+<span class="nc bnc" id="L340" title="All 6 branches missed.">    		if ((type == expectedType1) || (type == expectedType2) || value.equals(expectedValue)) return true;</span>
+<span class="nc" id="L341">    		else return false;</span>
+    	}
+    	
+<span class="pc bpc" id="L344" title="1 of 2 branches missed.">    	if (name.equals(SIGN_PARAMS)) {</span>
+<span class="nc" id="L345">    		CBORType expectedType = CBORType.Array;</span>
+<span class="nc" id="L346">    		CBORObject expectedValue = CBORObject.Null;</span>
+<span class="nc bnc" id="L347" title="All 4 branches missed.">    		if ((type == expectedType) || value.equals(expectedValue)) return true;</span>
+<span class="nc" id="L348">    		else return false;</span>
+    	}
+    	
+<span class="pc bpc" id="L351" title="1 of 2 branches missed.">    	if (name.equals(PAIRWISE_MODE)) {</span>
+<span class="nc" id="L352">    		CBORObject expectedValue1 = CBORObject.True;</span>
+<span class="nc" id="L353">    		CBORObject expectedValue2 = CBORObject.False;</span>
+<span class="nc bnc" id="L354" title="All 4 branches missed.">    		if (value.equals(expectedValue1) || value.equals(expectedValue2)) return true;</span>
+<span class="nc" id="L355">    		else return false;</span>
+    	}
+    	
+<span class="pc bpc" id="L358" title="1 of 2 branches missed.">    	if (name.equals(ALG)) {</span>
+<span class="nc" id="L359">    		CBORType expectedType1 = CBORType.TextString;</span>
+<span class="nc" id="L360">    		CBORType expectedType2 = CBORType.Integer;</span>
+<span class="nc" id="L361">    		CBORObject expectedValue = CBORObject.Null;</span>
+<span class="nc bnc" id="L362" title="All 6 branches missed.">    		if ((type == expectedType1) || (type == expectedType2) || value.equals(expectedValue)) return true;</span>
+<span class="nc" id="L363">    		else return false;</span>
+    	}
+    	
+<span class="pc bpc" id="L366" title="1 of 2 branches missed.">    	if (name.equals(ECDH_ALG)) {</span>
+<span class="nc" id="L367">    		CBORType expectedType1 = CBORType.TextString;</span>
+<span class="nc" id="L368">    		CBORType expectedType2 = CBORType.Integer;</span>
+<span class="nc" id="L369">    		CBORObject expectedValue = CBORObject.Null;</span>
+<span class="nc bnc" id="L370" title="All 6 branches missed.">    		if ((type == expectedType1) || (type == expectedType2) || value.equals(expectedValue)) return true;</span>
+<span class="nc" id="L371">    		else return false;</span>
+    	}
+    	
+<span class="pc bpc" id="L374" title="1 of 2 branches missed.">    	if (name.equals(ECDH_PARAMS)) {</span>
+<span class="nc" id="L375">    		CBORType expectedType = CBORType.Array;</span>
+<span class="nc" id="L376">    		CBORObject expectedValue = CBORObject.Null;</span>
+<span class="nc bnc" id="L377" title="All 4 branches missed.">    		if ((type == expectedType) || value.equals(expectedValue)) return true;</span>
+<span class="nc" id="L378">    		else return false;</span>
+    	}
+    	
+<span class="pc bpc" id="L381" title="1 of 2 branches missed.">    	if (name.equals(DET_REQ)) {</span>
+<span class="nc" id="L382">    		CBORObject expectedValue1 = CBORObject.True;</span>
+<span class="nc" id="L383">    		CBORObject expectedValue2 = CBORObject.False;</span>
+<span class="nc bnc" id="L384" title="All 4 branches missed.">    		if (value.equals(expectedValue1) || value.equals(expectedValue2)) return true;</span>
+<span class="nc" id="L385">    		else return false;</span>
+    	}
+    	
+<span class="pc bpc" id="L388" title="1 of 2 branches missed.">    	if (name.equals(DET_HASH_ALG)) {</span>
+<span class="nc" id="L389">    		CBORType expectedType1 = CBORType.TextString;</span>
+<span class="nc" id="L390">    		CBORType expectedType2 = CBORType.Integer;</span>
+<span class="nc bnc" id="L391" title="All 4 branches missed.">    		if ((type == expectedType1) || (type == expectedType2)) return true;</span>
+<span class="nc" id="L392">    		else return false;</span>
+    	}
+    	
+<span class="fc bfc" id="L395" title="All 2 branches covered.">    	if (name.equals(ACTIVE)) {</span>
+<span class="fc" id="L396">    		CBORObject expectedValue1 = CBORObject.True;</span>
+<span class="fc" id="L397">    		CBORObject expectedValue2 = CBORObject.False;</span>
+<span class="pc bpc" id="L398" title="3 of 4 branches missed.">    		if (value.equals(expectedValue1) || value.equals(expectedValue2)) return true;</span>
+<span class="nc" id="L399">    		else return false;</span>
+    	}
+    	
+<span class="fc bfc" id="L402" title="All 2 branches covered.">    	if (name.equals(GROUP_NAME)) {</span>
+<span class="fc" id="L403">    		CBORType expectedType = CBORType.TextString;</span>
+<span class="pc bpc" id="L404" title="1 of 2 branches missed.">    		if (type == expectedType) return true;</span>
+<span class="nc" id="L405">    		else return false;</span>
+    	}
+    	
+<span class="pc bpc" id="L408" title="1 of 2 branches missed.">    	if (name.equals(GROUP_DESCRIPTION)) {</span>
+<span class="fc" id="L409">    		CBORType expectedType = CBORType.TextString;</span>
+<span class="fc" id="L410">    		CBORObject expectedValue = CBORObject.Null;</span>
+<span class="pc bpc" id="L411" title="3 of 4 branches missed.">    		if ((type == expectedType) || value.equals(expectedValue)) return true;</span>
+<span class="nc" id="L412">    		else return false;</span>
+    	}
+
+<span class="nc bnc" id="L415" title="All 2 branches missed.">    	if (name.equals(MAX_STALE_SETS)) {</span>
+<span class="nc" id="L416">    		CBORType expectedType = CBORType.Integer;</span>
+<span class="nc bnc" id="L417" title="All 4 branches missed.">    		if ((type == expectedType) &amp;&amp; (value.AsInt32() &gt; 1)) return true;</span>
+<span class="nc" id="L418">    		else return false;</span>
+    	}
+    	
+<span class="nc bnc" id="L421" title="All 2 branches missed.">    	if (name.equals(EXP)) {</span>
+<span class="nc" id="L422">    		CBORType expectedType = CBORType.Integer;</span>
+<span class="nc bnc" id="L423" title="All 6 branches missed.">    		if ((type == expectedType) &amp;&amp; (value.AsInt32() &gt; 0) &amp;&amp; (value.AsInt64Value() &gt; (System.currentTimeMillis() / 1000L))) return true;</span>
+<span class="nc" id="L424">    		else return false;</span>
+    	}
+    	
+<span class="nc bnc" id="L427" title="All 2 branches missed.">    	if (name.equals(GROUP_POLICIES)) {</span>
+<span class="nc" id="L428">    		CBORType expectedType = CBORType.Map;</span>
+<span class="nc bnc" id="L429" title="All 2 branches missed.">    		if (type == expectedType) return true;</span>
+<span class="nc" id="L430">    		else return false;</span>
+    	}
+    	
+<span class="nc bnc" id="L433" title="All 2 branches missed.">    	if (name.equals(GID_REUSE)) {</span>
+<span class="nc" id="L434">    		CBORObject expectedValue1 = CBORObject.True;</span>
+<span class="nc" id="L435">    		CBORObject expectedValue2 = CBORObject.False;</span>
+<span class="nc bnc" id="L436" title="All 4 branches missed.">    		if (value.equals(expectedValue1) || value.equals(expectedValue2)) return true;</span>
+<span class="nc" id="L437">    		else return false;</span>
+    	}
+    	
+<span class="nc bnc" id="L440" title="All 2 branches missed.">    	if (name.equals(APP_GROUPS)) {</span>
+<span class="nc" id="L441">    		CBORType expectedType = CBORType.Array;</span>
+<span class="nc bnc" id="L442" title="All 2 branches missed.">    		if (type == expectedType) return true;</span>
+<span class="nc" id="L443">    		else return false;</span>
+    	}
+    	    	
+<span class="nc bnc" id="L446" title="All 2 branches missed.">    	if (name.equals(AS_URI)) {</span>
+<span class="nc" id="L447">    		CBORType expectedType = CBORType.TextString;</span>
+<span class="nc bnc" id="L448" title="All 2 branches missed.">    		if (type == expectedType) return true;</span>
+<span class="nc" id="L449">    		else return false;</span>
+    	}
+    	
+<span class="nc bnc" id="L452" title="All 2 branches missed.">    	if (name.equals(CONF_FILTER)) {</span>
+<span class="nc" id="L453">    		CBORType expectedType = CBORType.Array;</span>
+<span class="nc bnc" id="L454" title="All 2 branches missed.">    		if (type == expectedType) return true;</span>
+<span class="nc" id="L455">    		else return false;</span>
+    	}
+    	
+<span class="nc bnc" id="L458" title="All 2 branches missed.">    	if (name.equals(APP_GROUPS_DIFF)) {</span>
+<span class="nc" id="L459">    		CBORType expectedType = CBORType.Array;</span>
+<span class="nc bnc" id="L460" title="All 2 branches missed.">    		if (type == expectedType) return true;</span>
+<span class="nc" id="L461">    		else return false;</span>
+    	}
+    	
+    	// Unrecognized parameter
+<span class="nc" id="L465">    	return false;</span>
+    }
+    
+	/**
+     * Check whether the specified parameter value is meaningful.
+     * 
+     * This takes into account admitted values altogether (e.g,. per the relevant COSE registries),
+     * as well as the local support for algorithms and other functionalities at the Group Manager.
+     * 
+     * Note that the parameters have been checked already for being of the correct CBOR type.
+     * The parameters of type CBOR simple value has also already been checked as to their value.
+     * 
+     * @param name  the CBOR abbreviation of the parameter to be checked
+     * @param name  the value of the parameter to be checked
+     * @return  true if the parameter value is meaningful, or false if not meaningful or not recognized
+     */
+    public static boolean isAdminParameterValueMeaningful(CBORObject name, CBORObject value) {
+    	
+<span class="pc bpc" id="L483" title="1 of 2 branches missed.">    	if (name.equals(HKDF)) {</span>
+<span class="nc bnc" id="L484" title="All 2 branches missed.">    		if (value.getType().equals(CBORType.Integer)) {</span>
+<span class="nc bnc" id="L485" title="All 2 branches missed.">    			if (value.equals(AlgorithmID.HMAC_SHA_256.AsCBOR()) ||</span>
+<span class="nc bnc" id="L486" title="All 2 branches missed.">    				value.equals(AlgorithmID.HMAC_SHA_512.AsCBOR())) {</span>
+<span class="nc" id="L487">    				return true;</span>
+    			}
+    		}
+<span class="nc" id="L490">    		return false;</span>
+    	}
+
+<span class="pc bpc" id="L493" title="1 of 2 branches missed.">    	if (name.equals(CRED_FMT)) {</span>
+<span class="nc bnc" id="L494" title="All 2 branches missed.">			if (value.equals(CBORObject.FromObject(Constants.COSE_HEADER_PARAM_X5BAG)) ||</span>
+<span class="nc bnc" id="L495" title="All 2 branches missed.">				value.equals(CBORObject.FromObject(Constants.COSE_HEADER_PARAM_X5CHAIN)) ||</span>
+<span class="nc bnc" id="L496" title="All 2 branches missed.">				value.equals(CBORObject.FromObject(Constants.COSE_HEADER_PARAM_KCWT)) ||</span>
+<span class="nc bnc" id="L497" title="All 2 branches missed.">				value.equals(CBORObject.FromObject(Constants.COSE_HEADER_PARAM_KCCS)) ||</span>
+<span class="nc bnc" id="L498" title="All 2 branches missed.">				value.equals(CBORObject.FromObject(Constants.COSE_HEADER_PARAM_C5B)) ||</span>
+<span class="nc bnc" id="L499" title="All 2 branches missed.">				value.equals(CBORObject.FromObject(Constants.COSE_HEADER_PARAM_C5C))) {</span>
+<span class="nc" id="L500">				return true;</span>
+			}
+<span class="nc" id="L502">    		return false;</span>
+    	}
+    	
+<span class="pc bpc" id="L505" title="1 of 2 branches missed.">    	if (name.equals(GP_ENC_ALG)) {</span>
+<span class="nc bnc" id="L506" title="All 2 branches missed.">    		if (value.getType().equals(CBORType.Integer)) {</span>
+<span class="nc bnc" id="L507" title="All 2 branches missed.">    			if (value.equals(AlgorithmID.AES_CCM_16_64_128.AsCBOR()) ||</span>
+<span class="nc bnc" id="L508" title="All 2 branches missed.">    				value.equals(AlgorithmID.AES_CCM_16_64_256.AsCBOR()) ||</span>
+<span class="nc bnc" id="L509" title="All 2 branches missed.">    				value.equals(AlgorithmID.AES_CCM_64_64_128.AsCBOR()) ||</span>
+<span class="nc bnc" id="L510" title="All 2 branches missed.">    				value.equals(AlgorithmID.AES_CCM_64_64_256.AsCBOR()) ||</span>
+<span class="nc bnc" id="L511" title="All 2 branches missed.">    				value.equals(AlgorithmID.AES_CCM_16_128_128.AsCBOR()) ||</span>
+<span class="nc bnc" id="L512" title="All 2 branches missed.">    				value.equals(AlgorithmID.AES_CCM_16_128_256.AsCBOR()) ||</span>
+<span class="nc bnc" id="L513" title="All 2 branches missed.">    				value.equals(AlgorithmID.AES_CCM_64_128_128.AsCBOR()) ||</span>
+<span class="nc bnc" id="L514" title="All 2 branches missed.">    				value.equals(AlgorithmID.AES_CCM_64_128_256.AsCBOR())) {</span>
+<span class="nc" id="L515">    				return true;</span>
+    			}
+    		}
+<span class="nc" id="L518">    		return false;</span>
+    	}
+    	
+<span class="pc bpc" id="L521" title="1 of 2 branches missed.">    	if (name.equals(SIGN_ALG)) {</span>
+<span class="nc bnc" id="L522" title="All 2 branches missed.">    		if (value.getType().equals(CBORType.Integer)) {</span>
+<span class="nc bnc" id="L523" title="All 2 branches missed.">    			if (value.equals(AlgorithmID.EDDSA.AsCBOR()) ||</span>
+<span class="nc bnc" id="L524" title="All 2 branches missed.">    				value.equals(AlgorithmID.ECDSA_256.AsCBOR()) ||</span>
+<span class="nc bnc" id="L525" title="All 2 branches missed.">    				value.equals(AlgorithmID.ECDSA_384.AsCBOR()) ||</span>
+<span class="nc bnc" id="L526" title="All 2 branches missed.">    				value.equals(AlgorithmID.ECDSA_512.AsCBOR())) {</span>
+<span class="nc" id="L527">    				return true;</span>
+    			}
+    			// This Group Manager does not support RSA as signature algorithm
+    		}
+<span class="nc" id="L531">    		return false;</span>
+    	}
+    	
+<span class="pc bpc" id="L534" title="1 of 2 branches missed.">    	if (name.equals(SIGN_PARAMS)) {</span>
+<span class="nc bnc" id="L535" title="All 2 branches missed.">    		if (value.size() != 2)</span>
+<span class="nc" id="L536">    			return false;</span>
+<span class="nc bnc" id="L537" title="All 4 branches missed.">    		if ((value.get(0).getType() != CBORType.Array) || (value.get(1).getType() != CBORType.Array))</span>
+<span class="nc" id="L538">    			return false;</span>
+<span class="nc bnc" id="L539" title="All 4 branches missed.">    		if ((value.get(0).size() != 1) || (value.get(1).size() != 2))</span>
+<span class="nc" id="L540">    			return false;</span>
+    		
+<span class="nc" id="L542">			CBORObject keyType = value.get(0).get(0);</span>
+<span class="nc bnc" id="L543" title="All 2 branches missed.">			if (value.get(1).get(0).equals(keyType) == false)</span>
+<span class="nc" id="L544">				return false;</span>
+			
+<span class="nc" id="L546">			CBORObject curve = value.get(1).get(1);</span>
+<span class="nc bnc" id="L547" title="All 2 branches missed.">			if (keyType.equals(KeyKeys.KeyType_OKP)) {</span>
+<span class="nc bnc" id="L548" title="All 4 branches missed.">				if (curve.equals(KeyKeys.OKP_Ed25519) || curve.equals(KeyKeys.OKP_Ed448)) {</span>
+<span class="nc" id="L549">					return true;</span>
+				}
+			}
+<span class="nc bnc" id="L552" title="All 2 branches missed.">			if (keyType.equals(KeyKeys.KeyType_EC2)) {</span>
+<span class="nc bnc" id="L553" title="All 6 branches missed.">				if (curve.equals(KeyKeys.EC2_P256) || curve.equals(KeyKeys.EC2_P384) || curve.equals(KeyKeys.EC2_P521)) {</span>
+<span class="nc" id="L554">					return true;</span>
+				}
+			}
+			// This Group Manager does not support RSA as signature algorithm
+			
+<span class="nc" id="L559">    		return false;</span>
+    	}
+    	
+<span class="pc bpc" id="L562" title="1 of 2 branches missed.">    	if (name.equals(ALG)) {</span>
+<span class="nc bnc" id="L563" title="All 2 branches missed.">    		if (value.getType().equals(CBORType.Integer)) {</span>
+<span class="nc bnc" id="L564" title="All 2 branches missed.">    			if (value.equals(AlgorithmID.AES_CCM_16_64_128.AsCBOR()) ||</span>
+<span class="nc bnc" id="L565" title="All 2 branches missed.">    				value.equals(AlgorithmID.AES_CCM_16_64_256.AsCBOR()) ||</span>
+<span class="nc bnc" id="L566" title="All 2 branches missed.">    				value.equals(AlgorithmID.AES_CCM_64_64_128.AsCBOR()) ||</span>
+<span class="nc bnc" id="L567" title="All 2 branches missed.">    				value.equals(AlgorithmID.AES_CCM_64_64_256.AsCBOR()) ||</span>
+<span class="nc bnc" id="L568" title="All 2 branches missed.">    				value.equals(AlgorithmID.AES_CCM_16_128_128.AsCBOR()) ||</span>
+<span class="nc bnc" id="L569" title="All 2 branches missed.">    				value.equals(AlgorithmID.AES_CCM_16_128_256.AsCBOR()) ||</span>
+<span class="nc bnc" id="L570" title="All 2 branches missed.">    				value.equals(AlgorithmID.AES_CCM_64_128_128.AsCBOR()) ||</span>
+<span class="nc bnc" id="L571" title="All 2 branches missed.">    				value.equals(AlgorithmID.AES_CCM_64_128_256.AsCBOR())) {</span>
+<span class="nc" id="L572">    				return true;</span>
+    			}
+    		}
+<span class="nc" id="L575">    		return false;</span>
+    	}
+    	
+<span class="pc bpc" id="L578" title="1 of 2 branches missed.">    	if (name.equals(ECDH_ALG)) {</span>
+<span class="nc bnc" id="L579" title="All 2 branches missed.">    		if (value.getType().equals(CBORType.Integer)) {</span>
+<span class="nc bnc" id="L580" title="All 2 branches missed.">    			if (value.equals(AlgorithmID.ECDH_SS_HKDF_256.AsCBOR()) ||</span>
+<span class="nc bnc" id="L581" title="All 2 branches missed.">    				value.equals(AlgorithmID.ECDH_SS_HKDF_512.AsCBOR())) {</span>
+<span class="nc" id="L582">    				return true;</span>
+    			}
+    		}
+<span class="nc" id="L585">    		return false;</span>
+    	}
+    	
+<span class="pc bpc" id="L588" title="1 of 2 branches missed.">    	if (name.equals(ECDH_PARAMS)) {</span>
+<span class="nc bnc" id="L589" title="All 2 branches missed.">    		if (value.size() != 2)</span>
+<span class="nc" id="L590">    			return false;</span>
+<span class="nc bnc" id="L591" title="All 4 branches missed.">    		if ((value.get(0).getType() != CBORType.Array) || (value.get(1).getType() != CBORType.Array))</span>
+<span class="nc" id="L592">    			return false;</span>
+<span class="nc bnc" id="L593" title="All 4 branches missed.">    		if ((value.get(0).size() != 1) || (value.get(1).size() != 2))</span>
+<span class="nc" id="L594">    			return false;</span>
+    		
+<span class="nc" id="L596">			CBORObject keyType = value.get(0).get(0);</span>
+<span class="nc bnc" id="L597" title="All 2 branches missed.">			if (value.get(1).get(0).equals(keyType) == false)</span>
+<span class="nc" id="L598">				return false;</span>
+			
+<span class="nc" id="L600">			CBORObject curve = value.get(1).get(1);</span>
+<span class="nc bnc" id="L601" title="All 2 branches missed.">			if (keyType.equals(KeyKeys.KeyType_OKP)) {</span>
+<span class="nc bnc" id="L602" title="All 4 branches missed.">				if (curve.equals(KeyKeys.OKP_X25519) || curve.equals(KeyKeys.OKP_X448)) {</span>
+<span class="nc" id="L603">					return true;</span>
+				}
+			}
+<span class="nc bnc" id="L606" title="All 2 branches missed.">			if (keyType.equals(KeyKeys.KeyType_EC2)) {</span>
+<span class="nc bnc" id="L607" title="All 6 branches missed.">				if (curve.equals(KeyKeys.EC2_P256) || curve.equals(KeyKeys.EC2_P384) || curve.equals(KeyKeys.EC2_P521)) {</span>
+<span class="nc" id="L608">					return true;</span>
+				}
+			}
+			// This Group Manager does not support RSA as signature algorithm
+			
+<span class="nc" id="L613">    		return false;</span>
+    	}
+
+<span class="pc bpc" id="L616" title="1 of 2 branches missed.">    	if (name.equals(DET_HASH_ALG)) {</span>
+<span class="nc bnc" id="L617" title="All 2 branches missed.">    		if (value.getType().equals(CBORType.Integer)) {</span>
+<span class="nc" id="L618">    			int hashAlg = value.AsInt32(); </span>
+<span class="nc bnc" id="L619" title="All 6 branches missed.">    			if (hashAlg == -16 || hashAlg == -43 || hashAlg ==  -44) { // SHA-256, SHA-384, SHA-512</span>
+<span class="nc" id="L620">    				return true;</span>
+    			}
+    		}
+<span class="nc" id="L623">    		return false;</span>
+    	}
+    	
+<span class="pc bpc" id="L626" title="1 of 2 branches missed.">    	if (name.equals(GROUP_POLICIES)) {</span>
+<span class="nc" id="L627">    		Set&lt;Integer&gt; admittedPolicies = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L628">    		admittedPolicies.add(GroupcommPolicies.KEY_CHECK_INTERVAL.AsInt32());</span>
+<span class="nc" id="L629">    		admittedPolicies.add(GroupcommPolicies.EXP_DELTA.AsInt32());</span>
+    		
+<span class="nc bnc" id="L631" title="All 2 branches missed.">    		for (CBORObject policyName : value.getKeys()) {</span>
+<span class="nc bnc" id="L632" title="All 2 branches missed.">    			if (!admittedPolicies.contains(policyName.AsInt32()))</span>
+<span class="nc" id="L633">    				return false;</span>
+<span class="nc bnc" id="L634" title="All 2 branches missed.">    			if (policyName.equals(GroupcommPolicies.KEY_CHECK_INTERVAL)) {</span>
+<span class="nc bnc" id="L635" title="All 2 branches missed.">    				if (value.get(policyName).getType() != CBORType.Integer ||</span>
+<span class="nc bnc" id="L636" title="All 2 branches missed.">    					value.get(policyName).AsInt32() &lt; 0)</span>
+<span class="nc" id="L637">    					return false;</span>
+    			}
+<span class="nc bnc" id="L639" title="All 2 branches missed.">    			if (policyName.equals(GroupcommPolicies.EXP_DELTA)) {</span>
+<span class="nc bnc" id="L640" title="All 2 branches missed.">    				if (value.get(policyName).getType() != CBORType.Integer ||</span>
+<span class="nc bnc" id="L641" title="All 2 branches missed.">    					value.get(policyName).AsInt32() &lt; 0)</span>
+<span class="nc" id="L642">    					return false;</span>
+    			}
+<span class="nc" id="L644">    		}</span>
+    		
+<span class="nc" id="L646">    		return true;</span>
+    	}
+    	
+<span class="pc bpc" id="L649" title="1 of 2 branches missed.">    	if (name.equals(APP_GROUPS)) {</span>
+
+<span class="nc bnc" id="L651" title="All 2 branches missed.">    		for (int i = 0; i &lt; value.size(); i++) {</span>
+<span class="nc bnc" id="L652" title="All 2 branches missed.">    			if (value.get(i).getType() != CBORType.TextString)</span>
+<span class="nc" id="L653">    				return false;</span>
+    		}
+    		
+<span class="nc" id="L656">    		return true;</span>
+    	}
+    	
+<span class="fc" id="L659">    	return true;</span>
+    	
+    }
+    
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

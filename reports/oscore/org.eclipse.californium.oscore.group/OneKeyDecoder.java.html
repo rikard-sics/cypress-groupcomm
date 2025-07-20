@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OneKeyDecoder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore.group</a> &gt; <span class="el_source">OneKeyDecoder.java</span></div><h1>OneKeyDecoder.java</h1><pre class="source lang-java linenums">/*******************************************************************************
- * Copyright (c) 2023 RISE SICS and others.
+ * Copyright (c) 2025 RISE SICS and others.
  * 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
@@ -20,7 +20,7 @@ import org.eclipse.californium.cose.AlgorithmID;
 import org.eclipse.californium.cose.CoseException;
 import org.eclipse.californium.cose.KeyKeys;
 import org.eclipse.californium.cose.OneKey;
-import org.eclipse.californium.elements.util.Base64;
+
 import org.eclipse.californium.elements.util.StringUtil;
 
 import com.upokecenter.cbor.CBORObject;
@@ -35,6 +35,116 @@ import net.i2p.crypto.eddsa.Utils;
 <span class="nc" id="L35">public class OneKeyDecoder {</span>
 
 	/**
+	 * Parse a string representing a COSE OneKey in diagnostic notation. This
+	 * method first converts it to a JSON string and then decodes it to a CBOR
+	 * Object using built in methods. A COSE OneKey is then created from that
+	 * CBOR Object.
+	 * 
+	 * @param keyString string representing a OneKey in diagnostic notation
+	 * @return a OneKey object built from the string
+	 */
+	@Deprecated
+	private static OneKey parseDiagnosticOneKey(String keyString) {
+		// OneKey test = OneKey.generateKey(AlgorithmID.EDDSA);
+		// System.out.println(test.AsCBOR().ToJSONString());
+		// CBORObject test2;
+		// CBORObject test3 =
+		// CBORObject.FromJSONString(test.AsCBOR().ToJSONString());
+		// System.out.println(test3.ToJSONString());
+
+		// Convert to lower case
+<span class="nc" id="L56">		keyString = keyString.toLowerCase();</span>
+
+		// Remove { and } characters
+<span class="nc" id="L59">		keyString = keyString.replace(&quot;{&quot;, &quot;&quot;);</span>
+<span class="nc" id="L60">		keyString = keyString.replace(&quot;}&quot;, &quot;&quot;);</span>
+		// Remove spaces
+<span class="nc" id="L62">		keyString = keyString.replace(&quot; &quot;, &quot;&quot;);</span>
+
+		// Split the string into sections at the , and : character
+<span class="nc" id="L65">		String[] segments = keyString.split(&quot;[,:]&quot;);</span>
+
+		// Change every even element to have quotes around it
+<span class="nc bnc" id="L68" title="All 2 branches missed.">		for (int i = 0; i &lt; segments.length; i += 2) {</span>
+<span class="nc" id="L69">			segments[i] = &quot;\&quot;&quot; + segments[i] + &quot;\&quot;&quot;;</span>
+		}
+
+		// Convert byte arrays to Base64
+<span class="nc bnc" id="L73" title="All 2 branches missed.">		for (int i = 0; i &lt; segments.length; i++) {</span>
+
+<span class="nc bnc" id="L75" title="All 4 branches missed.">			if (segments[i].length() &gt;= 2 &amp;&amp; segments[i].substring(0, 2).equals(&quot;h’&quot;)) {</span>
+				// Remove h’ and ’
+<span class="nc" id="L77">				String arrayString = segments[i].replace(&quot;h’&quot;, &quot;&quot;).replace(&quot;’&quot;, &quot;&quot;);</span>
+
+				// Convert to base64
+<span class="nc" id="L80">				byte[] array = StringUtil.hex2ByteArray(arrayString);</span>
+<span class="nc" id="L81">				String arrayBase64 = StringUtil.byteArrayToBase64(array);</span>
+
+				// Change it to base64url encoding
+<span class="nc" id="L84">				arrayBase64 = arrayBase64.replace(&quot;+&quot;, &quot;-&quot;);</span>
+<span class="nc" id="L85">				arrayBase64 = arrayBase64.replace(&quot;/&quot;, &quot;_&quot;);</span>
+
+				// Remove padding
+<span class="nc" id="L88">				arrayBase64 = arrayBase64.replace(&quot;=&quot;, &quot;&quot;);</span>
+
+<span class="nc" id="L90">				segments[i] = &quot;\&quot;&quot; + arrayBase64 + &quot;\&quot;&quot;;</span>
+			}
+		}
+
+		// Reassemble everything into a string
+<span class="nc" id="L95">		StringBuilder jsonString = new StringBuilder();</span>
+<span class="nc" id="L96">		jsonString.append(&quot;{&quot;);</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">		for (int i = 0; i &lt; segments.length; i++) {</span>
+<span class="nc" id="L98">			jsonString.append(segments[i]);</span>
+
+<span class="nc bnc" id="L100" title="All 2 branches missed.">			if (i % 2 == 0) {</span>
+<span class="nc" id="L101">				jsonString.append(&quot;:&quot;);</span>
+<span class="nc bnc" id="L102" title="All 4 branches missed.">			} else if (i % 2 != 0 &amp;&amp; i != segments.length - 1) {</span>
+<span class="nc" id="L103">				jsonString.append(&quot;,&quot;);</span>
+			}
+		}
+<span class="nc" id="L106">		jsonString.append(&quot;}&quot;);</span>
+
+		// Parse the JSON string into a CBOR Object
+<span class="nc" id="L109">		CBORObject keyCbor = CBORObject.FromJSONString(jsonString.toString());</span>
+<span class="nc" id="L110">		System.out.println(&quot;TPYE&quot; + keyCbor.getType());</span>
+
+<span class="nc" id="L112">		System.out.println(&quot;WWWW &quot; + keyCbor.ToJSONString());</span>
+<span class="nc" id="L113">		System.out.println(&quot;WWWW2 &quot; + keyCbor);</span>
+
+		// Set the key type if missing (which it sometimes is)
+<span class="nc bnc" id="L116" title="All 2 branches missed.">		if (keyCbor.get(KeyKeys.KeyType.AsCBOR()) == null) {</span>
+			// Checks and sets the key type for ECDSA
+<span class="nc" id="L118">			CBORObject ec2Curve = keyCbor.get(KeyKeys.EC2_Curve.AsCBOR());</span>
+
+<span class="nc" id="L120">			System.out.println(&quot;ec2Curve&quot; + ec2Curve);</span>
+
+<span class="nc bnc" id="L122" title="All 6 branches missed.">			if (ec2Curve == KeyKeys.EC2_P256 || ec2Curve == KeyKeys.EC2_P384 || ec2Curve == KeyKeys.EC2_P521) {</span>
+<span class="nc" id="L123">				System.out.println(&quot;HELLo1&quot;);</span>
+<span class="nc" id="L124">				keyCbor.set(KeyKeys.KeyType.AsCBOR(), KeyKeys.KeyType_EC2);</span>
+			}
+
+			// Checks and sets the key type for EDDSA
+<span class="nc" id="L128">			CBORObject okpCurve = keyCbor.get(KeyKeys.OKP_Curve.AsCBOR());</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">			if (okpCurve == KeyKeys.OKP_Ed25519) {</span>
+<span class="nc" id="L130">				System.out.println(&quot;HELLo2&quot;);</span>
+<span class="nc" id="L131">				keyCbor.set(KeyKeys.KeyType.AsCBOR(), KeyKeys.KeyType_OKP);</span>
+			}
+		}
+
+		// Create a COSE key from CBOR Object
+<span class="nc" id="L136">		OneKey key = null;</span>
+		try {
+<span class="nc" id="L138">			key = new OneKey(keyCbor);</span>
+<span class="nc" id="L139">		} catch (CoseException e) {</span>
+<span class="nc" id="L140">			System.err.println(&quot;Error: Failed to decode COSE OneKey from diagnostic notation.&quot;);</span>
+<span class="nc" id="L141">			e.printStackTrace();</span>
+<span class="nc" id="L142">		}</span>
+
+<span class="nc" id="L144">		return key;</span>
+	}
+
+	/**
 	 * Create OneKey from raw bytes representing a public key. This is what one
 	 * party had during the last interop test.
 	 * 
@@ -45,16 +155,16 @@ import net.i2p.crypto.eddsa.Utils;
 	 */
 	public static OneKey fromRawPublicBytes(AlgorithmID alg, byte[] publicKey) {
 
-<span class="pc bpc" id="L48" title="1 of 2 branches missed.">		switch (alg) {</span>
+<span class="pc bpc" id="L158" title="1 of 2 branches missed.">		switch (alg) {</span>
 		case EDDSA:
-<span class="fc" id="L50">			String keyStringStart = &quot;{1: 1, -2: h'&quot;;</span>
-<span class="fc" id="L51">			String keyStringEnd = &quot;', -1: 6, 3: -8}&quot;;</span>
-<span class="fc" id="L52">			String publicKeyString = Utils.bytesToHex(publicKey);</span>
-<span class="fc" id="L53">			String fullKeyString = keyStringStart + publicKeyString + keyStringEnd;</span>
-<span class="fc" id="L54">			return parseDiagnostic(fullKeyString);</span>
+<span class="fc" id="L160">			String keyStringStart = &quot;{1: 1, -2: h'&quot;;</span>
+<span class="fc" id="L161">			String keyStringEnd = &quot;', -1: 6, 3: -8}&quot;;</span>
+<span class="fc" id="L162">			String publicKeyString = Utils.bytesToHex(publicKey);</span>
+<span class="fc" id="L163">			String fullKeyString = keyStringStart + publicKeyString + keyStringEnd;</span>
+<span class="fc" id="L164">			return parseDiagnostic(fullKeyString);</span>
 		default:
-<span class="nc" id="L56">			System.err.println(&quot;Conversion using this algorithm not supported.&quot;);</span>
-<span class="nc" id="L57">			return null;</span>
+<span class="nc" id="L166">			System.err.println(&quot;Conversion using this algorithm not supported.&quot;);</span>
+<span class="nc" id="L167">			return null;</span>
 		}
 	}
 
@@ -65,7 +175,7 @@ import net.i2p.crypto.eddsa.Utils;
 	 * @return a CBOR object built from the string
 	 */
 	public static CBORObject parseDiagnosticToCbor(String keyString) {
-<span class="fc" id="L68">		return parseDiagnostic(keyString).AsCBOR();</span>
+<span class="fc" id="L178">		return parseDiagnostic(keyString).AsCBOR();</span>
 	}
 
 	/**
@@ -76,11 +186,11 @@ import net.i2p.crypto.eddsa.Utils;
 	 */
 	public static String parseDiagnosticToBase64(String keyString) {
 
-<span class="nc" id="L79">		OneKey key = parseDiagnostic(keyString);</span>
-<span class="nc" id="L80">		byte[] keyObjectBytes = key.EncodeToBytes();</span>
-<span class="nc" id="L81">		String base64Encoded = Base64.encodeBytes(keyObjectBytes);</span>
+<span class="nc" id="L189">		OneKey key = parseDiagnostic(keyString);</span>
+<span class="nc" id="L190">		byte[] keyObjectBytes = key.EncodeToBytes();</span>
+<span class="nc" id="L191">		String base64Encoded = StringUtil.byteArrayToBase64(keyObjectBytes);</span>
 
-<span class="nc" id="L83">		return base64Encoded;</span>
+<span class="nc" id="L193">		return base64Encoded;</span>
 	}
 
 	/**
@@ -94,62 +204,62 @@ import net.i2p.crypto.eddsa.Utils;
 	public static OneKey parseDiagnostic(String keyString) {
 
 		// Add algorithm to key if missing
-<span class="fc" id="L97">		boolean addAlgorithm = false;</span>
+<span class="fc" id="L207">		boolean addAlgorithm = false;</span>
 
 		// Change alternative version of single quotes
-<span class="fc" id="L100">		keyString = keyString.replace(&quot;’&quot;, &quot;'&quot;);</span>
+<span class="fc" id="L210">		keyString = keyString.replace(&quot;’&quot;, &quot;'&quot;);</span>
 
 		// Convert to lower case
-<span class="fc" id="L103">		keyString = keyString.toLowerCase();</span>
+<span class="fc" id="L213">		keyString = keyString.toLowerCase();</span>
 
 		// Remove { and } characters
-<span class="fc" id="L106">		keyString = keyString.replace(&quot;{&quot;, &quot;&quot;);</span>
-<span class="fc" id="L107">		keyString = keyString.replace(&quot;}&quot;, &quot;&quot;);</span>
+<span class="fc" id="L216">		keyString = keyString.replace(&quot;{&quot;, &quot;&quot;);</span>
+<span class="fc" id="L217">		keyString = keyString.replace(&quot;}&quot;, &quot;&quot;);</span>
 		// Remove spaces
-<span class="fc" id="L109">		keyString = keyString.replace(&quot; &quot;, &quot;&quot;);</span>
+<span class="fc" id="L219">		keyString = keyString.replace(&quot; &quot;, &quot;&quot;);</span>
 
 		// Split the string into sections at the , and : character
-<span class="fc" id="L112">		String[] segments = keyString.split(&quot;[,:]&quot;);</span>
+<span class="fc" id="L222">		String[] segments = keyString.split(&quot;[,:]&quot;);</span>
 
 		// Build CBOR Object from the segments
-<span class="fc" id="L115">		CBORObject keyCbor = CBORObject.NewMap();</span>
+<span class="fc" id="L225">		CBORObject keyCbor = CBORObject.NewMap();</span>
 
-<span class="fc bfc" id="L117" title="All 2 branches covered.">		for (int i = 0; i &lt; segments.length; i += 2) {</span>
-<span class="fc" id="L118">			int key = Integer.parseInt(segments[i]);</span>
-<span class="fc" id="L119">			String value = segments[i + 1];</span>
+<span class="fc bfc" id="L227" title="All 2 branches covered.">		for (int i = 0; i &lt; segments.length; i += 2) {</span>
+<span class="fc" id="L228">			int key = Integer.parseInt(segments[i]);</span>
+<span class="fc" id="L229">			String value = segments[i + 1];</span>
 
 			// Handle byte array values
-<span class="fc bfc" id="L122" title="All 4 branches covered.">			if (value.length() &gt;= 2 &amp;&amp; value.substring(0, 2).equals(&quot;h'&quot;)) {</span>
-<span class="fc" id="L123">				String arrayString = value.replace(&quot;h'&quot;, &quot;&quot;).replace(&quot;'&quot;, &quot;&quot;);</span>
-<span class="fc" id="L124">				byte[] array = StringUtil.hex2ByteArray(arrayString);</span>
-<span class="fc" id="L125">				keyCbor.Add(key, array);</span>
-<span class="fc" id="L126">			} else {</span>
+<span class="fc bfc" id="L232" title="All 4 branches covered.">			if (value.length() &gt;= 2 &amp;&amp; value.substring(0, 2).equals(&quot;h'&quot;)) {</span>
+<span class="fc" id="L233">				String arrayString = value.replace(&quot;h'&quot;, &quot;&quot;).replace(&quot;'&quot;, &quot;&quot;);</span>
+<span class="fc" id="L234">				byte[] array = StringUtil.hex2ByteArray(arrayString);</span>
+<span class="fc" id="L235">				keyCbor.Add(key, array);</span>
+<span class="fc" id="L236">			} else {</span>
 				// Handle integer values
-<span class="fc" id="L128">				int valueInt = Integer.parseInt(value);</span>
-<span class="fc" id="L129">				keyCbor.Add(key, valueInt);</span>
+<span class="fc" id="L238">				int valueInt = Integer.parseInt(value);</span>
+<span class="fc" id="L239">				keyCbor.Add(key, valueInt);</span>
 			}
 		}
 
 		// Set the algorithm if missing (which it sometimes is) TODO: Needed?
-<span class="pc bpc" id="L134" title="3 of 4 branches missed.">		if (addAlgorithm &amp;&amp; keyCbor.get(KeyKeys.Algorithm.AsCBOR()) == null) {</span>
+<span class="pc bpc" id="L244" title="3 of 4 branches missed.">		if (addAlgorithm &amp;&amp; keyCbor.get(KeyKeys.Algorithm.AsCBOR()) == null) {</span>
 
 			// System.out.println(&quot;AlgorithmID in diagnostic string is null,
 			// setting it.&quot;);
 
-<span class="nc" id="L139">			AlgorithmID countersignAlg = OneKeyDecoder.getAlgFromCurve(keyCbor);</span>
-<span class="nc" id="L140">			keyCbor.set(KeyKeys.Algorithm.AsCBOR(), countersignAlg.AsCBOR());</span>
+<span class="nc" id="L249">			AlgorithmID countersignAlg = OneKeyDecoder.getAlgFromCurve(keyCbor);</span>
+<span class="nc" id="L250">			keyCbor.set(KeyKeys.Algorithm.AsCBOR(), countersignAlg.AsCBOR());</span>
 		}
 
 		// Create a COSE key from CBOR Object
-<span class="fc" id="L144">		OneKey key = null;</span>
+<span class="fc" id="L254">		OneKey key = null;</span>
 		try {
-<span class="fc" id="L146">			key = new OneKey(keyCbor);</span>
-<span class="nc" id="L147">		} catch (CoseException e) {</span>
-<span class="nc" id="L148">			System.err.println(&quot;Error: Failed to decode COSE OneKey from diagnostic notation.&quot;);</span>
-<span class="nc" id="L149">			e.printStackTrace();</span>
-<span class="fc" id="L150">		}</span>
+<span class="fc" id="L256">			key = new OneKey(keyCbor);</span>
+<span class="nc" id="L257">		} catch (CoseException e) {</span>
+<span class="nc" id="L258">			System.err.println(&quot;Error: Failed to decode COSE OneKey from diagnostic notation.&quot;);</span>
+<span class="nc" id="L259">			e.printStackTrace();</span>
+<span class="fc" id="L260">		}</span>
 
-<span class="fc" id="L152">		return key;</span>
+<span class="fc" id="L262">		return key;</span>
 	}
 
 	/**
@@ -159,32 +269,32 @@ import net.i2p.crypto.eddsa.Utils;
 	 * @return the algorithm used
 	 */
 	public static AlgorithmID getAlgFromCurve(OneKey key) {
-<span class="fc" id="L162">		CBORObject ec2Curve = null;</span>
-<span class="fc" id="L163">		CBORObject okpCurve = null;</span>
+<span class="fc" id="L272">		CBORObject ec2Curve = null;</span>
+<span class="fc" id="L273">		CBORObject okpCurve = null;</span>
 
 		try {
-<span class="fc" id="L166">			okpCurve = key.get(KeyKeys.OKP_Curve.AsCBOR());</span>
-<span class="fc" id="L167">			ec2Curve = key.get(KeyKeys.EC2_Curve.AsCBOR());</span>
-<span class="nc" id="L168">		} catch (CoseException e) {</span>
-<span class="nc" id="L169">			System.err.println(&quot;Failed to identify algorithm used from curve.&quot;);</span>
-<span class="nc" id="L170">			e.printStackTrace();</span>
-<span class="fc" id="L171">		}</span>
+<span class="fc" id="L276">			okpCurve = key.get(KeyKeys.OKP_Curve.AsCBOR());</span>
+<span class="fc" id="L277">			ec2Curve = key.get(KeyKeys.EC2_Curve.AsCBOR());</span>
+<span class="nc" id="L278">		} catch (CoseException e) {</span>
+<span class="nc" id="L279">			System.err.println(&quot;Failed to identify algorithm used from curve.&quot;);</span>
+<span class="nc" id="L280">			e.printStackTrace();</span>
+<span class="fc" id="L281">		}</span>
 
 		// Checks and returns the algorithm by looking at the curve used
-<span class="fc bfc" id="L174" title="All 2 branches covered.">		if (ec2Curve == KeyKeys.EC2_P256) {</span>
+<span class="fc bfc" id="L284" title="All 2 branches covered.">		if (ec2Curve == KeyKeys.EC2_P256) {</span>
 			// ECDSA 256
-<span class="fc" id="L176">			return AlgorithmID.ECDSA_256;</span>
-<span class="pc bpc" id="L177" title="1 of 2 branches missed.">		} else if (ec2Curve == KeyKeys.EC2_P384) {</span>
+<span class="fc" id="L286">			return AlgorithmID.ECDSA_256;</span>
+<span class="pc bpc" id="L287" title="1 of 2 branches missed.">		} else if (ec2Curve == KeyKeys.EC2_P384) {</span>
 			// ECDSA 384
-<span class="nc" id="L179">			return AlgorithmID.ECDSA_384;</span>
-<span class="pc bpc" id="L180" title="1 of 2 branches missed.">		} else if (ec2Curve == KeyKeys.EC2_P521) {</span>
+<span class="nc" id="L289">			return AlgorithmID.ECDSA_384;</span>
+<span class="pc bpc" id="L290" title="1 of 2 branches missed.">		} else if (ec2Curve == KeyKeys.EC2_P521) {</span>
 			// ECDSA 512
-<span class="nc" id="L182">			return AlgorithmID.ECDSA_256;</span>
-<span class="pc bpc" id="L183" title="1 of 2 branches missed.">		} else if (okpCurve == KeyKeys.OKP_Ed25519) {</span>
+<span class="nc" id="L292">			return AlgorithmID.ECDSA_256;</span>
+<span class="pc bpc" id="L293" title="1 of 2 branches missed.">		} else if (okpCurve == KeyKeys.OKP_Ed25519) {</span>
 			// EdDSA
-<span class="fc" id="L185">			return AlgorithmID.EDDSA;</span>
+<span class="fc" id="L295">			return AlgorithmID.EDDSA;</span>
 		} else {
-<span class="nc" id="L187">			return null;</span>
+<span class="nc" id="L297">			return null;</span>
 		}
 	}
 
@@ -195,24 +305,24 @@ import net.i2p.crypto.eddsa.Utils;
 	 * @return the algorithm used
 	 */
 	public static AlgorithmID getAlgFromCurve(CBORObject key) {
-<span class="nc" id="L198">		CBORObject ec2Curve = key.get(KeyKeys.EC2_Curve.AsCBOR());</span>
-<span class="nc" id="L199">		CBORObject okpCurve = key.get(KeyKeys.OKP_Curve.AsCBOR());</span>
+<span class="nc" id="L308">		CBORObject ec2Curve = key.get(KeyKeys.EC2_Curve.AsCBOR());</span>
+<span class="nc" id="L309">		CBORObject okpCurve = key.get(KeyKeys.OKP_Curve.AsCBOR());</span>
 
 		// Checks and returns the algorithm by looking at the curve used
-<span class="nc bnc" id="L202" title="All 2 branches missed.">		if (ec2Curve == KeyKeys.EC2_P256) {</span>
+<span class="nc bnc" id="L312" title="All 2 branches missed.">		if (ec2Curve == KeyKeys.EC2_P256) {</span>
 			// ECDSA 256
-<span class="nc" id="L204">			return AlgorithmID.ECDSA_256;</span>
-<span class="nc bnc" id="L205" title="All 2 branches missed.">		} else if (ec2Curve == KeyKeys.EC2_P384) {</span>
+<span class="nc" id="L314">			return AlgorithmID.ECDSA_256;</span>
+<span class="nc bnc" id="L315" title="All 2 branches missed.">		} else if (ec2Curve == KeyKeys.EC2_P384) {</span>
 			// ECDSA 384
-<span class="nc" id="L207">			return AlgorithmID.ECDSA_384;</span>
-<span class="nc bnc" id="L208" title="All 2 branches missed.">		} else if (ec2Curve == KeyKeys.EC2_P521) {</span>
+<span class="nc" id="L317">			return AlgorithmID.ECDSA_384;</span>
+<span class="nc bnc" id="L318" title="All 2 branches missed.">		} else if (ec2Curve == KeyKeys.EC2_P521) {</span>
 			// ECDSA 512
-<span class="nc" id="L210">			return AlgorithmID.ECDSA_256;</span>
-<span class="nc bnc" id="L211" title="All 2 branches missed.">		} else if (okpCurve == KeyKeys.OKP_Ed25519) {</span>
+<span class="nc" id="L320">			return AlgorithmID.ECDSA_256;</span>
+<span class="nc bnc" id="L321" title="All 2 branches missed.">		} else if (okpCurve == KeyKeys.OKP_Ed25519) {</span>
 			// EdDSA
-<span class="nc" id="L213">			return AlgorithmID.EDDSA;</span>
+<span class="nc" id="L323">			return AlgorithmID.EDDSA;</span>
 		} else {
-<span class="nc" id="L215">			return null;</span>
+<span class="nc" id="L325">			return null;</span>
 		}
 	}
 

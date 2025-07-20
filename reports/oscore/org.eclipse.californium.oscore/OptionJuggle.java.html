@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OptionJuggle.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore</a> &gt; <span class="el_source">OptionJuggle.java</span></div><h1>OptionJuggle.java</h1><pre class="source lang-java linenums">/*******************************************************************************
- * Copyright (c) 2018 RISE SICS and others.
+ * Copyright (c) 2025 RISE SICS and others.
  * 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
@@ -22,51 +22,53 @@ package org.eclipse.californium.oscore;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+
+import org.eclipse.californium.core.coap.CoAP.Code;
+import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+import org.eclipse.californium.core.coap.Message;
 import org.eclipse.californium.core.coap.Option;
 import org.eclipse.californium.core.coap.OptionNumberRegistry;
 import org.eclipse.californium.core.coap.OptionSet;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.coap.option.StringOption;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import org.eclipse.californium.core.coap.CoAP.Code;
-import org.eclipse.californium.core.coap.CoAP.ResponseCode;
-import org.eclipse.californium.core.coap.Message;
 
 /**
  * 
  * Provides option handling methods necessary for OSCORE mechanics.
  *
  */
-<span class="nc" id="L43">public class OptionJuggle {</span>
+<span class="nc" id="L45">public class OptionJuggle {</span>
 
 	/**
 	 * The logger
 	 */
-<span class="fc" id="L48">	private static final Logger LOGGER = LoggerFactory.getLogger(OptionJuggle.class);</span>
-	
-<span class="fc" id="L50">	private static List&lt;Integer&gt; allEOptions = populateAllEOptions();</span>
+<span class="fc" id="L50">	private static final Logger LOGGER = LoggerFactory.getLogger(OptionJuggle.class);</span>
+
+<span class="fc" id="L52">	private static List&lt;Integer&gt; allEOptions = populateAllEOptions();</span>
 
 	private static List&lt;Integer&gt; populateAllEOptions() {
-<span class="fc" id="L53">		List&lt;Integer&gt; allEOptions = new ArrayList&lt;Integer&gt;();</span>
-<span class="fc" id="L54">		allEOptions.add(OptionNumberRegistry.IF_MATCH);</span>
-<span class="fc" id="L55">		allEOptions.add(OptionNumberRegistry.ETAG);</span>
-<span class="fc" id="L56">		allEOptions.add(OptionNumberRegistry.IF_NONE_MATCH);</span>
-<span class="fc" id="L57">		allEOptions.add(OptionNumberRegistry.OBSERVE);</span>
-<span class="fc" id="L58">		allEOptions.add(OptionNumberRegistry.LOCATION_PATH);</span>
-<span class="fc" id="L59">		allEOptions.add(OptionNumberRegistry.URI_PATH);</span>
-<span class="fc" id="L60">		allEOptions.add(OptionNumberRegistry.CONTENT_FORMAT);</span>
-<span class="fc" id="L61">		allEOptions.add(OptionNumberRegistry.MAX_AGE);</span>
-<span class="fc" id="L62">		allEOptions.add(OptionNumberRegistry.URI_QUERY);</span>
-<span class="fc" id="L63">		allEOptions.add(OptionNumberRegistry.ACCEPT);</span>
-<span class="fc" id="L64">		allEOptions.add(OptionNumberRegistry.LOCATION_QUERY);</span>
-<span class="fc" id="L65">		allEOptions.add(OptionNumberRegistry.BLOCK2);</span>
-<span class="fc" id="L66">		allEOptions.add(OptionNumberRegistry.BLOCK1);</span>
-<span class="fc" id="L67">		allEOptions.add(OptionNumberRegistry.SIZE2);</span>
-<span class="fc" id="L68">		allEOptions.add(OptionNumberRegistry.SIZE1);</span>
-<span class="fc" id="L69">		return allEOptions;</span>
+<span class="fc" id="L55">		List&lt;Integer&gt; allEOptions = new ArrayList&lt;Integer&gt;();</span>
+<span class="fc" id="L56">		allEOptions.add(OptionNumberRegistry.IF_MATCH);</span>
+<span class="fc" id="L57">		allEOptions.add(OptionNumberRegistry.ETAG);</span>
+<span class="fc" id="L58">		allEOptions.add(OptionNumberRegistry.IF_NONE_MATCH);</span>
+<span class="fc" id="L59">		allEOptions.add(OptionNumberRegistry.OBSERVE);</span>
+<span class="fc" id="L60">		allEOptions.add(OptionNumberRegistry.LOCATION_PATH);</span>
+<span class="fc" id="L61">		allEOptions.add(OptionNumberRegistry.URI_PATH);</span>
+<span class="fc" id="L62">		allEOptions.add(OptionNumberRegistry.CONTENT_FORMAT);</span>
+<span class="fc" id="L63">		allEOptions.add(OptionNumberRegistry.MAX_AGE);</span>
+<span class="fc" id="L64">		allEOptions.add(OptionNumberRegistry.URI_QUERY);</span>
+<span class="fc" id="L65">		allEOptions.add(OptionNumberRegistry.ACCEPT);</span>
+<span class="fc" id="L66">		allEOptions.add(OptionNumberRegistry.LOCATION_QUERY);</span>
+<span class="fc" id="L67">		allEOptions.add(OptionNumberRegistry.BLOCK2);</span>
+<span class="fc" id="L68">		allEOptions.add(OptionNumberRegistry.BLOCK1);</span>
+<span class="fc" id="L69">		allEOptions.add(OptionNumberRegistry.SIZE2);</span>
+<span class="fc" id="L70">		allEOptions.add(OptionNumberRegistry.SIZE1);</span>
+<span class="fc" id="L71">		return allEOptions;</span>
 	}
 
 	/**
@@ -77,59 +79,59 @@ import org.eclipse.californium.core.coap.Message;
 	 * @return the OSCore-U option set
 	 */
 	public static OptionSet prepareUoptions(OptionSet options) {
-<span class="fc" id="L80">		boolean hasProxyUri = options.hasProxyUri();</span>
-<span class="fc" id="L81">		boolean hasUriHost = options.hasUriHost();</span>
-<span class="fc" id="L82">		boolean hasUriPort = options.hasUriPort();</span>
-<span class="fc" id="L83">		boolean hasProxyScheme = options.hasProxyScheme();</span>
-<span class="fc" id="L84">		boolean hasMaxAge = options.hasMaxAge();</span>
-<span class="fc" id="L85">		boolean hasObserve = options.hasObserve();</span>
-<span class="fc" id="L86">		boolean hasEdhoc = options.hasEdhoc(); // EDHOC</span>
+<span class="fc" id="L82">		boolean hasProxyUri = options.hasProxyUri();</span>
+<span class="fc" id="L83">		boolean hasUriHost = options.hasUriHost();</span>
+<span class="fc" id="L84">		boolean hasUriPort = options.hasUriPort();</span>
+<span class="fc" id="L85">		boolean hasProxyScheme = options.hasProxyScheme();</span>
+<span class="fc" id="L86">		boolean hasMaxAge = options.hasMaxAge();</span>
+<span class="fc" id="L87">		boolean hasObserve = options.hasObserve();</span>
+<span class="fc" id="L88">		boolean hasEdhoc = options.hasEdhoc(); // EDHOC</span>
 
-<span class="fc" id="L88">		OptionSet ret = new OptionSet();</span>
+<span class="fc" id="L90">		OptionSet ret = new OptionSet();</span>
 
-<span class="fc bfc" id="L90" title="All 2 branches covered.">		if (hasUriHost) {</span>
-<span class="fc" id="L91">			ret.setUriHost(options.getUriHost());</span>
+<span class="fc bfc" id="L92" title="All 2 branches covered.">		if (hasUriHost) {</span>
+<span class="fc" id="L93">			ret.setUriHost(options.getUriHost());</span>
 		}
 
-<span class="pc bpc" id="L94" title="1 of 2 branches missed.">		if (hasUriPort) {</span>
-<span class="nc" id="L95">			ret.setUriPort(options.getUriPort());</span>
+<span class="pc bpc" id="L96" title="1 of 2 branches missed.">		if (hasUriPort) {</span>
+<span class="nc" id="L97">			ret.setUriPort(options.getUriPort());</span>
 		}
 
-<span class="pc bpc" id="L98" title="1 of 2 branches missed.">		if (hasMaxAge) {</span>
-<span class="nc" id="L99">			ret.setMaxAge(options.getMaxAge());</span>
+<span class="pc bpc" id="L100" title="1 of 2 branches missed.">		if (hasMaxAge) {</span>
+<span class="nc" id="L101">			ret.setMaxAge(options.getMaxAge());</span>
 		}
 
-<span class="pc bpc" id="L102" title="1 of 2 branches missed.">		if (hasProxyScheme) {</span>
-<span class="nc" id="L103">			ret.setProxyScheme(options.getProxyScheme());</span>
+<span class="pc bpc" id="L104" title="1 of 2 branches missed.">		if (hasProxyScheme) {</span>
+<span class="nc" id="L105">			ret.setProxyScheme(options.getProxyScheme());</span>
 		}
 
-<span class="fc bfc" id="L106" title="All 2 branches covered.">		if (hasObserve) {</span>
-<span class="fc" id="L107">			ret.setObserve(options.getObserve());</span>
+<span class="fc bfc" id="L108" title="All 2 branches covered.">		if (hasObserve) {</span>
+<span class="fc" id="L109">			ret.setObserve(options.getObserve());</span>
 		}
 
-<span class="fc bfc" id="L110" title="All 2 branches covered.">		if (hasProxyUri) {</span>
-<span class="fc" id="L111">			String proxyUri = options.getProxyUri();</span>
-<span class="fc" id="L112">			proxyUri = proxyUri.replace(&quot;coap://&quot;, &quot;&quot;);</span>
-<span class="fc" id="L113">			proxyUri = proxyUri.replace(&quot;coaps://&quot;, &quot;&quot;);</span>
-<span class="fc" id="L114">			int i = proxyUri.indexOf('/');</span>
-<span class="pc bpc" id="L115" title="1 of 2 branches missed.">			if (i &gt;= 0) {</span>
-<span class="fc" id="L116">				proxyUri = proxyUri.substring(0, i);</span>
+<span class="fc bfc" id="L112" title="All 2 branches covered.">		if (hasProxyUri) {</span>
+<span class="fc" id="L113">			String proxyUri = options.getProxyUri();</span>
+<span class="fc" id="L114">			proxyUri = proxyUri.replace(&quot;coap://&quot;, &quot;&quot;);</span>
+<span class="fc" id="L115">			proxyUri = proxyUri.replace(&quot;coaps://&quot;, &quot;&quot;);</span>
+<span class="fc" id="L116">			int i = proxyUri.indexOf('/');</span>
+<span class="pc bpc" id="L117" title="1 of 2 branches missed.">			if (i &gt;= 0) {</span>
+<span class="fc" id="L118">				proxyUri = proxyUri.substring(0, i);</span>
 			}
-<span class="fc" id="L118">			proxyUri = &quot;coap://&quot; + proxyUri;</span>
-<span class="fc" id="L119">			ret.setProxyUri(proxyUri);</span>
+<span class="fc" id="L120">			proxyUri = &quot;coap://&quot; + proxyUri;</span>
+<span class="fc" id="L121">			ret.setProxyUri(proxyUri);</span>
 		}
 
-<span class="fc" id="L122">		byte[] oscore = options.getOscore();</span>
-<span class="fc bfc" id="L123" title="All 2 branches covered.">		if (oscore != null) {</span>
-<span class="fc" id="L124">			ret.setOscore(oscore);</span>
+<span class="fc" id="L124">		byte[] oscore = options.getOscore();</span>
+<span class="fc bfc" id="L125" title="All 2 branches covered.">		if (oscore != null) {</span>
+<span class="fc" id="L126">			ret.setOscore(oscore);</span>
 		}
 
 		// EDHOC
-<span class="pc bpc" id="L128" title="1 of 2 branches missed.">		if (hasEdhoc) {</span>
-<span class="nc" id="L129">			ret.setEdhoc(true);</span>
+<span class="pc bpc" id="L130" title="1 of 2 branches missed.">		if (hasEdhoc) {</span>
+<span class="nc" id="L131">			ret.setEdhoc();</span>
 		}
 
-<span class="fc" id="L132">		return ret;</span>
+<span class="fc" id="L134">		return ret;</span>
 	}
 
 	/**
@@ -140,10 +142,10 @@ import org.eclipse.californium.core.coap.Message;
 	 * @return the option to be encrypted
 	 */
 	public static OptionSet prepareEoptions(OptionSet options) {
-<span class="fc" id="L143">		OptionSet ret = new OptionSet();</span>
+<span class="fc" id="L145">		OptionSet ret = new OptionSet();</span>
 
-<span class="fc bfc" id="L145" title="All 2 branches covered.">		for (Option o : options.asSortedList()) {</span>
-<span class="fc bfc" id="L146" title="All 3 branches covered.">			switch (o.getNumber()) {</span>
+<span class="fc bfc" id="L147" title="All 2 branches covered.">		for (Option o : options.asSortedList()) {</span>
+<span class="fc bfc" id="L148" title="All 3 branches covered.">			switch (o.getNumber()) {</span>
 
 			case OptionNumberRegistry.URI_HOST:
 			case OptionNumberRegistry.URI_PORT:
@@ -151,42 +153,42 @@ import org.eclipse.californium.core.coap.Message;
 			case OptionNumberRegistry.OSCORE:
 			case OptionNumberRegistry.EDHOC: // EDHOC
 				// do not encrypt
-<span class="fc" id="L154">				break;</span>
+<span class="fc" id="L156">				break;</span>
 			case OptionNumberRegistry.PROXY_URI:
 				// create Uri-Path and Uri-Query
-<span class="fc" id="L157">				String proxyUri = o.getStringValue();</span>
-<span class="fc" id="L158">				proxyUri = proxyUri.replace(&quot;coap://&quot;, &quot;&quot;);</span>
-<span class="fc" id="L159">				proxyUri = proxyUri.replace(&quot;coaps://&quot;, &quot;&quot;);</span>
-<span class="fc" id="L160">				int i = proxyUri.indexOf('/');</span>
-<span class="pc bpc" id="L161" title="1 of 2 branches missed.">				if (i &gt;= 0) {</span>
-<span class="fc" id="L162">					proxyUri = proxyUri.substring(i + 1, proxyUri.length());</span>
+<span class="fc" id="L159">				String proxyUri = ((StringOption) o).getStringValue();</span>
+<span class="fc" id="L160">				proxyUri = proxyUri.replace(&quot;coap://&quot;, &quot;&quot;);</span>
+<span class="fc" id="L161">				proxyUri = proxyUri.replace(&quot;coaps://&quot;, &quot;&quot;);</span>
+<span class="fc" id="L162">				int i = proxyUri.indexOf('/');</span>
+<span class="pc bpc" id="L163" title="1 of 2 branches missed.">				if (i &gt;= 0) {</span>
+<span class="fc" id="L164">					proxyUri = proxyUri.substring(i + 1, proxyUri.length());</span>
 				} else {// No Uri-Path and Uri-Query
 					break;
 				}
-<span class="fc" id="L166">				i = proxyUri.indexOf(&quot;?&quot;);</span>
-<span class="fc" id="L167">				String uriPath = proxyUri;</span>
-<span class="fc" id="L168">				String uriQuery = null;</span>
-<span class="pc bpc" id="L169" title="1 of 2 branches missed.">				if (i &gt;= 0) {</span>
-<span class="nc" id="L170">					uriPath = proxyUri.substring(0, i);</span>
-<span class="nc" id="L171">					uriQuery = proxyUri.substring(i + 1, proxyUri.length());</span>
+<span class="fc" id="L168">				i = proxyUri.indexOf(&quot;?&quot;);</span>
+<span class="fc" id="L169">				String uriPath = proxyUri;</span>
+<span class="fc" id="L170">				String uriQuery = null;</span>
+<span class="pc bpc" id="L171" title="1 of 2 branches missed.">				if (i &gt;= 0) {</span>
+<span class="nc" id="L172">					uriPath = proxyUri.substring(0, i);</span>
+<span class="nc" id="L173">					uriQuery = proxyUri.substring(i + 1, proxyUri.length());</span>
 				}
 
-<span class="pc bpc" id="L174" title="1 of 2 branches missed.">				if (uriPath != null) {</span>
-<span class="fc" id="L175">					ret.setUriPath(uriPath);</span>
+<span class="pc bpc" id="L176" title="1 of 2 branches missed.">				if (uriPath != null) {</span>
+<span class="fc" id="L177">					ret.setUriPath(uriPath);</span>
 				}
 
-<span class="pc bpc" id="L178" title="1 of 2 branches missed.">				if (uriQuery != null) {</span>
-<span class="nc" id="L179">					String[] uriQueries = uriQuery.split(&quot;&amp;&quot;);</span>
-<span class="nc bnc" id="L180" title="All 2 branches missed.">					for (int idx = 0; idx &lt; uriQueries.length; idx++) {</span>
-<span class="nc" id="L181">						ret.setUriQuery(uriQueries[idx]);</span>
+<span class="pc bpc" id="L180" title="1 of 2 branches missed.">				if (uriQuery != null) {</span>
+<span class="nc" id="L181">					String[] uriQueries = uriQuery.split(&quot;&amp;&quot;);</span>
+<span class="nc bnc" id="L182" title="All 2 branches missed.">					for (int idx = 0; idx &lt; uriQueries.length; idx++) {</span>
+<span class="nc" id="L183">						ret.setUriQuery(uriQueries[idx]);</span>
 					}
-<span class="nc" id="L183">				}</span>
+<span class="nc" id="L185">				}</span>
 				break;
 			default: // default is encrypt
-<span class="fc" id="L186">				ret.addOption(o);</span>
+<span class="fc" id="L188">				ret.addOption(o);</span>
 			}
-<span class="fc" id="L188">		}</span>
-<span class="fc" id="L189">		return ret;</span>
+<span class="fc" id="L190">		}</span>
+<span class="fc" id="L191">		return ret;</span>
 	}
 
 	/**
@@ -196,15 +198,15 @@ import org.eclipse.californium.core.coap.Message;
 	 * @return a new optionSet which have had the non-special e options removed
 	 */
 	public static OptionSet discardEOptions(OptionSet optionSet) {
-<span class="fc" id="L199">		LOGGER.info(&quot;Removing inner only E options from the outer options&quot;);</span>
-<span class="fc" id="L200">		OptionSet result = new OptionSet();</span>
-		
-<span class="fc bfc" id="L202" title="All 2 branches covered.">		for (Option opt : optionSet.asSortedList()) {</span>
-<span class="fc bfc" id="L203" title="All 2 branches covered.">			if (!allEOptions.contains(opt.getNumber())) {</span>
-<span class="fc" id="L204">				result.addOption(opt);</span>
+<span class="fc" id="L201">		LOGGER.trace(&quot;Removing inner only E options from the outer options&quot;);</span>
+<span class="fc" id="L202">		OptionSet result = new OptionSet();</span>
+
+<span class="fc bfc" id="L204" title="All 2 branches covered.">		for (Option opt : optionSet.asSortedList()) {</span>
+<span class="fc bfc" id="L205" title="All 2 branches covered.">			if (!allEOptions.contains(opt.getNumber())) {</span>
+<span class="fc" id="L206">				result.addOption(opt);</span>
 			}
-<span class="fc" id="L206">		}</span>
-<span class="fc" id="L207">		return result;</span>
+<span class="fc" id="L208">		}</span>
+<span class="fc" id="L209">		return result;</span>
 	}
 
 	/**
@@ -214,8 +216,8 @@ import org.eclipse.californium.core.coap.Message;
 	 * @return request with fake code.
 	 */
 	public static Request setFakeCodeRequest(Request request) {
-<span class="fc bfc" id="L217" title="All 2 branches covered.">		Code fakeCode = request.getOptions().hasObserve() ? Code.FETCH : Code.POST;</span>
-<span class="fc" id="L218">		return requestWithNewCode(request, fakeCode);</span>
+<span class="fc bfc" id="L219" title="All 2 branches covered.">		Code fakeCode = request.getOptions().hasObserve() ? Code.FETCH : Code.POST;</span>
+<span class="fc" id="L220">		return requestWithNewCode(request, fakeCode);</span>
 	}
 
 	/**
@@ -226,7 +228,7 @@ import org.eclipse.californium.core.coap.Message;
 	 * @return request with real code.
 	 */
 	public static Request setRealCodeRequest(Request request, Code realCode) {
-<span class="fc" id="L229">		return requestWithNewCode(request, realCode);</span>
+<span class="fc" id="L231">		return requestWithNewCode(request, realCode);</span>
 	}
 
 	/**
@@ -236,7 +238,7 @@ import org.eclipse.californium.core.coap.Message;
 	 * @return response with fake code.
 	 */
 	public static Response setFakeCodeResponse(Response response) {
-<span class="fc" id="L239">		return responseWithNewCode(response, ResponseCode.CHANGED);</span>
+<span class="fc" id="L241">		return responseWithNewCode(response, ResponseCode.CHANGED);</span>
 	}
 
 	/**
@@ -247,7 +249,7 @@ import org.eclipse.californium.core.coap.Message;
 	 * @return response with real code
 	 */
 	public static Response setRealCodeResponse(Response response, ResponseCode realCode) {
-<span class="fc" id="L250">		return responseWithNewCode(response, realCode);</span>
+<span class="fc" id="L252">		return responseWithNewCode(response, realCode);</span>
 	}
 
 	/**
@@ -258,11 +260,12 @@ import org.eclipse.californium.core.coap.Message;
 	 * @return request with new code.
 	 */
 	private static Request requestWithNewCode(Request request, Code code) {
-<span class="fc" id="L261">		Request newRequest = new Request(code);</span>
-<span class="fc" id="L262">		copy(newRequest, request);</span>
-<span class="fc" id="L263">		newRequest.setUserContext(request.getUserContext());</span>
 
-<span class="fc" id="L265">		return newRequest;</span>
+<span class="fc" id="L264">		Request newRequest = new Request(code);</span>
+<span class="fc" id="L265">		copy(newRequest, request);</span>
+<span class="fc" id="L266">		newRequest.setUserContext(request.getUserContext());</span>
+
+<span class="fc" id="L268">		return newRequest;</span>
 	}
 
 	/**
@@ -273,29 +276,29 @@ import org.eclipse.californium.core.coap.Message;
 	 * @return response with new code.
 	 */
 	private static Response responseWithNewCode(Response response, ResponseCode code) {
-<span class="fc" id="L276">		Long rtt = response.getApplicationRttNanos();</span>
+<span class="fc" id="L279">		Long rtt = response.getApplicationRttNanos();</span>
 
-<span class="fc" id="L278">		Response newResponse = new Response(code);</span>
-<span class="fc" id="L279">		copy(newResponse, response);</span>
-<span class="fc bfc" id="L280" title="All 2 branches covered.">		if (rtt != null) {</span>
-<span class="fc" id="L281">			newResponse.setApplicationRttNanos(rtt);</span>
+<span class="fc" id="L281">		Response newResponse = new Response(code);</span>
+<span class="fc" id="L282">		copy(newResponse, response);</span>
+<span class="fc bfc" id="L283" title="All 2 branches covered.">		if (rtt != null) {</span>
+<span class="fc" id="L284">			newResponse.setApplicationRttNanos(rtt);</span>
 		}
 
-<span class="fc" id="L284">		return newResponse;</span>
+<span class="fc" id="L287">		return newResponse;</span>
 	}
 
 	private static void copy(Message newMessage, Message oldMessage) {
-<span class="fc" id="L288">		newMessage.setOptions(oldMessage.getOptions());</span>
-<span class="fc" id="L289">		newMessage.setPayload(oldMessage.getPayload());</span>
-<span class="fc" id="L290">		newMessage.setToken(oldMessage.getToken());</span>
-<span class="fc" id="L291">		newMessage.setDestinationContext(oldMessage.getDestinationContext());</span>
-<span class="fc" id="L292">		newMessage.setSourceContext(oldMessage.getSourceContext());</span>
-<span class="fc" id="L293">		newMessage.addMessageObservers(oldMessage.getMessageObservers());</span>
-<span class="fc" id="L294">		newMessage.setMID(oldMessage.getMID());</span>
-<span class="fc" id="L295">		newMessage.setType(oldMessage.getType());</span>
-<span class="fc" id="L296">		newMessage.setDuplicate(oldMessage.isDuplicate());</span>
-<span class="fc" id="L297">		newMessage.setNanoTimestamp(oldMessage.getNanoTimestamp());</span>
-<span class="fc" id="L298">	}</span>
+<span class="fc" id="L291">		newMessage.setOptions(oldMessage.getOptions());</span>
+<span class="fc" id="L292">		newMessage.setPayload(oldMessage.getPayload());</span>
+<span class="fc" id="L293">		newMessage.setToken(oldMessage.getToken());</span>
+<span class="fc" id="L294">		newMessage.setDestinationContext(oldMessage.getDestinationContext());</span>
+<span class="fc" id="L295">		newMessage.setSourceContext(oldMessage.getSourceContext());</span>
+<span class="fc" id="L296">		newMessage.addMessageObservers(oldMessage.getMessageObservers());</span>
+<span class="fc" id="L297">		newMessage.setMID(oldMessage.getMID());</span>
+<span class="fc" id="L298">		newMessage.setType(oldMessage.getType());</span>
+<span class="fc" id="L299">		newMessage.setDuplicate(oldMessage.isDuplicate());</span>
+<span class="fc" id="L300">		newMessage.setNanoTimestamp(oldMessage.getNanoTimestamp());</span>
+<span class="fc" id="L301">	}</span>
 
 	/**
 	 * Merges two optionSets and returns the merge. Priority is eOptions
@@ -306,14 +309,14 @@ import org.eclipse.californium.core.coap.Message;
 	 */
 	public static OptionSet merge(OptionSet eOptions, OptionSet uOptions) {
 
-<span class="fc" id="L309">		List&lt;Option&gt; u = uOptions.asSortedList();</span>
+<span class="fc" id="L312">		List&lt;Option&gt; e = eOptions.asSortedList();</span>
 
-<span class="fc bfc" id="L311" title="All 2 branches covered.">		for (Option tmp : u) {</span>
-<span class="pc bpc" id="L312" title="1 of 2 branches missed.">			if (!eOptions.hasOption(tmp.getNumber())) {</span>
-<span class="fc" id="L313">				eOptions.addOption(tmp);</span>
+<span class="fc bfc" id="L314" title="All 2 branches covered.">		for (Option tmp : uOptions.asSortedList()) {</span>
+<span class="pc bpc" id="L315" title="1 of 2 branches missed.">			if (Collections.binarySearch(e, tmp) &lt; 0) {</span>
+<span class="fc" id="L316">				eOptions.addOption(tmp);</span>
 			}
-<span class="fc" id="L315">		}</span>
-<span class="fc" id="L316">		return eOptions;</span>
+<span class="fc" id="L318">		}</span>
+<span class="fc" id="L319">		return eOptions;</span>
 	}
 
 	// FIXME: For below use instead OscoreOptionDecoder/Encoder
@@ -325,34 +328,34 @@ import org.eclipse.californium.core.coap.Message;
 	 * @return the RID value
 	 */
 	static byte[] getRid(byte[] oscoreOption) {
-<span class="pc bpc" id="L328" title="1 of 2 branches missed.">		if (oscoreOption.length == 0) {</span>
-<span class="nc" id="L329">			return null;</span>
+<span class="pc bpc" id="L331" title="1 of 2 branches missed.">		if (oscoreOption.length == 0) {</span>
+<span class="nc" id="L332">			return null;</span>
 		}
-	
+
 		// Parse the flag byte
-<span class="fc" id="L333">		byte flagByte = oscoreOption[0];</span>
-<span class="fc" id="L334">		int n = flagByte &amp; 0x07;</span>
-<span class="fc" id="L335">		int k = flagByte &amp; 0x08;</span>
-<span class="fc" id="L336">		int h = flagByte &amp; 0x10;</span>
-	
-<span class="fc" id="L338">		byte[] kid = null;</span>
-<span class="fc" id="L339">		int index = 1;</span>
-	
+<span class="fc" id="L336">		byte flagByte = oscoreOption[0];</span>
+<span class="fc" id="L337">		int n = flagByte &amp; 0x07;</span>
+<span class="fc" id="L338">		int k = flagByte &amp; 0x08;</span>
+<span class="fc" id="L339">		int h = flagByte &amp; 0x10;</span>
+
+<span class="fc" id="L341">		byte[] kid = null;</span>
+<span class="fc" id="L342">		int index = 1;</span>
+
 		// Partial IV
-<span class="fc" id="L342">		index += n;</span>
-	
+<span class="fc" id="L345">		index += n;</span>
+
 		// KID Context
-<span class="fc bfc" id="L345" title="All 2 branches covered.">		if (h != 0) {</span>
-<span class="fc" id="L346">			int s = oscoreOption[index];</span>
-<span class="fc" id="L347">			index += s + 1;</span>
+<span class="fc bfc" id="L348" title="All 2 branches covered.">		if (h != 0) {</span>
+<span class="fc" id="L349">			int s = oscoreOption[index];</span>
+<span class="fc" id="L350">			index += s + 1;</span>
 		}
-	
+
 		// KID
-<span class="pc bpc" id="L351" title="1 of 2 branches missed.">		if (k != 0) {</span>
-<span class="fc" id="L352">			kid = Arrays.copyOfRange(oscoreOption, index, oscoreOption.length);</span>
+<span class="pc bpc" id="L354" title="1 of 2 branches missed.">		if (k != 0) {</span>
+<span class="fc" id="L355">			kid = Arrays.copyOfRange(oscoreOption, index, oscoreOption.length);</span>
 		}
-	
-<span class="fc" id="L355">		return kid;</span>
+
+<span class="fc" id="L358">		return kid;</span>
 	}
 
 	/**
@@ -362,29 +365,29 @@ import org.eclipse.californium.core.coap.Message;
 	 * @return the ID Context value
 	 */
 	static byte[] getIDContext(byte[] oscoreOption) {
-<span class="pc bpc" id="L365" title="1 of 2 branches missed.">		if (oscoreOption.length == 0) {</span>
-<span class="nc" id="L366">			return null;</span>
+<span class="nc bnc" id="L368" title="All 2 branches missed.">		if (oscoreOption.length == 0) {</span>
+<span class="nc" id="L369">			return null;</span>
 		}
 
 		// Parse the flag byte
-<span class="fc" id="L370">		byte flagByte = oscoreOption[0];</span>
-<span class="fc" id="L371">		int n = flagByte &amp; 0x07;</span>
-<span class="fc" id="L372">		int h = flagByte &amp; 0x10;</span>
+<span class="nc" id="L373">		byte flagByte = oscoreOption[0];</span>
+<span class="nc" id="L374">		int n = flagByte &amp; 0x07;</span>
+<span class="nc" id="L375">		int h = flagByte &amp; 0x10;</span>
 
-<span class="fc" id="L374">		byte[] kidContext = null;</span>
-<span class="fc" id="L375">		int index = 1;</span>
+<span class="nc" id="L377">		byte[] kidContext = null;</span>
+<span class="nc" id="L378">		int index = 1;</span>
 
 		// Partial IV
-<span class="fc" id="L378">		index += n;</span>
+<span class="nc" id="L381">		index += n;</span>
 
 		// KID Context
-<span class="fc bfc" id="L381" title="All 2 branches covered.">		if (h != 0) {</span>
-<span class="fc" id="L382">			int s = oscoreOption[index];</span>
-<span class="fc" id="L383">			kidContext = Arrays.copyOfRange(oscoreOption, index + 1, index + 1 + s);</span>
-<span class="fc" id="L384">			index += s + 1;</span>
+<span class="nc bnc" id="L384" title="All 2 branches missed.">		if (h != 0) {</span>
+<span class="nc" id="L385">			int s = oscoreOption[index];</span>
+<span class="nc" id="L386">			kidContext = Arrays.copyOfRange(oscoreOption, index + 1, index + 1 + s);</span>
+<span class="nc" id="L387">			index += s + 1;</span>
 		}
 
-<span class="fc" id="L387">		return kidContext;</span>
+<span class="nc" id="L390">		return kidContext;</span>
 	}
 
 	/**
@@ -394,29 +397,29 @@ import org.eclipse.californium.core.coap.Message;
 	 * @return the Partial IV value
 	 */
 	static int getPartialIV(byte[] oscoreOption) {
-<span class="pc bpc" id="L397" title="1 of 2 branches missed.">		if (oscoreOption.length == 0) {</span>
-<span class="nc" id="L398">			return -1;</span>
+<span class="pc bpc" id="L400" title="1 of 2 branches missed.">		if (oscoreOption.length == 0) {</span>
+<span class="nc" id="L401">			return -1;</span>
 		}
 
 		// Parse the flag byte
-<span class="fc" id="L402">		byte flagByte = oscoreOption[0];</span>
-<span class="fc" id="L403">		int n = flagByte &amp; 0x07;</span>
+<span class="fc" id="L405">		byte flagByte = oscoreOption[0];</span>
+<span class="fc" id="L406">		int n = flagByte &amp; 0x07;</span>
 
-<span class="fc" id="L405">		byte[] partialIV = null;</span>
-<span class="fc" id="L406">		int index = 1;</span>
+<span class="fc" id="L408">		byte[] partialIV = null;</span>
+<span class="fc" id="L409">		int index = 1;</span>
 
 		// Parsing Partial IV
-<span class="pc bpc" id="L409" title="1 of 2 branches missed.">		if (n &gt; 0) {</span>
-<span class="fc" id="L410">				partialIV = Arrays.copyOfRange(oscoreOption, index, index + n);</span>
+<span class="fc bfc" id="L412" title="All 2 branches covered.">		if (n &gt; 0) {</span>
+<span class="fc" id="L413">			partialIV = Arrays.copyOfRange(oscoreOption, index, index + n);</span>
 		} else {
-<span class="nc" id="L412">			return -1;</span>
+<span class="fc" id="L415">			return -1;</span>
 		}
 
 		// TODO: Avoid using BigInteger
-<span class="fc" id="L416">		BigInteger partialIVBi = new BigInteger(partialIV);</span>
-<span class="fc" id="L417">		int ret = partialIVBi.intValue();</span>
+<span class="fc" id="L419">		BigInteger partialIVBi = new BigInteger(1, partialIV);</span>
+<span class="fc" id="L420">		int ret = partialIVBi.intValue();</span>
 
-<span class="fc" id="L419">		return ret;</span>
+<span class="fc" id="L422">		return ret;</span>
 	}
 
 	/**
@@ -426,18 +429,18 @@ import org.eclipse.californium.core.coap.Message;
 	 * @return if the group mode bit is set
 	 */
 	static boolean getGroupModeBit(byte[] oscoreOption) {
-<span class="fc bfc" id="L429" title="All 2 branches covered.">		if (oscoreOption.length == 0) {</span>
-<span class="fc" id="L430">			return false;</span>
+<span class="fc bfc" id="L432" title="All 2 branches covered.">		if (oscoreOption.length == 0) {</span>
+<span class="fc" id="L433">			return false;</span>
 		}
 
 		// Parse the flag byte
-<span class="fc" id="L434">		byte flagByte = oscoreOption[0];</span>
-<span class="fc" id="L435">		int g = flagByte &amp; 0x20;</span>
+<span class="fc" id="L437">		byte flagByte = oscoreOption[0];</span>
+<span class="fc" id="L438">		int g = flagByte &amp; 0x20;</span>
 
-<span class="fc bfc" id="L437" title="All 2 branches covered.">		if (g != 0) {</span>
-<span class="fc" id="L438">			return true;</span>
+<span class="fc bfc" id="L440" title="All 2 branches covered.">		if (g != 0) {</span>
+<span class="fc" id="L441">			return true;</span>
 		} else {
-<span class="fc" id="L440">			return false;</span>
+<span class="fc" id="L443">			return false;</span>
 		}
 
 	}

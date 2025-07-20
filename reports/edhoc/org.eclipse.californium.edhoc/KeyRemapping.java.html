@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>KeyRemapping.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-EDHOC</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.edhoc</a> &gt; <span class="el_source">KeyRemapping.java</span></div><h1>KeyRemapping.java</h1><pre class="source lang-java linenums">/*******************************************************************************
- * Copyright (c) 2020 RISE and others.
+ * Copyright (c) 2025 RISE and others.
  * 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
@@ -61,6 +61,94 @@ import net.i2p.crypto.eddsa.math.bigint.BigIntegerLittleEndianEncoding;
 			new BigInteger(&quot;51042569399160536130206135233146329284152202253034631822681833788666877215207&quot;));
 
 	/**
+	 * Main method running a number of tests on the code.
+	 * 
+	 * @param args command line arguments
+	 * @throws Exception on failure in some of the tests
+	 */
+	public static void main(String args[]) throws Exception {
+<span class="nc" id="L70">		Provider EdDSA = new EdDSASecurityProvider();</span>
+<span class="nc" id="L71">		Security.insertProviderAt(EdDSA, 1);</span>
+
+		// Define test values x and y from RFC7748. Created as field elements to
+		// use for calculations in the field.
+<span class="nc" id="L75">		BigIntegerFieldElement x = new BigIntegerFieldElement(ed25519Field,</span>
+				new BigInteger(&quot;15112221349535400772501151409588531511454012693041857206046113283949847762202&quot;));
+<span class="nc" id="L77">		BigIntegerFieldElement y = new BigIntegerFieldElement(ed25519Field,</span>
+				new BigInteger(&quot;46316835694926478169428394003475163141307993866256225615783033603165251855960&quot;));
+
+		// Define correctly calculated values of u and v from RFC7748
+<span class="nc" id="L81">		BigIntegerFieldElement u_correct = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;9&quot;));</span>
+<span class="nc" id="L82">		BigIntegerFieldElement v_correct = new BigIntegerFieldElement(ed25519Field,</span>
+				new BigInteger(&quot;14781619447589544791020593568409986887264606134616475288964881837755586237401&quot;));
+
+		// Calculate u and v values
+<span class="nc" id="L86">		FieldElement u = calcCurve25519_u(y);</span>
+<span class="nc" id="L87">		FieldElement v = calcCurve25519_v(x, u);</span>
+
+		// Print calculated values
+<span class="nc" id="L90">		System.out.println(&quot;x: &quot; + x);</span>
+<span class="nc" id="L91">		System.out.println(&quot;y: &quot; + y);</span>
+
+<span class="nc" id="L93">		System.out.println(&quot;v: &quot; + v);</span>
+<span class="nc" id="L94">		System.out.println(&quot;u: &quot; + u);</span>
+
+		// Check that calculated u and v values are correct
+<span class="nc bnc" id="L97" title="All 2 branches missed.">		if (Arrays.equals(u.toByteArray(), u_correct.toByteArray())) {</span>
+<span class="nc" id="L98">			System.out.println(&quot;u value is correct!&quot;);</span>
+		} else {
+<span class="nc" id="L100">			System.out.println(&quot;u value is INCORRECT!&quot;);</span>
+		}
+<span class="nc bnc" id="L102" title="All 2 branches missed.">		if (Arrays.equals(v.toByteArray(), v_correct.toByteArray())) {</span>
+<span class="nc" id="L103">			System.out.println(&quot;v value is correct!&quot;);</span>
+		} else {
+<span class="nc" id="L105">			System.out.println(&quot;v value is INCORRECT!&quot;);</span>
+		}
+
+		/**/
+<span class="nc" id="L109">		System.out.println();</span>
+<span class="nc" id="L110">		System.out.println();</span>
+		/**/
+
+		// Testing starting with a COSE Key
+
+<span class="nc" id="L115">		OneKey myKey = OneKey.generateKey(AlgorithmID.EDDSA);</span>
+<span class="nc" id="L116">		FieldElement y_fromKeyAlt = extractCOSE_y_alt(myKey);</span>
+<span class="nc" id="L117">		FieldElement y_fromKey = extractCOSE_y(myKey);</span>
+
+<span class="nc" id="L119">		System.out.println(&quot;y from COSE key (alt): &quot; + y_fromKeyAlt);</span>
+<span class="nc" id="L120">		System.out.println(&quot;y from COSE key: &quot; + y_fromKey);</span>
+<span class="nc" id="L121">		System.out.println(&quot;COSE key X param_: &quot; + myKey.get(KeyKeys.OKP_X));</span>
+
+<span class="nc" id="L123">		System.out.println(&quot;y from COSE key (alt) (bytes): &quot; + StringUtil.byteArray2HexString(y_fromKeyAlt.toByteArray()));</span>
+<span class="nc" id="L124">		System.out.println(&quot;y from COSE key (bytes): &quot; + StringUtil.byteArray2HexString(y_fromKey.toByteArray()));</span>
+
+		// Check that calculating y in both ways give the same result
+<span class="nc bnc" id="L127" title="All 2 branches missed.">		if (Arrays.equals(y_fromKeyAlt.toByteArray(), y_fromKey.toByteArray())) {</span>
+<span class="nc" id="L128">			System.out.println(&quot;y from key value is correct!&quot;);</span>
+		} else {
+<span class="nc" id="L130">			System.out.println(&quot;y from key value is INCORRECT!&quot;);</span>
+		}
+
+		/**/
+<span class="nc" id="L134">		System.out.println();</span>
+<span class="nc" id="L135">		System.out.println();</span>
+		/**/
+
+<span class="nc" id="L138">		FieldElement x_fromKey = extractCOSE_x(myKey);</span>
+<span class="nc" id="L139">		System.out.println(&quot;x from COSE key: &quot; + x_fromKey);</span>
+
+<span class="nc" id="L141">		FieldElement uuu1 = calcCurve25519_u(y_fromKeyAlt);</span>
+<span class="nc" id="L142">		FieldElement uuu2 = calcCurve25519_u(y_fromKey);</span>
+		// calcCurve25519_v(x_fromKey, uuu1);
+		// calcCurve25519_v(x_fromKey, uuu2);
+		//
+<span class="nc" id="L146">		System.out.println(uuu1);</span>
+<span class="nc" id="L147">		System.out.println(uuu2);</span>
+
+<span class="nc" id="L149">	}</span>
+
+	/**
 	 * Calculate Curve25519 u coordinate from Ed25519 y coordinate
 	 * 
 	 * @param y the Ed25519 y coordinate
@@ -72,18 +160,25 @@ import net.i2p.crypto.eddsa.math.bigint.BigIntegerLittleEndianEncoding;
 		// u = (1+y)/(1-y)
 
 		// 1 + y -&gt; y + 1
-<span class="fc" id="L75">		FieldElement one_plus_y = y.addOne();</span>
+<span class="fc" id="L163">		FieldElement one_plus_y = y.addOne();</span>
 
 		// 1 - y -&gt; -y + 1
-<span class="fc" id="L78">		FieldElement one_minus_y = (y.negate()).addOne();</span>
+<span class="fc" id="L166">		FieldElement one_minus_y = (y.negate()).addOne();</span>
 
+		// Check that y is neither -1 (which maps to u = 0 that corresponds to
+		// the neutral group element) nor 1 (for which the mapping is not defined)
+<span class="pc bpc" id="L170" title="2 of 4 branches missed.">		  if (!one_plus_y.isNonZero() || !one_minus_y.isNonZero()) {</span>
+<span class="nc" id="L171">			  System.out.println(&quot;Invalid value of y: it cannot be -1 or 1&quot;);</span>
+<span class="nc" id="L172">		      return null;</span>
+		  }
+		
 		// invert(1 - y)
-<span class="fc" id="L81">		FieldElement one_minus_y_invert = one_minus_y.invert();</span>
+<span class="fc" id="L176">		FieldElement one_minus_y_invert = one_minus_y.invert();</span>
 
 		// (1 + y) / (1 - y) -&gt; (1 + y) * invert(1 - y)
-<span class="fc" id="L84">		FieldElement u = one_plus_y.multiply(one_minus_y_invert);</span>
+<span class="fc" id="L179">		FieldElement u = one_plus_y.multiply(one_minus_y_invert);</span>
 
-<span class="fc" id="L86">		return u;</span>
+<span class="fc" id="L181">		return u;</span>
 
 	}
 
@@ -101,15 +196,15 @@ import net.i2p.crypto.eddsa.math.bigint.BigIntegerLittleEndianEncoding;
 		// v = sqrt(-486664)*u/x
 
 		// invert(x)
-<span class="fc" id="L104">		FieldElement x_invert = x.invert();</span>
+<span class="fc" id="L199">		FieldElement x_invert = x.invert();</span>
 
 		// u / x -&gt; u * invert(x)
-<span class="fc" id="L107">		FieldElement u_over_x = u.multiply(x_invert);</span>
+<span class="fc" id="L202">		FieldElement u_over_x = u.multiply(x_invert);</span>
 
 		// calculate v
-<span class="fc" id="L110">		FieldElement v = root.multiply(u_over_x);</span>
+<span class="fc" id="L205">		FieldElement v = root.multiply(u_over_x);</span>
 
-<span class="fc" id="L112">		return v;</span>
+<span class="fc" id="L207">		return v;</span>
 	}
 
 	/**
@@ -132,16 +227,16 @@ import net.i2p.crypto.eddsa.math.bigint.BigIntegerLittleEndianEncoding;
 		// v = sqrt(-486664)*u/x
 
 		// invert(x)
-<span class="nc" id="L135">		FieldElement x_invert = x.invert();</span>
+<span class="nc" id="L230">		FieldElement x_invert = x.invert();</span>
 
 		// u / x -&gt; u * invert(x)
-<span class="nc" id="L138">		FieldElement _x_invert = ed25519ToBiginteger(x_invert);</span>
-<span class="nc" id="L139">		FieldElement u_over_x = u.multiply(_x_invert);</span>
+<span class="nc" id="L233">		FieldElement _x_invert = ed25519ToBiginteger(x_invert);</span>
+<span class="nc" id="L234">		FieldElement u_over_x = u.multiply(_x_invert);</span>
 
 		// calculate v
-<span class="nc" id="L142">		FieldElement v = root.multiply(u_over_x);</span>
+<span class="nc" id="L237">		FieldElement v = root.multiply(u_over_x);</span>
 
-<span class="nc" id="L144">		return v;</span>
+<span class="nc" id="L239">		return v;</span>
 	}
 
 	/**
@@ -151,10 +246,10 @@ import net.i2p.crypto.eddsa.math.bigint.BigIntegerLittleEndianEncoding;
 	 * @return the resulting BigIntegerFieldElement
 	 */
 	static BigIntegerFieldElement ed25519ToBiginteger(FieldElement input) {
-<span class="nc" id="L154">		BigInteger outputBi = new BigInteger(invertArray(input.toByteArray()));</span>
-<span class="nc" id="L155">		BigIntegerFieldElement outputFieldElement = new BigIntegerFieldElement(ed25519Field, outputBi);</span>
+<span class="nc" id="L249">		BigInteger outputBi = new BigInteger(invertArray(input.toByteArray()));</span>
+<span class="nc" id="L250">		BigIntegerFieldElement outputFieldElement = new BigIntegerFieldElement(ed25519Field, outputBi);</span>
 
-<span class="nc" id="L157">		return outputFieldElement;</span>
+<span class="nc" id="L252">		return outputFieldElement;</span>
 	}
 
 	/* COSE related functions below */
@@ -169,17 +264,17 @@ import net.i2p.crypto.eddsa.math.bigint.BigIntegerLittleEndianEncoding;
 	 * @throws CoseException if retrieving public key part fails
 	 */
 	static FieldElement extractCOSE_y_alt(OneKey key) throws CoseException {
-<span class="fc" id="L172">		EdDSAPublicKey pubKey = (EdDSAPublicKey) key.AsPublicKey();</span>
+<span class="fc" id="L267">		EdDSAPublicKey pubKey = (EdDSAPublicKey) key.AsPublicKey();</span>
 
 		// Get projective coordinates for Y and Z
-<span class="fc" id="L175">		FieldElement Y = pubKey.getA().getY();</span>
-<span class="fc" id="L176">		FieldElement Z = pubKey.getA().getZ();</span>
+<span class="fc" id="L270">		FieldElement Y = pubKey.getA().getY();</span>
+<span class="fc" id="L271">		FieldElement Z = pubKey.getA().getZ();</span>
 
 		// y = Y/Z -&gt; y = Y * invert(Z)
-<span class="fc" id="L179">		FieldElement recip = Z.invert();</span>
-<span class="fc" id="L180">		FieldElement y = Y.multiply(recip);</span>
+<span class="fc" id="L274">		FieldElement recip = Z.invert();</span>
+<span class="fc" id="L275">		FieldElement y = Y.multiply(recip);</span>
 
-<span class="fc" id="L182">		return y;</span>
+<span class="fc" id="L277">		return y;</span>
 	}
 
 	/**
@@ -195,21 +290,21 @@ import net.i2p.crypto.eddsa.math.bigint.BigIntegerLittleEndianEncoding;
 	static FieldElement extractCOSE_y(OneKey key) throws CoseException {
 
 		// Retrieve X value from COSE key as byte array
-<span class="fc" id="L198">		byte[] X_value = key.get(KeyKeys.OKP_X).GetByteString();</span>
+<span class="fc" id="L293">		byte[] X_value = key.get(KeyKeys.OKP_X).GetByteString();</span>
 
 		// Clear most significant bit of the final octet in the X value (that
 		// indicates sign of x coordinate). The result is the y coordinate.
-<span class="fc" id="L202">		byte[] y_array = X_value.clone();</span>
-<span class="fc" id="L203">		y_array[y_array.length - 1] &amp;= 0B01111111;</span>
+<span class="fc" id="L297">		byte[] y_array = X_value.clone();</span>
+<span class="fc" id="L298">		y_array[y_array.length - 1] &amp;= 0B01111111;</span>
 
 		// The array must be reversed to have correct byte order
 		// BigInteger wants Big Endian but it is in Little Endian
-<span class="fc" id="L207">		byte[] y_array_inv = invertArray(y_array);</span>
+<span class="fc" id="L302">		byte[] y_array_inv = invertArray(y_array);</span>
 
 		// Create field element for y from updated X value
-<span class="fc" id="L210">		FieldElement y = new BigIntegerFieldElement(ed25519Field, new BigInteger(y_array_inv));</span>
+<span class="fc" id="L305">		FieldElement y = new BigIntegerFieldElement(ed25519Field, new BigInteger(y_array_inv));</span>
 
-<span class="fc" id="L212">		return y;</span>
+<span class="fc" id="L307">		return y;</span>
 	}
 
 	/**
@@ -222,17 +317,17 @@ import net.i2p.crypto.eddsa.math.bigint.BigIntegerLittleEndianEncoding;
 	 * @throws CoseException if retrieving public key part fails
 	 */
 	static FieldElement extractCOSE_x(OneKey key) throws CoseException {
-<span class="fc" id="L225">		EdDSAPublicKey pubKey = (EdDSAPublicKey) key.AsPublicKey();</span>
+<span class="fc" id="L320">		EdDSAPublicKey pubKey = (EdDSAPublicKey) key.AsPublicKey();</span>
 
 		// Get projective coordinates for X and Z
-<span class="fc" id="L228">		FieldElement X = pubKey.getA().getX();</span>
-<span class="fc" id="L229">		FieldElement Z = pubKey.getA().getZ();</span>
+<span class="fc" id="L323">		FieldElement X = pubKey.getA().getX();</span>
+<span class="fc" id="L324">		FieldElement Z = pubKey.getA().getZ();</span>
 
 		// x = X/Z -&gt; x = X * invert(Z)
-<span class="fc" id="L232">		FieldElement recip = Z.invert();</span>
-<span class="fc" id="L233">		FieldElement x = X.multiply(recip);</span>
+<span class="fc" id="L327">		FieldElement recip = Z.invert();</span>
+<span class="fc" id="L328">		FieldElement x = X.multiply(recip);</span>
 
-<span class="fc" id="L235">		return x;</span>
+<span class="fc" id="L330">		return x;</span>
 	}
 
 	/**
@@ -242,11 +337,11 @@ import net.i2p.crypto.eddsa.math.bigint.BigIntegerLittleEndianEncoding;
 	 * @return the inverted byte array
 	 */
 	public static byte[] invertArray(byte[] input) {
-<span class="fc" id="L245">		byte[] output = input.clone();</span>
-<span class="fc bfc" id="L246" title="All 2 branches covered.">		for (int i = 0; i &lt; input.length; i++) {</span>
-<span class="fc" id="L247">			output[i] = input[input.length - i - 1];</span>
+<span class="fc" id="L340">		byte[] output = input.clone();</span>
+<span class="fc bfc" id="L341" title="All 2 branches covered.">		for (int i = 0; i &lt; input.length; i++) {</span>
+<span class="fc" id="L342">			output[i] = input[input.length - i - 1];</span>
 		}
-<span class="fc" id="L249">		return output;</span>
+<span class="fc" id="L344">		return output;</span>
 	}
 
 	/* Methods for Weierstrass conversions below */
@@ -260,15 +355,15 @@ import net.i2p.crypto.eddsa.math.bigint.BigIntegerLittleEndianEncoding;
 	 * @return the Wei25519 X coordinate
 	 */
 	public static FieldElement curve25519uToWei25519X(FieldElement u) {
-<span class="fc" id="L263">		BigIntegerFieldElement A = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;486662&quot;));</span>
-<span class="fc" id="L264">		BigIntegerFieldElement three = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;3&quot;));</span>
+<span class="fc" id="L358">		BigIntegerFieldElement A = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;486662&quot;));</span>
+<span class="fc" id="L359">		BigIntegerFieldElement three = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;3&quot;));</span>
 
 		// X = u + A/3
-<span class="fc" id="L267">		FieldElement AoverThree = A.multiply(three.invert());</span>
+<span class="fc" id="L362">		FieldElement AoverThree = A.multiply(three.invert());</span>
 
-<span class="fc" id="L269">		FieldElement X = u.add(AoverThree);</span>
+<span class="fc" id="L364">		FieldElement X = u.add(AoverThree);</span>
 
-<span class="fc" id="L271">		return X;</span>
+<span class="fc" id="L366">		return X;</span>
 
 	}
 
@@ -281,9 +376,9 @@ import net.i2p.crypto.eddsa.math.bigint.BigIntegerLittleEndianEncoding;
 	 */
 	public static FieldElement curve25519vToWei25519Y(FieldElement v) {
 		// Y = v
-<span class="fc" id="L284">		FieldElement Y = v;</span>
+<span class="fc" id="L379">		FieldElement Y = v;</span>
 
-<span class="fc" id="L286">		return Y;</span>
+<span class="fc" id="L381">		return Y;</span>
 	}
 
 	/**
@@ -294,15 +389,15 @@ import net.i2p.crypto.eddsa.math.bigint.BigIntegerLittleEndianEncoding;
 	 * @return the Curve25519 u coordinate
 	 */
 	public static FieldElement wei25519XToCurve25519u(FieldElement X) {
-<span class="fc" id="L297">		BigIntegerFieldElement A = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;486662&quot;));</span>
-<span class="fc" id="L298">		BigIntegerFieldElement three = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;3&quot;));</span>
+<span class="fc" id="L392">		BigIntegerFieldElement A = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;486662&quot;));</span>
+<span class="fc" id="L393">		BigIntegerFieldElement three = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;3&quot;));</span>
 
 		// u = X - A/3
-<span class="fc" id="L301">		FieldElement AoverThree = A.multiply(three.invert());</span>
+<span class="fc" id="L396">		FieldElement AoverThree = A.multiply(three.invert());</span>
 
-<span class="fc" id="L303">		FieldElement u = X.subtract(AoverThree);</span>
+<span class="fc" id="L398">		FieldElement u = X.subtract(AoverThree);</span>
 
-<span class="fc" id="L305">		return u;</span>
+<span class="fc" id="L400">		return u;</span>
 	}
 
 	/**
@@ -314,9 +409,9 @@ import net.i2p.crypto.eddsa.math.bigint.BigIntegerLittleEndianEncoding;
 	 */
 	public static FieldElement wei25519YToCurve25519v(FieldElement Y) {
 		// v = Y
-<span class="fc" id="L317">		FieldElement v = Y;</span>
+<span class="fc" id="L412">		FieldElement v = Y;</span>
 
-<span class="fc" id="L319">		return v;</span>
+<span class="fc" id="L414">		return v;</span>
 
 	}
 
@@ -329,19 +424,19 @@ import net.i2p.crypto.eddsa.math.bigint.BigIntegerLittleEndianEncoding;
 	public static FieldElement edwards25519yToWei25519X(FieldElement y) {
 		// X = ((1+y)/(1-y)+A/3
 
-<span class="fc" id="L332">		BigIntegerFieldElement A = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;486662&quot;));</span>
-<span class="fc" id="L333">		BigIntegerFieldElement three = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;3&quot;));</span>
-<span class="fc" id="L334">		BigIntegerFieldElement one = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;1&quot;));</span>
-<span class="fc" id="L335">		FieldElement AoverThree = A.multiply(three.invert());</span>
+<span class="fc" id="L427">		BigIntegerFieldElement A = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;486662&quot;));</span>
+<span class="fc" id="L428">		BigIntegerFieldElement three = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;3&quot;));</span>
+<span class="fc" id="L429">		BigIntegerFieldElement one = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;1&quot;));</span>
+<span class="fc" id="L430">		FieldElement AoverThree = A.multiply(three.invert());</span>
 
-<span class="fc" id="L337">		FieldElement onePlusY = one.add(y);</span>
-<span class="fc" id="L338">		FieldElement oneMinusY = one.subtract(y);</span>
+<span class="fc" id="L432">		FieldElement onePlusY = one.add(y);</span>
+<span class="fc" id="L433">		FieldElement oneMinusY = one.subtract(y);</span>
 
-<span class="fc" id="L340">		FieldElement divided = onePlusY.multiply(oneMinusY.invert());</span>
+<span class="fc" id="L435">		FieldElement divided = onePlusY.multiply(oneMinusY.invert());</span>
 
-<span class="fc" id="L342">		FieldElement X = divided.add(AoverThree);</span>
+<span class="fc" id="L437">		FieldElement X = divided.add(AoverThree);</span>
 
-<span class="fc" id="L344">		return X;</span>
+<span class="fc" id="L439">		return X;</span>
 	}
 
 	/**
@@ -354,19 +449,19 @@ import net.i2p.crypto.eddsa.math.bigint.BigIntegerLittleEndianEncoding;
 	public static FieldElement edwards25519xToWei25519Y(FieldElement x, FieldElement y) {
 		// Y = c*(1+y)/((1-y)*x)
 
-<span class="fc" id="L357">		BigIntegerFieldElement c = new BigIntegerFieldElement(ed25519Field,</span>
+<span class="fc" id="L452">		BigIntegerFieldElement c = new BigIntegerFieldElement(ed25519Field,</span>
 				new BigInteger(&quot;51042569399160536130206135233146329284152202253034631822681833788666877215207&quot;));
-<span class="fc" id="L359">		BigIntegerFieldElement one = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;1&quot;));</span>
+<span class="fc" id="L454">		BigIntegerFieldElement one = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;1&quot;));</span>
 
-<span class="fc" id="L361">		FieldElement onePlusY = one.add(y);</span>
-<span class="fc" id="L362">		FieldElement oneMinusY = one.subtract(y);</span>
+<span class="fc" id="L456">		FieldElement onePlusY = one.add(y);</span>
+<span class="fc" id="L457">		FieldElement oneMinusY = one.subtract(y);</span>
 
-<span class="fc" id="L364">		FieldElement onePlusYmultC = c.multiply(onePlusY);</span>
-<span class="fc" id="L365">		FieldElement oneMinusYmultX = oneMinusY.multiply(x);</span>
+<span class="fc" id="L459">		FieldElement onePlusYmultC = c.multiply(onePlusY);</span>
+<span class="fc" id="L460">		FieldElement oneMinusYmultX = oneMinusY.multiply(x);</span>
 
-<span class="fc" id="L367">		FieldElement Y = onePlusYmultC.multiply((oneMinusYmultX.invert()));</span>
+<span class="fc" id="L462">		FieldElement Y = onePlusYmultC.multiply((oneMinusYmultX.invert()));</span>
 
-<span class="fc" id="L369">		return Y;</span>
+<span class="fc" id="L464">		return Y;</span>
 	}
 
 	/**
@@ -378,17 +473,17 @@ import net.i2p.crypto.eddsa.math.bigint.BigIntegerLittleEndianEncoding;
 	public static FieldElement wei25519XToEdwards25519y(FieldElement X) {
 		// y = (X-A/3-1)/(X-A/3+1)
 
-<span class="fc" id="L381">		BigIntegerFieldElement A = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;486662&quot;));</span>
-<span class="fc" id="L382">		BigIntegerFieldElement three = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;3&quot;));</span>
-<span class="fc" id="L383">		BigIntegerFieldElement one = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;1&quot;));</span>
-<span class="fc" id="L384">		FieldElement AoverThree = A.multiply(three.invert());</span>
+<span class="fc" id="L476">		BigIntegerFieldElement A = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;486662&quot;));</span>
+<span class="fc" id="L477">		BigIntegerFieldElement three = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;3&quot;));</span>
+<span class="fc" id="L478">		BigIntegerFieldElement one = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;1&quot;));</span>
+<span class="fc" id="L479">		FieldElement AoverThree = A.multiply(three.invert());</span>
 
-<span class="fc" id="L386">		FieldElement numerator = X.subtract(AoverThree).subtract(one);</span>
-<span class="fc" id="L387">		FieldElement denominator = X.subtract(AoverThree).add(one);</span>
+<span class="fc" id="L481">		FieldElement numerator = X.subtract(AoverThree).subtract(one);</span>
+<span class="fc" id="L482">		FieldElement denominator = X.subtract(AoverThree).add(one);</span>
 
-<span class="fc" id="L389">		FieldElement y = numerator.multiply(denominator.invert());</span>
+<span class="fc" id="L484">		FieldElement y = numerator.multiply(denominator.invert());</span>
 
-<span class="fc" id="L391">		return y;</span>
+<span class="fc" id="L486">		return y;</span>
 	}
 
 	/**
@@ -401,21 +496,21 @@ import net.i2p.crypto.eddsa.math.bigint.BigIntegerLittleEndianEncoding;
 	public static FieldElement wei25519YToEdwards25519x(FieldElement Y, FieldElement X) {
 		// x = (c*(X-A/3)/Y
 
-<span class="fc" id="L404">		BigIntegerFieldElement c = new BigIntegerFieldElement(ed25519Field,</span>
+<span class="fc" id="L499">		BigIntegerFieldElement c = new BigIntegerFieldElement(ed25519Field,</span>
 				new BigInteger(&quot;51042569399160536130206135233146329284152202253034631822681833788666877215207&quot;));
 
-<span class="fc" id="L407">		BigIntegerFieldElement A = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;486662&quot;));</span>
-<span class="fc" id="L408">		BigIntegerFieldElement three = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;3&quot;));</span>
-<span class="fc" id="L409">		FieldElement AoverThree = A.multiply(three.invert());</span>
+<span class="fc" id="L502">		BigIntegerFieldElement A = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;486662&quot;));</span>
+<span class="fc" id="L503">		BigIntegerFieldElement three = new BigIntegerFieldElement(ed25519Field, new BigInteger(&quot;3&quot;));</span>
+<span class="fc" id="L504">		FieldElement AoverThree = A.multiply(three.invert());</span>
 
-<span class="fc" id="L411">		FieldElement XminusAoverThree = X.subtract(AoverThree);</span>
+<span class="fc" id="L506">		FieldElement XminusAoverThree = X.subtract(AoverThree);</span>
 
-<span class="fc" id="L413">		FieldElement numerator = XminusAoverThree.multiply(c);</span>
-<span class="fc" id="L414">		FieldElement denominator = Y;</span>
+<span class="fc" id="L508">		FieldElement numerator = XminusAoverThree.multiply(c);</span>
+<span class="fc" id="L509">		FieldElement denominator = Y;</span>
 
-<span class="fc" id="L416">		FieldElement x = numerator.multiply(denominator.invert());</span>
+<span class="fc" id="L511">		FieldElement x = numerator.multiply(denominator.invert());</span>
 
-<span class="fc" id="L418">		return x;</span>
+<span class="fc" id="L513">		return x;</span>
 	}
 
 }

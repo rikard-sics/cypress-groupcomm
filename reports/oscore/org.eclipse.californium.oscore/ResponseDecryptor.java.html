@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ResponseDecryptor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore</a> &gt; <span class="el_source">ResponseDecryptor.java</span></div><h1>ResponseDecryptor.java</h1><pre class="source lang-java linenums">/*******************************************************************************
- * Copyright (c) 2019 RISE SICS and others.
+ * Copyright (c) 2025 RISE SICS and others.
  * 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
@@ -25,28 +25,29 @@ import org.slf4j.LoggerFactory;
 
 import com.upokecenter.cbor.CBORObject;
 
+import org.bouncycastle.util.Arrays;
 import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.OptionSet;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.coap.Token;
 import org.eclipse.californium.core.network.serialization.UdpDataParser;
-import org.eclipse.californium.core.coap.CoAP.ResponseCode;
 import org.eclipse.californium.cose.Encrypt0Message;
 import org.eclipse.californium.elements.util.DatagramReader;
 import org.eclipse.californium.oscore.group.GroupDynamicContextDerivation;
 import org.eclipse.californium.oscore.group.GroupRecipientCtx;
+import org.eclipse.californium.oscore.group.ResponseReplayWindow;
 
 /**
  * 
  * Decrypts an OSCORE encrypted Response.
  *
  */
-<span class="pc bpc" id="L44" title="1 of 2 branches missed.">public class ResponseDecryptor extends Decryptor {</span>
+<span class="pc bpc" id="L45" title="1 of 2 branches missed.">public class ResponseDecryptor extends Decryptor {</span>
 
 	/**
 	 * The logger
 	 */
-<span class="fc" id="L49">	private static final Logger LOGGER = LoggerFactory.getLogger(ResponseDecryptor.class);</span>
+<span class="fc" id="L50">	private static final Logger LOGGER = LoggerFactory.getLogger(ResponseDecryptor.class);</span>
 
 	/**
 	 * Decrypt the response.
@@ -63,110 +64,125 @@ import org.eclipse.californium.oscore.group.GroupRecipientCtx;
 	 *
 	 * @param db the context database used
 	 * @param response the response
+	 * @param requestSequenceNr sequence number (Partial IV) from the request
+	 *            (if encrypting a response)
 	 * 
 	 * @return the decrypted response
 	 * 
 	 * @throws OSException when decryption fails
 	 * 
 	 */
-	public static Response decrypt(OSCoreCtxDB db, Response response) throws OSException {
+	public static Response decrypt(OSCoreCtxDB db, Response response, int requestSequenceNr) throws OSException {
 
-<span class="fc" id="L74">		LOGGER.info(&quot;Removes E options from outer options which are not allowed there&quot;);</span>
-<span class="fc" id="L75">		discardEOptions(response);</span>
+<span class="fc" id="L77">		discardEOptions(response);</span>
 
-<span class="fc" id="L77">		byte[] protectedData = response.getPayload();</span>
-<span class="fc" id="L78">		Encrypt0Message enc = null;</span>
-<span class="fc" id="L79">		Token token = response.getToken();</span>
-<span class="fc" id="L80">		OSCoreCtx ctx = null;</span>
-<span class="fc" id="L81">		OptionSet uOptions = response.getOptions();</span>
+<span class="fc" id="L79">		byte[] protectedData = response.getPayload();</span>
+<span class="fc" id="L80">		Encrypt0Message enc = null;</span>
+<span class="fc" id="L81">		Token token = response.getToken();</span>
+<span class="fc" id="L82">		OSCoreCtx ctx = null;</span>
+<span class="fc" id="L83">		OptionSet uOptions = response.getOptions();</span>
 
-<span class="pc bpc" id="L83" title="1 of 2 branches missed.">		if (token != null) {</span>
-<span class="fc" id="L84">			ctx = db.getContextByToken(token);</span>
+<span class="pc bpc" id="L85" title="1 of 2 branches missed.">		if (token != null) {</span>
+<span class="fc" id="L86">			ctx = db.getContextByToken(token);</span>
 
 			/*
 			 * For a Group OSCORE context, get the specific Recipient Context.
 			 * The KID (Recipient ID) is included in the message and the ID
 			 * Context retrieved from the sender context
 			 */
-<span class="fc bfc" id="L91" title="All 4 branches covered.">			if (ctx != null &amp;&amp; ctx.isGroupContext()) {</span>
-<span class="fc" id="L92">				byte[] rid = OptionJuggle.getRid(uOptions.getOscore());</span>
-<span class="fc" id="L93">				byte[] idContext = ctx.getIdContext();</span>
+<span class="fc bfc" id="L93" title="All 4 branches covered.">			if (ctx != null &amp;&amp; ctx.isGroupContext()) {</span>
+<span class="fc" id="L94">				byte[] rid = OptionJuggle.getRid(uOptions.getOscore());</span>
+<span class="fc" id="L95">				byte[] idContext = ctx.getIdContext();</span>
 
 				// Retrieve the context
-<span class="fc" id="L96">				ctx = db.getContext(rid, idContext);</span>
+<span class="fc" id="L98">				ctx = db.getContext(rid, idContext);</span>
 
 				// If context is not found attempt dynamic context generation
-<span class="fc bfc" id="L99" title="All 2 branches covered.">				if (ctx == null) {</span>
-<span class="fc" id="L100">					ctx = GroupDynamicContextDerivation.derive(db, rid, idContext);</span>
+<span class="fc bfc" id="L101" title="All 2 branches covered.">				if (ctx == null) {</span>
+<span class="fc" id="L102">					ctx = GroupDynamicContextDerivation.derive(db, rid, idContext);</span>
 				}
 
 				// If a context is found it should be a GroupRecipientCtx
-<span class="pc bpc" id="L104" title="1 of 2 branches missed.">				if (ctx != null) {</span>
-<span class="pc bpc" id="L105" title="2 of 4 branches missed.">					assert (ctx instanceof GroupRecipientCtx);</span>
+<span class="pc bpc" id="L106" title="1 of 2 branches missed.">				if (ctx != null) {</span>
+<span class="pc bpc" id="L107" title="2 of 4 branches missed.">					assert (ctx instanceof GroupRecipientCtx);</span>
 				}
+
+				// Check replay window and update status for long exchanges
+<span class="fc" id="L111">				ByteId identifier = new ByteId(Arrays.concatenate(rid, response.getTokenBytes()));</span>
+				
+<span class="fc" id="L113">				ResponseReplayWindow replayWindow = ((GroupRecipientCtx) ctx).getCommonCtx().longExchanges</span>
+<span class="fc" id="L114">						.get(identifier);</span>
+<span class="fc bfc" id="L115" title="All 2 branches covered.">				if (replayWindow == null) {</span>
+<span class="fc" id="L116">					replayWindow = new ResponseReplayWindow();</span>
+<span class="fc" id="L117">					((GroupRecipientCtx) ctx).getCommonCtx().longExchanges.put(identifier, replayWindow);</span>
+				}
+
+<span class="fc" id="L120">				int piv = OptionJuggle.getPartialIV(uOptions.getOscore());</span>
+<span class="fc" id="L121">				replayWindow.checkIncoming(piv);</span>
+
 			}
 
-<span class="fc bfc" id="L109" title="All 2 branches covered.">			if (ctx == null) {</span>
-<span class="fc" id="L110">				LOGGER.error(ErrorDescriptions.TOKEN_INVALID);</span>
-<span class="fc" id="L111">				throw new OSException(ErrorDescriptions.TOKEN_INVALID);</span>
+<span class="fc bfc" id="L125" title="All 2 branches covered.">			if (ctx == null) {</span>
+<span class="fc" id="L126">				LOGGER.error(ErrorDescriptions.TOKEN_INVALID);</span>
+<span class="fc" id="L127">				throw new OSException(ErrorDescriptions.TOKEN_INVALID);</span>
 			}
-<span class="fc" id="L113">			enc = decompression(protectedData, response);</span>
+<span class="fc" id="L129">			enc = decompression(protectedData, response);</span>
 		} else {
-<span class="nc" id="L115">			LOGGER.error(ErrorDescriptions.TOKEN_NULL);</span>
-<span class="nc" id="L116">			throw new OSException(ErrorDescriptions.TOKEN_NULL);</span>
+<span class="nc" id="L131">			LOGGER.error(ErrorDescriptions.TOKEN_NULL);</span>
+<span class="nc" id="L132">			throw new OSException(ErrorDescriptions.TOKEN_NULL);</span>
 		}
 
 		// Retrieve Context ID (kid context) from the actual message
-<span class="fc" id="L120">		CBORObject kidContext = enc.findAttribute(CBORObject.FromObject(10));</span>
-<span class="fc" id="L121">		byte[] contextID = null;</span>
-<span class="fc bfc" id="L122" title="All 2 branches covered.">		if (kidContext != null) {</span>
-<span class="fc" id="L123">			contextID = kidContext.GetByteString();</span>
+<span class="fc" id="L136">		CBORObject kidContext = enc.findAttribute(CBORObject.FromObject(10));</span>
+<span class="fc" id="L137">		byte[] contextID = null;</span>
+<span class="fc bfc" id="L138" title="All 2 branches covered.">		if (kidContext != null) {</span>
+<span class="fc" id="L139">			contextID = kidContext.GetByteString();</span>
 		}
 
 		// Perform context re-derivation procedure if ongoing
 		try {
-<span class="fc" id="L128">			ctx = ContextRederivation.incomingResponse(db, ctx, contextID);</span>
-<span class="nc" id="L129">		} catch (OSException e) {</span>
-<span class="nc" id="L130">			LOGGER.error(ErrorDescriptions.CONTEXT_REGENERATION_FAILED);</span>
-<span class="nc" id="L131">			throw new OSException(ErrorDescriptions.CONTEXT_REGENERATION_FAILED);</span>
-<span class="fc" id="L132">		}</span>
+<span class="fc" id="L144">			ctx = ContextRederivation.incomingResponse(db, ctx, contextID);</span>
+<span class="nc" id="L145">		} catch (OSException e) {</span>
+<span class="nc" id="L146">			LOGGER.error(ErrorDescriptions.CONTEXT_REGENERATION_FAILED);</span>
+<span class="nc" id="L147">			throw new OSException(ErrorDescriptions.CONTEXT_REGENERATION_FAILED);</span>
+<span class="fc" id="L148">		}</span>
 
 		//Check if parsing of response plaintext succeeds
 		try {
-<span class="fc" id="L136">			byte[] plaintext = decryptAndDecode(enc, response, ctx, db.getSeqByToken(token));</span>
+<span class="fc" id="L152">			byte[] plaintext = decryptAndDecode(enc, response, ctx, requestSequenceNr);</span>
 	
-<span class="fc" id="L138">			DatagramReader reader = new DatagramReader(new ByteArrayInputStream(plaintext));</span>
+<span class="fc" id="L154">			DatagramReader reader = new DatagramReader(new ByteArrayInputStream(plaintext));</span>
 			
 			
-<span class="fc" id="L141">			response = OptionJuggle.setRealCodeResponse(response,</span>
-<span class="fc" id="L142">					CoAP.ResponseCode.valueOf(reader.read(CoAP.MessageFormat.CODE_BITS)));</span>
+<span class="fc" id="L157">			response = OptionJuggle.setRealCodeResponse(response,</span>
+<span class="fc" id="L158">					CoAP.ResponseCode.valueOf(reader.read(CoAP.MessageFormat.CODE_BITS)));</span>
 		
 			
 			// resets option so eOptions gets priority during parse
-<span class="fc" id="L146">			response.setOptions(EMPTY);</span>
-<span class="fc" id="L147">			new UdpDataParser().parseOptionsAndPayload(reader, response);</span>
-<span class="nc" id="L148">		} catch (Exception e) {</span>
-<span class="nc" id="L149">			LOGGER.error(ErrorDescriptions.DECRYPTION_FAILED);</span>
-<span class="nc" id="L150">			throw new OSException(ErrorDescriptions.DECRYPTION_FAILED);</span>
-<span class="fc" id="L151">		}</span>
+<span class="fc" id="L162">			response.setOptions(EMPTY);</span>
+<span class="fc" id="L163">			new UdpDataParser().parseOptionsAndPayload(reader, response);</span>
+<span class="nc" id="L164">		} catch (Exception e) {</span>
+<span class="nc" id="L165">			LOGGER.error(ErrorDescriptions.DECRYPTION_FAILED);</span>
+<span class="nc" id="L166">			throw new OSException(ErrorDescriptions.DECRYPTION_FAILED);</span>
+<span class="fc" id="L167">		}</span>
 
-<span class="fc" id="L153">		OptionSet eOptions = response.getOptions();</span>
-<span class="fc" id="L154">		eOptions = OptionJuggle.merge(eOptions, uOptions);</span>
-<span class="fc" id="L155">		response.setOptions(eOptions);</span>
+<span class="fc" id="L169">		OptionSet eOptions = response.getOptions();</span>
+<span class="fc" id="L170">		eOptions = OptionJuggle.merge(eOptions, uOptions);</span>
+<span class="fc" id="L171">		response.setOptions(eOptions);</span>
 
 		/*
 		 * Remove token after response is received, unless it has Observe or is
 		 * using Group OSCORE. If it has Observe it will be removed after
 		 * cancellation elsewhere.
 		 */
-<span class="fc bfc" id="L162" title="All 4 branches covered.">		if (response.getOptions().hasObserve() == false &amp;&amp; ctx.isGroupContext() == false) {</span>
-<span class="fc" id="L163">			db.removeToken(token);</span>
+<span class="fc bfc" id="L178" title="All 4 branches covered.">		if (response.getOptions().hasObserve() == false &amp;&amp; ctx.isGroupContext() == false) {</span>
+<span class="fc" id="L179">			db.removeToken(token);</span>
 		}
 
 		//Set information about the OSCORE context used in the endpoint context of this response
-<span class="fc" id="L167">		OSCoreEndpointContextInfo.receivingResponse(ctx, response);</span>
+<span class="fc" id="L183">		OSCoreEndpointContextInfo.receivingResponse(ctx, response);</span>
 
-<span class="fc" id="L169">		return response;</span>
+<span class="fc" id="L185">		return response;</span>
 	}
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

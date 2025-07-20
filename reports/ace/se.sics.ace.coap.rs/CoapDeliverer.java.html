@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CoapDeliverer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.coap.rs</a> &gt; <span class="el_source">CoapDeliverer.java</span></div><h1>CoapDeliverer.java</h1><pre class="source lang-java linenums">/*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -126,7 +126,7 @@ public class CoapDeliverer implements MessageDeliverer {
 <span class="pc bpc" id="L126" title="1 of 2 branches missed.">        if (TokenRepository.getInstance() == null) {</span>
 <span class="nc" id="L127">            throw new AceException(&quot;Must initialize TokenRepository&quot;);</span>
         }
-<span class="fc" id="L129">        this.d = new ServerMessageDeliverer(root);</span>
+<span class="fc" id="L129">        this.d = new ServerMessageDeliverer(root, null);</span>
 <span class="fc" id="L130">        this.asRCH = asRCHM;</span>
         
 <span class="pc bpc" id="L132" title="1 of 2 branches missed.">        if (cep == null) {</span>
@@ -135,17 +135,17 @@ public class CoapDeliverer implements MessageDeliverer {
 <span class="fc" id="L135">        this.coapEndpoint = cep;</span>
 <span class="fc" id="L136">    }</span>
   
-    //Really the TokenRepository _should not_ be closed here
+    // Really the TokenRepository _should not_ be closed here
     @SuppressWarnings(&quot;resource&quot;) 
     @Override
     public void deliverRequest(final Exchange ex) {
-<span class="fc" id="L142">        Request request = ex.getCurrentRequest();</span>
+<span class="fc" id="L142">        Request request = ex.getRequest();</span>
 <span class="fc" id="L143">        Response r = null;</span>
         
-        //authz-info is not under access control
+        // authz-info is not under access control
         try {
 <span class="fc" id="L147">            URI uri = new URI(request.getURI());</span>
-            //Need to check with and without trailing / in case there are query options
+            // Need to check with and without trailing / in case there are query options
 <span class="pc bpc" id="L149" title="1 of 4 branches missed.">            if (uri.getPath().endsWith(&quot;/authz-info&quot;) || uri.getPath().endsWith(&quot;/authz-info/&quot;) ) { </span>
 <span class="fc" id="L150">                this.d.deliverRequest(ex);</span>
 <span class="fc" id="L151">                return;</span>
@@ -187,7 +187,7 @@ public class CoapDeliverer implements MessageDeliverer {
         }
 <span class="fc" id="L188">        String kid = TokenRepository.getInstance().getKid(subject);</span>
        
-<span class="fc bfc" id="L190" title="All 2 branches covered.">        if (kid == null) {//Check if this was the Base64 encoded kid map</span>
+<span class="fc bfc" id="L190" title="All 2 branches covered.">        if (kid == null) { // Check if this was the Base64 encoded kid map</span>
             try {
 <span class="nc" id="L192">                CBORObject cbor = CBORObject.DecodeFromBytes(</span>
 <span class="nc" id="L193">                        Base64.getDecoder().decode(subject));</span>
@@ -197,20 +197,20 @@ public class CoapDeliverer implements MessageDeliverer {
                            CBORType.ByteString)) {
 <span class="nc" id="L198">                      kid = new String(ckid.GetByteString(), </span>
                               Constants.charset);
-                   } else { //No kid in that CBOR map or it isn't a bstr
+                   } else { // No kid in that CBOR map or it isn't a bstr
 <span class="nc" id="L201">                       failUnauthz(ex);</span>
 <span class="nc" id="L202">                       return;</span>
                    }
-<span class="nc" id="L204">                } else {//Some weird CBOR that is not a map here</span>
+<span class="nc" id="L204">                } else { // Some weird CBOR that is not a map here</span>
 <span class="nc" id="L205">                   failUnauthz(ex);</span>
 <span class="nc" id="L206">                   return;</span>
                 }                
-<span class="nc" id="L208">            } catch (CBORException e) {//Really no kid found for that subject</span>
+<span class="nc" id="L208">            } catch (CBORException e) { // Really no kid found for that subject</span>
 <span class="nc" id="L209">                LOGGER.finest(&quot;Error while trying to parse some &quot;</span>
 <span class="nc" id="L210">                        + &quot;subject identity to CBOR: &quot; + e.getMessage());</span>
 <span class="nc" id="L211">               failUnauthz(ex);</span>
 <span class="nc" id="L212">               return;</span>
-<span class="fc" id="L213">            } catch (IllegalArgumentException e) {//Text was not Base64 encoded</span>
+<span class="fc" id="L213">            } catch (IllegalArgumentException e) { // Text was not Base64 encoded</span>
 <span class="fc" id="L214">                LOGGER.finest(&quot;Error: &quot; + e.getMessage() </span>
                 + &quot; while trying to Base64 decode this: &quot; + subject);
 <span class="fc" id="L216">                failUnauthz(ex);</span>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CoapOSExceptionHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore</a> &gt; <span class="el_source">CoapOSExceptionHandler.java</span></div><h1>CoapOSExceptionHandler.java</h1><pre class="source lang-java linenums">/*******************************************************************************
- * Copyright (c) 2019 RISE SICS and others.
+ * Copyright (c) 2025 RISE SICS and others.
  * 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
@@ -78,15 +78,16 @@ import org.eclipse.californium.core.coap.Response;
 					
 <span class="fc" id="L79">					return error;</span>
 				} else {
-<span class="nc" id="L81">					LOGGER.error(ErrorDescriptions.CANNOT_CREATE_ERROR_MESS + &quot;: &quot; + ErrorDescriptions.ERROR_MESS_NULL);</span>
+<span class="nc" id="L81">					LOGGER.error(&quot;{} {}&quot;, ErrorDescriptions.CANNOT_CREATE_ERROR_MESS,</span>
+							ErrorDescriptions.ERROR_MESS_NULL);
 				}
 			} else {
-<span class="nc" id="L84">				LOGGER.error(ErrorDescriptions.CANNOT_CREATE_ERROR_MESS + &quot;: &quot; + ErrorDescriptions.TYPE_NULL);</span>
+<span class="nc" id="L85">				LOGGER.error(&quot;{} {}&quot;, ErrorDescriptions.CANNOT_CREATE_ERROR_MESS, ErrorDescriptions.TYPE_NULL);</span>
 			}
 		} else {
-<span class="nc" id="L87">			LOGGER.error(ErrorDescriptions.CANNOT_CREATE_ERROR_MESS + &quot;: &quot; + ErrorDescriptions.REQUEST_NULL);</span>
+<span class="nc" id="L88">			LOGGER.error(&quot;{} {}&quot;, ErrorDescriptions.CANNOT_CREATE_ERROR_MESS, ErrorDescriptions.REQUEST_NULL);</span>
 		}
-<span class="nc" id="L89">		return null;</span>
+<span class="nc" id="L90">		return null;</span>
 	}
 
 	/**
@@ -99,25 +100,25 @@ import org.eclipse.californium.core.coap.Response;
 	 * @return the initiated EmptyMessage
 	 */
 	public static EmptyMessage manageError(OSException e, Response response) {
-<span class="nc bnc" id="L102" title="All 2 branches missed.">		if (e == null) {</span>
-<span class="nc" id="L103">			LOGGER.error(ErrorDescriptions.EXCEPTION_NULL);</span>
-<span class="nc" id="L104">			throw new NullPointerException(ErrorDescriptions.EXCEPTION_NULL);</span>
+<span class="nc bnc" id="L103" title="All 2 branches missed.">		if (e == null) {</span>
+<span class="nc" id="L104">			LOGGER.error(ErrorDescriptions.EXCEPTION_NULL);</span>
+<span class="nc" id="L105">			throw new NullPointerException(ErrorDescriptions.EXCEPTION_NULL);</span>
 		}
 
-<span class="nc" id="L107">		String errMess = e.getMessage();</span>
+<span class="nc" id="L108">		String errMess = e.getMessage();</span>
 
-<span class="nc bnc" id="L109" title="All 2 branches missed.">		if (errMess == null) {</span>
-<span class="nc" id="L110">			LOGGER.error(ErrorDescriptions.ERROR_MESS_NULL);</span>
-<span class="nc" id="L111">			throw new NullPointerException(ErrorDescriptions.ERROR_MESS_NULL);</span>
+<span class="nc bnc" id="L110" title="All 2 branches missed.">		if (errMess == null) {</span>
+<span class="nc" id="L111">			LOGGER.error(ErrorDescriptions.ERROR_MESS_NULL);</span>
+<span class="nc" id="L112">			throw new NullPointerException(ErrorDescriptions.ERROR_MESS_NULL);</span>
 		}
 		
-<span class="nc bnc" id="L114" title="All 2 branches missed.">		if (!response.isConfirmable()) {</span>
-<span class="nc" id="L115">			LOGGER.error(&quot;An Empty Message will not be created&quot;);</span>
-<span class="nc" id="L116">			return null;</span>
+<span class="nc bnc" id="L115" title="All 2 branches missed.">		if (!response.isConfirmable()) {</span>
+<span class="nc" id="L116">			LOGGER.error(&quot;An Empty Message will not be created&quot;);</span>
+<span class="nc" id="L117">			return null;</span>
 		}
 		
-<span class="nc" id="L119">		LOGGER.debug(&quot;Sending empty RST message&quot;);</span>
-<span class="nc" id="L120">		return EmptyMessage.newRST(response);</span>
+<span class="nc" id="L120">		LOGGER.debug(&quot;Sending empty RST message&quot;);</span>
+<span class="nc" id="L121">		return EmptyMessage.newRST(response);</span>
 	}
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DtlsAS.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.coap.as</a> &gt; <span class="el_source">DtlsAS.java</span></div><h1>DtlsAS.java</h1><pre class="source lang-java linenums">/*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -49,7 +49,7 @@ import org.eclipse.californium.scandium.dtls.CertificateType;
 import org.eclipse.californium.scandium.dtls.SignatureAndHashAlgorithm;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
 import org.eclipse.californium.scandium.dtls.cipher.XECDHECryptography.SupportedGroup;
-import org.eclipse.californium.scandium.dtls.x509.AsyncNewAdvancedCertificateVerifier;
+import org.eclipse.californium.scandium.dtls.x509.AsyncCertificateVerifier;
 import org.eclipse.californium.scandium.dtls.x509.SingleCertificateProvider;
 
 import org.eclipse.californium.cose.CoseException;
@@ -77,25 +77,30 @@ import se.sics.ace.as.Token;
  */
 public class DtlsAS extends CoapServer implements AutoCloseable {
     
+	static {
+<span class="fc" id="L81">		DtlsConfig.register();</span>
+	}
+	
     /**
      * The logger
      */
-<span class="fc" id="L83">    private static final Logger LOGGER </span>
-<span class="fc" id="L84">        = Logger.getLogger(DtlsAS.class.getName());</span>
+<span class="fc" id="L87">    private static final Logger LOGGER </span>
+<span class="fc" id="L88">        = Logger.getLogger(DtlsAS.class.getName());</span>
 
     /**
      * The token endpoint
      */
-<span class="fc" id="L89">    Token t = null;</span>
+<span class="fc" id="L93">    Token t = null;</span>
     
     /**
      * The introspect endpoint
      */
-<span class="fc" id="L94">    Introspect i = null;</span>
+<span class="fc" id="L98">    Introspect i = null;</span>
 
     private CoapDtlsEndpoint token;
 
     private CoapDtlsEndpoint introspect;
+
 
     /**
      * Constructor.
@@ -115,9 +120,9 @@ public class DtlsAS extends CoapServer implements AutoCloseable {
     public DtlsAS(String asId, CoapDBConnector db, PDP pdp, TimeProvider time, 
             OneKey asymmetricKey, int port) 
                     throws AceException, CoseException {
-<span class="nc" id="L118">        this(asId, db, pdp, time, asymmetricKey, &quot;token&quot;, &quot;introspect&quot;, port,</span>
+<span class="nc" id="L123">        this(asId, db, pdp, time, asymmetricKey, &quot;token&quot;, &quot;introspect&quot;, port,</span>
                 null, false);
-<span class="nc" id="L120">    }</span>
+<span class="nc" id="L125">    }</span>
     
     
     /**
@@ -135,9 +140,9 @@ public class DtlsAS extends CoapServer implements AutoCloseable {
      */
     public DtlsAS(String asId, CoapDBConnector db, PDP pdp, TimeProvider time, 
             OneKey asymmetricKey) throws AceException, CoseException {
-<span class="fc" id="L138">        this(asId, db, pdp, time, asymmetricKey, &quot;token&quot;, &quot;introspect&quot;,</span>
+<span class="fc" id="L143">        this(asId, db, pdp, time, asymmetricKey, &quot;token&quot;, &quot;introspect&quot;,</span>
                 CoAP.DEFAULT_COAP_SECURE_PORT, null, false);
-<span class="fc" id="L140">    }</span>
+<span class="fc" id="L145">    }</span>
     
     /**
      * Constructor with endpoint names
@@ -166,90 +171,90 @@ public class DtlsAS extends CoapServer implements AutoCloseable {
             TimeProvider time, OneKey asymmetricKey, String tokenName,
             String introspectName, int port, Set&lt;Short&gt; claims, 
             boolean setAudHeader) 
-<span class="fc" id="L169">                    throws AceException, CoseException {</span>
-<span class="fc" id="L170">        this.t = new Token(asId, pdp, db, time, asymmetricKey, claims, setAudHeader, null);</span>
-<span class="fc" id="L171">        this.token = new CoapDtlsEndpoint(tokenName, this.t);</span>
-<span class="fc" id="L172">        add(this.token);</span>
+<span class="fc" id="L174">                    throws AceException, CoseException {</span>
+<span class="fc" id="L175">        this.t = new Token(asId, pdp, db, time, asymmetricKey, claims, setAudHeader, null);</span>
+<span class="fc" id="L176">        this.token = new CoapDtlsEndpoint(tokenName, this.t);</span>
+<span class="fc" id="L177">        add(this.token);</span>
         
-<span class="pc bpc" id="L174" title="1 of 2 branches missed.">        if (introspectName != null) {</span>
-<span class="pc bpc" id="L175" title="1 of 2 branches missed.">            if (asymmetricKey == null) {</span>
-<span class="nc" id="L176">                this.i = new Introspect(pdp, db, time, null, null);</span>
+<span class="pc bpc" id="L179" title="1 of 2 branches missed.">        if (introspectName != null) {</span>
+<span class="pc bpc" id="L180" title="1 of 2 branches missed.">            if (asymmetricKey == null) {</span>
+<span class="nc" id="L181">                this.i = new Introspect(pdp, db, time, null, null);</span>
             } else {
-<span class="fc" id="L178">                this.i = new Introspect(pdp, db, time, asymmetricKey.PublicKey(), null);</span>
+<span class="fc" id="L183">                this.i = new Introspect(pdp, db, time, asymmetricKey.PublicKey(), null);</span>
             }
-<span class="fc" id="L180">            this.introspect = new CoapDtlsEndpoint(introspectName, this.i);</span>
-<span class="fc" id="L181">            add(this.introspect);    </span>
+<span class="fc" id="L185">            this.introspect = new CoapDtlsEndpoint(introspectName, this.i);</span>
+<span class="fc" id="L186">            add(this.introspect);    </span>
         }
 
-<span class="fc" id="L184">       Configuration dtlsConfig = Configuration.getStandard();</span>
-<span class="fc" id="L185">       dtlsConfig.set(DtlsConfig.DTLS_USE_SERVER_NAME_INDICATION, false);</span>
-<span class="fc" id="L186">       dtlsConfig.set(DtlsConfig.DTLS_CLIENT_AUTHENTICATION_MODE, CertificateAuthenticationMode.NEEDED);</span>
+<span class="fc" id="L189">       Configuration dtlsConfig = Configuration.getStandard();</span>
+<span class="fc" id="L190">       dtlsConfig.set(DtlsConfig.DTLS_USE_SERVER_NAME_INDICATION, false);</span>
+<span class="fc" id="L191">       dtlsConfig.set(DtlsConfig.DTLS_CLIENT_AUTHENTICATION_MODE, CertificateAuthenticationMode.NEEDED);</span>
 
-<span class="pc bpc" id="L188" title="2 of 4 branches missed.">       if (asymmetricKey != null &amp;&amp; (asymmetricKey.get(KeyKeys.KeyType) == KeyKeys.KeyType_EC2 ||</span>
-<span class="nc bnc" id="L189" title="All 2 branches missed.">					 			     asymmetricKey.get(KeyKeys.KeyType) == KeyKeys.KeyType_OKP)) {</span>
-<span class="fc" id="L190">           LOGGER.info(&quot;Starting CoapsAS with PSK and RPK&quot;);</span>
-<span class="fc" id="L191">           dtlsConfig.set(DtlsConfig.DTLS_CIPHER_SUITES,</span>
-<span class="fc" id="L192">        		          Arrays.asList(CipherSuite.TLS_PSK_WITH_AES_128_CCM_8,</span>
+<span class="pc bpc" id="L193" title="2 of 4 branches missed.">       if (asymmetricKey != null &amp;&amp; (asymmetricKey.get(KeyKeys.KeyType) == KeyKeys.KeyType_EC2 ||</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">					 			     asymmetricKey.get(KeyKeys.KeyType) == KeyKeys.KeyType_OKP)) {</span>
+<span class="fc" id="L195">           LOGGER.info(&quot;Starting CoapsAS with PSK and RPK&quot;);</span>
+<span class="fc" id="L196">           dtlsConfig.set(DtlsConfig.DTLS_CIPHER_SUITES,</span>
+<span class="fc" id="L197">        		          Arrays.asList(CipherSuite.TLS_PSK_WITH_AES_128_CCM_8,</span>
         		        		        CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8));
-<span class="pc bpc" id="L194" title="1 of 2 branches missed.">           if (asymmetricKey.get(KeyKeys.KeyType) == KeyKeys.KeyType_EC2) {</span>
-<span class="pc bpc" id="L195" title="1 of 2 branches missed.">        	   if (asymmetricKey.get(KeyKeys.OKP_Curve) == KeyKeys.EC2_P256) {</span>
-<span class="fc" id="L196">		   		   dtlsConfig.set(DtlsConfig.DTLS_CURVES, Arrays.asList(SupportedGroup.secp256r1));</span>
-<span class="fc" id="L197">		   		   dtlsConfig.set(DtlsConfig.DTLS_SIGNATURE_AND_HASH_ALGORITHMS,</span>
-<span class="fc" id="L198">		   				          Arrays.asList(SignatureAndHashAlgorithm.SHA256_WITH_ECDSA));</span>
+<span class="pc bpc" id="L199" title="1 of 2 branches missed.">           if (asymmetricKey.get(KeyKeys.KeyType) == KeyKeys.KeyType_EC2) {</span>
+<span class="pc bpc" id="L200" title="1 of 2 branches missed.">        	   if (asymmetricKey.get(KeyKeys.OKP_Curve) == KeyKeys.EC2_P256) {</span>
+<span class="fc" id="L201">		   		   dtlsConfig.set(DtlsConfig.DTLS_CURVES, Arrays.asList(SupportedGroup.secp256r1));</span>
+<span class="fc" id="L202">		   		   dtlsConfig.set(DtlsConfig.DTLS_SIGNATURE_AND_HASH_ALGORITHMS,</span>
+<span class="fc" id="L203">		   				          Arrays.asList(SignatureAndHashAlgorithm.SHA256_WITH_ECDSA));</span>
         	   }
            }
-<span class="pc bpc" id="L201" title="1 of 2 branches missed.">           if (asymmetricKey.get(KeyKeys.KeyType) == KeyKeys.KeyType_OKP) {</span>
-<span class="nc bnc" id="L202" title="All 2 branches missed.">        	   if (asymmetricKey.get(KeyKeys.OKP_Curve) == KeyKeys.OKP_Ed25519) {</span>
-<span class="nc" id="L203">		   		   dtlsConfig.set(DtlsConfig.DTLS_CURVES, Arrays.asList(SupportedGroup.X25519));</span>
-<span class="nc" id="L204">		   		   dtlsConfig.set(DtlsConfig.DTLS_SIGNATURE_AND_HASH_ALGORITHMS,</span>
-<span class="nc" id="L205">		   				          Arrays.asList(SignatureAndHashAlgorithm.INTRINSIC_WITH_ED25519));</span>
-        	   }
-<span class="nc bnc" id="L207" title="All 2 branches missed.">        	   if (asymmetricKey.get(KeyKeys.OKP_Curve) == KeyKeys.OKP_Ed448) {</span>
-<span class="nc" id="L208">		   		   dtlsConfig.set(DtlsConfig.DTLS_CURVES, Arrays.asList(SupportedGroup.X448));</span>
+<span class="pc bpc" id="L206" title="1 of 2 branches missed.">           if (asymmetricKey.get(KeyKeys.KeyType) == KeyKeys.KeyType_OKP) {</span>
+<span class="nc bnc" id="L207" title="All 2 branches missed.">        	   if (asymmetricKey.get(KeyKeys.OKP_Curve) == KeyKeys.OKP_Ed25519) {</span>
+<span class="nc" id="L208">		   		   dtlsConfig.set(DtlsConfig.DTLS_CURVES, Arrays.asList(SupportedGroup.X25519));</span>
 <span class="nc" id="L209">		   		   dtlsConfig.set(DtlsConfig.DTLS_SIGNATURE_AND_HASH_ALGORITHMS,</span>
-<span class="nc" id="L210">		   				          Arrays.asList(SignatureAndHashAlgorithm.INTRINSIC_WITH_ED448));</span>
+<span class="nc" id="L210">		   				          Arrays.asList(SignatureAndHashAlgorithm.INTRINSIC_WITH_ED25519));</span>
+        	   }
+<span class="nc bnc" id="L212" title="All 2 branches missed.">        	   if (asymmetricKey.get(KeyKeys.OKP_Curve) == KeyKeys.OKP_Ed448) {</span>
+<span class="nc" id="L213">		   		   dtlsConfig.set(DtlsConfig.DTLS_CURVES, Arrays.asList(SupportedGroup.X448));</span>
+<span class="nc" id="L214">		   		   dtlsConfig.set(DtlsConfig.DTLS_SIGNATURE_AND_HASH_ALGORITHMS,</span>
+<span class="nc" id="L215">		   				          Arrays.asList(SignatureAndHashAlgorithm.INTRINSIC_WITH_ED448));</span>
         	   }
            }
        } else {
-<span class="nc" id="L214">           LOGGER.info(&quot;Starting CoapsAS with PSK only&quot;);</span>
-<span class="nc" id="L215">           dtlsConfig.set(DtlsConfig.DTLS_CIPHER_SUITES, Collections.singletonList(CipherSuite.TLS_PSK_WITH_AES_128_CCM_8));</span>
+<span class="nc" id="L219">           LOGGER.info(&quot;Starting CoapsAS with PSK only&quot;);</span>
+<span class="nc" id="L220">           dtlsConfig.set(DtlsConfig.DTLS_CIPHER_SUITES, Collections.singletonList(CipherSuite.TLS_PSK_WITH_AES_128_CCM_8));</span>
        }
        
        
        
        
         
-<span class="fc" id="L222">       DtlsConnectorConfig.Builder config =  new DtlsConnectorConfig.Builder(dtlsConfig)</span>
-<span class="fc" id="L223">               .setAddress(new InetSocketAddress(port));</span>
+<span class="fc" id="L227">       DtlsConnectorConfig.Builder config =  new DtlsConnectorConfig.Builder(dtlsConfig)</span>
+<span class="fc" id="L228">               .setAddress(new InetSocketAddress(port));</span>
 
-<span class="fc" id="L225">       ArrayList&lt;CertificateType&gt; certTypes = new ArrayList&lt;CertificateType&gt;();</span>
-<span class="fc" id="L226">       certTypes.add(CertificateType.RAW_PUBLIC_KEY);</span>
-<span class="fc" id="L227">       certTypes.add(CertificateType.X_509);</span>
-<span class="fc" id="L228">       AsyncNewAdvancedCertificateVerifier verifier = new AsyncNewAdvancedCertificateVerifier(new X509Certificate[0],</span>
+<span class="fc" id="L230">       ArrayList&lt;CertificateType&gt; certTypes = new ArrayList&lt;CertificateType&gt;();</span>
+<span class="fc" id="L231">       certTypes.add(CertificateType.RAW_PUBLIC_KEY);</span>
+<span class="fc" id="L232">       certTypes.add(CertificateType.X_509);</span>
+<span class="fc" id="L233">       AsyncCertificateVerifier verifier = new AsyncCertificateVerifier(new X509Certificate[0],</span>
                new RawPublicKeyIdentity[0], certTypes);
-<span class="fc" id="L230">       config.setAdvancedCertificateVerifier(verifier);</span>
+<span class="fc" id="L235">       config.setCertificateVerifier(verifier);</span>
 
-<span class="fc" id="L232">       config.setAdvancedPskStore(db);</span>
-<span class="pc bpc" id="L233" title="1 of 2 branches missed.">       if (asymmetricKey != null) {</span>
-<span class="fc" id="L234">           config.setCertificateIdentityProvider(</span>
-<span class="fc" id="L235">                   new SingleCertificateProvider(asymmetricKey.AsPrivateKey(), asymmetricKey.AsPublicKey()));</span>
+<span class="fc" id="L237">       config.setPskStore(db);</span>
+<span class="pc bpc" id="L238" title="1 of 2 branches missed.">       if (asymmetricKey != null) {</span>
+<span class="fc" id="L239">           config.setCertificateIdentityProvider(</span>
+<span class="fc" id="L240">                   new SingleCertificateProvider(asymmetricKey.AsPrivateKey(), asymmetricKey.AsPublicKey()));</span>
        }
-<span class="fc" id="L237">       DTLSConnector connector = new DTLSConnector(config.build());</span>
+<span class="fc" id="L242">       DTLSConnector connector = new DTLSConnector(config.build());</span>
        
-<span class="fc" id="L239">       addEndpoint(new CoapEndpoint.Builder()</span>
-<span class="fc" id="L240">               .setConnector(connector).setConfiguration(</span>
-<span class="fc" id="L241">                       Configuration.getStandard()).build());</span>
+<span class="fc" id="L244">       addEndpoint(new CoapEndpoint.Builder()</span>
+<span class="fc" id="L245">               .setConnector(connector).setConfiguration(</span>
+<span class="fc" id="L246">                       Configuration.getStandard()).build());</span>
        //Add a CoAP (no 's') endpoint for error messages
        //CoapEndpoint coap = new CoapEndpointBuilder().setInetSocketAddress(
        //       new InetSocketAddress(CoAP.DEFAULT_COAP_PORT)).build();
        //addEndpoint(coap);
-<span class="fc" id="L246">    }</span>
+<span class="fc" id="L251">    }</span>
 
     @Override
     public void close() throws Exception {
-<span class="nc" id="L250">       LOGGER.info(&quot;Closing down DtlsAS ...&quot;);</span>
-<span class="nc" id="L251">       this.token.close();</span>
-<span class="nc" id="L252">       this.introspect.close();</span>
-<span class="nc" id="L253">    }</span>
+<span class="nc" id="L255">       LOGGER.info(&quot;Closing down DtlsAS ...&quot;);</span>
+<span class="nc" id="L256">       this.token.close();</span>
+<span class="nc" id="L257">       this.introspect.close();</span>
+<span class="nc" id="L258">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

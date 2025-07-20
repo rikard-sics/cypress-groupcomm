@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ResponseReplayWindow.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore.group</a> &gt; <span class="el_source">ResponseReplayWindow.java</span></div><h1>ResponseReplayWindow.java</h1><pre class="source lang-java linenums">package org.eclipse.californium.oscore.group;
+
+import org.eclipse.californium.oscore.ErrorDescriptions;
+import org.eclipse.californium.oscore.OSException;
+
+/**
+ * Class to implement logic for replay windows for long exchanges.
+ * 
+ */
+<span class="fc" id="L10">public class ResponseReplayWindow {</span>
+
+<span class="fc" id="L12">	int lowest_recipient_seq = -1;</span>
+<span class="fc" id="L13">	final int recipient_replay_window_size = 32;</span>
+<span class="fc" id="L14">	int recipient_replay_window = 0;</span>
+
+	/**
+	 * Checks and validates the sequence number for incoming messages.
+	 * 
+	 * @param seq the incoming Partial IV
+	 * 
+	 * @throws OSException if the Partial IV is replayed
+	 */
+	public synchronized void checkIncoming(int piv) throws OSException {
+
+<span class="pc bpc" id="L25" title="1 of 2 branches missed.">		if (piv &lt; lowest_recipient_seq) {</span>
+<span class="nc" id="L26">			System.err.println(&quot;Message too old&quot;);</span>
+<span class="nc" id="L27">			throw new OSException(ErrorDescriptions.REPLAY_DETECT);</span>
+		}
+
+		// Check validity
+<span class="fc" id="L31">		boolean valid = false;</span>
+<span class="pc bpc" id="L32" title="1 of 2 branches missed.">		if (piv &gt;= lowest_recipient_seq + recipient_replay_window_size) {</span>
+<span class="nc" id="L33">			valid = true;</span>
+		} else {
+<span class="fc bfc" id="L35" title="All 2 branches covered.">			valid = ((recipient_replay_window &gt;&gt; (piv - lowest_recipient_seq)) &amp; 1) == 0;</span>
+		}
+<span class="fc bfc" id="L37" title="All 2 branches covered.">		if (!valid) {</span>
+<span class="fc" id="L38">			System.err.println(&quot;Replayed response message detected&quot;);</span>
+<span class="fc" id="L39">			throw new OSException(ErrorDescriptions.REPLAY_DETECT);</span>
+		}
+
+		// Update window
+<span class="fc" id="L43">		int shift = piv - (lowest_recipient_seq + recipient_replay_window_size - 1);</span>
+<span class="pc bpc" id="L44" title="1 of 2 branches missed.">		if (shift &gt; 0) {</span>
+<span class="nc" id="L45">			recipient_replay_window &gt;&gt;= shift;</span>
+<span class="nc" id="L46">			lowest_recipient_seq += shift;</span>
+		}
+<span class="fc" id="L48">		recipient_replay_window |= 1 &lt;&lt; (piv - lowest_recipient_seq);</span>
+<span class="fc" id="L49">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

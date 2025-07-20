@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GroupOSCORESubResourceStaleSids.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.oscore.rs.oscoreGroupManager</a> &gt; <span class="el_source">GroupOSCORESubResourceStaleSids.java</span></div><h1>GroupOSCORESubResourceStaleSids.java</h1><pre class="source lang-java linenums"> /*******************************************************************************
+ * Copyright (c) 2025, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.oscore.rs.oscoreGroupManager;
+
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+
+import org.eclipse.californium.core.CoapResource;
+import org.eclipse.californium.core.coap.CoAP;
+import org.eclipse.californium.core.coap.Request;
+import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.server.resources.CoapExchange;
+
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+
+import se.sics.ace.AceException;
+import se.sics.ace.Constants;
+import se.sics.ace.GroupcommErrors;
+import se.sics.ace.GroupcommParameters;
+import se.sics.ace.coap.CoapReq;
+import se.sics.ace.oscore.GroupInfo;
+
+/**
+ * Definition of the Group OSCORE group-membership sub-resource /stale-sids
+ */
+public class GroupOSCORESubResourceStaleSids extends CoapResource {
+	
+<span class="fc" id="L60">	private Map&lt;String, GroupInfo&gt; existingGroupInfo = new HashMap&lt;&gt;();</span>
+	
+	/**
+     * Constructor
+     * @param resId  the resource identifier
+     * @param existingGroupInfo  the set of information of the existing OSCORE groups
+     */
+    public GroupOSCORESubResourceStaleSids(String resId, Map&lt;String, GroupInfo&gt; existingGroupInfo) {
+        
+        // set resource identifier
+<span class="fc" id="L70">        super(resId);</span>
+        
+        // set display name
+<span class="fc" id="L73">        getAttributes().setTitle(&quot;Group OSCORE Group-Membership Sub-Resource \&quot;stale-sids\&quot; &quot; + resId);</span>
+        
+<span class="fc" id="L75">        this.existingGroupInfo = existingGroupInfo;</span>
+        
+<span class="fc" id="L77">    }</span>
+
+    @Override
+    public void handleFETCH(CoapExchange exchange) {
+<span class="fc" id="L81">    	System.out.println(&quot;FETCH request reached the GM&quot;);</span>
+    	
+    	// Retrieve the entry for the target group, using the last path segment of
+    	// the URI path as the name of the OSCORE group
+<span class="fc" id="L85">    	GroupInfo targetedGroup = existingGroupInfo.get(this.getParent().getName());</span>
+    	
+    	// This should never happen if existing groups are maintained properly
+<span class="pc bpc" id="L88" title="1 of 2 branches missed.">    	if (targetedGroup == null) {</span>
+<span class="nc" id="L89">        	exchange.respond(CoAP.ResponseCode.SERVICE_UNAVAILABLE,</span>
+        					 &quot;Error when retrieving material for the OSCORE group&quot;);
+<span class="nc" id="L91">        	return;</span>
+    	}
+    	
+<span class="fc" id="L94">    	String groupName = targetedGroup.getGroupName();</span>
+    	
+    	// This should never happen if existing groups are maintained properly
+<span class="pc bpc" id="L97" title="1 of 2 branches missed.">  		if (!groupName.equals(this.getParent().getName())) {</span>
+<span class="nc" id="L98">    	exchange.respond(CoAP.ResponseCode.SERVICE_UNAVAILABLE,</span>
+    					 &quot;Error when retrieving material for the OSCORE group&quot;);
+<span class="nc" id="L100">			return;</span>
+		}
+    	
+<span class="fc" id="L103">    	String subject = null;</span>
+<span class="fc" id="L104">    	Request request = exchange.advanced().getCurrentRequest();</span>
+        
+        try {
+<span class="fc" id="L107">			subject = CoapReq.getInstance(request).getSenderId();</span>
+<span class="nc" id="L108">		} catch (AceException e) {</span>
+<span class="nc" id="L109">		    System.err.println(&quot;Error while retrieving the client identity: &quot; + e.getMessage());</span>
+<span class="fc" id="L110">		}</span>
+<span class="pc bpc" id="L111" title="1 of 2 branches missed.">        if (subject == null) {</span>
+        	// At this point, this should not really happen, due to the earlier check at the Token Repository
+<span class="nc" id="L113">        	exchange.respond(CoAP.ResponseCode.UNAUTHORIZED,</span>
+        					 &quot;Unauthenticated client tried to get access&quot;);
+<span class="nc" id="L115">        	return;</span>
+        }
+    	
+<span class="pc bpc" id="L118" title="1 of 2 branches missed.">    	if (!targetedGroup.isGroupMember(subject)) {	</span>
+    		// The requester is not a current group member.
+<span class="nc" id="L120">    		CBORObject responseMap = CBORObject.NewMap();</span>
+    		
+<span class="nc" id="L122">    		CBORObject aceGroupcommError = CBORObject.NewMap();</span>
+<span class="nc" id="L123">    		aceGroupcommError.Add(0, GroupcommErrors.ONLY_FOR_GROUP_MEMBERS);</span>
+<span class="nc" id="L124">    		responseMap.Add(Constants.PROBLEM_DETAIL_ACE_GROUPCOMM_ERROR, aceGroupcommError);</span>
+<span class="nc" id="L125">    		responseMap.Add(Constants.PROBLEM_DETAIL_KEY_TITLE, GroupcommErrors.DESCRIPTION[GroupcommErrors.ONLY_FOR_GROUP_MEMBERS]);</span>
+
+<span class="nc" id="L127">    		byte[] responsePayload = responseMap.EncodeToBytes();</span>
+<span class="nc" id="L128">    		exchange.respond(CoAP.ResponseCode.FORBIDDEN,</span>
+    						 responsePayload,
+    						 Constants.APPLICATION_CONCISE_PROBLEM_DETAILS_CBOR);
+    		
+<span class="nc" id="L132">    		return;</span>
+    	}
+
+<span class="fc" id="L135">    	byte[] requestPayload = exchange.getRequestPayload();</span>
+    	
+<span class="pc bpc" id="L137" title="1 of 2 branches missed.">    	if(requestPayload == null) {</span>
+<span class="nc" id="L138">    		exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+    						 &quot;A payload must be present&quot;);
+<span class="nc" id="L140">    		return;</span>
+    	}
+    	
+<span class="fc" id="L143">    	CBORObject requestCBOR = CBORObject.DecodeFromBytes(requestPayload);</span>
+    	
+    	// The payload of the request must be a non-negative CBOR Integer
+<span class="pc bpc" id="L146" title="1 of 2 branches missed.">    	if (!requestCBOR.getType().equals(CBORType.Integer)) {</span>
+<span class="nc" id="L147">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+							 &quot;Invalid payload format&quot;);
+<span class="nc" id="L149">    		return;</span>
+    	}
+    	
+<span class="fc" id="L152">    	int oldVersion = requestCBOR.AsInt32();</span>
+
+<span class="pc bpc" id="L154" title="2 of 4 branches missed.">    	if (oldVersion &lt; 0 || oldVersion &gt;= targetedGroup.getVersion()) {</span>
+<span class="fc" id="L155">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+					 		 &quot;Invalid payload format&quot;);
+<span class="fc" id="L157">			return;</span>
+    	}
+
+    	
+    	// Respond to the Stale Sender IDs Request
+    	
+<span class="nc" id="L163">    	byte[] responsePayload = null;</span>
+<span class="nc" id="L164">    	int skew = targetedGroup.getVersion() - oldVersion + 1;</span>
+    	    	
+<span class="nc bnc" id="L166" title="All 2 branches missed.">    	if (skew &lt;= targetedGroup.getNumberOfStaleSenderIdsSet()) {</span>
+    		
+    		// Prepare a non-empty payload for the response
+<span class="nc" id="L169">    		Set&lt;CBORObject&gt; mySet = targetedGroup.getStaleSenderIds(oldVersion);</span>
+    		
+<span class="nc bnc" id="L171" title="All 2 branches missed.">    		if (mySet == null) {</span>
+<span class="nc" id="L172">    			exchange.respond(CoAP.ResponseCode.INTERNAL_SERVER_ERROR,</span>
+				 		 &quot;Error when retrieving the stale Sender IDs&quot;);
+<span class="nc" id="L174">    			return;</span>
+    		}
+    	
+<span class="nc" id="L177">    		CBORObject myResponse = CBORObject.NewArray();</span>
+<span class="nc" id="L178">    		Iterator&lt;CBORObject&gt; myIterator = mySet.iterator();</span>
+<span class="nc bnc" id="L179" title="All 2 branches missed.">    		while(myIterator.hasNext()) {</span>
+<span class="nc" id="L180">    			myResponse.Add(myIterator.next());</span>
+    		}
+    		
+<span class="nc" id="L183">    		responsePayload = myResponse.EncodeToBytes();</span>
+    	}
+    	
+<span class="nc" id="L186">    	Response coapResponse = new Response(CoAP.ResponseCode.CONTENT);</span>
+<span class="nc" id="L187">    	coapResponse.setPayload(responsePayload);</span>
+<span class="nc" id="L188">    	coapResponse.getOptions().setContentFormat(Constants.APPLICATION_CBOR);</span>
+
+<span class="nc" id="L190">    	exchange.respond(coapResponse);</span>
+
+<span class="nc" id="L192">    }</span>
+    
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

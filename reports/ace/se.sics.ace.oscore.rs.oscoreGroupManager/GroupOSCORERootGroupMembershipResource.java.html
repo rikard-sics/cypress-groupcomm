@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GroupOSCORERootGroupMembershipResource.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.oscore.rs.oscoreGroupManager</a> &gt; <span class="el_source">GroupOSCORERootGroupMembershipResource.java</span></div><h1>GroupOSCORERootGroupMembershipResource.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2025, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.oscore.rs.oscoreGroupManager;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.eclipse.californium.core.CoapResource;
+import org.eclipse.californium.core.coap.CoAP;
+import org.eclipse.californium.core.coap.Request;
+import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.server.resources.CoapExchange;
+
+import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
+
+import se.sics.ace.AceException;
+import se.sics.ace.Constants;
+import se.sics.ace.GroupcommParameters;
+import se.sics.ace.Util;
+import se.sics.ace.coap.CoapReq;
+import se.sics.ace.oscore.GroupInfo;
+
+/**
+ * Definition of the root group-membership resource for Group OSCORE
+ * 
+ * Children of this resource are the group-membership resources,
+ * whose implementation is provided by the class GroupOSCOREGroupMembershipResource
+ */
+public class GroupOSCORERootGroupMembershipResource extends CoapResource {
+    
+<span class="fc" id="L64">	private Map&lt;String, GroupInfo&gt; existingGroupInfo = new HashMap&lt;&gt;();</span>
+	
+    /**
+     * Constructor
+     * @param resId  the resource identifier
+     * @param existingGroupInfo  the set of information of the existing OSCORE groups
+     */
+    public GroupOSCORERootGroupMembershipResource(String resId, Map&lt;String, GroupInfo&gt; existingGroupInfo) {
+        
+        // set resource identifier
+<span class="fc" id="L74">        super(resId);</span>
+        
+        // set display name
+<span class="fc" id="L77">        getAttributes().setTitle(&quot;Group OSCORE Group-Membership Resource &quot; + resId);</span>
+        
+<span class="fc" id="L79">        this.existingGroupInfo = existingGroupInfo;</span>
+<span class="fc" id="L80">    }</span>
+    
+    @Override
+    public void handleFETCH(CoapExchange exchange) {
+<span class="fc" id="L84">    	System.out.println(&quot;FETCH request reached the GM&quot;);</span>
+    	
+<span class="fc" id="L86">    	String subject = null;</span>
+<span class="fc" id="L87">    	Request request = exchange.advanced().getCurrentRequest();</span>
+        
+        try {
+<span class="fc" id="L90">			subject = CoapReq.getInstance(request).getSenderId();</span>
+<span class="nc" id="L91">		} catch (AceException e) {</span>
+<span class="nc" id="L92">		    System.err.println(&quot;Error while retrieving the client identity: &quot; + e.getMessage());</span>
+<span class="fc" id="L93">		}</span>
+<span class="pc bpc" id="L94" title="1 of 2 branches missed.">        if (subject == null) {</span>
+        	// At this point, this should not really happen, due to the earlier check at the Token Repository
+<span class="nc" id="L96">        	exchange.respond(CoAP.ResponseCode.UNAUTHORIZED,</span>
+        					 &quot;Unauthenticated client tried to get access&quot;);
+<span class="nc" id="L98">        	return;</span>
+        }
+        
+<span class="fc" id="L101">    	byte[] requestPayload = exchange.getRequestPayload();</span>
+    	
+<span class="pc bpc" id="L103" title="1 of 2 branches missed.">    	if(requestPayload == null) {</span>
+<span class="nc" id="L104">    		exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+    						 &quot;A payload must be present&quot;);
+<span class="nc" id="L106">    		return;</span>
+    	}
+    	
+<span class="fc" id="L109">    	CBORObject requestCBOR = CBORObject.DecodeFromBytes(requestPayload);</span>
+		
+    	// The payload of the request must be a CBOR Map
+<span class="pc bpc" id="L112" title="1 of 2 branches missed.">    	if (!requestCBOR.getType().equals(CBORType.Map)) {</span>
+<span class="nc" id="L113">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+							 &quot;Invalid payload format&quot;);
+<span class="nc" id="L115">    		return;</span>
+    	}
+    	
+    	// The CBOR Map must include exactly one element, i.e. 'gid'
+<span class="pc bpc" id="L119" title="2 of 4 branches missed.">    	if ((requestCBOR.size() != 1) || (!requestCBOR.ContainsKey(GroupcommParameters.GID))) {</span>
+<span class="nc" id="L120">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+							 &quot;Invalid payload format&quot;);
+<span class="nc" id="L122">    		return;</span>
+    	}
+    	
+    	// The 'gid' element must be a CBOR array, with at least one element
+<span class="pc bpc" id="L126" title="1 of 2 branches missed.">    	if (requestCBOR.get(GroupcommParameters.GID).getType() != CBORType.Array ||</span>
+<span class="pc bpc" id="L127" title="1 of 2 branches missed.">    		requestCBOR.get(GroupcommParameters.GID).size() == 0) {</span>
+<span class="nc" id="L128">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+							 &quot;Invalid payload format&quot;);
+<span class="nc" id="L130">    		return;</span>
+    	}
+    	
+    	// Each element of 'gid' element must be a CBOR byte string
+<span class="fc bfc" id="L134" title="All 2 branches covered.">    	for (int i = 0 ; i &lt; requestCBOR.get(GroupcommParameters.GID).size(); i++) {</span>
+<span class="pc bpc" id="L135" title="1 of 2 branches missed.">        	if (requestCBOR.get(GroupcommParameters.GID).get(i).getType() != CBORType.ByteString) {</span>
+<span class="nc" id="L136">				exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+								 &quot;Invalid payload format&quot;);
+<span class="nc" id="L138">	    		return;</span>
+        	}
+    	}
+    	    		
+<span class="fc" id="L142">		List&lt;CBORObject&gt; inputGroupIds = new ArrayList&lt;CBORObject&gt; ();</span>
+<span class="fc bfc" id="L143" title="All 2 branches covered.">		for (int i = 0; i &lt; requestCBOR.get(GroupcommParameters.GID).size(); i++) {</span>
+<span class="fc" id="L144">			inputGroupIds.add(requestCBOR.get(GroupcommParameters.GID).get(i));</span>
+		}
+		
+<span class="fc" id="L147">		List&lt;String&gt; preliminaryGroupNames = new ArrayList&lt;String&gt;();</span>
+<span class="fc" id="L148">		List&lt;CBORObject&gt; finalGroupNames = new ArrayList&lt;CBORObject&gt;();</span>
+<span class="fc" id="L149">		List&lt;CBORObject&gt; finalGroupIds = new ArrayList&lt;CBORObject&gt;();</span>
+<span class="fc" id="L150">		List&lt;CBORObject&gt; finalGroupURIs = new ArrayList&lt;CBORObject&gt;();</span>
+		
+		// Navigate the list of existing OSCORE groups
+<span class="fc bfc" id="L153" title="All 2 branches covered.">    	for (String groupName : existingGroupInfo.keySet()) {</span>
+    		
+<span class="fc" id="L155">    		GroupInfo myGroup = existingGroupInfo.get(groupName);</span>
+<span class="fc" id="L156">    		byte[] storedGid = myGroup.getGroupId();</span>
+    		
+    		// Navigate the list of Group IDs specified in the request
+<span class="fc bfc" id="L159" title="All 2 branches covered.">    		for (int i = 0; i &lt; inputGroupIds.size(); i ++) {</span>
+<span class="fc" id="L160">    			byte[] inputGid = inputGroupIds.get(i).GetByteString();</span>
+    			
+    			// A match is found with the examined OSCORE group
+<span class="fc bfc" id="L163" title="All 2 branches covered.">    			if (Arrays.equals(storedGid, inputGid)) {</span>
+        			// Store the used Group Name for future inspection
+<span class="fc" id="L165">    				preliminaryGroupNames.add(groupName);</span>
+    				// No need to further consider this Group ID value
+<span class="fc" id="L167">    				inputGroupIds.remove(i);</span>
+<span class="fc" id="L168">    				break;</span>
+    			}
+    		}
+    		
+<span class="fc bfc" id="L172" title="All 2 branches covered.">    		if (inputGroupIds.isEmpty())</span>
+<span class="fc" id="L173">    			break;</span>
+    		
+<span class="fc" id="L175">    	}</span>
+		
+    	// Selects only names of groups where the requesting client is
+    	// a current member or is authorized to have any role about
+<span class="fc bfc" id="L179" title="All 2 branches covered.">    	for (String groupName : preliminaryGroupNames) {</span>
+    		
+<span class="fc" id="L181">    		GroupInfo targetedGroup = existingGroupInfo.get(groupName);</span>
+    		
+<span class="pc bpc" id="L183" title="1 of 2 branches missed.">        	if (!targetedGroup.isGroupMember(subject)) {</span>
+        		
+        		// The requester is not a current group member.
+        		//
+        		// This is still fine, as long as at least one Access Token allows
+        		// the requesting client to have any role with respect to the group
+        		
+<span class="nc bnc" id="L190" title="All 2 branches missed.">        		if (Util.getGroupOSCORERolesFromToken(subject, groupName) == null) {</span>
+        	    	// No Access Token allows the requesting client node to have
+        	    	// to have any role with respect to the group
+        			
+        			// Move to considering the next group
+<span class="nc" id="L195">        			continue;</span>
+        		}
+            	
+        	}
+        	
+<span class="fc" id="L200">        	finalGroupNames.add(CBORObject.FromObject(groupName));</span>
+<span class="fc" id="L201">        	byte[] gid = targetedGroup.getGroupId();</span>
+<span class="fc" id="L202">        	finalGroupIds.add(CBORObject.FromObject(gid));</span>
+<span class="fc" id="L203">        	finalGroupURIs.add(CBORObject.FromObject(this.getURI() + &quot;/&quot; + groupName));</span>
+        	
+<span class="fc" id="L205">    	}</span>
+    	
+        
+        // Respond to the Group Name and URI Retrieval Request
+        
+<span class="fc" id="L210">    	byte[] responsePayload = null;</span>
+<span class="fc" id="L211">    	Response coapResponse = new Response(CoAP.ResponseCode.CONTENT);</span>
+    	
+    	// The response is an empty CBOR byte string
+<span class="fc bfc" id="L214" title="All 2 branches covered.">    	if (finalGroupNames.size() == 0) {</span>
+<span class="fc" id="L215">    		byte[] emptyArray = new byte[0];</span>
+<span class="fc" id="L216">    		responsePayload = CBORObject.FromObject(emptyArray).EncodeToBytes();</span>
+<span class="fc" id="L217">    	}</span>
+    	// The response is a CBOR may including three CBOR arrays
+    	else {
+<span class="fc" id="L220">    		CBORObject myResponse = CBORObject.NewMap();</span>
+
+<span class="fc" id="L222">    		CBORObject gnameArray = CBORObject.NewArray();</span>
+<span class="fc" id="L223">    		CBORObject gidArray = CBORObject.NewArray();</span>
+<span class="fc" id="L224">    		CBORObject guriArray = CBORObject.NewArray();</span>
+    		
+<span class="fc bfc" id="L226" title="All 2 branches covered.">    		for (int i = 0; i &lt; finalGroupNames.size(); i++) {</span>
+<span class="fc" id="L227">    			gnameArray.Add(finalGroupNames.get(i));</span>
+<span class="fc" id="L228">    			gidArray.Add(finalGroupIds.get(i));</span>
+<span class="fc" id="L229">    			guriArray.Add(finalGroupURIs.get(i));</span>
+    		}
+    		
+<span class="fc" id="L232">    		myResponse.Add(GroupcommParameters.GID, gidArray);</span>
+<span class="fc" id="L233">    		myResponse.Add(GroupcommParameters.GNAME, gnameArray);</span>
+<span class="fc" id="L234">    		myResponse.Add(GroupcommParameters.GURI, guriArray);</span>
+    		
+<span class="fc" id="L236">    		responsePayload = myResponse.EncodeToBytes();</span>
+<span class="fc" id="L237">        	coapResponse.getOptions().setContentFormat(Constants.APPLICATION_ACE_GROUPCOMM_CBOR);</span>
+    	} 
+        
+<span class="fc" id="L240">    	coapResponse.setPayload(responsePayload);</span>
+
+<span class="fc" id="L242">    	exchange.respond(coapResponse);</span>
+    	
+<span class="fc" id="L244">    }</span>
+    
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

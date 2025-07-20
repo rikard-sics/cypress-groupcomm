@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EdhocLayer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-EDHOC</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.edhoc</a> &gt; <span class="el_source">EdhocLayer.java</span></div><h1>EdhocLayer.java</h1><pre class="source lang-java linenums">/*******************************************************************************
- * Copyright (c) 2020 RISE and others.
+ * Copyright (c) 2025 RISE and others.
  * 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
@@ -447,43 +447,46 @@ public class EdhocLayer extends AbstractLayer {
 <span class="fc" id="L447">				}			        			        </span>
 				
 				// Remove the EDHOC option
-<span class="fc" id="L450">				request.getOptions().setEdhoc(false);</span>
+<span class="fc" id="L450">				request.getOptions().removeEdhoc();</span>
+				
+				// Perform any follow-up actions based on the processing results of EAD items
+<span class="fc" id="L453">				mySession.getSideProcessor().eadProcessingFollowUp();</span>
 				
 				// The next step is to pass the OSCORE request to the next layer for processing
 			
-<span class="fc" id="L454">			}</span>
+<span class="fc" id="L457">			}</span>
 			// An EDHOC error message has to be returned in response to EDHOC message_3
 			// The session has been possibly purged while attempting to process message_3
 			else {
-<span class="nc" id="L458">				int responseCodeValue = processingResult.get(1).AsInt32();</span>
-<span class="nc" id="L459">				ResponseCode responseCode = ResponseCode.valueOf(responseCodeValue);</span>
-<span class="nc" id="L460">				sendErrorMessage(exchange, nextMessage, responseCode);</span>
-<span class="nc" id="L461">				return;</span>
+<span class="nc" id="L461">				int responseCodeValue = processingResult.get(1).AsInt32();</span>
+<span class="nc" id="L462">				ResponseCode responseCode = ResponseCode.valueOf(responseCodeValue);</span>
+<span class="nc" id="L463">				sendErrorMessage(exchange, nextMessage, responseCode);</span>
+<span class="nc" id="L464">				return;</span>
 			
 			}
 					    
 		}
 		
-<span class="fc" id="L467">		super.receiveRequest(exchange, request);</span>
-<span class="fc" id="L468">	}</span>
+<span class="fc" id="L470">		super.receiveRequest(exchange, request);</span>
+<span class="fc" id="L471">	}</span>
 
 	@Override
 	public void receiveResponse(Exchange exchange, Response response) {
 
-<span class="fc" id="L473">		LOGGER.warn(&quot;Receiving response through EDHOC layer&quot;);</span>
+<span class="fc" id="L476">		LOGGER.warn(&quot;Receiving response through EDHOC layer&quot;);</span>
 
-<span class="fc" id="L475">		super.receiveResponse(exchange, response);</span>
-<span class="fc" id="L476">	}</span>
+<span class="fc" id="L478">		super.receiveResponse(exchange, response);</span>
+<span class="fc" id="L479">	}</span>
 
 	@Override
 	public void sendEmptyMessage(Exchange exchange, EmptyMessage message) {
-<span class="nc" id="L480">		super.sendEmptyMessage(exchange, message);</span>
-<span class="nc" id="L481">	}</span>
+<span class="nc" id="L483">		super.sendEmptyMessage(exchange, message);</span>
+<span class="nc" id="L484">	}</span>
 
 	@Override
 	public void receiveEmptyMessage(Exchange exchange, EmptyMessage message) {
-<span class="nc" id="L485">		super.receiveEmptyMessage(exchange, message);</span>
-<span class="nc" id="L486">	}</span>
+<span class="nc" id="L488">		super.receiveEmptyMessage(exchange, message);</span>
+<span class="nc" id="L489">	}</span>
 
 	/**
 	 * Returns the OSCORE Context that was used to protect this outgoing
@@ -494,15 +497,15 @@ public class EdhocLayer extends AbstractLayer {
 	 */
 	private OSCoreCtx getContextForOutgoing(Exchange e) {
 		
-<span class="fc" id="L497">		String uri = e.getRequest().getURI();</span>
-<span class="pc bpc" id="L498" title="1 of 2 branches missed.">		if (uri == null) {</span>
-<span class="nc" id="L499">			return null;</span>
+<span class="fc" id="L500">		String uri = e.getRequest().getURI();</span>
+<span class="pc bpc" id="L501" title="1 of 2 branches missed.">		if (uri == null) {</span>
+<span class="nc" id="L502">			return null;</span>
 		} else {
 			try {
-<span class="fc" id="L502">				return ctxDb.getContext(uri);</span>
-<span class="nc" id="L503">			} catch (OSException exception) {</span>
-<span class="nc" id="L504">				System.err.println(&quot;Error when retrieving the OSCORE Security Context &quot; + exception.getMessage());</span>
-<span class="nc" id="L505">				return null;</span>
+<span class="fc" id="L505">				return ctxDb.getContext(uri);</span>
+<span class="nc" id="L506">			} catch (OSException exception) {</span>
+<span class="nc" id="L507">				System.err.println(&quot;Error when retrieving the OSCORE Security Context &quot; + exception.getMessage());</span>
+<span class="nc" id="L508">				return null;</span>
 			}
 		}
 	}
@@ -514,34 +517,34 @@ public class EdhocLayer extends AbstractLayer {
 	 * @return the KID value
 	 */
 	static byte[] getKid(byte[] oscoreOption) {
-<span class="pc bpc" id="L517" title="1 of 2 branches missed.">		if (oscoreOption.length == 0) {</span>
-<span class="nc" id="L518">			return null;</span>
+<span class="pc bpc" id="L520" title="1 of 2 branches missed.">		if (oscoreOption.length == 0) {</span>
+<span class="nc" id="L521">			return null;</span>
 		}
 
 		// Parse the flag byte
-<span class="fc" id="L522">		byte flagByte = oscoreOption[0];</span>
-<span class="fc" id="L523">		int n = flagByte &amp; 0x07;</span>
-<span class="fc" id="L524">		int k = flagByte &amp; 0x08;</span>
-<span class="fc" id="L525">		int h = flagByte &amp; 0x10;</span>
+<span class="fc" id="L525">		byte flagByte = oscoreOption[0];</span>
+<span class="fc" id="L526">		int n = flagByte &amp; 0x07;</span>
+<span class="fc" id="L527">		int k = flagByte &amp; 0x08;</span>
+<span class="fc" id="L528">		int h = flagByte &amp; 0x10;</span>
 
-<span class="fc" id="L527">		byte[] kid = null;</span>
-<span class="fc" id="L528">		int index = 1;</span>
+<span class="fc" id="L530">		byte[] kid = null;</span>
+<span class="fc" id="L531">		int index = 1;</span>
 
 		// Partial IV
-<span class="fc" id="L531">		index += n;</span>
+<span class="fc" id="L534">		index += n;</span>
 
 		// KID Context
-<span class="pc bpc" id="L534" title="1 of 2 branches missed.">		if (h != 0) {</span>
-<span class="nc" id="L535">			int s = oscoreOption[index];</span>
-<span class="nc" id="L536">			index += s + 1;</span>
+<span class="pc bpc" id="L537" title="1 of 2 branches missed.">		if (h != 0) {</span>
+<span class="nc" id="L538">			int s = oscoreOption[index];</span>
+<span class="nc" id="L539">			index += s + 1;</span>
 		}
 
 		// KID
-<span class="pc bpc" id="L540" title="1 of 2 branches missed.">		if (k != 0) {</span>
-<span class="fc" id="L541">			kid = Arrays.copyOfRange(oscoreOption, index, oscoreOption.length);</span>
+<span class="pc bpc" id="L543" title="1 of 2 branches missed.">		if (k != 0) {</span>
+<span class="fc" id="L544">			kid = Arrays.copyOfRange(oscoreOption, index, oscoreOption.length);</span>
 		}
 
-<span class="fc" id="L544">		return kid;</span>
+<span class="fc" id="L547">		return kid;</span>
 	}	
 	
 	/*
@@ -549,32 +552,32 @@ public class EdhocLayer extends AbstractLayer {
 	 */
 	private void sendErrorResponse(Exchange exchange, String message, ResponseCode code) {
 		
-<span class="nc" id="L552">		byte[] errorMessage = new byte[] {};</span>
-<span class="nc" id="L553">		errorMessage = message.getBytes(Constants.charset);</span>
+<span class="nc" id="L555">		byte[] errorMessage = new byte[] {};</span>
+<span class="nc" id="L556">		errorMessage = message.getBytes(Constants.charset);</span>
 
-<span class="nc" id="L555">		Response errorResponse = new Response(code);</span>
-<span class="nc" id="L556">		errorResponse.setPayload(errorMessage);</span>
-<span class="nc" id="L557">		exchange.sendResponse(errorResponse);</span>
+<span class="nc" id="L558">		Response errorResponse = new Response(code);</span>
+<span class="nc" id="L559">		errorResponse.setPayload(errorMessage);</span>
+<span class="nc" id="L560">		exchange.sendResponse(errorResponse);</span>
 		
-<span class="nc" id="L559">	}</span>
+<span class="nc" id="L562">	}</span>
 	
 	/*
 	 * Send an EDHOC Error Message in response to the received EDHOC+OSCORE request
 	 */
 	private void sendErrorMessage(Exchange exchange, byte[] nextMessage, ResponseCode responseCode) {
 	
-<span class="nc bnc" id="L566" title="All 2 branches missed.">		if (!MessageProcessor.isErrorMessage(nextMessage, false)) {</span>
-<span class="nc" id="L567">			System.err.println(&quot;Inconsistent state before sending EDHOC Error Message&quot;);</span>
-<span class="nc" id="L568">			String responseString = new String(&quot;Inconsistent state before sending EDHOC Error Message&quot;);</span>
-<span class="nc" id="L569">			sendErrorResponse(exchange, responseString, ResponseCode.INTERNAL_SERVER_ERROR);</span>
-<span class="nc" id="L570">			return;</span>
+<span class="nc bnc" id="L569" title="All 2 branches missed.">		if (!MessageProcessor.isErrorMessage(nextMessage, false)) {</span>
+<span class="nc" id="L570">			System.err.println(&quot;Inconsistent state before sending EDHOC Error Message&quot;);</span>
+<span class="nc" id="L571">			String responseString = new String(&quot;Inconsistent state before sending EDHOC Error Message&quot;);</span>
+<span class="nc" id="L572">			sendErrorResponse(exchange, responseString, ResponseCode.INTERNAL_SERVER_ERROR);</span>
+<span class="nc" id="L573">			return;</span>
 		}
 		
-<span class="nc" id="L573">		Response myResponse = new Response(responseCode);</span>
-<span class="nc" id="L574">		myResponse.getOptions().setContentFormat(Constants.APPLICATION_EDHOC_CBOR_SEQ);</span>
-<span class="nc" id="L575">		myResponse.setPayload(nextMessage);</span>
-<span class="nc" id="L576">		exchange.sendResponse(myResponse);</span>
-<span class="nc" id="L577">		return;</span>
+<span class="nc" id="L576">		Response myResponse = new Response(responseCode);</span>
+<span class="nc" id="L577">		myResponse.getOptions().setContentFormat(Constants.APPLICATION_EDHOC_CBOR_SEQ);</span>
+<span class="nc" id="L578">		myResponse.setPayload(nextMessage);</span>
+<span class="nc" id="L579">		exchange.sendResponse(myResponse);</span>
+<span class="nc" id="L580">		return;</span>
 		
 	}
 	

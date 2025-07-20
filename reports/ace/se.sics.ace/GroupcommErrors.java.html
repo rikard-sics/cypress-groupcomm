@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GroupcommErrors.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace</a> &gt; <span class="el_source">GroupcommErrors.java</span></div><h1>GroupcommErrors.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2025, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace;
+
+import com.upokecenter.cbor.CBORObject;
+
+/**
+ * Values for the labels of the ACE Groupcomm Errors
+ * 
+ * @author Marco Tiloca
+ *
+ */
+
+<span class="nc" id="L43">public class GroupcommErrors {</span>
+
+	// Operation permitted only to group members
+	public static final int ONLY_FOR_GROUP_MEMBERS = 0;
+	
+	// Request inconsistent with the current roles
+	public static final int INCONSISTENCY_WITH_ROLES = 1;
+	
+	// Authentication credential incompatible with the group configuration
+	public static final int INCOMPATIBLE_CRED = 2;
+	
+	// Invalid proof-of-possession evidence
+	public static final int INVALID_POP_EVIDENCE = 3;
+	
+	// No available individual keying material
+	public static final int UNAVAILABLE_INDIVIDUAL_KEYING_MATERIAL = 4;
+	
+	// Group membership terminated
+	public static final int MEMBERSHIP_TERMINATED = 5;
+	
+	// Group deleted
+	public static final int GROUP_DELETED = 6;
+	
+	
+	// Defined in draft-ietf-ace-key-groupcomm-oscore
+	
+	// Signatures not used in the group
+	public static final int SIGNATURES_NOT_USED = 7; // provisional
+	
+	// Operation permitted only to signature verifiers
+	public static final int ONLY_FOR_SIGNATURE_VERIFIERS = 8; // provisional
+	
+	// Group currently not active
+	public static final int GROUP_NOT_ACTIVE = 9; // provisional
+	
+	
+	// Defined in draft-ietf-ace-oscore-gm-admin
+	
+	// Group currently active
+	public static final int GROUP_ACTIVE = 10; // provisional
+	
+	// Unable to determine a group name
+	public static final int GROUP_NAME_NOT_DETERMINED = 11; // provisional
+	
+	// Unsupported group configuration
+	public static final int UNSUPPORTED_GROUP_CONF = 12; // provisional
+	
+	
+	/**
+     * The string values for the ACE Groupcomm errors
+     */
+<span class="fc" id="L94">    public static final String[] DESCRIPTION = {</span>
+    	/* 0 */ &quot;Operation permitted only to group members&quot;, 
+    	/* 1 */ &quot;Request inconsistent with the current roles&quot;,
+    	/* 2 */ &quot;Authentication credential incompatible with the group configuration&quot;,
+    	/* 3 */ &quot;Invalid proof-of-possession evidence&quot;,
+    	/* 4 */ &quot;No available individual keying material&quot;,
+    	/* 5 */ &quot;Group membership terminated&quot;,
+    	/* 6 */ &quot;Group deleted&quot;,
+    	
+    	/* 7 */ &quot;Signatures not used in the group&quot;, // provisional
+    	/* 8 */ &quot;Operation permitted only to signature verifiers&quot;, // provisional
+    	/* 9 */ &quot;Group currently not active&quot;, // provisional
+    	
+    	/* 10 */ &quot;Group currently active&quot;, // provisional
+    	/* 11 */ &quot;Unable to determine a group name&quot;, // provisional
+    	/* 12 */ &quot;Unsupported group configuration&quot; // provisional
+    };
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

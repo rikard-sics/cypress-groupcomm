@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GroupOSCORESubResourcePolicies.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.oscore.rs.oscoreGroupManager</a> &gt; <span class="el_source">GroupOSCORESubResourcePolicies.java</span></div><h1>GroupOSCORESubResourcePolicies.java</h1><pre class="source lang-java linenums"> /*******************************************************************************
+ * Copyright (c) 2025, RISE AB
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, 
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, 
+ *    this list of conditions and the following disclaimer in the documentation 
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *******************************************************************************/
+package se.sics.ace.oscore.rs.oscoreGroupManager;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import org.eclipse.californium.core.CoapResource;
+import org.eclipse.californium.core.coap.CoAP;
+import org.eclipse.californium.core.coap.Request;
+import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.server.resources.CoapExchange;
+
+import com.upokecenter.cbor.CBORObject;
+
+import se.sics.ace.AceException;
+import se.sics.ace.Constants;
+import se.sics.ace.GroupcommErrors;
+import se.sics.ace.GroupcommParameters;
+import se.sics.ace.coap.CoapReq;
+import se.sics.ace.oscore.GroupInfo;
+
+/**
+ * Definition of the Group OSCORE group-membership sub-resource /policies
+ */
+public class GroupOSCORESubResourcePolicies extends CoapResource {
+	
+<span class="fc" id="L57">	private Map&lt;String, GroupInfo&gt; existingGroupInfo = new HashMap&lt;&gt;();</span>
+	
+	/**
+     * Constructor
+     * @param resId  the resource identifier
+     * @param existingGroupInfo  the set of information of the existing OSCORE groups
+     */
+    public GroupOSCORESubResourcePolicies(String resId, Map&lt;String, GroupInfo&gt; existingGroupInfo) {
+        
+        // set resource identifier
+<span class="fc" id="L67">        super(resId);</span>
+        
+        // set display name
+<span class="fc" id="L70">        getAttributes().setTitle(&quot;Group OSCORE Group-Membership Sub-Resource \&quot;policies\&quot; &quot; + resId);</span>
+        
+<span class="fc" id="L72">        this.existingGroupInfo = existingGroupInfo;</span>
+        
+<span class="fc" id="L74">    }</span>
+
+    @Override
+    public void handleGET(CoapExchange exchange) {
+<span class="fc" id="L78">    	System.out.println(&quot;GET request reached the GM&quot;);</span>
+    	
+    	// Retrieve the entry for the target group, using the last path segment of
+    	// the URI path as the name of the OSCORE group
+<span class="fc" id="L82">    	GroupInfo targetedGroup = existingGroupInfo.get(this.getParent().getName());</span>
+    	
+    	// This should never happen if existing groups are maintained properly
+<span class="pc bpc" id="L85" title="1 of 2 branches missed.">    	if (targetedGroup == null) {</span>
+<span class="nc" id="L86">        	exchange.respond(CoAP.ResponseCode.SERVICE_UNAVAILABLE,</span>
+        					 &quot;Error when retrieving material for the OSCORE group&quot;);
+<span class="nc" id="L88">        	return;</span>
+    	}
+    	
+<span class="fc" id="L91">    	String groupName = targetedGroup.getGroupName();</span>
+    	
+    	// This should never happen if active groups are maintained properly
+<span class="pc bpc" id="L94" title="1 of 2 branches missed.">  		if (!groupName.equals(this.getParent().getName())) {</span>
+<span class="nc" id="L95">    	exchange.respond(CoAP.ResponseCode.SERVICE_UNAVAILABLE,</span>
+    					 &quot;Error when retrieving material for the OSCORE group&quot;);
+<span class="nc" id="L97">			return;</span>
+		}
+    	
+<span class="fc" id="L100">    	String subject = null;</span>
+<span class="fc" id="L101">    	Request request = exchange.advanced().getCurrentRequest();</span>
+        
+        try {
+<span class="fc" id="L104">			subject = CoapReq.getInstance(request).getSenderId();</span>
+<span class="nc" id="L105">		} catch (AceException e) {</span>
+<span class="nc" id="L106">		    System.err.println(&quot;Error while retrieving the client identity: &quot; + e.getMessage());</span>
+<span class="fc" id="L107">		}</span>
+<span class="pc bpc" id="L108" title="1 of 2 branches missed.">        if (subject == null) {</span>
+        	// At this point, this should not really happen, due to the earlier check at the Token Repository
+<span class="nc" id="L110">        	exchange.respond(CoAP.ResponseCode.UNAUTHORIZED,</span>
+        					 &quot;Unauthenticated client tried to get access&quot;);
+<span class="nc" id="L112">        	return;</span>
+        }
+    	
+<span class="pc bpc" id="L115" title="1 of 2 branches missed.">    	if (!targetedGroup.isGroupMember(subject)) {	</span>
+    		// The requester is not a current group member.
+<span class="nc" id="L117">    		CBORObject responseMap = CBORObject.NewMap();</span>
+    		
+<span class="nc" id="L119">    		CBORObject aceGroupcommError = CBORObject.NewMap();</span>
+<span class="nc" id="L120">    		aceGroupcommError.Add(0, GroupcommErrors.ONLY_FOR_GROUP_MEMBERS);</span>
+<span class="nc" id="L121">    		responseMap.Add(Constants.PROBLEM_DETAIL_ACE_GROUPCOMM_ERROR, aceGroupcommError);</span>
+<span class="nc" id="L122">    		responseMap.Add(Constants.PROBLEM_DETAIL_KEY_TITLE, GroupcommErrors.DESCRIPTION[GroupcommErrors.ONLY_FOR_GROUP_MEMBERS]);</span>
+    		
+<span class="nc" id="L124">    		byte[] responsePayload = responseMap.EncodeToBytes();</span>
+<span class="nc" id="L125">    		exchange.respond(CoAP.ResponseCode.FORBIDDEN,</span>
+    						 responsePayload,
+    						 Constants.APPLICATION_CONCISE_PROBLEM_DETAILS_CBOR);
+    		
+<span class="nc" id="L129">    		return;</span>
+    	}
+        	
+    	// Respond to the Policies Request
+        
+<span class="fc" id="L134">    	CBORObject myResponse = null;</span>
+<span class="fc" id="L135">    	CBORObject groupPolicies = targetedGroup.getGroupPolicies();</span>
+    	
+<span class="pc bpc" id="L137" title="1 of 2 branches missed.">    	if (groupPolicies == null) {</span>
+        	// This should not happen for this Group Manager, since default policies apply
+    		// if not specified when creating the group
+<span class="nc" id="L140">    		myResponse = CBORObject.FromObject(new byte[0]);</span>
+    	}
+    	else {
+<span class="fc" id="L143">    		myResponse = CBORObject.NewMap();</span>
+<span class="fc" id="L144">    		myResponse.Add(GroupcommParameters.GROUP_POLICIES, groupPolicies);</span>
+    	}
+    	
+<span class="fc" id="L147">    	byte[] responsePayload = myResponse.EncodeToBytes();</span>
+    	
+<span class="fc" id="L149">    	Response coapResponse = new Response(CoAP.ResponseCode.CONTENT);</span>
+<span class="fc" id="L150">    	coapResponse.setPayload(responsePayload);</span>
+<span class="fc" id="L151">    	coapResponse.getOptions().setContentFormat(Constants.APPLICATION_ACE_GROUPCOMM_CBOR);</span>
+
+<span class="fc" id="L153">    	exchange.respond(coapResponse);</span>
+
+<span class="fc" id="L155">    }</span>
+    
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

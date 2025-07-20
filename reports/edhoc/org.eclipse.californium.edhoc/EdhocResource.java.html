@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EdhocResource.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-EDHOC</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.edhoc</a> &gt; <span class="el_source">EdhocResource.java</span></div><h1>EdhocResource.java</h1><pre class="source lang-java linenums">/*******************************************************************************
- * Copyright (c) 2020 RISE and others.
+ * Copyright (c) 2025 RISE and others.
  * 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
@@ -184,145 +184,146 @@ public class EdhocResource extends CoapResource {
 <span class="pc bpc" id="L184" title="1 of 2 branches missed.">		if (messageType == Constants.EDHOC_MESSAGE_1) {</span>
 			
 <span class="fc" id="L186">			SideProcessor sideProcessor = new SideProcessor(edhocEndpointInfo.getTrustModel(),</span>
-<span class="fc" id="L187">															edhocEndpointInfo.getPeerCredentials(),</span>
-<span class="fc" id="L188">															edhocEndpointInfo.getEadProductionInput());</span>
+<span class="fc" id="L187">															edhocEndpointInfo.getPeerPublicKeys(),</span>
+<span class="fc" id="L188">															edhocEndpointInfo.getPeerCredentials(),</span>
+<span class="fc" id="L189">															edhocEndpointInfo.getEadProductionInput());</span>
 			
-<span class="fc" id="L190">			processingResult = MessageProcessor.readMessage1(message, true,</span>
-<span class="fc" id="L191">															 edhocEndpointInfo.getSupportedCipherSuites(),</span>
-<span class="fc" id="L192">															 edhocEndpointInfo.getSupportedEADs(),</span>
+<span class="fc" id="L191">			processingResult = MessageProcessor.readMessage1(message, true,</span>
+<span class="fc" id="L192">															 edhocEndpointInfo.getSupportedCipherSuites(),</span>
+<span class="fc" id="L193">															 edhocEndpointInfo.getSupportedEADs(),</span>
 															 appProfile, sideProcessor);
 
-<span class="pc bpc" id="L195" title="2 of 4 branches missed.">			if (processingResult.get(0) == null || processingResult.get(0).getType() != CBORType.ByteString) {</span>
-<span class="nc" id="L196">				String responseString = new String(&quot;Internal error when processing EDHOC Message 1&quot;);</span>
-<span class="nc" id="L197">				System.err.println(responseString);</span>
+<span class="pc bpc" id="L196" title="2 of 4 branches missed.">			if (processingResult.get(0) == null || processingResult.get(0).getType() != CBORType.ByteString) {</span>
+<span class="nc" id="L197">				String responseString = new String(&quot;Internal error when processing EDHOC Message 1&quot;);</span>
+<span class="nc" id="L198">				System.err.println(responseString);</span>
 				
-<span class="nc" id="L199">				nextMessage = responseString.getBytes(Constants.charset);</span>
-<span class="nc" id="L200">				Response genericErrorResponse = new Response(ResponseCode.INTERNAL_SERVER_ERROR);</span>
-<span class="nc" id="L201">				genericErrorResponse.setPayload(nextMessage);</span>
-<span class="nc" id="L202">				exchange.respond(genericErrorResponse);</span>
-<span class="nc" id="L203">				return;</span>
+<span class="nc" id="L200">				nextMessage = responseString.getBytes(Constants.charset);</span>
+<span class="nc" id="L201">				Response genericErrorResponse = new Response(ResponseCode.INTERNAL_SERVER_ERROR);</span>
+<span class="nc" id="L202">				genericErrorResponse.setPayload(nextMessage);</span>
+<span class="nc" id="L203">				exchange.respond(genericErrorResponse);</span>
+<span class="nc" id="L204">				return;</span>
 			}
 			
-<span class="fc" id="L206">			EdhocSession session = null;</span>
-<span class="fc" id="L207">			int responseType = -1;</span>
+<span class="fc" id="L207">			EdhocSession session = null;</span>
+<span class="fc" id="L208">			int responseType = -1;</span>
 			
 			// A non-zero length response payload would be an EDHOC Error Message
-<span class="fc" id="L210">			nextMessage = processingResult.get(0).GetByteString();</span>
+<span class="fc" id="L211">			nextMessage = processingResult.get(0).GetByteString();</span>
 			
 			// Prepare EDHOC Message 2
-<span class="pc bpc" id="L213" title="1 of 2 branches missed.">			if (nextMessage.length == 0) {</span>
+<span class="pc bpc" id="L214" title="1 of 2 branches missed.">			if (nextMessage.length == 0) {</span>
 
-<span class="fc" id="L215">				session = MessageProcessor.createSessionAsResponder(message, true,</span>
-<span class="fc" id="L216">																	edhocEndpointInfo.getKeyPairs(),</span>
-<span class="fc" id="L217">																    edhocEndpointInfo.getIdCreds(),</span>
-<span class="fc" id="L218">																    edhocEndpointInfo.getCreds(),</span>
-<span class="fc" id="L219">																    edhocEndpointInfo.getSupportedCipherSuites(),</span>
-<span class="fc" id="L220">																    edhocEndpointInfo.getSupportedEADs(),</span>
-<span class="fc" id="L221">																    edhocEndpointInfo.getUsedConnectionIds(),</span>
-<span class="fc" id="L222">																    appProfile, edhocEndpointInfo.getTrustModel(),</span>
-<span class="fc" id="L223">																    edhocEndpointInfo.getOscoreDb());</span>
+<span class="fc" id="L216">				session = MessageProcessor.createSessionAsResponder(message, true,</span>
+<span class="fc" id="L217">																	edhocEndpointInfo.getKeyPairs(),</span>
+<span class="fc" id="L218">																    edhocEndpointInfo.getIdCreds(),</span>
+<span class="fc" id="L219">																    edhocEndpointInfo.getCreds(),</span>
+<span class="fc" id="L220">																    edhocEndpointInfo.getSupportedCipherSuites(),</span>
+<span class="fc" id="L221">																    edhocEndpointInfo.getSupportedEADs(),</span>
+<span class="fc" id="L222">																    edhocEndpointInfo.getUsedConnectionIds(),</span>
+<span class="fc" id="L223">																    appProfile, edhocEndpointInfo.getTrustModel(),</span>
+<span class="fc" id="L224">																    edhocEndpointInfo.getOscoreDb());</span>
 				
 				// Provide the side processor object with the just created EDHOC session.
 				// A reference to the sideProcessor is also going to be stored in the EDHOC session.
-<span class="fc" id="L227">				sideProcessor.setEdhocSession(session);</span>
+<span class="fc" id="L228">				sideProcessor.setEdhocSession(session);</span>
 				
 				// Compute the EDHOC Message 2
-<span class="fc" id="L230">				nextMessage = MessageProcessor.writeMessage2(session);</span>
+<span class="fc" id="L231">				nextMessage = MessageProcessor.writeMessage2(session);</span>
 
-<span class="fc" id="L232">				byte[] connectionIdentifier = session.getConnectionId();</span>
+<span class="fc" id="L233">				byte[] connectionIdentifier = session.getConnectionId();</span>
 				
 				// Deallocate the assigned Connection Identifier for this peer
-<span class="pc bpc" id="L235" title="2 of 4 branches missed.">				if (nextMessage == null || session.getCurrentStep() != Constants.EDHOC_BEFORE_M2) {</span>
-<span class="nc" id="L236">					Util.releaseConnectionId(connectionIdentifier, edhocEndpointInfo.getUsedConnectionIds(), session.getOscoreDb());</span>
-<span class="nc" id="L237">					session.deleteTemporaryMaterial();</span>
-<span class="nc" id="L238">					session = null;</span>
+<span class="pc bpc" id="L236" title="2 of 4 branches missed.">				if (nextMessage == null || session.getCurrentStep() != Constants.EDHOC_BEFORE_M2) {</span>
+<span class="nc" id="L237">					Util.releaseConnectionId(connectionIdentifier, edhocEndpointInfo.getUsedConnectionIds(), session.getOscoreDb());</span>
+<span class="nc" id="L238">					session.deleteTemporaryMaterial();</span>
+<span class="nc" id="L239">					session = null;</span>
 					
-<span class="nc" id="L240">					String responseString = new String(&quot;Inconsistent state before sending EDHOC Message 2&quot;);</span>
-<span class="nc" id="L241">					System.err.println(responseString);</span>
-<span class="nc" id="L242">					nextMessage = responseString.getBytes(Constants.charset);</span>
-<span class="nc" id="L243">					Response genericErrorResponse = new Response(ResponseCode.INTERNAL_SERVER_ERROR);</span>
-<span class="nc" id="L244">					genericErrorResponse.setPayload(nextMessage);</span>
-<span class="nc" id="L245">					exchange.respond(genericErrorResponse);</span>
-<span class="nc" id="L246">					return;</span>
+<span class="nc" id="L241">					String responseString = new String(&quot;Inconsistent state before sending EDHOC Message 2&quot;);</span>
+<span class="nc" id="L242">					System.err.println(responseString);</span>
+<span class="nc" id="L243">					nextMessage = responseString.getBytes(Constants.charset);</span>
+<span class="nc" id="L244">					Response genericErrorResponse = new Response(ResponseCode.INTERNAL_SERVER_ERROR);</span>
+<span class="nc" id="L245">					genericErrorResponse.setPayload(nextMessage);</span>
+<span class="nc" id="L246">					exchange.respond(genericErrorResponse);</span>
+<span class="nc" id="L247">					return;</span>
 				}
 				
 				// Add the new session to the list of existing EDHOC sessions
-<span class="fc" id="L250">				session.setCurrentStep(Constants.EDHOC_AFTER_M2);</span>
-<span class="fc" id="L251">				CBORObject connectionIdentifierCbor = CBORObject.FromObject(connectionIdentifier);</span>
-<span class="fc" id="L252">				edhocEndpointInfo.getEdhocSessions().put(connectionIdentifierCbor, session);</span>
+<span class="fc" id="L251">				session.setCurrentStep(Constants.EDHOC_AFTER_M2);</span>
+<span class="fc" id="L252">				CBORObject connectionIdentifierCbor = CBORObject.FromObject(connectionIdentifier);</span>
+<span class="fc" id="L253">				edhocEndpointInfo.getEdhocSessions().put(connectionIdentifierCbor, session);</span>
 				
 			}
 			
-<span class="fc" id="L256">			byte[] connectionIdentifier = null;</span>
-<span class="pc bpc" id="L257" title="1 of 2 branches missed.">			if (session != null) {</span>
-<span class="fc" id="L258">				connectionIdentifier = session.getConnectionId();</span>
+<span class="fc" id="L257">			byte[] connectionIdentifier = null;</span>
+<span class="pc bpc" id="L258" title="1 of 2 branches missed.">			if (session != null) {</span>
+<span class="fc" id="L259">				connectionIdentifier = session.getConnectionId();</span>
 			}
 			
-<span class="fc" id="L261">			responseType = MessageProcessor.messageType(nextMessage, false,</span>
-<span class="fc" id="L262">														edhocEndpointInfo.getEdhocSessions(), connectionIdentifier);</span>
+<span class="fc" id="L262">			responseType = MessageProcessor.messageType(nextMessage, false,</span>
+<span class="fc" id="L263">														edhocEndpointInfo.getEdhocSessions(), connectionIdentifier);</span>
 			
-<span class="pc bpc" id="L264" title="3 of 4 branches missed.">			if (responseType != Constants.EDHOC_MESSAGE_2 &amp;&amp; responseType != Constants.EDHOC_ERROR_MESSAGE) {</span>
-<span class="nc" id="L265">				nextMessage = null;</span>
+<span class="pc bpc" id="L265" title="3 of 4 branches missed.">			if (responseType != Constants.EDHOC_MESSAGE_2 &amp;&amp; responseType != Constants.EDHOC_ERROR_MESSAGE) {</span>
+<span class="nc" id="L266">				nextMessage = null;</span>
 			}
 			
-<span class="pc bpc" id="L268" title="1 of 2 branches missed.">			if (nextMessage != null) {</span>
+<span class="pc bpc" id="L269" title="1 of 2 branches missed.">			if (nextMessage != null) {</span>
 				
-<span class="fc" id="L270">				ResponseCode responseCode = ResponseCode.CHANGED;</span>
+<span class="fc" id="L271">				ResponseCode responseCode = ResponseCode.CHANGED;</span>
 				
-<span class="pc bpc" id="L272" title="1 of 2 branches missed.">				if (responseType == Constants.EDHOC_ERROR_MESSAGE) {</span>
-<span class="nc" id="L273">					int responseCodeValue = processingResult.get(1).AsInt32();</span>
-<span class="nc" id="L274">					responseCode = ResponseCode.valueOf(responseCodeValue);</span>
+<span class="pc bpc" id="L273" title="1 of 2 branches missed.">				if (responseType == Constants.EDHOC_ERROR_MESSAGE) {</span>
+<span class="nc" id="L274">					int responseCodeValue = processingResult.get(1).AsInt32();</span>
+<span class="nc" id="L275">					responseCode = ResponseCode.valueOf(responseCodeValue);</span>
 				}
 
-<span class="fc" id="L277">				Response myResponse = new Response(responseCode);</span>
-<span class="fc" id="L278">				myResponse.getOptions().setContentFormat(Constants.APPLICATION_EDHOC_CBOR_SEQ);</span>
-<span class="fc" id="L279">				myResponse.setPayload(nextMessage);</span>
+<span class="fc" id="L278">				Response myResponse = new Response(responseCode);</span>
+<span class="fc" id="L279">				myResponse.getOptions().setContentFormat(Constants.APPLICATION_EDHOC_CBOR_SEQ);</span>
+<span class="fc" id="L280">				myResponse.setPayload(nextMessage);</span>
 				
-<span class="pc bpc" id="L281" title="1 of 2 branches missed.">				String myString = (responseType == Constants.EDHOC_MESSAGE_2) ? &quot;EDHOC Message 2&quot; : &quot;EDHOC Error Message&quot;;</span>
-<span class="fc" id="L282">				System.out.println(&quot;Response type: &quot; + myString + &quot;\n&quot;);</span>
+<span class="pc bpc" id="L282" title="1 of 2 branches missed.">				String myString = (responseType == Constants.EDHOC_MESSAGE_2) ? &quot;EDHOC Message 2&quot; : &quot;EDHOC Error Message&quot;;</span>
+<span class="fc" id="L283">				System.out.println(&quot;Response type: &quot; + myString + &quot;\n&quot;);</span>
 				
-<span class="pc bpc" id="L284" title="1 of 2 branches missed.">				if (responseType == Constants.EDHOC_MESSAGE_2) {</span>
-<span class="fc" id="L285">			        System.out.println(&quot;Sent EDHOC Message 2\n&quot;);</span>
+<span class="pc bpc" id="L285" title="1 of 2 branches missed.">				if (responseType == Constants.EDHOC_MESSAGE_2) {</span>
+<span class="fc" id="L286">			        System.out.println(&quot;Sent EDHOC Message 2\n&quot;);</span>
 				}
-<span class="pc bpc" id="L287" title="1 of 2 branches missed.">				if (responseType == Constants.EDHOC_ERROR_MESSAGE) {</span>
+<span class="pc bpc" id="L288" title="1 of 2 branches missed.">				if (responseType == Constants.EDHOC_ERROR_MESSAGE) {</span>
 				    
-<span class="nc bnc" id="L289" title="All 2 branches missed.">					if (session != null) {</span>
+<span class="nc bnc" id="L290" title="All 2 branches missed.">					if (session != null) {</span>
 						// The reading of EDHOC Message 1 was successful, but the writing of EDHOC Message 2 was not
 						
 						// The session was created, but not added to the list of EDHOC sessions
-<span class="nc" id="L293">						Util.releaseConnectionId(session.getConnectionId(),</span>
-<span class="nc" id="L294">								                 edhocEndpointInfo.getUsedConnectionIds(),</span>
-<span class="nc" id="L295">								                 session.getOscoreDb());</span>
-<span class="nc" id="L296">						session.deleteTemporaryMaterial();</span>
-<span class="nc" id="L297">						session = null;</span>
+<span class="nc" id="L294">						Util.releaseConnectionId(session.getConnectionId(),</span>
+<span class="nc" id="L295">								                 edhocEndpointInfo.getUsedConnectionIds(),</span>
+<span class="nc" id="L296">								                 session.getOscoreDb());</span>
+<span class="nc" id="L297">						session.deleteTemporaryMaterial();</span>
+<span class="nc" id="L298">						session = null;</span>
 					}
 					
-<span class="nc" id="L300">			        System.out.println(&quot;Sent EDHOC Error Message\n&quot;);</span>
+<span class="nc" id="L301">			        System.out.println(&quot;Sent EDHOC Error Message\n&quot;);</span>
 			        if (debugPrint) {
-<span class="nc" id="L302">			        	Util.nicePrint(&quot;EDHOC Error Message&quot;, nextMessage);</span>
+<span class="nc" id="L303">			        	Util.nicePrint(&quot;EDHOC Error Message&quot;, nextMessage);</span>
 			        }
 				}
 				
-<span class="pc bpc" id="L306" title="1 of 2 branches missed.">				if (responseType == Constants.EDHOC_MESSAGE_2) {</span>
-<span class="fc" id="L307">					session.setCurrentStep(Constants.EDHOC_SENT_M2);</span>
+<span class="pc bpc" id="L307" title="1 of 2 branches missed.">				if (responseType == Constants.EDHOC_MESSAGE_2) {</span>
+<span class="fc" id="L308">					session.setCurrentStep(Constants.EDHOC_SENT_M2);</span>
 				}
 				
-<span class="fc" id="L310">				exchange.respond(myResponse);</span>
-<span class="fc" id="L311">				return;</span>
+<span class="fc" id="L311">				exchange.respond(myResponse);</span>
+<span class="fc" id="L312">				return;</span>
 			}
 			else {
-<span class="nc" id="L314">				Util.purgeSession(session, session.getConnectionId(),</span>
-<span class="nc" id="L315">								  edhocEndpointInfo.getEdhocSessions(),</span>
-<span class="nc" id="L316">								  edhocEndpointInfo.getUsedConnectionIds());</span>
+<span class="nc" id="L315">				Util.purgeSession(session, session.getConnectionId(),</span>
+<span class="nc" id="L316">								  edhocEndpointInfo.getEdhocSessions(),</span>
+<span class="nc" id="L317">								  edhocEndpointInfo.getUsedConnectionIds());</span>
 				
-<span class="nc" id="L318">				String responseString = new String(&quot;Inconsistent state after processing EDHOC Message 2&quot;);</span>
-<span class="nc" id="L319">				System.err.println(responseString);</span>
-<span class="nc" id="L320">				nextMessage = responseString.getBytes(Constants.charset);</span>
-<span class="nc" id="L321">				Response genericErrorResponse = new Response(ResponseCode.INTERNAL_SERVER_ERROR);</span>
-<span class="nc" id="L322">				genericErrorResponse.setPayload(nextMessage);</span>
-<span class="nc" id="L323">				exchange.respond(genericErrorResponse);</span>
+<span class="nc" id="L319">				String responseString = new String(&quot;Inconsistent state after processing EDHOC Message 2&quot;);</span>
+<span class="nc" id="L320">				System.err.println(responseString);</span>
+<span class="nc" id="L321">				nextMessage = responseString.getBytes(Constants.charset);</span>
+<span class="nc" id="L322">				Response genericErrorResponse = new Response(ResponseCode.INTERNAL_SERVER_ERROR);</span>
+<span class="nc" id="L323">				genericErrorResponse.setPayload(nextMessage);</span>
+<span class="nc" id="L324">				exchange.respond(genericErrorResponse);</span>
 				
-<span class="nc" id="L325">				return;</span>
+<span class="nc" id="L326">				return;</span>
 			}
 			
 		}
@@ -331,9 +332,9 @@ public class EdhocResource extends CoapResource {
 		
 		/* Start handling EDHOC Message 2 */
 		
-<span class="nc bnc" id="L334" title="All 2 branches missed.">		if (messageType == Constants.EDHOC_MESSAGE_2) {</span>
+<span class="nc bnc" id="L335" title="All 2 branches missed.">		if (messageType == Constants.EDHOC_MESSAGE_2) {</span>
 			
-<span class="nc" id="L336">			System.out.println(&quot;Handler for processing EDHOC Message 2&quot;);</span>
+<span class="nc" id="L337">			System.out.println(&quot;Handler for processing EDHOC Message 2&quot;);</span>
 			
 			// Do nothing
 			
@@ -342,110 +343,113 @@ public class EdhocResource extends CoapResource {
 		
 		/* Start handling EDHOC Message 3 */
 		
-<span class="nc bnc" id="L345" title="All 2 branches missed.">		if (messageType == Constants.EDHOC_MESSAGE_3) {</span>
+<span class="nc bnc" id="L346" title="All 2 branches missed.">		if (messageType == Constants.EDHOC_MESSAGE_3) {</span>
 			
-<span class="nc" id="L347">			processingResult = MessageProcessor.readMessage3(message, true, null,</span>
-<span class="nc" id="L348">															 edhocEndpointInfo.getEdhocSessions(),</span>
-<span class="nc" id="L349">															 edhocEndpointInfo.getPeerPublicKeys(),</span>
-<span class="nc" id="L350">															 edhocEndpointInfo.getPeerCredentials(),</span>
-<span class="nc" id="L351">															 edhocEndpointInfo.getUsedConnectionIds());</span>
+<span class="nc" id="L348">			processingResult = MessageProcessor.readMessage3(message, true, null,</span>
+<span class="nc" id="L349">															 edhocEndpointInfo.getEdhocSessions(),</span>
+<span class="nc" id="L350">															 edhocEndpointInfo.getPeerPublicKeys(),</span>
+<span class="nc" id="L351">															 edhocEndpointInfo.getPeerCredentials(),</span>
+<span class="nc" id="L352">															 edhocEndpointInfo.getUsedConnectionIds());</span>
 			
-<span class="nc bnc" id="L353" title="All 4 branches missed.">			if (processingResult.get(0) == null || processingResult.get(0).getType() != CBORType.ByteString) {</span>
-<span class="nc" id="L354">				System.err.println(&quot;Internal error when processing EDHOC Message 3&quot;);</span>
-<span class="nc" id="L355">				return;</span>
+<span class="nc bnc" id="L354" title="All 4 branches missed.">			if (processingResult.get(0) == null || processingResult.get(0).getType() != CBORType.ByteString) {</span>
+<span class="nc" id="L355">				System.err.println(&quot;Internal error when processing EDHOC Message 3&quot;);</span>
+<span class="nc" id="L356">				return;</span>
 			}
 			
-<span class="nc" id="L358">			EdhocSession mySession = null;</span>
+<span class="nc" id="L359">			EdhocSession mySession = null;</span>
 			
 			// A non-zero length response payload would be an EDHOC Error Message
-<span class="nc" id="L361">			nextMessage = processingResult.get(0).GetByteString();</span>
+<span class="nc" id="L362">			nextMessage = processingResult.get(0).GetByteString();</span>
 			
 			// The EDHOC protocol has successfully completed
-<span class="nc bnc" id="L364" title="All 2 branches missed.">			if (nextMessage.length == 0) {</span>
+<span class="nc bnc" id="L365" title="All 2 branches missed.">			if (nextMessage.length == 0) {</span>
 				
-<span class="nc" id="L366">				CBORObject cR = processingResult.get(1);</span>
-<span class="nc" id="L367">				mySession = edhocEndpointInfo.getEdhocSessions().get(cR);</span>
+<span class="nc" id="L367">				CBORObject cR = processingResult.get(1);</span>
+<span class="nc" id="L368">				mySession = edhocEndpointInfo.getEdhocSessions().get(cR);</span>
 				
-<span class="nc bnc" id="L369" title="All 2 branches missed.">				if (mySession == null) {</span>
-<span class="nc" id="L370">					System.err.println(&quot;Inconsistent state before sending EDHOC Message 3&quot;);</span>
-<span class="nc" id="L371">					return;</span>
+<span class="nc bnc" id="L370" title="All 2 branches missed.">				if (mySession == null) {</span>
+<span class="nc" id="L371">					System.err.println(&quot;Inconsistent state before sending EDHOC Message 3&quot;);</span>
+<span class="nc" id="L372">					return;</span>
 				}
-<span class="nc bnc" id="L373" title="All 2 branches missed.">				if (mySession.getCurrentStep() != Constants.EDHOC_AFTER_M3) {</span>
-<span class="nc" id="L374">						System.err.println(&quot;Inconsistent state after sending EDHOC Message 3&quot;);							</span>
-<span class="nc" id="L375">						Util.purgeSession(mySession, mySession.getConnectionId(),</span>
-<span class="nc" id="L376">										  edhocEndpointInfo.getEdhocSessions(),</span>
-<span class="nc" id="L377">										  edhocEndpointInfo.getUsedConnectionIds());</span>
-<span class="nc" id="L378">						return;</span>
+<span class="nc bnc" id="L374" title="All 2 branches missed.">				if (mySession.getCurrentStep() != Constants.EDHOC_AFTER_M3) {</span>
+<span class="nc" id="L375">						System.err.println(&quot;Inconsistent state after sending EDHOC Message 3&quot;);							</span>
+<span class="nc" id="L376">						Util.purgeSession(mySession, mySession.getConnectionId(),</span>
+<span class="nc" id="L377">										  edhocEndpointInfo.getEdhocSessions(),</span>
+<span class="nc" id="L378">										  edhocEndpointInfo.getUsedConnectionIds());</span>
+<span class="nc" id="L379">						return;</span>
 				}
 				
-<span class="nc bnc" id="L381" title="All 2 branches missed.">				if (mySession.getApplicationProfile().getUsedForOSCORE() == true) {</span>
+<span class="nc bnc" id="L382" title="All 2 branches missed.">				if (mySession.getApplicationProfile().getUsedForOSCORE() == true) {</span>
 			        /* Invoke the EDHOC-Exporter to produce OSCORE input material */
-<span class="nc" id="L383">			        byte[] masterSecret = EdhocSession.getMasterSecretOSCORE(mySession);</span>
-<span class="nc" id="L384">			        byte[] masterSalt = EdhocSession.getMasterSaltOSCORE(mySession);</span>
+<span class="nc" id="L384">			        byte[] masterSecret = EdhocSession.getMasterSecretOSCORE(mySession);</span>
+<span class="nc" id="L385">			        byte[] masterSalt = EdhocSession.getMasterSaltOSCORE(mySession);</span>
 			        if (debugPrint) {
-<span class="nc" id="L386">			        	Util.nicePrint(&quot;OSCORE Master Secret&quot;, masterSecret);</span>
-<span class="nc" id="L387">			        	Util.nicePrint(&quot;OSCORE Master Salt&quot;, masterSalt);</span>
+<span class="nc" id="L387">			        	Util.nicePrint(&quot;OSCORE Master Secret&quot;, masterSecret);</span>
+<span class="nc" id="L388">			        	Util.nicePrint(&quot;OSCORE Master Salt&quot;, masterSalt);</span>
 			        }
 			        
 			        /* Setup the OSCORE Security Context */
 			        
 			        // The Sender ID of this peer is the EDHOC connection identifier of the other peer
-<span class="nc" id="L393">			        byte[] senderId = mySession.getPeerConnectionId();</span>
+<span class="nc" id="L394">			        byte[] senderId = mySession.getPeerConnectionId();</span>
 			        
 			        // The Recipient ID of this peer is the EDHOC connection identifier of this peer
-<span class="nc" id="L396">			        byte[] recipientId = mySession.getConnectionId();</span>
+<span class="nc" id="L397">			        byte[] recipientId = mySession.getConnectionId();</span>
 			        
-<span class="nc bnc" id="L398" title="All 2 branches missed.">			        if (Arrays.equals(senderId, recipientId)) {</span>
-<span class="nc" id="L399">						System.err.println(&quot;Error: the Sender ID coincides with the Recipient ID &quot; +</span>
-<span class="nc" id="L400">											Utils.toHexString(senderId));</span>
-<span class="nc" id="L401">						Util.purgeSession(mySession, mySession.getConnectionId(),</span>
-<span class="nc" id="L402">										  edhocEndpointInfo.getEdhocSessions(),</span>
-<span class="nc" id="L403">										  edhocEndpointInfo.getUsedConnectionIds());</span>
-<span class="nc" id="L404">						return;</span>
+<span class="nc bnc" id="L399" title="All 2 branches missed.">			        if (Arrays.equals(senderId, recipientId)) {</span>
+<span class="nc" id="L400">						System.err.println(&quot;Error: the Sender ID coincides with the Recipient ID &quot; +</span>
+<span class="nc" id="L401">											Utils.toHexString(senderId));</span>
+<span class="nc" id="L402">						Util.purgeSession(mySession, mySession.getConnectionId(),</span>
+<span class="nc" id="L403">										  edhocEndpointInfo.getEdhocSessions(),</span>
+<span class="nc" id="L404">										  edhocEndpointInfo.getUsedConnectionIds());</span>
+<span class="nc" id="L405">						return;</span>
 			        }
 			        
-<span class="nc" id="L407">			        int selectedCipherSuite = mySession.getSelectedCipherSuite();</span>
-<span class="nc" id="L408">			        AlgorithmID alg = EdhocSession.getAppAEAD(selectedCipherSuite);</span>
-<span class="nc" id="L409">			        AlgorithmID hkdf = EdhocSession.getAppHkdf(selectedCipherSuite);</span>
+<span class="nc" id="L408">			        int selectedCipherSuite = mySession.getSelectedCipherSuite();</span>
+<span class="nc" id="L409">			        AlgorithmID alg = EdhocSession.getAppAEAD(selectedCipherSuite);</span>
+<span class="nc" id="L410">			        AlgorithmID hkdf = EdhocSession.getAppHkdf(selectedCipherSuite);</span>
 			        
-<span class="nc" id="L411">			        OSCoreCtx ctx = null;</span>
+<span class="nc" id="L412">			        OSCoreCtx ctx = null;</span>
 			        try {
-<span class="nc" id="L413">						ctx = new OSCoreCtx(masterSecret, false, alg, senderId, </span>
-<span class="nc" id="L414">											recipientId, hkdf, edhocEndpointInfo.getOscoreReplayWindow(),</span>
-<span class="nc" id="L415">											masterSalt, null, edhocEndpointInfo.getOscoreMaxUnfragmentedSize());</span>
+<span class="nc" id="L414">						ctx = new OSCoreCtx(masterSecret, false, alg, senderId, </span>
+<span class="nc" id="L415">											recipientId, hkdf, edhocEndpointInfo.getOscoreReplayWindow(),</span>
+<span class="nc" id="L416">											masterSalt, null, edhocEndpointInfo.getOscoreMaxUnfragmentedSize());</span>
 						
-<span class="nc" id="L417">					} catch (OSException e) {</span>
-<span class="nc" id="L418">						System.err.println(&quot;Error when deriving the OSCORE Security Context &quot; + e.getMessage());						</span>
-<span class="nc" id="L419">						Util.purgeSession(mySession, mySession.getConnectionId(),</span>
-<span class="nc" id="L420">										  edhocEndpointInfo.getEdhocSessions(),</span>
-<span class="nc" id="L421">										  edhocEndpointInfo.getUsedConnectionIds());</span>
-<span class="nc" id="L422">						return;</span>
-<span class="nc" id="L423">					}</span>
+<span class="nc" id="L418">					} catch (OSException e) {</span>
+<span class="nc" id="L419">						System.err.println(&quot;Error when deriving the OSCORE Security Context &quot; + e.getMessage());						</span>
+<span class="nc" id="L420">						Util.purgeSession(mySession, mySession.getConnectionId(),</span>
+<span class="nc" id="L421">										  edhocEndpointInfo.getEdhocSessions(),</span>
+<span class="nc" id="L422">										  edhocEndpointInfo.getUsedConnectionIds());</span>
+<span class="nc" id="L423">						return;</span>
+<span class="nc" id="L424">					}</span>
 			        
 			        try {
-<span class="nc" id="L426">			        	edhocEndpointInfo.getOscoreDb().addContext(edhocEndpointInfo.getUri(), ctx);</span>
-<span class="nc" id="L427">					} catch (OSException e) {</span>
-<span class="nc" id="L428">						System.err.println(&quot;Error when adding the OSCORE Security Context to the context database &quot; + e.getMessage());							</span>
-<span class="nc" id="L429">						Util.purgeSession(mySession, mySession.getConnectionId(),</span>
-<span class="nc" id="L430">										  edhocEndpointInfo.getEdhocSessions(),</span>
-<span class="nc" id="L431">										  edhocEndpointInfo.getUsedConnectionIds());</span>
-<span class="nc" id="L432">						return;</span>
-<span class="nc" id="L433">					}</span>
+<span class="nc" id="L427">			        	edhocEndpointInfo.getOscoreDb().addContext(edhocEndpointInfo.getUri(), ctx);</span>
+<span class="nc" id="L428">					} catch (OSException e) {</span>
+<span class="nc" id="L429">						System.err.println(&quot;Error when adding the OSCORE Security Context to the context database &quot; + e.getMessage());							</span>
+<span class="nc" id="L430">						Util.purgeSession(mySession, mySession.getConnectionId(),</span>
+<span class="nc" id="L431">										  edhocEndpointInfo.getEdhocSessions(),</span>
+<span class="nc" id="L432">										  edhocEndpointInfo.getUsedConnectionIds());</span>
+<span class="nc" id="L433">						return;</span>
+<span class="nc" id="L434">					}</span>
 		        
 				}
 		        
+				// Perform any follow-up actions based on the processing results of EAD items
+<span class="nc" id="L439">				mySession.getSideProcessor().eadProcessingFollowUp();</span>
+				
 		        // Prepare the response to send back
-<span class="nc" id="L438">		        Response myResponse = new Response(ResponseCode.CHANGED);</span>
+<span class="nc" id="L442">		        Response myResponse = new Response(ResponseCode.CHANGED);</span>
 		        
-<span class="nc bnc" id="L440" title="All 2 branches missed.">		        if (mySession.getApplicationProfile().getUseMessage4() == false) {</span>
+<span class="nc bnc" id="L444" title="All 2 branches missed.">		        if (mySession.getApplicationProfile().getUseMessage4() == false) {</span>
 			        // Just send an empty response back
 		        	
 		        	// Uncomment to have the response as a confirmable Separate Response
 		        	// myResponse.setConfirmable(true);
 		        	
-<span class="nc" id="L446">					myResponse.setPayload(nextMessage);</span>
-<span class="nc" id="L447">					exchange.respond(myResponse);</span>
-<span class="nc" id="L448">					return;</span>
+<span class="nc" id="L450">					myResponse.setPayload(nextMessage);</span>
+<span class="nc" id="L451">					exchange.respond(myResponse);</span>
+<span class="nc" id="L452">					return;</span>
 					
 			        /*
 			        // Alternative sending an empty ACK instead
@@ -458,65 +462,65 @@ public class EdhocResource extends CoapResource {
 		        	// message_4 has to be sent to the Initiator
 		        	
 					// Compute the EDHOC Message 4
-<span class="nc" id="L461">					byte[] connectionIdentifierResponder = mySession.getConnectionId();</span>
-<span class="nc" id="L462">					nextMessage = MessageProcessor.writeMessage4(mySession);</span>
+<span class="nc" id="L465">					byte[] connectionIdentifierResponder = mySession.getConnectionId();</span>
+<span class="nc" id="L466">					nextMessage = MessageProcessor.writeMessage4(mySession);</span>
 					
 					// Deallocate the assigned Connection Identifier for this peer
-<span class="nc bnc" id="L465" title="All 4 branches missed.">					if (nextMessage == null || mySession.getCurrentStep() != Constants.EDHOC_AFTER_M4) {</span>
-<span class="nc" id="L466">						System.err.println(&quot;Inconsistent state before sending EDHOC Message 4&quot;);</span>
-<span class="nc" id="L467">						Util.purgeSession(mySession, connectionIdentifierResponder,</span>
-<span class="nc" id="L468">										  edhocEndpointInfo.getEdhocSessions(),</span>
-<span class="nc" id="L469">										  edhocEndpointInfo.getUsedConnectionIds());</span>
-<span class="nc" id="L470">						return;</span>
+<span class="nc bnc" id="L469" title="All 4 branches missed.">					if (nextMessage == null || mySession.getCurrentStep() != Constants.EDHOC_AFTER_M4) {</span>
+<span class="nc" id="L470">						System.err.println(&quot;Inconsistent state before sending EDHOC Message 4&quot;);</span>
+<span class="nc" id="L471">						Util.purgeSession(mySession, connectionIdentifierResponder,</span>
+<span class="nc" id="L472">										  edhocEndpointInfo.getEdhocSessions(),</span>
+<span class="nc" id="L473">										  edhocEndpointInfo.getUsedConnectionIds());</span>
+<span class="nc" id="L474">						return;</span>
 					}
 					
-<span class="nc" id="L473">					int responseType = MessageProcessor.messageType(nextMessage, false,</span>
-<span class="nc" id="L474">																	edhocEndpointInfo.getEdhocSessions(),</span>
+<span class="nc" id="L477">					int responseType = MessageProcessor.messageType(nextMessage, false,</span>
+<span class="nc" id="L478">																	edhocEndpointInfo.getEdhocSessions(),</span>
 																	connectionIdentifierResponder);
 
-<span class="nc bnc" id="L477" title="All 4 branches missed.">					if (responseType == Constants.EDHOC_MESSAGE_4 || responseType == Constants.EDHOC_ERROR_MESSAGE) {</span>
+<span class="nc bnc" id="L481" title="All 4 branches missed.">					if (responseType == Constants.EDHOC_MESSAGE_4 || responseType == Constants.EDHOC_ERROR_MESSAGE) {</span>
 						
-<span class="nc" id="L479">						myResponse.getOptions().setContentFormat(Constants.APPLICATION_EDHOC_CBOR_SEQ);</span>
-<span class="nc" id="L480">						myResponse.setConfirmable(true);</span>
-<span class="nc" id="L481">						myResponse.setPayload(nextMessage);</span>
+<span class="nc" id="L483">						myResponse.getOptions().setContentFormat(Constants.APPLICATION_EDHOC_CBOR_SEQ);</span>
+<span class="nc" id="L484">						myResponse.setConfirmable(true);</span>
+<span class="nc" id="L485">						myResponse.setPayload(nextMessage);</span>
 						
-<span class="nc bnc" id="L483" title="All 2 branches missed.">						String myString = (responseType == Constants.EDHOC_MESSAGE_4) ?</span>
+<span class="nc bnc" id="L487" title="All 2 branches missed.">						String myString = (responseType == Constants.EDHOC_MESSAGE_4) ?</span>
 								                             &quot;EDHOC Message 4&quot; : &quot;EDHOC Error Message&quot;;
-<span class="nc" id="L485">						System.out.println(&quot;Response type: &quot; + myString + &quot;\n&quot;);</span>
+<span class="nc" id="L489">						System.out.println(&quot;Response type: &quot; + myString + &quot;\n&quot;);</span>
 						
-<span class="nc bnc" id="L487" title="All 2 branches missed.">						if (responseType == Constants.EDHOC_MESSAGE_4) {</span>
+<span class="nc bnc" id="L491" title="All 2 branches missed.">						if (responseType == Constants.EDHOC_MESSAGE_4) {</span>
 
-<span class="nc" id="L489">					        mySession.setCurrentStep(Constants.EDHOC_SENT_M4);</span>
-<span class="nc" id="L490">							exchange.respond(myResponse);</span>
+<span class="nc" id="L493">					        mySession.setCurrentStep(Constants.EDHOC_SENT_M4);</span>
+<span class="nc" id="L494">							exchange.respond(myResponse);</span>
 					        
-<span class="nc" id="L492">					        System.out.println(&quot;Sent EDHOC Message 4\n&quot;);</span>
+<span class="nc" id="L496">					        System.out.println(&quot;Sent EDHOC Message 4\n&quot;);</span>
 					        
 						}
 						
-<span class="nc bnc" id="L496" title="All 2 branches missed.">						if (responseType == Constants.EDHOC_ERROR_MESSAGE) {</span>
+<span class="nc bnc" id="L500" title="All 2 branches missed.">						if (responseType == Constants.EDHOC_ERROR_MESSAGE) {</span>
 					        
-<span class="nc" id="L498">							int responseCodeValue = processingResult.get(1).AsInt32();</span>
-<span class="nc" id="L499">							ResponseCode responseCode = ResponseCode.valueOf(responseCodeValue);</span>
-<span class="nc" id="L500">					        sendErrorMessage(exchange, nextMessage, appProfile, responseCode);</span>
+<span class="nc" id="L502">							int responseCodeValue = processingResult.get(1).AsInt32();</span>
+<span class="nc" id="L503">							ResponseCode responseCode = ResponseCode.valueOf(responseCodeValue);</span>
+<span class="nc" id="L504">					        sendErrorMessage(exchange, nextMessage, appProfile, responseCode);</span>
 					        
-<span class="nc" id="L502">					        Util.purgeSession(mySession, connectionIdentifierResponder,</span>
-<span class="nc" id="L503">							        		  edhocEndpointInfo.getEdhocSessions(),</span>
-<span class="nc" id="L504">							        		  edhocEndpointInfo.getUsedConnectionIds());</span>
+<span class="nc" id="L506">					        Util.purgeSession(mySession, connectionIdentifierResponder,</span>
+<span class="nc" id="L507">							        		  edhocEndpointInfo.getEdhocSessions(),</span>
+<span class="nc" id="L508">							        		  edhocEndpointInfo.getUsedConnectionIds());</span>
 					        
-<span class="nc" id="L506">					        System.out.println(&quot;Sent EDHOC Error Message\n&quot;);</span>
+<span class="nc" id="L510">					        System.out.println(&quot;Sent EDHOC Error Message\n&quot;);</span>
 					        if (debugPrint) {
-<span class="nc" id="L508">					        	Util.nicePrint(&quot;EDHOC Error Message&quot;, nextMessage);</span>
+<span class="nc" id="L512">					        	Util.nicePrint(&quot;EDHOC Error Message&quot;, nextMessage);</span>
 					        }
 					        
 						}
-<span class="nc" id="L512">						return;</span>
+<span class="nc" id="L516">						return;</span>
 					}
 					else {
-<span class="nc" id="L515">						System.err.println(&quot;Inconsistent state before sending EDHOC Message 4&quot;);</span>
-<span class="nc" id="L516">						Util.purgeSession(mySession, connectionIdentifierResponder,</span>
-<span class="nc" id="L517">										  edhocEndpointInfo.getEdhocSessions(),</span>
-<span class="nc" id="L518">										  edhocEndpointInfo.getUsedConnectionIds());</span>
-<span class="nc" id="L519">						return;</span>
+<span class="nc" id="L519">						System.err.println(&quot;Inconsistent state before sending EDHOC Message 4&quot;);</span>
+<span class="nc" id="L520">						Util.purgeSession(mySession, connectionIdentifierResponder,</span>
+<span class="nc" id="L521">										  edhocEndpointInfo.getEdhocSessions(),</span>
+<span class="nc" id="L522">										  edhocEndpointInfo.getUsedConnectionIds());</span>
+<span class="nc" id="L523">						return;</span>
 					}
 					
 				}
@@ -525,55 +529,55 @@ public class EdhocResource extends CoapResource {
 			// An EDHOC error message has to be returned in response to EDHOC message_3
 			// The session has been possibly purged while attempting to process message_3
 			else {				
-<span class="nc" id="L528">				int responseCodeValue = processingResult.get(1).AsInt32();</span>
-<span class="nc" id="L529">				ResponseCode responseCode = ResponseCode.valueOf(responseCodeValue);</span>
-<span class="nc" id="L530">				sendErrorMessage(exchange, nextMessage, appProfile, responseCode);</span>
+<span class="nc" id="L532">				int responseCodeValue = processingResult.get(1).AsInt32();</span>
+<span class="nc" id="L533">				ResponseCode responseCode = ResponseCode.valueOf(responseCodeValue);</span>
+<span class="nc" id="L534">				sendErrorMessage(exchange, nextMessage, appProfile, responseCode);</span>
 			}
 			
-<span class="nc" id="L533">			return;</span>
+<span class="nc" id="L537">			return;</span>
 			
 		}
 		
 		
 		/* Start handling EDHOC Error Message */
-<span class="nc bnc" id="L539" title="All 2 branches missed.">		if (messageType == Constants.EDHOC_ERROR_MESSAGE) {</span>
+<span class="nc bnc" id="L543" title="All 2 branches missed.">		if (messageType == Constants.EDHOC_ERROR_MESSAGE) {</span>
             
-<span class="nc" id="L541">        	CBORObject[] objectList = MessageProcessor.readErrorMessage(message, null, edhocEndpointInfo.getEdhocSessions());</span>
+<span class="nc" id="L545">        	CBORObject[] objectList = MessageProcessor.readErrorMessage(message, null, edhocEndpointInfo.getEdhocSessions());</span>
         	
-<span class="nc bnc" id="L543" title="All 2 branches missed.">        	if (objectList != null) {</span>
+<span class="nc bnc" id="L547" title="All 2 branches missed.">        	if (objectList != null) {</span>
         	
 	        	// The first element is always C_X.
-<span class="nc" id="L546">	        	CBORObject cX = objectList[0];</span>
-<span class="nc" id="L547">	        	byte[] connectionIdentifier = MessageProcessor.decodeIdentifier(cX);</span>
+<span class="nc" id="L550">	        	CBORObject cX = objectList[0];</span>
+<span class="nc" id="L551">	        	byte[] connectionIdentifier = MessageProcessor.decodeIdentifier(cX);</span>
 	        	
-<span class="nc bnc" id="L549" title="All 2 branches missed.">	    		if (connectionIdentifier == null) {</span>
-<span class="nc" id="L550">	    			System.err.println(&quot;Malformed or invalid connection identifier in EDHOC Error Message&quot;);</span>
-<span class="nc" id="L551">	    			return;</span>
+<span class="nc bnc" id="L553" title="All 2 branches missed.">	    		if (connectionIdentifier == null) {</span>
+<span class="nc" id="L554">	    			System.err.println(&quot;Malformed or invalid connection identifier in EDHOC Error Message&quot;);</span>
+<span class="nc" id="L555">	    			return;</span>
 	    		}
 	        	
 	        	// Retrieve ERR_CODE
-<span class="nc" id="L555">	        	int errorCode = objectList[1].AsInt32();</span>
-<span class="nc" id="L556">	        	System.out.println(&quot;ERR_CODE: &quot; + errorCode + &quot;\n&quot;);</span>
+<span class="nc" id="L559">	        	int errorCode = objectList[1].AsInt32();</span>
+<span class="nc" id="L560">	        	System.out.println(&quot;ERR_CODE: &quot; + errorCode + &quot;\n&quot;);</span>
 	        	
 	        	// Retrieve ERR_INFO
-<span class="nc bnc" id="L559" title="All 2 branches missed.">	    		if (errorCode == Constants.ERR_CODE_SUCCESS) {</span>
-<span class="nc" id="L560">	    			System.out.println(&quot;Success\n&quot;);</span>
+<span class="nc bnc" id="L563" title="All 2 branches missed.">	    		if (errorCode == Constants.ERR_CODE_SUCCESS) {</span>
+<span class="nc" id="L564">	    			System.out.println(&quot;Success\n&quot;);</span>
 	    		}
-<span class="nc bnc" id="L562" title="All 2 branches missed.">	    		else if (errorCode == Constants.ERR_CODE_UNSPECIFIED_ERROR) {</span>
-<span class="nc" id="L563">		        	String errMsg = objectList[2].toString();</span>
-<span class="nc" id="L564">		        	System.out.println(&quot;ERR_INFO: &quot; + errMsg + &quot;\n&quot;);</span>
-<span class="nc" id="L565">	    		}</span>
-<span class="nc bnc" id="L566" title="All 2 branches missed.">	    		else if (errorCode == Constants.ERR_CODE_WRONG_SELECTED_CIPHER_SUITE) {</span>
-<span class="nc" id="L567">	    			CBORObject suitesR = objectList[2];</span>
-<span class="nc bnc" id="L568" title="All 2 branches missed.">					if (suitesR.getType() == CBORType.Integer) {</span>
-<span class="nc" id="L569">			        	System.out.println(&quot;SUITES_R: &quot; + suitesR.AsInt32() + &quot;\n&quot;);</span>
+<span class="nc bnc" id="L566" title="All 2 branches missed.">	    		else if (errorCode == Constants.ERR_CODE_UNSPECIFIED_ERROR) {</span>
+<span class="nc" id="L567">		        	String errMsg = objectList[2].toString();</span>
+<span class="nc" id="L568">		        	System.out.println(&quot;ERR_INFO: &quot; + errMsg + &quot;\n&quot;);</span>
+<span class="nc" id="L569">	    		}</span>
+<span class="nc bnc" id="L570" title="All 2 branches missed.">	    		else if (errorCode == Constants.ERR_CODE_WRONG_SELECTED_CIPHER_SUITE) {</span>
+<span class="nc" id="L571">	    			CBORObject suitesR = objectList[2];</span>
+<span class="nc bnc" id="L572" title="All 2 branches missed.">					if (suitesR.getType() == CBORType.Integer) {</span>
+<span class="nc" id="L573">			        	System.out.println(&quot;SUITES_R: &quot; + suitesR.AsInt32() + &quot;\n&quot;);</span>
 					}
-<span class="nc bnc" id="L571" title="All 2 branches missed.">					else if (suitesR.getType() == CBORType.Array) {</span>
-<span class="nc" id="L572">						System.out.print(&quot;SUITES_R: [ &quot; );</span>
-<span class="nc bnc" id="L573" title="All 2 branches missed.">						for (int i = 0; i &lt; suitesR.size(); i++) {</span>
-<span class="nc" id="L574">							System.out.print(suitesR.get(i).AsInt32() + &quot; &quot; );</span>
+<span class="nc bnc" id="L575" title="All 2 branches missed.">					else if (suitesR.getType() == CBORType.Array) {</span>
+<span class="nc" id="L576">						System.out.print(&quot;SUITES_R: [ &quot; );</span>
+<span class="nc bnc" id="L577" title="All 2 branches missed.">						for (int i = 0; i &lt; suitesR.size(); i++) {</span>
+<span class="nc" id="L578">							System.out.print(suitesR.get(i).AsInt32() + &quot; &quot; );</span>
 						}
-<span class="nc" id="L576">						System.out.println(&quot;]\n&quot;);</span>
+<span class="nc" id="L580">						System.out.println(&quot;]\n&quot;);</span>
 					}
 	    		}
 	        	
@@ -583,26 +587,26 @@ public class EdhocResource extends CoapResource {
 	        	// In fact, the session is marked as &quot;used&quot;, hence new ephemeral keys would be generated when
 	        	// preparing a new EDHOC Message 1. 
 	        	
-<span class="nc" id="L586">	    		CBORObject connectionIdentifierCbor = CBORObject.FromObject(connectionIdentifier);</span>
-<span class="nc" id="L587">	        	EdhocSession mySession = edhocEndpointInfo.getEdhocSessions().get(connectionIdentifierCbor);</span>
-<span class="nc bnc" id="L588" title="All 2 branches missed.">	    		if (mySession == null) {</span>
-<span class="nc" id="L589">	    			System.err.println(&quot;EDHOC session to delete not found&quot;);</span>
-<span class="nc" id="L590">	    			return;</span>
+<span class="nc" id="L590">	    		CBORObject connectionIdentifierCbor = CBORObject.FromObject(connectionIdentifier);</span>
+<span class="nc" id="L591">	        	EdhocSession mySession = edhocEndpointInfo.getEdhocSessions().get(connectionIdentifierCbor);</span>
+<span class="nc bnc" id="L592" title="All 2 branches missed.">	    		if (mySession == null) {</span>
+<span class="nc" id="L593">	    			System.err.println(&quot;EDHOC session to delete not found&quot;);</span>
+<span class="nc" id="L594">	    			return;</span>
 	    		}
 	    		
-<span class="nc" id="L593">	        	Util.purgeSession(mySession, connectionIdentifier,</span>
-<span class="nc" id="L594">	        					  edhocEndpointInfo.getEdhocSessions(),</span>
-<span class="nc" id="L595">	        					  edhocEndpointInfo.getUsedConnectionIds());</span>
+<span class="nc" id="L597">	        	Util.purgeSession(mySession, connectionIdentifier,</span>
+<span class="nc" id="L598">	        					  edhocEndpointInfo.getEdhocSessions(),</span>
+<span class="nc" id="L599">	        					  edhocEndpointInfo.getUsedConnectionIds());</span>
 	        	
 	        	// Just send an empty response back
-<span class="nc" id="L598">	        	Response myResponse = new Response(ResponseCode.CHANGED);</span>
-<span class="nc" id="L599">	        	nextMessage = new byte[] {};</span>
+<span class="nc" id="L602">	        	Response myResponse = new Response(ResponseCode.CHANGED);</span>
+<span class="nc" id="L603">	        	nextMessage = new byte[] {};</span>
 	        	
 	        	// Uncomment to have the response as a confirmable Separate Response
 	        	// myResponse.setConfirmable(true);
 	        	
-<span class="nc" id="L604">	        	myResponse.setPayload(nextMessage);</span>
-<span class="nc" id="L605">	        	exchange.respond(myResponse);</span>
+<span class="nc" id="L608">	        	myResponse.setPayload(nextMessage);</span>
+<span class="nc" id="L609">	        	exchange.respond(myResponse);</span>
 	        	
 	        	/*
 	        	// Alternative sending an empty ACK instead
@@ -613,42 +617,42 @@ public class EdhocResource extends CoapResource {
         	
 			}
         	
-<span class="nc" id="L616">    		return;</span>
+<span class="nc" id="L620">    		return;</span>
 			
 		}
 		
 
-<span class="nc" id="L621">	}</span>
+<span class="nc" id="L625">	}</span>
 	
 	private void sendErrorMessage(CoapExchange exchange, byte[] nextMessage,
 			                      AppProfile appProfile, ResponseCode responseCode) {
 		
-<span class="nc" id="L626">		int responseType = MessageProcessor.messageType(nextMessage, false, edhocEndpointInfo.getEdhocSessions(), null);</span>
+<span class="nc" id="L630">		int responseType = MessageProcessor.messageType(nextMessage, false, edhocEndpointInfo.getEdhocSessions(), null);</span>
 		
-<span class="nc bnc" id="L628" title="All 2 branches missed.">		if (responseType != Constants.EDHOC_ERROR_MESSAGE) {</span>
-<span class="nc" id="L629">			System.err.println(&quot;Inconsistent state before sending EDHOC Error Message&quot;);	</span>
-<span class="nc" id="L630">			return;</span>
+<span class="nc bnc" id="L632" title="All 2 branches missed.">		if (responseType != Constants.EDHOC_ERROR_MESSAGE) {</span>
+<span class="nc" id="L633">			System.err.println(&quot;Inconsistent state before sending EDHOC Error Message&quot;);	</span>
+<span class="nc" id="L634">			return;</span>
 		}
 		
-<span class="nc" id="L633">		Response myResponse = new Response(responseCode);</span>
-<span class="nc" id="L634">		myResponse.getOptions().setContentFormat(Constants.APPLICATION_EDHOC_CBOR_SEQ);</span>
-<span class="nc" id="L635">		myResponse.setPayload(nextMessage);</span>
+<span class="nc" id="L637">		Response myResponse = new Response(responseCode);</span>
+<span class="nc" id="L638">		myResponse.getOptions().setContentFormat(Constants.APPLICATION_EDHOC_CBOR_SEQ);</span>
+<span class="nc" id="L639">		myResponse.setPayload(nextMessage);</span>
 		
-<span class="nc" id="L637">		Util.nicePrint(&quot;EDHOC Error Message&quot;, nextMessage);</span>
+<span class="nc" id="L641">		Util.nicePrint(&quot;EDHOC Error Message&quot;, nextMessage);</span>
 		
-<span class="nc" id="L639">		exchange.respond(myResponse);</span>
+<span class="nc" id="L643">		exchange.respond(myResponse);</span>
 		
-<span class="nc" id="L641">	}</span>
+<span class="nc" id="L645">	}</span>
 	
 	/*
 	 * Process a &quot;trigger request&quot; targeting the EDHOC resource
 	 */
 	private void processTriggerRequest(CoapExchange request, AppProfile appProfile) {
 		// Do nothing
-<span class="nc" id="L648">		System.out.println(&quot;Entered processTriggerRequest()&quot;);</span>
+<span class="nc" id="L652">		System.out.println(&quot;Entered processTriggerRequest()&quot;);</span>
 		
 		// Here the server can start acting as Initiator and send an EDHOC Message 1 as a CoAP response
-<span class="nc" id="L651">	}</span>
+<span class="nc" id="L655">	}</span>
 	
 }
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HashMapCtxDB.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore</a> &gt; <span class="el_source">HashMapCtxDB.java</span></div><h1>HashMapCtxDB.java</h1><pre class="source lang-java linenums">/*******************************************************************************
- * Copyright (c) 2019 RISE SICS and others.
+ * Copyright (c) 2025 RISE SICS and others.
  * 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
@@ -34,6 +34,7 @@ import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.CoAP.ResponseCode;
 import org.eclipse.californium.core.coap.Token;
 import org.eclipse.californium.elements.util.Bytes;
@@ -50,14 +51,13 @@ public class HashMapCtxDB implements OSCoreCtxDB {
 	/**
 	 * The logger
 	 */
-<span class="fc" id="L53">	private static final Logger LOGGER = LoggerFactory.getLogger(HashMapCtxDB.class);</span>
+<span class="fc" id="L54">	private static final Logger LOGGER = LoggerFactory.getLogger(HashMapCtxDB.class);</span>
 
 	// The outer HashMap has RID as key and the inner ID Context
 	private HashMap&lt;ByteId, HashMap&lt;ByteId, OSCoreCtx&gt;&gt; contextMap;
 
 	private HashMap&lt;Token, OSCoreCtx&gt; tokenMap;
 	private HashMap&lt;String, OSCoreCtx&gt; uriMap;
-	private HashMap&lt;Token, Integer&gt; seqMap;
 
 	private ArrayList&lt;Token&gt; allTokens;
 
@@ -69,9 +69,8 @@ public class HashMapCtxDB implements OSCoreCtxDB {
 <span class="fc" id="L69">		this.tokenMap = new HashMap&lt;&gt;();</span>
 <span class="fc" id="L70">		this.contextMap = new HashMap&lt;&gt;();</span>
 <span class="fc" id="L71">		this.uriMap = new HashMap&lt;&gt;();</span>
-<span class="fc" id="L72">		this.seqMap = new HashMap&lt;&gt;();</span>
-<span class="fc" id="L73">		this.allTokens = new ArrayList&lt;Token&gt;();</span>
-<span class="fc" id="L74">	}</span>
+<span class="fc" id="L72">		this.allTokens = new ArrayList&lt;Token&gt;();</span>
+<span class="fc" id="L73">	}</span>
 
 	/**
 	 * Retrieve context using RID and ID Context. If the provided ID Context is
@@ -81,32 +80,32 @@ public class HashMapCtxDB implements OSCoreCtxDB {
 	@Override
 	public synchronized OSCoreCtx getContext(byte[] rid, byte[] IDContext) throws CoapOSException {
 		// Do not allow a null RID
-<span class="pc bpc" id="L84" title="1 of 2 branches missed.">		if (rid == null) {</span>
-<span class="nc" id="L85">			LOGGER.error(ErrorDescriptions.BYTE_ARRAY_NULL);</span>
-<span class="nc" id="L86">			throw new NullPointerException(ErrorDescriptions.BYTE_ARRAY_NULL);</span>
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">		if (rid == null) {</span>
+<span class="nc" id="L84">			LOGGER.error(ErrorDescriptions.MISSING_KID);</span>
+<span class="nc" id="L85">			throw new CoapOSException(ErrorDescriptions.MISSING_KID, ResponseCode.UNAUTHORIZED);</span>
 		}
 
-<span class="fc" id="L89">		HashMap&lt;ByteId, OSCoreCtx&gt; matchingRidMap = contextMap.get(new ByteId(rid));</span>
+<span class="fc" id="L88">		HashMap&lt;ByteId, OSCoreCtx&gt; matchingRidMap = contextMap.get(new ByteId(rid));</span>
 
 		// No matching RID found at all
-<span class="fc bfc" id="L92" title="All 2 branches covered.">		if (matchingRidMap == null) {</span>
-<span class="fc" id="L93">			return null;</span>
+<span class="fc bfc" id="L91" title="All 2 branches covered.">		if (matchingRidMap == null) {</span>
+<span class="fc" id="L92">			return null;</span>
 		}
 
 		// If a RID was found get the specific context
-<span class="fc bfc" id="L97" title="All 2 branches covered.">		if (IDContext == null) {</span>
+<span class="fc bfc" id="L96" title="All 2 branches covered.">		if (IDContext == null) {</span>
 			// If retrieving using only RID, there must be only 1 match maximum
-<span class="fc bfc" id="L99" title="All 2 branches covered.">			if (matchingRidMap.size() &gt; 1) {</span>
-<span class="fc" id="L100">				throw new CoapOSException(ErrorDescriptions.CONTEXT_NOT_FOUND_IDCONTEXT, ResponseCode.UNAUTHORIZED);</span>
+<span class="fc bfc" id="L98" title="All 2 branches covered.">			if (matchingRidMap.size() &gt; 1) {</span>
+<span class="fc" id="L99">				throw new CoapOSException(ErrorDescriptions.CONTEXT_NOT_FOUND_IDCONTEXT, ResponseCode.UNAUTHORIZED);</span>
 			} else {
 				// If only one entry return it
-<span class="fc" id="L103">				Map.Entry&lt;ByteId, OSCoreCtx&gt; first = matchingRidMap.entrySet().iterator().next();</span>
-<span class="fc" id="L104">				return first.getValue();</span>
+<span class="fc" id="L102">				Map.Entry&lt;ByteId, OSCoreCtx&gt; first = matchingRidMap.entrySet().iterator().next();</span>
+<span class="fc" id="L103">				return first.getValue();</span>
 			}
 
 		} else {
 			// If retrieving using both RID and ID Context
-<span class="fc" id="L109">			return matchingRidMap.get(new ByteId(IDContext));</span>
+<span class="fc" id="L108">			return matchingRidMap.get(new ByteId(IDContext));</span>
 		}
 	}
 
@@ -115,201 +114,157 @@ public class HashMapCtxDB implements OSCoreCtxDB {
 	 */
 	@Override
 	public synchronized OSCoreCtx getContext(byte[] rid) {
-<span class="fc" id="L118">		HashMap&lt;ByteId, OSCoreCtx&gt; matchingRidMap = contextMap.get(new ByteId(rid));</span>
+<span class="fc" id="L117">		HashMap&lt;ByteId, OSCoreCtx&gt; matchingRidMap = contextMap.get(new ByteId(rid));</span>
 
-<span class="fc bfc" id="L120" title="All 2 branches covered.">		if (matchingRidMap == null) {</span>
-<span class="fc" id="L121">			return null;</span>
+<span class="fc bfc" id="L119" title="All 2 branches covered.">		if (matchingRidMap == null) {</span>
+<span class="fc" id="L120">			return null;</span>
 		}
 
-<span class="fc bfc" id="L124" title="All 2 branches covered.">		if (matchingRidMap.size() &gt; 1) {</span>
-<span class="fc" id="L125">			throw new RuntimeException(&quot;Attempting to retrieve context with only non-unique RID.&quot;);</span>
+<span class="fc bfc" id="L123" title="All 2 branches covered.">		if (matchingRidMap.size() &gt; 1) {</span>
+<span class="fc" id="L124">			throw new RuntimeException(&quot;Attempting to retrieve context with only non-unique RID.&quot;);</span>
 		}
 
-<span class="fc" id="L128">		Map.Entry&lt;ByteId, OSCoreCtx&gt; first = matchingRidMap.entrySet().iterator().next();</span>
-<span class="fc" id="L129">		return first.getValue();</span>
+<span class="fc" id="L127">		Map.Entry&lt;ByteId, OSCoreCtx&gt; first = matchingRidMap.entrySet().iterator().next();</span>
+<span class="fc" id="L128">		return first.getValue();</span>
 	}
 
 	@Override
 	public synchronized OSCoreCtx getContextByToken(Token token) {
-<span class="pc bpc" id="L134" title="1 of 2 branches missed.">		if (token != null) {</span>
-<span class="fc" id="L135">			return tokenMap.get(token);</span>
+<span class="pc bpc" id="L133" title="1 of 2 branches missed.">		if (token != null) {</span>
+<span class="fc" id="L134">			return tokenMap.get(token);</span>
 		} else {
-<span class="nc" id="L137">			LOGGER.error(ErrorDescriptions.TOKEN_NULL);</span>
-<span class="nc" id="L138">			throw new NullPointerException(ErrorDescriptions.TOKEN_NULL);</span>
+<span class="nc" id="L136">			LOGGER.error(ErrorDescriptions.TOKEN_NULL);</span>
+<span class="nc" id="L137">			throw new NullPointerException(ErrorDescriptions.TOKEN_NULL);</span>
 		}
 	}
 
 	// TODO: Update
 	@Override
 	public synchronized OSCoreCtx getContextByIDContext(byte[] IDContext) {
-<span class="fc bfc" id="L145" title="All 2 branches covered.">		for (Entry&lt;String, OSCoreCtx&gt; entry : uriMap.entrySet()) {</span>
-<span class="fc" id="L146">			OSCoreCtx ctx = entry.getValue();</span>
+<span class="fc bfc" id="L144" title="All 2 branches covered.">		for (Entry&lt;String, OSCoreCtx&gt; entry : uriMap.entrySet()) {</span>
+<span class="fc" id="L145">			OSCoreCtx ctx = entry.getValue();</span>
 
-<span class="pc bpc" id="L148" title="1 of 2 branches missed.">			if (Arrays.equals(IDContext, ctx.getIdContext())) {</span>
-<span class="fc" id="L149">				return ctx;</span>
+<span class="pc bpc" id="L147" title="1 of 2 branches missed.">			if (Arrays.equals(IDContext, ctx.getIdContext())) {</span>
+<span class="fc" id="L148">				return ctx;</span>
 			}
 
-<span class="nc" id="L152">		}</span>
-<span class="fc" id="L153">		return null;</span>
+<span class="nc" id="L151">		}</span>
+<span class="fc" id="L152">		return null;</span>
 	}
 
 	@Override
 	public synchronized OSCoreCtx getContext(String uri) throws OSException {
-<span class="pc bpc" id="L158" title="1 of 2 branches missed.">		if (uri != null) {</span>
-<span class="fc" id="L159">			return uriMap.get(normalizeServerUri(uri));</span>
+<span class="pc bpc" id="L157" title="1 of 2 branches missed.">		if (uri != null) {</span>
+<span class="fc" id="L158">			return uriMap.get(normalizeServerUri(uri));</span>
 		} else {
-<span class="nc" id="L161">			LOGGER.error(ErrorDescriptions.STRING_NULL);</span>
-<span class="nc" id="L162">			throw new NullPointerException(ErrorDescriptions.STRING_NULL);</span>
+<span class="nc" id="L160">			LOGGER.error(ErrorDescriptions.STRING_NULL);</span>
+<span class="nc" id="L161">			throw new NullPointerException(ErrorDescriptions.STRING_NULL);</span>
 		}
 	}
 
 	@Override
 	public synchronized void addContext(Token token, OSCoreCtx ctx) {
-<span class="fc bfc" id="L168" title="All 2 branches covered.">		if (token != null) {</span>
-<span class="fc bfc" id="L169" title="All 2 branches covered.">			if (!tokenExist(token)) {</span>
-<span class="fc" id="L170">				allTokens.add(token);</span>
+<span class="fc bfc" id="L167" title="All 2 branches covered.">		if (token != null) {</span>
+<span class="fc bfc" id="L168" title="All 2 branches covered.">			if (!tokenExist(token)) {</span>
+<span class="fc" id="L169">				allTokens.add(token);</span>
 			}
-<span class="fc" id="L172">			tokenMap.put(token, ctx);</span>
+<span class="fc" id="L171">			tokenMap.put(token, ctx);</span>
 		}
-<span class="fc" id="L174">		addContext(ctx);</span>
-<span class="fc" id="L175">	}</span>
+<span class="fc" id="L173">		addContext(ctx);</span>
+<span class="fc" id="L174">	}</span>
 
 	@Override
 	public synchronized void addContext(String uri, OSCoreCtx ctx) throws OSException {
-<span class="pc bpc" id="L179" title="1 of 2 branches missed.">		if (uri != null) {</span>
-<span class="fc" id="L180">			String normalizedUri = normalizeServerUri(uri);</span>
-<span class="fc" id="L181">			uriMap.put(normalizedUri, ctx);</span>
-<span class="fc" id="L182">			ctx.setUri(normalizedUri);</span>
+<span class="pc bpc" id="L178" title="1 of 2 branches missed.">		if (uri != null) {</span>
+<span class="fc" id="L179">			String normalizedUri = normalizeServerUri(uri);</span>
+<span class="fc" id="L180">			uriMap.put(normalizedUri, ctx);</span>
+<span class="fc" id="L181">			ctx.setUri(normalizedUri);</span>
 		}
-<span class="fc" id="L184">		addContext(ctx);</span>
-<span class="fc" id="L185">	}</span>
+<span class="fc" id="L183">		addContext(ctx);</span>
+<span class="fc" id="L184">	}</span>
 
 	@Override
 	public synchronized void addContext(String uri, GroupCtx ctx) throws OSException {
-<span class="fc" id="L189">		ctx.addToDb(uri, this);</span>
-<span class="fc" id="L190">	}</span>
+<span class="fc" id="L188">		ctx.addToDb(uri, this);</span>
+<span class="fc" id="L189">	}</span>
 
 	@Override
 	public synchronized void addContext(OSCoreCtx ctx) {
-<span class="pc bpc" id="L194" title="1 of 2 branches missed.">		if (ctx != null) {</span>
+<span class="pc bpc" id="L193" title="1 of 2 branches missed.">		if (ctx != null) {</span>
 			
 			// Don't add Group OSCORE sender contexts as they have no RID
 			// TODO: Is there some other way?
-<span class="fc bfc" id="L198" title="All 2 branches covered.">			if (ctx instanceof GroupSenderCtx) {</span>
-<span class="fc" id="L199">				return;</span>
+<span class="fc bfc" id="L197" title="All 2 branches covered.">			if (ctx instanceof GroupSenderCtx) {</span>
+<span class="fc" id="L198">				return;</span>
 			}
 
-<span class="fc" id="L202">			ByteId rid = new ByteId(ctx.getRecipientId());</span>
-<span class="fc" id="L203">			HashMap&lt;ByteId, OSCoreCtx&gt; ridMap = contextMap.get(rid);</span>
+<span class="fc" id="L201">			ByteId rid = new ByteId(ctx.getRecipientId());</span>
+<span class="fc" id="L202">			HashMap&lt;ByteId, OSCoreCtx&gt; ridMap = contextMap.get(rid);</span>
 
 			// If there is no existing map for this RID, create it
-<span class="fc bfc" id="L206" title="All 2 branches covered.">			if (ridMap == null) {</span>
-<span class="fc" id="L207">				ridMap = new HashMap&lt;ByteId, OSCoreCtx&gt;();</span>
+<span class="fc bfc" id="L205" title="All 2 branches covered.">			if (ridMap == null) {</span>
+<span class="fc" id="L206">				ridMap = new HashMap&lt;ByteId, OSCoreCtx&gt;();</span>
 			}
 
 			// Add the context to the RID map with ID context as key
-<span class="fc" id="L211">			byte[] IDContext = ctx.getIdContext();</span>
-<span class="fc bfc" id="L212" title="All 2 branches covered.">			if (IDContext == null) {</span>
-<span class="fc" id="L213">				IDContext = Bytes.EMPTY;</span>
+<span class="fc" id="L210">			byte[] IDContext = ctx.getIdContext();</span>
+<span class="fc bfc" id="L211" title="All 2 branches covered.">			if (IDContext == null) {</span>
+<span class="fc" id="L212">				IDContext = Bytes.EMPTY;</span>
 			}
-<span class="fc" id="L215">			ridMap.put(new ByteId(IDContext), ctx);</span>
+<span class="fc" id="L214">			ridMap.put(new ByteId(IDContext), ctx);</span>
 
 			// Put the updated map for this RID in the context map
-<span class="fc" id="L218">			contextMap.put(rid, ridMap);</span>
+<span class="fc" id="L217">			contextMap.put(rid, ridMap);</span>
 
-<span class="fc" id="L220">		} else {</span>
-<span class="nc" id="L221">			LOGGER.error(ErrorDescriptions.CONTEXT_NULL);</span>
-<span class="nc" id="L222">			throw new NullPointerException(ErrorDescriptions.CONTEXT_NULL);</span>
+<span class="fc" id="L219">		} else {</span>
+<span class="nc" id="L220">			LOGGER.error(ErrorDescriptions.CONTEXT_NULL);</span>
+<span class="nc" id="L221">			throw new NullPointerException(ErrorDescriptions.CONTEXT_NULL);</span>
 		}
-<span class="fc" id="L224">	}</span>
+<span class="fc" id="L223">	}</span>
 
 	@Override
 	public synchronized void removeContext(OSCoreCtx ctx) {
-<span class="pc bpc" id="L228" title="1 of 2 branches missed.">		if (ctx != null) {</span>
+<span class="pc bpc" id="L227" title="1 of 2 branches missed.">		if (ctx != null) {</span>
 
-<span class="fc" id="L230">			ByteId rid = new ByteId(ctx.getRecipientId());</span>
-<span class="fc" id="L231">			HashMap&lt;ByteId, OSCoreCtx&gt; ridMap = contextMap.get(rid);</span>
+<span class="fc" id="L229">			ByteId rid = new ByteId(ctx.getRecipientId());</span>
+<span class="fc" id="L230">			HashMap&lt;ByteId, OSCoreCtx&gt; ridMap = contextMap.get(rid);</span>
 
 			// If there is no existing map for this RID return
-<span class="pc bpc" id="L234" title="1 of 2 branches missed.">			if (ridMap == null) {</span>
-<span class="nc" id="L235">				return;</span>
+<span class="pc bpc" id="L233" title="1 of 2 branches missed.">			if (ridMap == null) {</span>
+<span class="nc" id="L234">				return;</span>
 			}
 
 			// Remove the context from the RID map with ID context as key
-<span class="fc" id="L239">			byte[] IDContext = ctx.getIdContext();</span>
-<span class="fc bfc" id="L240" title="All 2 branches covered.">			if (IDContext == null) {</span>
-<span class="fc" id="L241">				IDContext = Bytes.EMPTY;</span>
+<span class="fc" id="L238">			byte[] IDContext = ctx.getIdContext();</span>
+<span class="fc bfc" id="L239" title="All 2 branches covered.">			if (IDContext == null) {</span>
+<span class="fc" id="L240">				IDContext = Bytes.EMPTY;</span>
 			}
-<span class="fc" id="L243">			ridMap.remove(new ByteId(IDContext));</span>
+<span class="fc" id="L242">			ridMap.remove(new ByteId(IDContext));</span>
 
-<span class="fc bfc" id="L245" title="All 2 branches covered.">			if (ridMap.isEmpty()) {</span>
+<span class="fc bfc" id="L244" title="All 2 branches covered.">			if (ridMap.isEmpty()) {</span>
 				// If the RID map is now empty, remove it
-<span class="fc" id="L247">				contextMap.remove(rid);</span>
+<span class="fc" id="L246">				contextMap.remove(rid);</span>
 			} else {
 
 				// Put the updated map for this RID in the context map
-<span class="fc" id="L251">				contextMap.put(rid, ridMap);</span>
+<span class="fc" id="L250">				contextMap.put(rid, ridMap);</span>
 			}
 
-<span class="fc" id="L254">		} else {</span>
-<span class="nc" id="L255">			LOGGER.error(ErrorDescriptions.CONTEXT_NULL);</span>
-<span class="nc" id="L256">			throw new NullPointerException(ErrorDescriptions.CONTEXT_NULL);</span>
+<span class="fc" id="L253">		} else {</span>
+<span class="nc" id="L254">			LOGGER.error(ErrorDescriptions.CONTEXT_NULL);</span>
+<span class="nc" id="L255">			throw new NullPointerException(ErrorDescriptions.CONTEXT_NULL);</span>
 		}
-<span class="fc" id="L258">	}</span>
-
-	@Override
-	public synchronized Integer getSeqByToken(Token token) {
-<span class="pc bpc" id="L262" title="1 of 2 branches missed.">		if (token != null) {</span>
-<span class="fc" id="L263">			return seqMap.get(token);</span>
-		} else {
-<span class="nc" id="L265">			LOGGER.error(ErrorDescriptions.TOKEN_NULL);</span>
-<span class="nc" id="L266">			throw new NullPointerException(ErrorDescriptions.TOKEN_NULL);</span>
-		}
-	}
-
-	@Override
-	public synchronized void addSeqByToken(Token token, Integer seq) {
-<span class="fc bfc" id="L272" title="All 4 branches covered.">		if (seq == null || seq &lt; 0) {</span>
-<span class="fc" id="L273">			throw new NullPointerException(ErrorDescriptions.SEQ_NBR_INVALID);</span>
-		}
-<span class="fc bfc" id="L275" title="All 2 branches covered.">		if (token == null) {</span>
-<span class="fc" id="L276">			throw new NullPointerException(ErrorDescriptions.TOKEN_NULL);</span>
-		}
-<span class="fc bfc" id="L278" title="All 2 branches covered.">		if (tokenExist(token)) {</span>
-<span class="fc" id="L279">			LOGGER.info(&quot;Token exists, but this could be a refresh if not there is a problem&quot;);</span>
-		} else {
-<span class="fc" id="L281">			allTokens.add(token);</span>
-		}
-<span class="fc" id="L283">		seqMap.put(token, seq);</span>
-<span class="fc" id="L284">	}</span>
+<span class="fc" id="L257">	}</span>
 
 	@Override
 	public synchronized boolean tokenExist(Token token) {
-<span class="fc bfc" id="L288" title="All 2 branches covered.">		if (token != null) {</span>
-<span class="fc" id="L289">			return allTokens.contains(token);</span>
+<span class="pc bpc" id="L261" title="1 of 2 branches missed.">		if (token != null) {</span>
+<span class="fc" id="L262">			return allTokens.contains(token);</span>
 		} else {
-<span class="fc" id="L291">			LOGGER.error(ErrorDescriptions.TOKEN_NULL);</span>
-<span class="fc" id="L292">			throw new NullPointerException(ErrorDescriptions.TOKEN_NULL);</span>
+<span class="nc" id="L264">			LOGGER.error(ErrorDescriptions.TOKEN_NULL);</span>
+<span class="nc" id="L265">			throw new NullPointerException(ErrorDescriptions.TOKEN_NULL);</span>
 		}
 	}
-
-	@Override
-	public synchronized void removeSeqByToken(Token token) {
-<span class="pc bpc" id="L298" title="1 of 2 branches missed.">		if (token != null) {</span>
-<span class="fc" id="L299">			seqMap.remove(token);</span>
-<span class="fc" id="L300">			removeTokenIf(token);</span>
-		} else {
-<span class="nc" id="L302">			LOGGER.error(ErrorDescriptions.TOKEN_NULL);</span>
-<span class="nc" id="L303">			throw new NullPointerException(ErrorDescriptions.TOKEN_NULL);</span>
-		}
-<span class="fc" id="L305">	}</span>
-
-	@Override
-	public synchronized void updateSeqByToken(Token token, Integer seq) {
-<span class="fc bfc" id="L309" title="All 2 branches covered.">		if (tokenExist(token)) {</span>
-<span class="fc" id="L310">			addSeqByToken(token, seq);</span>
-		}
-<span class="fc" id="L312">	}</span>
 
 	/**
 	 * Normalize the request uri.
@@ -320,67 +275,69 @@ public class HashMapCtxDB implements OSCoreCtxDB {
 	 * @throws OSException on failure to parse the URI
 	 */
 	private static String normalizeServerUri(String uri) throws OSException {
-<span class="fc" id="L323">		String normalized = null;</span>
+<span class="fc" id="L278">		String normalized = null;</span>
+<span class="fc" id="L279">		int port = -1;</span>
 
 		try {
-<span class="fc" id="L326">			normalized = (new URI(uri)).getHost();</span>
-<span class="nc" id="L327">		} catch (URISyntaxException e) {</span>
+<span class="fc" id="L282">			URI serverUri = new URI(uri);</span>
+<span class="fc" id="L283">			port = serverUri.getPort();</span>
+<span class="fc" id="L284">			normalized = serverUri.getHost();</span>
+<span class="nc" id="L285">		} catch (URISyntaxException e) {</span>
 			// workaround for openjdk bug JDK-8199396.
 			// some characters are not supported for the ipv6 scope.
 			try {
-<span class="nc" id="L331">				String patternString = &quot;(%.*)]&quot;;</span>
-<span class="nc" id="L332">				Pattern pattern = Pattern.compile(patternString);</span>
+<span class="nc" id="L289">				String patternString = &quot;(%.*)]&quot;;</span>
+<span class="nc" id="L290">				Pattern pattern = Pattern.compile(patternString);</span>
 
 				//Save the original scope
-<span class="nc" id="L335">				Matcher matcher = pattern.matcher(uri);</span>
-<span class="nc" id="L336">				String originalScope = null;</span>
-<span class="nc bnc" id="L337" title="All 2 branches missed.">				if (matcher.find()) {</span>
-<span class="nc" id="L338">					originalScope = matcher.group(1);</span>
+<span class="nc" id="L293">				Matcher matcher = pattern.matcher(uri);</span>
+<span class="nc" id="L294">				String originalScope = null;</span>
+<span class="nc bnc" id="L295" title="All 2 branches missed.">				if (matcher.find()) {</span>
+<span class="nc" id="L296">					originalScope = matcher.group(1);</span>
 				}
 
 				//Remove unsupported characters in scope before getting the host component
-<span class="nc" id="L342">				normalized = (new URI(uri.replaceAll(&quot;[-._~]&quot;, &quot;&quot;))).getHost();</span>
+<span class="nc" id="L300">				normalized = (new URI(uri.replaceAll(&quot;[-._~]&quot;, &quot;&quot;))).getHost();</span>
 
 				//Find the modified new scope
-<span class="nc" id="L345">				matcher = pattern.matcher(normalized);</span>
-<span class="nc" id="L346">				String newScope = null;</span>
-<span class="nc bnc" id="L347" title="All 2 branches missed.">				if (matcher.find()) {</span>
-<span class="nc" id="L348">					newScope = matcher.group(1);</span>
+<span class="nc" id="L303">				matcher = pattern.matcher(normalized);</span>
+<span class="nc" id="L304">				String newScope = null;</span>
+<span class="nc bnc" id="L305" title="All 2 branches missed.">				if (matcher.find()) {</span>
+<span class="nc" id="L306">					newScope = matcher.group(1);</span>
 				}
 
 				//Restore original scope for the IPv6 normalization
 				//Otherwise getByName below will fail with &quot;no such interface&quot;
 				//Since the scope is no longer matching the interface
-<span class="nc bnc" id="L354" title="All 4 branches missed.">				if (newScope != null &amp;&amp; originalScope != null) {</span>
-<span class="nc" id="L355">					normalized = normalized.replace(newScope, originalScope);</span>
+<span class="nc bnc" id="L312" title="All 4 branches missed.">				if (newScope != null &amp;&amp; originalScope != null) {</span>
+<span class="nc" id="L313">					normalized = normalized.replace(newScope, originalScope);</span>
 				}
 
-<span class="nc" id="L358">			} catch (URISyntaxException e2) {</span>
-<span class="nc" id="L359">				LOGGER.error(&quot;Error in the request URI: &quot; + uri + &quot; message: &quot; + e.getMessage());</span>
-<span class="nc" id="L360">				throw new OSException(e.getMessage());</span>
-<span class="nc" id="L361">			}</span>
-<span class="fc" id="L362">		}</span>
+<span class="nc" id="L316">			} catch (URISyntaxException e2) {</span>
+<span class="nc" id="L317">				LOGGER.error(&quot;Error in the request URI: {} message: {}&quot;, uri, e.getMessage());</span>
+<span class="nc" id="L318">				throw new OSException(e.getMessage());</span>
+<span class="nc" id="L319">			}</span>
+<span class="fc" id="L320">		}</span>
 
 		//Further normalization for IPv6 addresses
 		//Normalization above can give different results depending on structure of IPv6 address
-<span class="fc" id="L366">		InetAddress ipv6Addr = null;</span>
+<span class="fc" id="L324">		InetAddress ipv6Addr = null;</span>
 		try {
-<span class="fc" id="L368">			ipv6Addr = InetAddress.getByName(normalized);</span>
-<span class="nc" id="L369">		} catch (UnknownHostException e) {</span>
-<span class="nc" id="L370">			LOGGER.error(&quot;Error finding host of request URI: &quot; + uri + &quot; message: &quot; + e.getMessage());</span>
-<span class="fc" id="L371">		}</span>
-<span class="pc bpc" id="L372" title="1 of 2 branches missed.">		if (ipv6Addr instanceof Inet6Address) {</span>
-<span class="nc" id="L373">			normalized = ipv6Addr.getHostAddress();</span>
+<span class="fc" id="L326">			ipv6Addr = InetAddress.getByName(normalized);</span>
+<span class="nc" id="L327">		} catch (UnknownHostException e) {</span>
+<span class="nc" id="L328">			LOGGER.error(&quot;Error finding host of request URI: {} message: {}&quot;, uri, e.getMessage());</span>
+<span class="fc" id="L329">		}</span>
+<span class="pc bpc" id="L330" title="1 of 2 branches missed.">		if (ipv6Addr instanceof Inet6Address) {</span>
+<span class="nc" id="L331">			normalized = &quot;[&quot; + ipv6Addr.getHostAddress() + &quot;]&quot;;</span>
 		}
 
-<span class="fc" id="L376">		return normalized;</span>
+		// Consider port, if not default
+<span class="fc bfc" id="L335" title="All 4 branches covered.">		if (port != -1 &amp;&amp; port != CoAP.DEFAULT_COAP_PORT) {</span>
+<span class="fc" id="L336">			normalized = normalized + &quot;:&quot; + port;</span>
+		}
+
+<span class="fc" id="L339">		return normalized;</span>
 	}
-
-	private synchronized void removeTokenIf(Token token) {
-<span class="pc bpc" id="L380" title="2 of 4 branches missed.">		if (!tokenMap.containsKey(token) &amp;&amp; !seqMap.containsKey(token)) {</span>
-<span class="fc" id="L381">			allTokens.remove(token);</span>
-		}
-<span class="fc" id="L383">	}</span>
 
 	/**
 	 * Removes associations for this token, except for the generator
@@ -389,29 +346,27 @@ public class HashMapCtxDB implements OSCoreCtxDB {
 	 */
 	@Override
 	public synchronized void removeToken(Token token) {
-<span class="fc" id="L392">		tokenMap.remove(token);</span>
-<span class="fc" id="L393">		seqMap.remove(token);</span>
-<span class="fc" id="L394">	}</span>
+<span class="fc" id="L349">		tokenMap.remove(token);</span>
+<span class="fc" id="L350">	}</span>
 
 	/**
 	 * Used mainly for test purpose, to purge the db of all contexts
 	 */
 	@Override
 	public synchronized void purge() {
-<span class="fc" id="L401">		contextMap.clear();</span>
-<span class="fc" id="L402">		tokenMap.clear();</span>
-<span class="fc" id="L403">		uriMap.clear();</span>
-<span class="fc" id="L404">		seqMap.clear();</span>
-<span class="fc" id="L405">		allTokens = new ArrayList&lt;Token&gt;();</span>
-<span class="fc" id="L406">	}</span>
+<span class="fc" id="L357">		contextMap.clear();</span>
+<span class="fc" id="L358">		tokenMap.clear();</span>
+<span class="fc" id="L359">		uriMap.clear();</span>
+<span class="fc" id="L360">		allTokens = new ArrayList&lt;Token&gt;();</span>
+<span class="fc" id="L361">	}</span>
 
 	@Override
 	public void printAllContexts() {
-<span class="nc bnc" id="L410" title="All 2 branches missed.">		for (ByteId name : contextMap.keySet()) {</span>
-<span class="nc" id="L411">			String key = name.toString();</span>
-<span class="nc" id="L412">			String value = contextMap.get(name).toString();</span>
-<span class="nc" id="L413">			System.out.println(key + &quot; &quot; + value);</span>
-<span class="nc" id="L414">		}</span>
-<span class="nc" id="L415">	}</span>
+<span class="nc bnc" id="L365" title="All 2 branches missed.">		for (ByteId name : contextMap.keySet()) {</span>
+<span class="nc" id="L366">			String key = name.toString();</span>
+<span class="nc" id="L367">			String value = contextMap.get(name).toString();</span>
+<span class="nc" id="L368">			System.out.println(key + &quot; &quot; + value);</span>
+<span class="nc" id="L369">		}</span>
+<span class="nc" id="L370">	}</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

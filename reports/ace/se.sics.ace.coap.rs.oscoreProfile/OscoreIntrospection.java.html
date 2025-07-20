@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OscoreIntrospection.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.coap.rs.oscoreProfile</a> &gt; <span class="el_source">OscoreIntrospection.java</span></div><h1>OscoreIntrospection.java</h1><pre class="source lang-java linenums">/*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -48,7 +48,9 @@ import org.eclipse.californium.oscore.OSCoreCtx;
 import org.eclipse.californium.oscore.OSCoreCtxDB;
 import org.eclipse.californium.oscore.OSException;
 
+import com.upokecenter.cbor.CBORException;
 import com.upokecenter.cbor.CBORObject;
+import com.upokecenter.cbor.CBORType;
 
 import org.eclipse.californium.cose.CoseException;
 
@@ -68,13 +70,13 @@ public class OscoreIntrospection implements IntrospectionHandler {
     /**
      * The logger
      */
-<span class="fc" id="L71">    private static final Logger LOGGER </span>
-<span class="fc" id="L72">        = Logger.getLogger(OscoreIntrospection.class.getName());</span>
+<span class="fc" id="L73">    private static final Logger LOGGER </span>
+<span class="fc" id="L74">        = Logger.getLogger(OscoreIntrospection.class.getName());</span>
     
     /**
      * The CoAP client
      */
-<span class="fc" id="L77">    private CoapClient client = null;</span>
+<span class="fc" id="L79">    private CoapClient client = null;</span>
     
     
     
@@ -91,49 +93,59 @@ public class OscoreIntrospection implements IntrospectionHandler {
      * 
      */
     public OscoreIntrospection(OSCoreCtx ctx, String introspectAddress, OSCoreCtxDB db) 
-<span class="fc" id="L94">            throws CoseException, IOException, OSException {</span>
+<span class="fc" id="L96">            throws CoseException, IOException, OSException {</span>
         
-<span class="fc" id="L96">        db.addContext(ctx);</span>
-<span class="fc" id="L97">        db.addContext(introspectAddress, ctx);</span>
-<span class="fc" id="L98">        this.client = new CoapClient(introspectAddress);</span>
-<span class="fc" id="L99">        CoapEndpoint.Builder ceb = new CoapEndpoint.Builder();</span>
-<span class="fc" id="L100">        ceb.setCoapStackFactory(new OSCoreCoapStackFactory());</span>
-<span class="fc" id="L101">        ceb.setCustomCoapStackArgument(db);</span>
-<span class="fc" id="L102">        this.client.setEndpoint(ceb.build());</span>
-<span class="fc" id="L103">    }</span>
+<span class="fc" id="L98">        db.addContext(ctx);</span>
+<span class="fc" id="L99">        db.addContext(introspectAddress, ctx);</span>
+<span class="fc" id="L100">        this.client = new CoapClient(introspectAddress);</span>
+<span class="fc" id="L101">        CoapEndpoint.Builder ceb = new CoapEndpoint.Builder();</span>
+<span class="fc" id="L102">        ceb.setCoapStackFactory(new OSCoreCoapStackFactory());</span>
+<span class="fc" id="L103">        ceb.setCustomCoapStackArgument(db);</span>
+<span class="fc" id="L104">        this.client.setEndpoint(ceb.build());</span>
+<span class="fc" id="L105">    }</span>
       
     @Override
     public Map&lt;Short, CBORObject&gt; getParams(byte[] tokenReference) 
             throws AceException, IntrospectionException {
-<span class="fc" id="L108">        LOGGER.info(&quot;Sending introspection request on &quot; + tokenReference);</span>
-<span class="fc" id="L109">        Map&lt;Short, CBORObject&gt; params = new HashMap&lt;&gt;();</span>
-<span class="fc" id="L110">        params.put(Constants.TOKEN, CBORObject.FromObject(CBORObject.FromObject(tokenReference).EncodeToBytes()));</span>
-<span class="fc" id="L111">        params.put(Constants.TOKEN_TYPE_HINT, CBORObject.FromObject(&quot;pop&quot;)); </span>
+<span class="fc" id="L110">        LOGGER.info(&quot;Sending introspection request on &quot; + tokenReference);</span>
+<span class="fc" id="L111">        Map&lt;Short, CBORObject&gt; params = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L112">        params.put(Constants.TOKEN, CBORObject.FromObject(CBORObject.FromObject(tokenReference).EncodeToBytes()));</span>
+<span class="fc" id="L113">        params.put(Constants.TOKEN_TYPE_HINT, CBORObject.FromObject(Constants.POP)); </span>
         CoapResponse response;
-<span class="fc" id="L113">        Request r = new Request(Code.POST);</span>
-<span class="fc" id="L114">        r.setPayload(Constants.getCBOR(params).EncodeToBytes());</span>
-<span class="fc" id="L115">        r.getOptions().setOscore(new byte[0]);</span>
+<span class="fc" id="L115">        Request r = new Request(Code.POST);</span>
+<span class="fc" id="L116">        r.setPayload(Constants.getCBOR(params).EncodeToBytes());</span>
+<span class="fc" id="L117">        r.getOptions().setOscore(new byte[0]);</span>
         try {
-<span class="fc" id="L117">            response = this.client.advanced(r);</span>
-<span class="nc" id="L118">        } catch (ConnectorException | IOException e) {</span>
-<span class="nc" id="L119">            throw new AceException(&quot;Connector/IO Error: &quot; + e.getMessage());</span>
-<span class="fc" id="L120">        }    </span>
-<span class="pc bpc" id="L121" title="1 of 2 branches missed.">        if (response == null) {</span>
-<span class="nc" id="L122">            throw new AceException(&quot;AS didn't respond&quot;);</span>
+<span class="fc" id="L119">            response = this.client.advanced(r);</span>
+<span class="nc" id="L120">        } catch (ConnectorException | IOException e) {</span>
+<span class="nc" id="L121">            throw new AceException(&quot;Connector/IO Error: &quot; + e.getMessage());</span>
+<span class="fc" id="L122">        }    </span>
+<span class="pc bpc" id="L123" title="1 of 2 branches missed.">        if (response == null) {</span>
+<span class="nc" id="L124">            throw new AceException(&quot;AS didn't respond&quot;);</span>
         }
-<span class="pc bpc" id="L124" title="1 of 2 branches missed.">        if (!response.getCode().equals(ResponseCode.CREATED)) {</span>
+<span class="pc bpc" id="L126" title="1 of 2 branches missed.">        if (!response.getCode().equals(ResponseCode.CREATED)) {</span>
             //Some error happened
-<span class="nc bnc" id="L126" title="All 2 branches missed.">            if (response.getPayload() == null) {//This was a server error</span>
-<span class="nc" id="L127">                throw new IntrospectionException(response.getCode().value, &quot;&quot;);</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">            if (response.getPayload() == null) {//This was a server error</span>
+<span class="nc" id="L129">                throw new IntrospectionException(response.getCode().value, &quot;&quot;);</span>
             }
             //Client error
-<span class="nc" id="L130">            throw new IntrospectionException(response.getCode().value, </span>
-<span class="nc" id="L131">                    CBORObject.DecodeFromBytes(</span>
-<span class="nc" id="L132">                            response.getPayload()).toString());</span>
+<span class="nc" id="L132">            String errorMessage = new String();</span>
+<span class="nc" id="L133">            byte[] payload = response.getPayload();</span>
+<span class="nc" id="L134">            CBORObject payloadObj = null;</span>
+            try {
+<span class="nc" id="L136">            	payloadObj = CBORObject.DecodeFromBytes(payload);</span>
+            }
+<span class="nc" id="L138">            catch (CBORException e) {</span>
+<span class="nc" id="L139">            	errorMessage = new String(&quot;Invalid payload received from the introspection endpoint&quot;);</span>
+<span class="nc" id="L140">            };</span>
+<span class="nc bnc" id="L141" title="All 4 branches missed.">            if (payloadObj != null &amp;&amp; payloadObj.getType() == CBORType.TextString) {</span>
+<span class="nc" id="L142">            	errorMessage = new String(payloadObj.AsString());</span>
+            }
+<span class="nc" id="L144">            throw new IntrospectionException(response.getCode().value, errorMessage);</span>
         }
-<span class="fc" id="L134">        CBORObject res = CBORObject.DecodeFromBytes(response.getPayload());</span>
-<span class="fc" id="L135">        Map&lt;Short, CBORObject&gt; map = Constants.getParams(res);</span>
-<span class="fc" id="L136">        return map;</span>
+<span class="fc" id="L146">        CBORObject res = CBORObject.DecodeFromBytes(response.getPayload());</span>
+<span class="fc" id="L147">        Map&lt;Short, CBORObject&gt; map = Constants.getParams(res);</span>
+<span class="fc" id="L148">        return map;</span>
         
     }
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MySQLDBAdapter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.examples</a> &gt; <span class="el_source">MySQLDBAdapter.java</span></div><h1>MySQLDBAdapter.java</h1><pre class="source lang-java linenums">/*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -106,13 +106,13 @@ import se.sics.ace.as.DBConnector;
     @Override
     public synchronized void createUser(String adminUser, String adminPwd) throws AceException {
 <span class="fc" id="L108">        String cUser = &quot;CREATE USER IF NOT EXISTS'&quot; + this.user</span>
-                + &quot;'@'%' IDENTIFIED BY '&quot; + this.password
+                + &quot;'@'localhost' IDENTIFIED BY '&quot; + this.password
                 + &quot;';&quot;;
 <span class="fc" id="L111">        String authzUser = &quot;GRANT DELETE, INSERT, SELECT, UPDATE, CREATE ON &quot;</span>
-                + this.dbName + &quot;.* TO '&quot; + this.user + &quot;'@'%';&quot;;
+                + this.dbName + &quot;.* TO '&quot; + this.user + &quot;'@'localhost';&quot;;
 
 <span class="fc" id="L114">        try (Connection adminConn = getAdminConnection(adminUser, adminPwd);</span>
-<span class="fc" id="L115">        	Statement stmt = adminConn.createStatement()) {</span>
+<span class="fc" id="L115">             Statement stmt = adminConn.createStatement()) {</span>
 <span class="fc" id="L116">            stmt.execute(cUser);</span>
 <span class="fc" id="L117">            stmt.execute(authzUser);</span>
 <span class="nc" id="L118">        } catch (SQLException e) {</span>
@@ -237,7 +237,7 @@ import se.sics.ace.as.DBConnector;
 
 
 <span class="fc" id="L239">        try (Connection adminConn = getAdminConnection(adminUser, adminPwd);</span>
-<span class="fc" id="L240">            Statement stmt = adminConn.createStatement()) {</span>
+<span class="fc" id="L240">             Statement stmt = adminConn.createStatement()) {</span>
 <span class="fc" id="L241">            stmt.execute(createDB);</span>
 <span class="fc" id="L242">            stmt.execute(createRs);</span>
 <span class="fc" id="L243">            stmt.execute(createC);</span>
@@ -272,12 +272,12 @@ import se.sics.ace.as.DBConnector;
     @Override
     public void wipeDB(String adminUser, String adminPwd) throws AceException
     {
-<span class="fc" id="L275">    	try (Connection adminConn = getAdminConnection(adminUser, adminPwd);</span>
-<span class="fc" id="L276">            Statement stmt = adminConn.createStatement())</span>
+<span class="fc" id="L275">        try (Connection adminConn = getAdminConnection(adminUser, adminPwd);</span>
+<span class="fc" id="L276">             Statement stmt = adminConn.createStatement())</span>
         {
 <span class="fc" id="L278">            String dropDB = &quot;DROP DATABASE IF EXISTS &quot; + this.dbName + &quot;;&quot;;</span>
 <span class="fc" id="L279">            String dropUser = &quot;DROP USER IF EXISTS '&quot; + this.user </span>
-                    + &quot;'@'%';&quot;;
+                    + &quot;'@'localhost';&quot;;
 <span class="fc" id="L281">            stmt.execute(dropDB);</span>
 <span class="fc" id="L282">            stmt.execute(dropUser);</span>
 <span class="nc" id="L283">        } catch (SQLException e) {</span>

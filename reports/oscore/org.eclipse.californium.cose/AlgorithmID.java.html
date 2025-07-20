@@ -84,36 +84,77 @@ import com.upokecenter.cbor.CBORObject;
 <span class="fc" id="L84">    ECDH_SS_HKDF_256_AES_KW_128(-32, 0, 0),</span>
 <span class="fc" id="L85">    ECDH_SS_HKDF_256_AES_KW_192(-33, 0, 0),</span>
 <span class="fc" id="L86">    ECDH_SS_HKDF_256_AES_KW_256(-34, 0, 0),</span>
+    
+<span class="fc" id="L88">    CHACHA20_POLY1305(24, 256, 128),</span>
+
+<span class="fc" id="L90">	RSA_PSS_256(-37, 0, 0), RSA_PSS_384(-38, 0, 0), RSA_PSS_512(-39, 0, 0),</span>
+
+	/**
+	 * @deprecated Do NOT use without an integrity protection mechanism
+	 */
+<span class="fc" id="L95">	@Deprecated</span>
+	CHACHA20(23, 256, 0),
+
+	/**
+	 * @deprecated Do NOT use without an integrity protection mechanism
+	 */
+<span class="fc" id="L101">	@Deprecated</span>
+	A128CTR(-65534, 128, 0),
+	/**
+	 * @deprecated Do NOT use without an integrity protection mechanism
+	 */
+<span class="fc" id="L106">	@Deprecated</span>
+	A192CTR(-65533, 192, 0),
+	/**
+	 * @deprecated Do NOT use without an integrity protection mechanism
+	 */
+<span class="fc" id="L111">	@Deprecated</span>
+	A256CTR(-65532, 256, 0),
+	/**
+	 * @deprecated Do NOT use without an integrity protection mechanism
+	 */
+<span class="fc" id="L116">	@Deprecated</span>
+	A128CBC(-65531, 128, 0),
+	/**
+	 * @deprecated Do NOT use without an integrity protection mechanism
+	 */
+<span class="fc" id="L121">	@Deprecated</span>
+	A192CBC(-65530, 192, 0),
+	/**
+	 * @deprecated Do NOT use without an integrity protection mechanism
+	 */
+<span class="fc" id="L126">	@Deprecated</span>
+	A256CBC(-65529, 256, 0)
     ;
  
     private final CBORObject value;
     private final int cbitKey;
     private final int cbitTag;
     
-<span class="fc" id="L93">    AlgorithmID(int value, int cbitKey, int cbitTag) {</span>
-<span class="fc" id="L94">        this.value = CBORObject.FromObject(value);</span>
-<span class="fc" id="L95">        this.cbitKey = cbitKey;</span>
-<span class="fc" id="L96">        this.cbitTag = cbitTag;</span>
-<span class="fc" id="L97">    }    </span>
+<span class="fc" id="L134">    AlgorithmID(int value, int cbitKey, int cbitTag) {</span>
+<span class="fc" id="L135">        this.value = CBORObject.FromObject(value);</span>
+<span class="fc" id="L136">        this.cbitKey = cbitKey;</span>
+<span class="fc" id="L137">        this.cbitTag = cbitTag;</span>
+<span class="fc" id="L138">    }    </span>
     
     public static AlgorithmID FromCBOR(CBORObject obj) throws CoseException {
-<span class="pc bpc" id="L100" title="1 of 2 branches missed.">        if (obj == null) throw new CoseException(&quot;No Algorithm Specified&quot;);</span>
-<span class="pc bpc" id="L101" title="1 of 2 branches missed.">        for (AlgorithmID alg : AlgorithmID.values()) {</span>
-<span class="fc bfc" id="L102" title="All 2 branches covered.">            if (obj.equals(alg.value)) return alg;</span>
+<span class="pc bpc" id="L141" title="1 of 2 branches missed.">        if (obj == null) throw new CoseException(&quot;No Algorithm Specified&quot;);</span>
+<span class="pc bpc" id="L142" title="1 of 2 branches missed.">        for (AlgorithmID alg : AlgorithmID.values()) {</span>
+<span class="fc bfc" id="L143" title="All 2 branches covered.">            if (obj.equals(alg.value)) return alg;</span>
         }
-<span class="nc" id="L104">        throw new CoseException(&quot;Unknown Algorithm Specified&quot;);</span>
+<span class="nc" id="L145">        throw new CoseException(&quot;Unknown Algorithm Specified&quot;);</span>
     }
     
     public CBORObject AsCBOR() {
-<span class="fc" id="L108">        return value;</span>
+<span class="fc" id="L149">        return value;</span>
     }
     
     public int getKeySize() {
-<span class="fc" id="L112">        return cbitKey;</span>
+<span class="fc" id="L153">        return cbitKey;</span>
     }
     
     public int getTagSize() {
-<span class="fc" id="L116">        return cbitTag;</span>
+<span class="fc" id="L157">        return cbitTag;</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

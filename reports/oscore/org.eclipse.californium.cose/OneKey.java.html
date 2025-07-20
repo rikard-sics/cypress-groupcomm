@@ -249,9 +249,9 @@ public class OneKey {
 <span class="pc bpc" id="L249" title="2 of 4 branches missed.">		if ((val == null) || (val.getType() != CBORType.Integer))</span>
 <span class="nc" id="L250">			throw new CoseException(&quot;Missing or incorrect key type field&quot;);</span>
         
-<span class="fc bfc" id="L252" title="All 2 branches covered.">        if (val.equals(KeyKeys.KeyType_Octet)) {</span>
-<span class="fc" id="L253">            val = OneKey.this.get(KeyKeys.Octet_K);</span>
-<span class="pc bpc" id="L254" title="2 of 4 branches missed.">            if ((val== null) || (val.getType() != CBORType.ByteString)) throw new CoseException(&quot;Malformed key structure&quot;);</span>
+<span class="pc bpc" id="L252" title="1 of 2 branches missed.">        if (val.equals(KeyKeys.KeyType_Octet)) {</span>
+<span class="nc" id="L253">            val = OneKey.this.get(KeyKeys.Octet_K);</span>
+<span class="nc bnc" id="L254" title="All 4 branches missed.">            if ((val== null) || (val.getType() != CBORType.ByteString)) throw new CoseException(&quot;Malformed key structure&quot;);</span>
         }
 <span class="fc bfc" id="L256" title="All 2 branches covered.">        else if (val.equals(KeyKeys.KeyType_EC2)) {</span>
 <span class="fc" id="L257">            CheckECKey();</span>
@@ -447,11 +447,11 @@ public class OneKey {
         String curveName;
         OneKey returnThis;
         
-<span class="pc bpc" id="L450" title="7 of 8 branches missed.">        switch (curve.AsInt32()) {</span>
+<span class="nc bnc" id="L450" title="All 8 branches missed.">        switch (curve.AsInt32()) {</span>
             case 1:
-<span class="fc" id="L452">                curveName = &quot;P-256&quot;;</span>
-<span class="fc" id="L453">                returnThis = generateECDHKey(curveName, curve);</span>
-<span class="fc" id="L454">                return returnThis;</span>
+<span class="nc" id="L452">                curveName = &quot;P-256&quot;;</span>
+<span class="nc" id="L453">                returnThis = generateECDHKey(curveName, curve);</span>
+<span class="nc" id="L454">                return returnThis;</span>
 
             case 2:
 <span class="nc" id="L457">                curveName = &quot;P-384&quot;;</span>
@@ -489,11 +489,11 @@ public class OneKey {
             
             int curveSize;
             
-<span class="pc bpc" id="L492" title="3 of 4 branches missed.">            switch (curveName) {</span>
+<span class="nc bnc" id="L492" title="All 4 branches missed.">            switch (curveName) {</span>
                 case &quot;P-256&quot;:
-<span class="fc" id="L494">                    curveName = &quot;secp256r1&quot;;</span>
-<span class="fc" id="L495">                    curveSize = 256;</span>
-<span class="fc" id="L496">                    break;</span>
+<span class="nc" id="L494">                    curveName = &quot;secp256r1&quot;;</span>
+<span class="nc" id="L495">                    curveSize = 256;</span>
+<span class="nc" id="L496">                    break;</span>
 
                 case &quot;P-384&quot;:
 <span class="nc" id="L499">                    curveName=&quot;secp384r1&quot;;</span>
@@ -509,29 +509,29 @@ public class OneKey {
 <span class="nc" id="L509">                    throw new CoseException(&quot;Internal Error&quot;);</span>
             }
 
-<span class="fc" id="L512">            ECGenParameterSpec paramSpec = new ECGenParameterSpec(curveName);</span>
-<span class="fc" id="L513">            KeyPairGenerator gen = KeyPairGenerator.getInstance(&quot;EC&quot;);</span>
-<span class="fc" id="L514">            gen.initialize(paramSpec);</span>
+<span class="nc" id="L512">            ECGenParameterSpec paramSpec = new ECGenParameterSpec(curveName);</span>
+<span class="nc" id="L513">            KeyPairGenerator gen = KeyPairGenerator.getInstance(&quot;EC&quot;);</span>
+<span class="nc" id="L514">            gen.initialize(paramSpec);</span>
             
-<span class="fc" id="L516">            KeyPair keyPair = gen.genKeyPair();</span>
+<span class="nc" id="L516">            KeyPair keyPair = gen.genKeyPair();</span>
             
-<span class="fc" id="L518">            ECPoint pubPoint = ((ECPublicKey) keyPair.getPublic()).getW();</span>
+<span class="nc" id="L518">            ECPoint pubPoint = ((ECPublicKey) keyPair.getPublic()).getW();</span>
                         
-<span class="fc" id="L520">            byte[] rgbX = ArrayFromBigNum(pubPoint.getAffineX(), curveSize);</span>
-<span class="fc" id="L521">            byte[] rgbY = ArrayFromBigNum(pubPoint.getAffineY(), curveSize);</span>
-<span class="fc" id="L522">            byte[] rgbD = ArrayFromBigNum(((ECPrivateKey) keyPair.getPrivate()).getS(), curveSize);</span>
+<span class="nc" id="L520">            byte[] rgbX = ArrayFromBigNum(pubPoint.getAffineX(), curveSize);</span>
+<span class="nc" id="L521">            byte[] rgbY = ArrayFromBigNum(pubPoint.getAffineY(), curveSize);</span>
+<span class="nc" id="L522">            byte[] rgbD = ArrayFromBigNum(((ECPrivateKey) keyPair.getPrivate()).getS(), curveSize);</span>
 
-<span class="fc" id="L524">            OneKey key = new OneKey();</span>
+<span class="nc" id="L524">            OneKey key = new OneKey();</span>
 
-<span class="fc" id="L526">            key.add(KeyKeys.KeyType, KeyKeys.KeyType_EC2);</span>
-<span class="fc" id="L527">            key.add(KeyKeys.EC2_Curve, curve);</span>
-<span class="fc" id="L528">            key.add(KeyKeys.EC2_X, CBORObject.FromObject(rgbX));</span>
-<span class="fc" id="L529">            key.add(KeyKeys.EC2_Y, CBORObject.FromObject(rgbY));</span>
-<span class="fc" id="L530">            key.add(KeyKeys.EC2_D, CBORObject.FromObject(rgbD));</span>
-<span class="fc" id="L531">            key.publicKey = keyPair.getPublic();</span>
-<span class="fc" id="L532">            key.privateKey = keyPair.getPrivate();</span>
+<span class="nc" id="L526">            key.add(KeyKeys.KeyType, KeyKeys.KeyType_EC2);</span>
+<span class="nc" id="L527">            key.add(KeyKeys.EC2_Curve, curve);</span>
+<span class="nc" id="L528">            key.add(KeyKeys.EC2_X, CBORObject.FromObject(rgbX));</span>
+<span class="nc" id="L529">            key.add(KeyKeys.EC2_Y, CBORObject.FromObject(rgbY));</span>
+<span class="nc" id="L530">            key.add(KeyKeys.EC2_D, CBORObject.FromObject(rgbD));</span>
+<span class="nc" id="L531">            key.publicKey = keyPair.getPublic();</span>
+<span class="nc" id="L532">            key.privateKey = keyPair.getPrivate();</span>
             
-<span class="fc" id="L534">            return key;</span>
+<span class="nc" id="L534">            return key;</span>
 
         }
 <span class="nc" id="L537">        catch (NoSuchAlgorithmException e) {</span>

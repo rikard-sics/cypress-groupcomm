@@ -2,7 +2,7 @@
 
  * Copyright (c) 2016, Jim Schaad
  * Copyright (c) 2018, Tobias Andersson, RISE SICS
- * Copyright (c) 2018, Rikard Höglund, RISE SICS
+ * Copyright (c) 2025, Rikard Höglund, RISE SICS
  * All rights reserved.
 
  * Redistribution and use in source and binary forms, with or without
@@ -37,278 +37,538 @@ package org.eclipse.californium.cose;
 import com.upokecenter.cbor.CBORObject;
 import com.upokecenter.cbor.CBORType;
 
-import java.nio.ByteBuffer;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.security.spec.AlgorithmParameterSpec;
 
 import javax.crypto.Cipher;
+import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
-import org.eclipse.californium.elements.util.Bytes;
 import org.eclipse.californium.scandium.dtls.cipher.CCMBlockCipher;
+import org.eclipse.californium.scandium.dtls.cipher.ThreadLocalCipher;
 
 /**
  * 
  * This class is copied from the COSE Java repository. Changes made: Directly
- * changed the used cipher to Scandiums CCMBlockCipher code. Removing support
- * for a wider array of AES algorithms.
+ * changed the used cipher to Scandium's CCMBlockCipher code. Added support for
+ * AES GCM and ChaCha20-Poly1305.
  *
  */
-<span class="fc" id="L59">public abstract class EncryptCommon extends Message {</span>
+<span class="fc" id="L61">public abstract class EncryptCommon extends Message {</span>
 
 	private final static int AES_CCM_16_IV_LENGTH = 13;
 	private final static int AES_CCM_64_IV_LENGTH = 7;
-
-<span class="fc" id="L64">	private final String AES_SPEC = &quot;AES&quot;;</span>
-<span class="fc" id="L65">	private final String AES_GCM_SPEC = AES_SPEC + &quot;/GCM/NoPadding&quot;;</span>
 	private final static int AES_GCM_IV_LENGTH = 12;
+	private static final int CHACHA_POLY_IV_LENGTH = 12;
+	private static final int CHACHA_IV_LENGTH = CHACHA_POLY_IV_LENGTH;
+	private final static int AES_CBC_IV_LENGTH = 16;
+	private final static int AES_CTR_IV_LENGTH = 16;
+
+	private static final String AES_SPEC = &quot;AES&quot;;
+	private static final String AES_GCM_SPEC = &quot;AES/GCM/NoPadding&quot;;
+	private static final String CHACHA_SPEC = &quot;ChaCha20&quot;;
+	private static final String CHACHA_POLY_SPEC = &quot;ChaCha20-Poly1305&quot;;
+	private static final String AES_CTR_SPEC = &quot;AES/CTR/NoPadding&quot;;
+	private static final String AES_CBC_SPEC = &quot;AES/CBC/PKCS5Padding&quot;;
+
+<span class="fc" id="L78">	private static final ThreadLocalCipher AES_GCM_CIPHER = new ThreadLocalCipher(AES_GCM_SPEC);</span>
+<span class="fc" id="L79">	private static final ThreadLocalCipher CHACHA_POLY_CIPHER = new ThreadLocalCipher(CHACHA_POLY_SPEC);</span>
+<span class="fc" id="L80">	private static final ThreadLocalCipher CHACHA_CIPHER = new ThreadLocalCipher(CHACHA_SPEC);</span>
+<span class="fc" id="L81">	private static final ThreadLocalCipher AES_CTR_CIPHER = new ThreadLocalCipher(AES_CTR_SPEC);</span>
+<span class="fc" id="L82">	private static final ThreadLocalCipher AES_CBC_CIPHER = new ThreadLocalCipher(AES_CBC_SPEC);</span>
 
 	protected String context;
 	protected byte[] rgbEncrypt;
-<span class="fc" id="L70">	SecureRandom random = new SecureRandom();</span>
+<span class="fc" id="L86">	SecureRandom random = new SecureRandom();</span>
 
 	protected byte[] decryptWithKey(byte[] rgbKey) throws CoseException {
-<span class="fc" id="L73">		CBORObject algX = findAttribute(HeaderKeys.Algorithm);</span>
-<span class="fc" id="L74">		AlgorithmID alg = AlgorithmID.FromCBOR(algX);</span>
+<span class="fc" id="L89">		CBORObject algX = findAttribute(HeaderKeys.Algorithm);</span>
+<span class="fc" id="L90">		AlgorithmID alg = AlgorithmID.FromCBOR(algX);</span>
 
-<span class="pc bpc" id="L76" title="1 of 2 branches missed.">		if (rgbEncrypt == null)</span>
-<span class="nc" id="L77">			throw new CoseException(&quot;No Encrypted Content Specified&quot;);</span>
+<span class="pc bpc" id="L92" title="1 of 2 branches missed.">		if (rgbEncrypt == null)</span>
+<span class="nc" id="L93">			throw new CoseException(&quot;No Encrypted Content Specified&quot;);</span>
 
-<span class="pc bpc" id="L79" title="1 of 3 branches missed.">		switch (alg) {</span>
-		case AES_GCM_128:
-		case AES_GCM_192:
-		case AES_GCM_256:
-<span class="fc" id="L83">			AES_GCM_Decrypt(alg, rgbKey);</span>
-<span class="fc" id="L84">			break;</span>
+<span class="fc" id="L95">		validateObjectState(rgbKey);</span>
 
+<span class="pc bpc" id="L97" title="3 of 7 branches missed.">		switch (alg) {</span>
 		case AES_CCM_16_64_128:
 		case AES_CCM_16_128_128:
+		case AES_CCM_16_64_256:
 		case AES_CCM_16_128_256:
 		case AES_CCM_64_64_128:
 		case AES_CCM_64_128_128:
-<span class="fc" id="L91">			AES_CCM_Decrypt(alg, rgbKey);</span>
-<span class="fc" id="L92">			break;</span>
-
+		case AES_CCM_64_64_256:
+		case AES_CCM_64_128_256:
+<span class="fc" id="L106">			AES_CCM_Decrypt(alg, rgbKey);</span>
+<span class="fc" id="L107">			break;</span>
+		case AES_GCM_128:
+		case AES_GCM_192:
+		case AES_GCM_256:
+<span class="fc" id="L111">			AES_GCM_Decrypt(alg, rgbKey);</span>
+<span class="fc" id="L112">			break;</span>
+		case CHACHA20_POLY1305:
+<span class="nc" id="L114">			ChaCha20_Poly1305_Decrypt(alg, rgbKey);</span>
+<span class="nc" id="L115">			break;</span>
+		case CHACHA20:
+<span class="nc" id="L117">			ChaCha20_Decrypt(alg, rgbKey);</span>
+<span class="nc" id="L118">			break;</span>
+		case A128CTR:
+		case A192CTR:
+		case A256CTR:
+<span class="fc" id="L122">			AES_CTR_Decrypt(alg, rgbKey);</span>
+<span class="fc" id="L123">			break;</span>
+		case A128CBC:
+		case A192CBC:
+		case A256CBC:
+<span class="fc" id="L127">			AES_CBC_Decrypt(alg, rgbKey);</span>
+<span class="fc" id="L128">			break;</span>
 		default:
-<span class="nc" id="L95">			throw new CoseException(&quot;Unsupported Algorithm Specified&quot;);</span>
+			break;
 		}
 
-<span class="fc" id="L98">		return rgbContent;</span>
+<span class="fc" id="L133">		return rgbContent;</span>
 	}
 
 	void encryptWithKey(byte[] rgbKey) throws CoseException, IllegalStateException {
-<span class="fc" id="L102">		CBORObject algX = findAttribute(HeaderKeys.Algorithm);</span>
-<span class="fc" id="L103">		AlgorithmID alg = AlgorithmID.FromCBOR(algX);</span>
+<span class="fc" id="L137">		CBORObject algX = findAttribute(HeaderKeys.Algorithm);</span>
+<span class="fc" id="L138">		AlgorithmID alg = AlgorithmID.FromCBOR(algX);</span>
 
-<span class="pc bpc" id="L105" title="1 of 2 branches missed.">		if (rgbContent == null)</span>
-<span class="nc" id="L106">			throw new CoseException(&quot;No Content Specified&quot;);</span>
+<span class="pc bpc" id="L140" title="1 of 2 branches missed.">		if (rgbContent == null)</span>
+<span class="nc" id="L141">			throw new CoseException(&quot;No Content Specified&quot;);</span>
 
-<span class="pc bpc" id="L108" title="1 of 3 branches missed.">		switch (alg) {</span>
-		case AES_GCM_128:
-		case AES_GCM_192:
-		case AES_GCM_256:
-<span class="fc" id="L112">			AES_GCM_Encrypt(alg, rgbKey);</span>
-<span class="fc" id="L113">			break;</span>
+<span class="fc" id="L143">		validateObjectState(rgbKey);</span>
 
+<span class="pc bpc" id="L145" title="3 of 7 branches missed.">		switch (alg) {</span>
 		case AES_CCM_16_64_128:
 		case AES_CCM_16_128_128:
+		case AES_CCM_16_64_256:
 		case AES_CCM_16_128_256:
 		case AES_CCM_64_64_128:
 		case AES_CCM_64_128_128:
-<span class="fc" id="L120">			AES_CCM_Encrypt(alg, rgbKey);</span>
-<span class="fc" id="L121">			break;</span>
-
+		case AES_CCM_64_64_256:
+		case AES_CCM_64_128_256:
+<span class="fc" id="L154">			AES_CCM_Encrypt(alg, rgbKey);</span>
+<span class="fc" id="L155">			break;</span>
+		case AES_GCM_128:
+		case AES_GCM_192:
+		case AES_GCM_256:
+<span class="fc" id="L159">			AES_GCM_Encrypt(alg, rgbKey);</span>
+<span class="fc" id="L160">			break;</span>
+		case CHACHA20_POLY1305:
+<span class="nc" id="L162">			ChaCha20_Poly1305_Encrypt(alg, rgbKey);</span>
+<span class="nc" id="L163">			break;</span>
+		case CHACHA20:
+<span class="nc" id="L165">			ChaCha20_Encrypt(alg, rgbKey);</span>
+<span class="nc" id="L166">			break;</span>
+		case A128CTR:
+		case A192CTR:
+		case A256CTR:
+<span class="fc" id="L170">			AES_CTR_Encrypt(alg, rgbKey);</span>
+<span class="fc" id="L171">			break;</span>
+		case A128CBC:
+		case A192CBC:
+		case A256CBC:
+<span class="fc" id="L175">			AES_CBC_Encrypt(alg, rgbKey);</span>
+<span class="fc" id="L176">			break;</span>
 		default:
-<span class="nc" id="L124">			throw new CoseException(&quot;Unsupported Algorithm Specified&quot;);</span>
+			break;
 		}
-		
-<span class="fc" id="L127">		ProcessCounterSignatures();</span>
-<span class="fc" id="L128">	}</span>
+
+<span class="fc" id="L181">		ProcessCounterSignatures();</span>
+<span class="fc" id="L182">	}</span>
 
 	// Method taken from EncryptCommon in COSE. This will provide the full AAD /
 	// Encrypt0-structure.
 	private byte[] getAADBytes() {
-<span class="fc" id="L133">		CBORObject obj = CBORObject.NewArray();</span>
+<span class="fc" id="L187">		CBORObject obj = CBORObject.NewArray();</span>
 
-<span class="fc" id="L135">		obj.Add(context);</span>
-<span class="pc bpc" id="L136" title="1 of 2 branches missed.">		if (objProtected.size() == 0)</span>
-<span class="fc" id="L137">			rgbProtected = new byte[0];</span>
+<span class="fc" id="L189">		obj.Add(context);</span>
+
+		// Fix issue with rgbProtected being NULL instead of empty CBOR bstr
+<span class="pc bpc" id="L192" title="1 of 2 branches missed.">		if (objProtected.size() == 0)</span>
+<span class="fc" id="L193">			rgbProtected = new byte[0];</span>
 		else
-<span class="nc" id="L139">			rgbProtected = objProtected.EncodeToBytes();</span>
+<span class="nc" id="L195">			rgbProtected = objProtected.EncodeToBytes();</span>
 
-<span class="fc" id="L141">		obj.Add(rgbProtected);</span>
-<span class="fc" id="L142">		obj.Add(CBORObject.FromObject(externalData));</span>
+<span class="fc" id="L197">		obj.Add(rgbProtected);</span>
+<span class="fc" id="L198">		obj.Add(CBORObject.FromObject(externalData));</span>
 
-<span class="fc" id="L144">		return obj.EncodeToBytes();</span>
+<span class="fc" id="L200">		return obj.EncodeToBytes();</span>
 	}
 
 	private void AES_CCM_Decrypt(AlgorithmID alg, byte[] rgbKey) throws CoseException, IllegalStateException {
+<span class="fc" id="L204">		CBORObject iv = findAttribute(HeaderKeys.IV);</span>
+<span class="fc" id="L205">		byte[] aad = getAADBytes();</span>
+
+		try {
+<span class="fc" id="L208">			rgbContent = CCMBlockCipher.decrypt(new SecretKeySpec(rgbKey, AES_SPEC), iv.GetByteString(), aad,</span>
+<span class="fc" id="L209">					getEncryptedContent(), alg.getTagSize() / Byte.SIZE);</span>
+<span class="nc" id="L210">		} catch (NoSuchAlgorithmException ex) {</span>
+<span class="nc" id="L211">			throw new CoseException(&quot;Algorithm not supported&quot;, ex);</span>
+<span class="nc" id="L212">		} catch (InvalidKeyException ex) {</span>
+<span class="nc bnc" id="L213" title="All 2 branches missed.">			if (ex.getMessage().equals(&quot;Illegal key size&quot;)) {</span>
+<span class="nc" id="L214">				throw new CoseException(&quot;Unsupported key size&quot;, ex);</span>
+			}
+<span class="nc" id="L216">			throw new CoseException(&quot;Decryption failure&quot;, ex);</span>
+<span class="fc" id="L217">		} catch (Exception ex) {</span>
+<span class="fc" id="L218">			ex.printStackTrace();</span>
+<span class="fc" id="L219">			throw new CoseException(&quot;Decryption failure&quot;, ex);</span>
+<span class="fc" id="L220">		}</span>
+<span class="fc" id="L221">	}</span>
+
+	private void AES_CCM_Encrypt(AlgorithmID alg, byte[] rgbKey) throws CoseException, IllegalStateException {
+<span class="fc" id="L224">		CBORObject iv = findAttribute(HeaderKeys.IV);</span>
+<span class="fc" id="L225">		byte[] aad = getAADBytes();</span>
+
+		try {
+<span class="fc" id="L228">			rgbEncrypt = CCMBlockCipher.encrypt(new SecretKeySpec(rgbKey, AES_SPEC), iv.GetByteString(), aad,</span>
+<span class="fc" id="L229">					GetContent(), alg.getTagSize() / Byte.SIZE);</span>
+<span class="nc" id="L230">		} catch (NoSuchAlgorithmException ex) {</span>
+<span class="nc" id="L231">			throw new CoseException(&quot;Algorithm not supported&quot;, ex);</span>
+<span class="nc" id="L232">		} catch (Exception ex) {</span>
+<span class="nc" id="L233">			throw new CoseException(&quot;Encryption failure&quot;, ex);</span>
+<span class="fc" id="L234">		}</span>
+<span class="fc" id="L235">	}</span>
+
+	private void AES_GCM_Decrypt(AlgorithmID alg, byte[] rgbKey) throws CoseException {
+<span class="fc" id="L238">		CBORObject iv = findAttribute(HeaderKeys.IV);</span>
+<span class="fc" id="L239">		byte[] aad = getAADBytes();</span>
+
+		try {
+			// get and prepare cipher
+<span class="fc" id="L243">			Cipher cipher = AES_GCM_CIPHER.currentWithCause();</span>
+<span class="fc" id="L244">			cipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(rgbKey, AES_SPEC),</span>
+<span class="fc" id="L245">					new GCMParameterSpec(alg.getTagSize(), iv.GetByteString()));</span>
+<span class="fc" id="L246">			cipher.updateAAD(aad);</span>
+
+			// create plaintext output
+<span class="fc" id="L249">			rgbContent = cipher.doFinal(rgbEncrypt);</span>
+<span class="nc" id="L250">		} catch (NoSuchAlgorithmException ex) {</span>
+<span class="nc" id="L251">			throw new CoseException(&quot;Algorithm not supported&quot;, ex);</span>
+<span class="nc" id="L252">		} catch (Exception ex) {</span>
+<span class="nc" id="L253">			throw new CoseException(&quot;Decryption failure&quot;, ex);</span>
+<span class="fc" id="L254">		}</span>
+<span class="fc" id="L255">	}</span>
+
+	private void AES_GCM_Encrypt(AlgorithmID alg, byte[] rgbKey) throws CoseException, IllegalStateException {
+<span class="fc" id="L258">		CBORObject iv = findAttribute(HeaderKeys.IV);</span>
+<span class="fc" id="L259">		byte[] aad = getAADBytes();</span>
+
+		try {
+			// get and prepare cipher
+<span class="fc" id="L263">			Cipher cipher = AES_GCM_CIPHER.currentWithCause();</span>
+<span class="fc" id="L264">			cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(rgbKey, AES_SPEC),</span>
+<span class="fc" id="L265">					new GCMParameterSpec(alg.getTagSize(), iv.GetByteString()));</span>
+<span class="fc" id="L266">			cipher.updateAAD(aad);</span>
+
+			// create ciphertext output
+<span class="fc" id="L269">			rgbEncrypt = cipher.doFinal(rgbContent);</span>
+<span class="nc" id="L270">		} catch (NoSuchAlgorithmException ex) {</span>
+<span class="nc" id="L271">			throw new CoseException(&quot;Algorithm not supported&quot;, ex);</span>
+<span class="nc" id="L272">		} catch (Exception ex) {</span>
+<span class="nc" id="L273">			throw new CoseException(&quot;Encryption failure&quot;, ex);</span>
+<span class="fc" id="L274">		}</span>
+<span class="fc" id="L275">	}</span>
+
+	private void ChaCha20_Poly1305_Decrypt(AlgorithmID alg, byte[] rgbKey) throws CoseException {
+<span class="nc" id="L278">		byte[] aad = getAADBytes();</span>
+<span class="nc" id="L279">		CBORObject iv = findAttribute(HeaderKeys.IV);</span>
+
+		try {
+			// get a ChaCha20Poly1305 cipher instance
+<span class="nc" id="L283">			Cipher cipher = CHACHA_POLY_CIPHER.currentWithCause();</span>
+
+			// create ivParameterSpec
+<span class="nc" id="L286">			AlgorithmParameterSpec ivParameterSpec = new IvParameterSpec(iv.GetByteString());</span>
+
+			// set the decryption key
+<span class="nc" id="L289">			SecretKeySpec keySpec = new SecretKeySpec(rgbKey, CHACHA_SPEC);</span>
+
+			// initialize the cipher for decryption
+<span class="nc" id="L292">			cipher.init(Cipher.DECRYPT_MODE, keySpec, ivParameterSpec);</span>
+
+			// add AAD
+<span class="nc" id="L295">			cipher.updateAAD(aad);</span>
+
+			// process the ciphertext and generate the plaintext
+<span class="nc" id="L298">			rgbContent = cipher.doFinal(rgbEncrypt);</span>
+<span class="nc" id="L299">		} catch (NoSuchAlgorithmException ex) {</span>
+<span class="nc" id="L300">			throw new CoseException(&quot;Algorithm not supported&quot;, ex);</span>
+<span class="nc" id="L301">		} catch (Exception ex) {</span>
+<span class="nc" id="L302">			throw new CoseException(&quot;Decryption failure&quot;, ex);</span>
+<span class="nc" id="L303">		}</span>
+<span class="nc" id="L304">	}</span>
+
+	private void ChaCha20_Poly1305_Encrypt(AlgorithmID alg, byte[] rgbKey) throws CoseException {
+<span class="nc" id="L307">		byte[] aad = getAADBytes();</span>
+<span class="nc" id="L308">		CBORObject iv = findAttribute(HeaderKeys.IV);</span>
+
+		try {
+			// get a ChaCha20Poly1305 cipher instance
+<span class="nc" id="L312">			Cipher cipher = CHACHA_POLY_CIPHER.currentWithCause();</span>
+
+			// create ivParameterSpec
+<span class="nc" id="L315">			AlgorithmParameterSpec ivParameterSpec = new IvParameterSpec(iv.GetByteString());</span>
+
+			// set the encryption key
+<span class="nc" id="L318">			SecretKeySpec keySpec = new SecretKeySpec(rgbKey, CHACHA_SPEC);</span>
+
+			// initialize the cipher for encryption
+<span class="nc" id="L321">			cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivParameterSpec);</span>
+
+			// add AAD
+<span class="nc" id="L324">			cipher.updateAAD(aad);</span>
+
+			// process the plaintext and generate the ciphertext
+<span class="nc" id="L327">			rgbEncrypt = cipher.doFinal(rgbContent);</span>
+
+<span class="nc" id="L329">		} catch (NoSuchAlgorithmException ex) {</span>
+<span class="nc" id="L330">			throw new CoseException(&quot;Algorithm not supported&quot;, ex);</span>
+<span class="nc" id="L331">		} catch (Exception ex) {</span>
+<span class="nc" id="L332">			throw new CoseException(&quot;Encryption failure&quot;, ex);</span>
+<span class="nc" id="L333">		}</span>
+<span class="nc" id="L334">	}</span>
+
+	/**
+	 * Decrypts the ciphertext using ChaCha20 algorithm (without Poly1305) with
+	 * no additional authenticated data (AAD)
+	 * 
+	 * @param alg the algorithm to use
+	 * @param rgbKey the key
+	 * @throws CoseException on encryption failure
+	 *
+	 */
+	private void ChaCha20_Decrypt(AlgorithmID alg, byte[] rgbKey) throws CoseException {
+<span class="nc" id="L346">		byte[] ciphertext = rgbEncrypt;</span>
+
 		// validate key
-<span class="pc bpc" id="L149" title="1 of 2 branches missed.">		if (rgbKey.length != alg.getKeySize() / Byte.SIZE) {</span>
-<span class="nc" id="L150">			throw new CoseException(&quot;Key Size is incorrect&quot;);</span>
+<span class="nc bnc" id="L349" title="All 2 branches missed.">		if (rgbKey.length != alg.getKeySize() / 8) {</span>
+<span class="nc" id="L350">			throw new CoseException(&quot;Key Size is incorrect&quot;);</span>
+		}
+
+		// obtain and validate iv
+<span class="nc" id="L354">		final int ivLen = getIvLength(alg);</span>
+<span class="nc" id="L355">		CBORObject iv = findAttribute(HeaderKeys.IV);</span>
+<span class="nc bnc" id="L356" title="All 2 branches missed.">		if (iv.getType() != CBORType.ByteString) {</span>
+<span class="nc" id="L357">			throw new CoseException(&quot;IV is incorrectly formed.&quot;);</span>
+		}
+<span class="nc bnc" id="L359" title="All 2 branches missed.">		if (iv.GetByteString().length != ivLen) {</span>
+<span class="nc" id="L360">			throw new CoseException(&quot;IV length is incorrect.&quot;);</span>
+		}
+<span class="nc" id="L362">		byte[] nonce = iv.GetByteString();</span>
+
+		try {
+			// Create a ChaCha20 cipher instance
+<span class="nc" id="L366">			Cipher cipher = CHACHA_CIPHER.currentWithCause();</span>
+
+			// Create ivParameterSpec with nonce
+<span class="nc" id="L369">			AlgorithmParameterSpec ivParameterSpec = new IvParameterSpec(nonce);</span>
+
+			// Set the decryption key
+<span class="nc" id="L372">			SecretKeySpec keySpec = new SecretKeySpec(rgbKey, &quot;ChaCha20&quot;);</span>
+
+			// Initialize the cipher for decryption
+<span class="nc" id="L375">			cipher.init(Cipher.DECRYPT_MODE, keySpec, ivParameterSpec);</span>
+
+			// Process the ciphertext and generate the plaintext
+<span class="nc" id="L378">			rgbContent = cipher.doFinal(ciphertext);</span>
+<span class="nc" id="L379">		} catch (NoSuchAlgorithmException ex) {</span>
+<span class="nc" id="L380">			throw new CoseException(&quot;Algorithm not supported&quot;, ex);</span>
+<span class="nc" id="L381">		} catch (Exception ex) {</span>
+<span class="nc" id="L382">			throw new CoseException(&quot;Encryption failure&quot;, ex);</span>
+<span class="nc" id="L383">		}</span>
+<span class="nc" id="L384">	}</span>
+
+	/**
+	 * Encrypts the plaintext using ChaCha20 algorithm (without Poly1305) with
+	 * no additional authenticated data (AAD)
+	 * 
+	 * @param alg the algorithm to use
+	 * @param rgbKey the key
+	 * @throws CoseException on encryption failure
+	 *
+	 */
+	private void ChaCha20_Encrypt(AlgorithmID alg, byte[] rgbKey) throws CoseException {
+<span class="nc" id="L396">		byte[] plaintext = rgbContent;</span>
+
+		// validate key
+<span class="nc bnc" id="L399" title="All 2 branches missed.">		if (rgbKey.length != alg.getKeySize() / 8) {</span>
+<span class="nc" id="L400">			throw new CoseException(&quot;Key Size is incorrect&quot;);</span>
+		}
+
+		// obtain and validate iv
+<span class="nc" id="L404">		final int ivLen = getIvLength(alg);</span>
+<span class="nc" id="L405">		CBORObject iv = findAttribute(HeaderKeys.IV);</span>
+<span class="nc bnc" id="L406" title="All 2 branches missed.">		if (iv.getType() != CBORType.ByteString) {</span>
+<span class="nc" id="L407">			throw new CoseException(&quot;IV is incorrectly formed.&quot;);</span>
+		}
+<span class="nc bnc" id="L409" title="All 2 branches missed.">		if (iv.GetByteString().length != ivLen) {</span>
+<span class="nc" id="L410">			throw new CoseException(&quot;IV length is incorrect.&quot;);</span>
+		}
+<span class="nc" id="L412">		byte[] nonce = iv.GetByteString();</span>
+
+		try {
+			// Create a ChaCha20 cipher instance
+<span class="nc" id="L416">			Cipher cipher = CHACHA_CIPHER.currentWithCause();</span>
+
+			// Create ivParameterSpec with nonce
+<span class="nc" id="L419">			AlgorithmParameterSpec ivParameterSpec = new IvParameterSpec(nonce);</span>
+
+			// Set the encryption key
+<span class="nc" id="L422">			SecretKeySpec keySpec = new SecretKeySpec(rgbKey, &quot;ChaCha20&quot;);</span>
+
+			// Initialize the cipher for encryption
+<span class="nc" id="L425">			cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivParameterSpec);</span>
+
+			// Process the plaintext and generate the ciphertext
+<span class="nc" id="L428">			rgbEncrypt = cipher.doFinal(plaintext);</span>
+
+<span class="nc" id="L430">		} catch (NoSuchAlgorithmException ex) {</span>
+<span class="nc" id="L431">			throw new CoseException(&quot;Algorithm not supported&quot;, ex);</span>
+<span class="nc" id="L432">		} catch (Exception ex) {</span>
+<span class="nc" id="L433">			throw new CoseException(&quot;Encryption failure&quot;, ex);</span>
+<span class="nc" id="L434">		}</span>
+<span class="nc" id="L435">	}</span>
+
+	private void AES_CTR_Decrypt(AlgorithmID alg, byte[] rgbKey) throws CoseException, IllegalStateException {
+		// validate key
+<span class="pc bpc" id="L439" title="1 of 2 branches missed.">		if (rgbKey.length != alg.getKeySize() / Byte.SIZE) {</span>
+<span class="nc" id="L440">			throw new CoseException(&quot;Key Size is incorrect&quot;);</span>
 		}
 
 		// obtain and validate IV
-<span class="fc" id="L154">		final int ivLen = ivLength(alg);</span>
-<span class="fc" id="L155">		CBORObject iv = findAttribute(HeaderKeys.IV);</span>
-<span class="pc bpc" id="L156" title="1 of 2 branches missed.">		if (iv == null) {</span>
-<span class="nc" id="L157">			throw new CoseException(&quot;Missing IV during decryption&quot;);</span>
+<span class="fc" id="L444">		final int ivLen = getIvLength(alg);</span>
+<span class="fc" id="L445">		CBORObject iv = findAttribute(HeaderKeys.IV);</span>
+<span class="pc bpc" id="L446" title="1 of 2 branches missed.">		if (iv == null) {</span>
+<span class="nc" id="L447">			throw new CoseException(&quot;Missing IV during decryption&quot;);</span>
 		}
-<span class="pc bpc" id="L159" title="1 of 2 branches missed.">		if (iv.getType() != CBORType.ByteString) {</span>
-<span class="nc" id="L160">			throw new CoseException(&quot;IV is incorrectly formed&quot;);</span>
+<span class="pc bpc" id="L449" title="1 of 2 branches missed.">		if (iv.getType() != CBORType.ByteString) {</span>
+<span class="nc" id="L450">			throw new CoseException(&quot;IV is incorrectly formed&quot;);</span>
 		}
-<span class="pc bpc" id="L162" title="1 of 2 branches missed.">		if (iv.GetByteString().length != ivLen) {</span>
-<span class="nc" id="L163">			throw new CoseException(&quot;IV size is incorrect&quot;);</span>
+<span class="pc bpc" id="L452" title="1 of 2 branches missed.">		if (iv.GetByteString().length != ivLen) {</span>
+<span class="nc" id="L453">			throw new CoseException(&quot;IV size is incorrect&quot;);</span>
 		}
 
-		//Modified to use the full AAD here rather than just the external AAD
-		// Tag length (last parameter) was also included
-<span class="fc" id="L168">		byte[] aad = getAADBytes();</span>
-		
 		try {
-<span class="fc" id="L171">			rgbContent = CCMBlockCipher.decrypt(new SecretKeySpec(rgbKey, &quot;AES&quot;), iv.GetByteString(), aad,</span>
-<span class="fc" id="L172">					getEncryptedContent(), alg.getTagSize() / Byte.SIZE);</span>
-<span class="nc" id="L173">		} catch (NoSuchAlgorithmException ex) {</span>
-<span class="nc" id="L174">			throw new CoseException(&quot;Algorithm not supported&quot;, ex);</span>
-<span class="nc" id="L175">		} catch (InvalidKeyException ex) {</span>
-<span class="nc bnc" id="L176" title="All 2 branches missed.">			if (ex.getMessage().equals(&quot;Illegal key size&quot;)) {</span>
-<span class="nc" id="L177">				throw new CoseException(&quot;Unsupported key size&quot;, ex);</span>
+<span class="fc" id="L457">			Cipher cipher = AES_CTR_CIPHER.currentWithCause();</span>
+<span class="fc" id="L458">			SecretKeySpec keySpec = new SecretKeySpec(rgbKey, AES_SPEC);</span>
+<span class="fc" id="L459">			IvParameterSpec ivSpec = new IvParameterSpec(iv.GetByteString());</span>
+<span class="fc" id="L460">			cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);</span>
+<span class="fc" id="L461">			rgbContent = cipher.doFinal(getEncryptedContent());</span>
+<span class="nc" id="L462">		} catch (NoSuchAlgorithmException | NoSuchPaddingException ex) {</span>
+<span class="nc" id="L463">			throw new CoseException(&quot;Algorithm not supported&quot;, ex);</span>
+<span class="nc" id="L464">		} catch (InvalidKeyException ex) {</span>
+<span class="nc bnc" id="L465" title="All 2 branches missed.">			if (ex.getMessage().equals(&quot;Illegal key size&quot;)) {</span>
+<span class="nc" id="L466">				throw new CoseException(&quot;Unsupported key size&quot;, ex);</span>
 			}
-<span class="nc" id="L179">			throw new CoseException(&quot;Decryption failure&quot;, ex);</span>
-<span class="fc" id="L180">		} catch (Exception ex) {</span>
-<span class="fc" id="L181">			ex.printStackTrace();</span>
-<span class="fc" id="L182">			throw new CoseException(&quot;Decryption failure&quot;, ex);</span>
-<span class="fc" id="L183">		}</span>
-<span class="fc" id="L184">	}</span>
+<span class="nc" id="L468">			throw new CoseException(&quot;Decryption failure&quot;, ex);</span>
+<span class="nc" id="L469">		} catch (Exception ex) {</span>
+<span class="nc" id="L470">			ex.printStackTrace();</span>
+<span class="nc" id="L471">			throw new CoseException(&quot;Decryption failure&quot;, ex);</span>
+<span class="fc" id="L472">		}</span>
+<span class="fc" id="L473">	}</span>
 
-	private void AES_CCM_Encrypt(AlgorithmID alg, byte[] rgbKey) throws CoseException, IllegalStateException {
-<span class="fc" id="L187">		SecureRandom random = new SecureRandom();</span>
+	private void AES_CTR_Encrypt(AlgorithmID alg, byte[] rgbKey) throws CoseException, IllegalStateException {
 
 		// validate key
-<span class="pc bpc" id="L190" title="1 of 2 branches missed.">		if (rgbKey.length != alg.getKeySize() / Byte.SIZE) {</span>
-<span class="nc" id="L191">			throw new CoseException(&quot;Key Size is incorrect&quot;);</span>
+<span class="pc bpc" id="L478" title="1 of 2 branches missed.">		if (rgbKey.length != alg.getKeySize() / Byte.SIZE) {</span>
+<span class="nc" id="L479">			throw new CoseException(&quot;Key Size is incorrect&quot;);</span>
 		}
 
 		// obtain and validate iv
-<span class="fc" id="L195">		CBORObject iv = findAttribute(HeaderKeys.IV);</span>
-<span class="fc" id="L196">		int ivLen = ivLength(alg);</span>
-<span class="pc bpc" id="L197" title="1 of 2 branches missed.">		if (iv == null) {</span>
-<span class="nc" id="L198">			byte[] tmp = new byte[ivLen];</span>
-<span class="nc" id="L199">			random.nextBytes(tmp);</span>
-<span class="nc" id="L200">			iv = CBORObject.FromObject(tmp);</span>
-<span class="nc" id="L201">			addAttribute(HeaderKeys.IV, iv, Attribute.UNPROTECTED);</span>
-<span class="nc" id="L202">		} else {</span>
-<span class="pc bpc" id="L203" title="1 of 2 branches missed.">			if (iv.getType() != CBORType.ByteString) {</span>
-<span class="nc" id="L204">				throw new CoseException(&quot;IV is incorreclty formed.&quot;);</span>
-			}
-<span class="pc bpc" id="L206" title="1 of 2 branches missed.">			if (iv.GetByteString().length &gt; ivLen) {</span>
-<span class="nc" id="L207">				throw new CoseException(&quot;IV is too long.&quot;);</span>
-			}
+<span class="fc" id="L483">		CBORObject iv = findAttribute(HeaderKeys.IV);</span>
+<span class="fc" id="L484">		int ivLen = getIvLength(alg);</span>
+<span class="pc bpc" id="L485" title="1 of 2 branches missed.">		if (iv.getType() != CBORType.ByteString) {</span>
+<span class="nc" id="L486">			throw new CoseException(&quot;IV is incorrectly formed.&quot;);</span>
 		}
-		
-		//Modified to use the full AAD here rather than just the external AAD
-		// Tag length (last parameter) was also included
-<span class="fc" id="L213">		byte[] aad = getAADBytes();</span>
-		
-		try {
-<span class="fc" id="L216">			rgbEncrypt = CCMBlockCipher.encrypt(new SecretKeySpec(rgbKey, &quot;AES&quot;), iv.GetByteString(), aad, GetContent(),</span>
-<span class="fc" id="L217">					alg.getTagSize() / Byte.SIZE);</span>
-<span class="nc" id="L218">		} catch (NoSuchAlgorithmException ex) {</span>
-<span class="nc" id="L219">			throw new CoseException(&quot;Algorithm not supported&quot;, ex);</span>
-<span class="nc" id="L220">		} catch (Exception ex) {</span>
-<span class="nc" id="L221">			throw new CoseException(&quot;Encryption failure&quot;, ex);</span>
-<span class="fc" id="L222">		}</span>
-<span class="fc" id="L223">	}</span>
-
-	private void AES_GCM_Decrypt(AlgorithmID alg, byte[] rgbKey) throws CoseException {
-<span class="fc" id="L226">		CBORObject iv = findAttribute(HeaderKeys.IV);</span>
-
-		// validate key
-<span class="pc bpc" id="L229" title="1 of 2 branches missed.">		if (rgbKey.length != alg.getKeySize() / 8) {</span>
-<span class="nc" id="L230">			throw new CoseException(&quot;Key Size is incorrect&quot;);</span>
-		}
-
-		// get and validate iv
-<span class="fc" id="L234">		final int ivLen = ivLength(alg);</span>
-<span class="pc bpc" id="L235" title="1 of 2 branches missed.">		if (iv == null) {</span>
-<span class="nc" id="L236">			throw new CoseException(&quot;Missing IV during decryption&quot;);</span>
-		}
-<span class="pc bpc" id="L238" title="1 of 2 branches missed.">		if (iv.getType() != CBORType.ByteString) {</span>
-<span class="nc" id="L239">			throw new CoseException(&quot;IV is incorrectly formed&quot;);</span>
-		}
-<span class="pc bpc" id="L241" title="1 of 2 branches missed.">		if (iv.GetByteString().length != ivLen) {</span>
-<span class="nc" id="L242">			throw new CoseException(&quot;IV size is incorrect&quot;);</span>
+<span class="pc bpc" id="L488" title="1 of 2 branches missed.">		if (iv.GetByteString().length != ivLen) {</span>
+<span class="nc" id="L489">			throw new CoseException(&quot;IV size is incorrect.&quot;);</span>
 		}
 
 		try {
-			// create and prepare cipher
-			Cipher cipher;
-<span class="fc" id="L248">			cipher = Cipher.getInstance(AES_GCM_SPEC);</span>
-<span class="fc" id="L249">			cipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(rgbKey, &quot;AES&quot;),</span>
-<span class="fc" id="L250">					new GCMParameterSpec(alg.getTagSize(), iv.GetByteString()));</span>
-<span class="fc" id="L251">			cipher.updateAAD(getAADBytes());</span>
+<span class="fc" id="L493">			Cipher cipher = AES_CTR_CIPHER.currentWithCause();</span>
+<span class="fc" id="L494">			SecretKeySpec keySpec = new SecretKeySpec(rgbKey, AES_SPEC);</span>
+<span class="fc" id="L495">			IvParameterSpec ivSpec = new IvParameterSpec(iv.GetByteString());</span>
+<span class="fc" id="L496">			cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivSpec);</span>
+<span class="fc" id="L497">			rgbEncrypt = cipher.doFinal(GetContent());</span>
+<span class="nc" id="L498">		} catch (NoSuchAlgorithmException | NoSuchPaddingException ex) {</span>
+<span class="nc" id="L499">			throw new CoseException(&quot;Algorithm not supported&quot;, ex);</span>
+<span class="nc" id="L500">		} catch (Exception ex) {</span>
+<span class="nc" id="L501">			throw new CoseException(&quot;Encryption failure&quot;, ex);</span>
+<span class="fc" id="L502">		}</span>
+<span class="fc" id="L503">	}</span>
 
-			// setup plaintext output
-<span class="fc" id="L254">			rgbContent = new byte[cipher.getOutputSize(rgbEncrypt.length)];</span>
-
-			// decryptit!
-<span class="fc" id="L257">			ByteBuffer input = ByteBuffer.wrap(rgbEncrypt);</span>
-<span class="fc" id="L258">			ByteBuffer output = ByteBuffer.wrap(rgbContent);</span>
-<span class="fc" id="L259">			cipher.doFinal(input, output);</span>
-<span class="nc" id="L260">		} catch (NoSuchAlgorithmException ex) {</span>
-<span class="nc" id="L261">			throw new CoseException(&quot;Algorithm not supported&quot;, ex);</span>
-<span class="nc" id="L262">		} catch (InvalidKeyException ex) {</span>
-<span class="nc bnc" id="L263" title="All 2 branches missed.">			if (ex.getMessage() == &quot;Illegal key size&quot;) {</span>
-<span class="nc" id="L264">				throw new CoseException(&quot;Unsupported key size&quot;, ex);</span>
-			}
-<span class="nc" id="L266">			throw new CoseException(&quot;Decryption failure&quot;, ex);</span>
-<span class="nc" id="L267">		} catch (Exception ex) {</span>
-<span class="nc" id="L268">			throw new CoseException(&quot;Decryption failure&quot;, ex);</span>
-<span class="fc" id="L269">		}</span>
-<span class="fc" id="L270">	}</span>
-
-	private void AES_GCM_Encrypt(AlgorithmID alg, byte[] rgbKey) throws CoseException, IllegalStateException {
+	private void AES_CBC_Decrypt(AlgorithmID alg, byte[] rgbKey) throws CoseException, IllegalStateException {
 		// validate key
-<span class="pc bpc" id="L274" title="1 of 2 branches missed.">		if (rgbKey.length != alg.getKeySize() / 8) {</span>
-<span class="nc" id="L275">			throw new CoseException(&quot;Key Size is incorrect&quot;);</span>
+<span class="pc bpc" id="L507" title="1 of 2 branches missed.">		if (rgbKey.length != alg.getKeySize() / Byte.SIZE) {</span>
+<span class="nc" id="L508">			throw new CoseException(&quot;Key Size is incorrect&quot;);</span>
+		}
+
+		// obtain and validate IV
+<span class="fc" id="L512">		final int ivLen = getIvLength(alg);</span>
+<span class="fc" id="L513">		CBORObject iv = findAttribute(HeaderKeys.IV);</span>
+<span class="pc bpc" id="L514" title="1 of 2 branches missed.">		if (iv == null) {</span>
+<span class="nc" id="L515">			throw new CoseException(&quot;Missing IV during decryption&quot;);</span>
+		}
+<span class="pc bpc" id="L517" title="1 of 2 branches missed.">		if (iv.getType() != CBORType.ByteString) {</span>
+<span class="nc" id="L518">			throw new CoseException(&quot;IV is incorrectly formed&quot;);</span>
+		}
+<span class="pc bpc" id="L520" title="1 of 2 branches missed.">		if (iv.GetByteString().length != ivLen) {</span>
+<span class="nc" id="L521">			throw new CoseException(&quot;IV size is incorrect&quot;);</span>
+		}
+
+		try {
+<span class="fc" id="L525">			Cipher cipher = AES_CBC_CIPHER.currentWithCause();</span>
+<span class="fc" id="L526">			SecretKeySpec keySpec = new SecretKeySpec(rgbKey, AES_SPEC);</span>
+<span class="fc" id="L527">			IvParameterSpec ivSpec = new IvParameterSpec(iv.GetByteString());</span>
+<span class="fc" id="L528">			cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);</span>
+<span class="fc" id="L529">			rgbContent = cipher.doFinal(getEncryptedContent());</span>
+<span class="nc" id="L530">		} catch (NoSuchAlgorithmException | NoSuchPaddingException ex) {</span>
+<span class="nc" id="L531">			throw new CoseException(&quot;Algorithm not supported&quot;, ex);</span>
+<span class="nc" id="L532">		} catch (InvalidKeyException ex) {</span>
+<span class="nc bnc" id="L533" title="All 2 branches missed.">			if (ex.getMessage().equals(&quot;Illegal key size&quot;)) {</span>
+<span class="nc" id="L534">				throw new CoseException(&quot;Unsupported key size&quot;, ex);</span>
+			}
+<span class="nc" id="L536">			throw new CoseException(&quot;Decryption failure&quot;, ex);</span>
+<span class="nc" id="L537">		} catch (Exception ex) {</span>
+<span class="nc" id="L538">			ex.printStackTrace();</span>
+<span class="nc" id="L539">			throw new CoseException(&quot;Decryption failure&quot;, ex);</span>
+<span class="fc" id="L540">		}</span>
+<span class="fc" id="L541">	}</span>
+
+	private void AES_CBC_Encrypt(AlgorithmID alg, byte[] rgbKey) throws CoseException, IllegalStateException {
+
+		// validate key
+<span class="pc bpc" id="L546" title="1 of 2 branches missed.">		if (rgbKey.length != alg.getKeySize() / Byte.SIZE) {</span>
+<span class="nc" id="L547">			throw new CoseException(&quot;Key Size is incorrect&quot;);</span>
 		}
 
 		// obtain and validate iv
-<span class="fc" id="L279">		final int ivLen = ivLength(alg);</span>
-<span class="fc" id="L280">		CBORObject iv = findAttribute(HeaderKeys.IV);</span>
-<span class="pc bpc" id="L281" title="1 of 2 branches missed.">		if (iv == null) {</span>
-			// generate IV
-<span class="nc" id="L283">			byte[] tmp = new byte[ivLen];</span>
-<span class="nc" id="L284">			random.nextBytes(tmp);</span>
-<span class="nc" id="L285">			iv = CBORObject.FromObject(tmp);</span>
-<span class="nc" id="L286">			addAttribute(HeaderKeys.IV, iv, PROTECTED);</span>
-<span class="nc" id="L287">		} else {</span>
-<span class="pc bpc" id="L288" title="1 of 2 branches missed.">			if (iv.getType() != CBORType.ByteString) {</span>
-<span class="nc" id="L289">				throw new CoseException(&quot;IV is incorrectly formed&quot;);</span>
-			}
-<span class="pc bpc" id="L291" title="1 of 2 branches missed.">			if (iv.GetByteString().length != ivLen) {</span>
-<span class="nc" id="L292">				throw new CoseException(&quot;IV size is incorrect&quot;);</span>
-			}
+<span class="fc" id="L551">		CBORObject iv = findAttribute(HeaderKeys.IV);</span>
+<span class="fc" id="L552">		int ivLen = getIvLength(alg);</span>
+<span class="pc bpc" id="L553" title="1 of 2 branches missed.">		if (iv.getType() != CBORType.ByteString) {</span>
+<span class="nc" id="L554">			throw new CoseException(&quot;IV is incorrectly formed.&quot;);</span>
+		}
+<span class="pc bpc" id="L556" title="1 of 2 branches missed.">		if (iv.GetByteString().length != ivLen) {</span>
+<span class="nc" id="L557">			throw new CoseException(&quot;IV size is incorrect.&quot;);</span>
 		}
 
 		try {
-<span class="fc" id="L297">			Cipher cipher = Cipher.getInstance(AES_GCM_SPEC);</span>
-<span class="fc" id="L298">			cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(rgbKey, AES_SPEC),</span>
-<span class="fc" id="L299">					new GCMParameterSpec(alg.getTagSize(), iv.GetByteString()));</span>
-<span class="fc" id="L300">			cipher.updateAAD(getAADBytes());</span>
-
-<span class="fc" id="L302">			rgbEncrypt = new byte[cipher.getOutputSize(rgbContent.length)];</span>
-<span class="fc" id="L303">			ByteBuffer input = ByteBuffer.wrap(rgbContent);</span>
-<span class="fc" id="L304">			ByteBuffer output = ByteBuffer.wrap(rgbEncrypt);</span>
-<span class="fc" id="L305">			cipher.doFinal(input, output);</span>
-<span class="nc" id="L306">		} catch (NoSuchAlgorithmException ex) {</span>
-<span class="nc" id="L307">			throw new CoseException(&quot;Algorithm not supported&quot;, ex);</span>
-<span class="nc" id="L308">		} catch (Exception ex) {</span>
-<span class="nc" id="L309">			throw new CoseException(&quot;Encryption failure&quot;, ex);</span>
-<span class="fc" id="L310">		}</span>
-<span class="fc" id="L311">	}</span>
+<span class="fc" id="L561">			Cipher cipher = AES_CBC_CIPHER.currentWithCause();</span>
+<span class="fc" id="L562">			SecretKeySpec keySpec = new SecretKeySpec(rgbKey, AES_SPEC);</span>
+<span class="fc" id="L563">			IvParameterSpec ivSpec = new IvParameterSpec(iv.GetByteString());</span>
+<span class="fc" id="L564">			cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivSpec);</span>
+<span class="fc" id="L565">			rgbEncrypt = cipher.doFinal(GetContent());</span>
+<span class="nc" id="L566">		} catch (NoSuchAlgorithmException | NoSuchPaddingException ex) {</span>
+<span class="nc" id="L567">			throw new CoseException(&quot;Algorithm not supported&quot;, ex);</span>
+<span class="nc" id="L568">		} catch (Exception ex) {</span>
+<span class="nc" id="L569">			throw new CoseException(&quot;Encryption failure&quot;, ex);</span>
+<span class="fc" id="L570">		}</span>
+<span class="fc" id="L571">	}</span>
 
 	/**
 	 * Used to obtain the encrypted content for the cases where detached content
@@ -318,10 +578,10 @@ import org.eclipse.californium.scandium.dtls.cipher.CCMBlockCipher;
 	 * @throws CoseException if content has not been encrypted
 	 */
 	public byte[] getEncryptedContent() throws CoseException {
-<span class="pc bpc" id="L321" title="1 of 2 branches missed.">		if (rgbEncrypt == null)</span>
-<span class="nc" id="L322">			throw new CoseException(&quot;No Encrypted Content Specified&quot;);</span>
+<span class="pc bpc" id="L581" title="1 of 2 branches missed.">		if (rgbEncrypt == null)</span>
+<span class="nc" id="L582">			throw new CoseException(&quot;No Encrypted Content Specified&quot;);</span>
 
-<span class="fc" id="L324">		return rgbEncrypt;</span>
+<span class="fc" id="L584">		return rgbEncrypt;</span>
 	}
 
 	/**
@@ -330,84 +590,132 @@ import org.eclipse.californium.scandium.dtls.cipher.CCMBlockCipher;
 	 * @param rgb encrypted content to be used
 	 */
 	public void setEncryptedContent(byte[] rgb) {
-<span class="fc" id="L333">		rgbEncrypt = rgb;</span>
-<span class="fc" id="L334">	}</span>
+<span class="fc" id="L593">		rgbEncrypt = rgb;</span>
+<span class="fc" id="L594">	}</span>
 
+	@Override
 	protected void ProcessCounterSignatures() throws CoseException {
-<span class="pc bpc" id="L337" title="1 of 2 branches missed.">		if (!counterSignList.isEmpty()) {</span>
-<span class="nc bnc" id="L338" title="All 2 branches missed.">			if (counterSignList.size() == 1) {</span>
-<span class="nc" id="L339">				counterSignList.get(0).sign(rgbProtected, rgbEncrypt);</span>
-<span class="nc" id="L340">				addAttribute(HeaderKeys.CounterSignature, counterSignList.get(0).EncodeToCBORObject(),</span>
+
+		// Fix issue with rgbProtected being NULL instead of empty CBOR bstr
+<span class="pc bpc" id="L600" title="1 of 2 branches missed.">		if (objProtected.size() == 0)</span>
+<span class="fc" id="L601">			rgbProtected = new byte[0];</span>
+		else
+<span class="nc" id="L603">			rgbProtected = objProtected.EncodeToBytes();</span>
+
+<span class="pc bpc" id="L605" title="1 of 2 branches missed.">		if (!counterSignList.isEmpty()) {</span>
+<span class="nc bnc" id="L606" title="All 2 branches missed.">			if (counterSignList.size() == 1) {</span>
+<span class="nc" id="L607">				counterSignList.get(0).sign(rgbProtected, rgbEncrypt);</span>
+<span class="nc" id="L608">				addAttribute(HeaderKeys.CounterSignature, counterSignList.get(0).EncodeToCBORObject(),</span>
 						Attribute.UNPROTECTED);
 			} else {
-<span class="nc" id="L343">				CBORObject list = CBORObject.NewArray();</span>
-<span class="nc bnc" id="L344" title="All 2 branches missed.">				for (CounterSign sig : counterSignList) {</span>
-<span class="nc" id="L345">					sig.sign(rgbProtected, rgbEncrypt);</span>
-<span class="nc" id="L346">					list.Add(sig.EncodeToCBORObject());</span>
-<span class="nc" id="L347">				}</span>
-<span class="nc" id="L348">				addAttribute(HeaderKeys.CounterSignature, list, Attribute.UNPROTECTED);</span>
+<span class="nc" id="L611">				CBORObject list = CBORObject.NewArray();</span>
+<span class="nc bnc" id="L612" title="All 2 branches missed.">				for (CounterSign sig : counterSignList) {</span>
+<span class="nc" id="L613">					sig.sign(rgbProtected, rgbEncrypt);</span>
+<span class="nc" id="L614">					list.Add(sig.EncodeToCBORObject());</span>
+<span class="nc" id="L615">				}</span>
+<span class="nc" id="L616">				addAttribute(HeaderKeys.CounterSignature, list, Attribute.UNPROTECTED);</span>
 			}
 		}
 
-<span class="fc bfc" id="L352" title="All 2 branches covered.">		if (counterSign1 != null) {</span>
-<span class="fc" id="L353">			counterSign1.sign(rgbProtected, rgbEncrypt);</span>
-<span class="fc" id="L354">			addAttribute(HeaderKeys.CounterSignature0, counterSign1.EncodeToCBORObject(), Attribute.UNPROTECTED);</span>
+<span class="fc bfc" id="L620" title="All 2 branches covered.">		if (counterSign1 != null) {</span>
+<span class="fc" id="L621">			counterSign1.sign(rgbProtected, rgbEncrypt);</span>
+<span class="fc" id="L622">			addAttribute(HeaderKeys.CounterSignature0, counterSign1.EncodeToCBORObject(), Attribute.UNPROTECTED);</span>
 		}
-<span class="fc" id="L356">	}</span>
+<span class="fc" id="L624">	}</span>
 
+	@Override
 	public boolean validate(CounterSign1 countersignature) throws CoseException {
 
 		// Fix issue with rgbProtected being NULL instead of empty CBOR bstr
 		// when doing verification before decryption.
-<span class="pc bpc" id="L362" title="1 of 2 branches missed.">		if (objProtected.size() == 0)</span>
-<span class="fc" id="L363">			rgbProtected = new byte[0];</span>
+<span class="pc bpc" id="L631" title="1 of 2 branches missed.">		if (objProtected.size() == 0)</span>
+<span class="fc" id="L632">			rgbProtected = new byte[0];</span>
 		else
-<span class="nc" id="L365">			rgbProtected = objProtected.EncodeToBytes();</span>
+<span class="nc" id="L634">			rgbProtected = objProtected.EncodeToBytes();</span>
 
-<span class="fc" id="L367">		return countersignature.validate(rgbProtected, rgbEncrypt);</span>
+<span class="fc" id="L636">		return countersignature.validate(rgbProtected, rgbEncrypt);</span>
 	}
 
+	@Override
 	public boolean validate(CounterSign countersignature) throws CoseException {
-<span class="nc" id="L371">		return countersignature.validate(rgbProtected, rgbEncrypt);</span>
+<span class="nc" id="L641">		return countersignature.validate(rgbProtected, rgbEncrypt);</span>
 	}
+
+	/**
+	 * Validate the state of the object before performing encryption or
+	 * decryption
+	 * 
+	 * @param rgbKey the intended key for encryption/decryption
+	 * @throws CoseException if the object state is invalid
+	 */
+	private void validateObjectState(byte[] rgbKey) throws CoseException {
+<span class="fc" id="L652">		AlgorithmID alg = AlgorithmID.FromCBOR(findAttribute(HeaderKeys.Algorithm));</span>
+<span class="fc" id="L653">		int ivLen = getIvLength(alg);</span>
+
+		// validate key length
+<span class="pc bpc" id="L656" title="1 of 2 branches missed.">		if (rgbKey.length != alg.getKeySize() / Byte.SIZE) {</span>
+<span class="nc" id="L657">			throw new CoseException(&quot;Key Size is incorrect&quot;);</span>
+		}
+
+		// check if selected algorithm is supported
+<span class="pc bpc" id="L661" title="1 of 2 branches missed.">		if (ivLen == -1)</span>
+<span class="nc" id="L662">			throw new CoseException(&quot;Unsupported Algorithm Specified&quot;);</span>
+
+		// Create random IV if null
+<span class="fc" id="L665">		CBORObject iv = findAttribute(HeaderKeys.IV);</span>
+<span class="pc bpc" id="L666" title="1 of 2 branches missed.">		if (iv == null) {</span>
+<span class="nc" id="L667">			byte[] tmp = new byte[ivLen];</span>
+<span class="nc" id="L668">			random.nextBytes(tmp);</span>
+<span class="nc" id="L669">			iv = CBORObject.FromObject(tmp);</span>
+<span class="nc" id="L670">			addAttribute(HeaderKeys.IV, iv, Attribute.UNPROTECTED);</span>
+		}
+
+		// obtain and validate IV
+<span class="pc bpc" id="L674" title="1 of 2 branches missed.">		if (iv.getType() != CBORType.ByteString) {</span>
+<span class="nc" id="L675">			throw new CoseException(&quot;IV is incorrectly formed&quot;);</span>
+		}
+<span class="pc bpc" id="L677" title="1 of 2 branches missed.">		if (iv.GetByteString().length != ivLen) {</span>
+<span class="nc" id="L678">			throw new CoseException(&quot;IV size is incorrect&quot;);</span>
+		}
+<span class="fc" id="L680">	}</span>
 
 	/**
 	 * Get IV length in bytes.
 	 * 
 	 * @param alg algorithm ID:
-	 * @return iv length
+	 * @return iv length, or -1 if the algorithm is unsupported
 	 */
-	public static int ivLength(AlgorithmID alg) {
-<span class="fc bfc" id="L381" title="All 4 branches covered.">		switch (alg) {</span>
+	public static int getIvLength(AlgorithmID alg) {
+<span class="pc bpc" id="L689" title="2 of 8 branches missed.">		switch (alg) {</span>
 		case AES_CCM_16_64_128:
 		case AES_CCM_16_128_128:
+		case AES_CCM_16_64_256:
 		case AES_CCM_16_128_256:
-<span class="fc" id="L385">			return AES_CCM_16_IV_LENGTH;</span>
+<span class="fc" id="L694">			return AES_CCM_16_IV_LENGTH;</span>
 		case AES_CCM_64_64_128:
 		case AES_CCM_64_128_128:
-<span class="fc" id="L388">			return AES_CCM_64_IV_LENGTH;</span>
+		case AES_CCM_64_64_256:
+		case AES_CCM_64_128_256:
+<span class="fc" id="L699">			return AES_CCM_64_IV_LENGTH;</span>
 		case AES_GCM_128:
 		case AES_GCM_192:
 		case AES_GCM_256:
-<span class="fc" id="L392">			return AES_GCM_IV_LENGTH;</span>
+<span class="fc" id="L703">			return AES_GCM_IV_LENGTH;</span>
+		case CHACHA20_POLY1305:
+<span class="nc" id="L705">			return CHACHA_POLY_IV_LENGTH;</span>
+		case CHACHA20:
+<span class="nc" id="L707">			return CHACHA_IV_LENGTH;</span>
+		case A128CTR:
+		case A192CTR:
+		case A256CTR:
+<span class="fc" id="L711">			return AES_CTR_IV_LENGTH;</span>
+		case A128CBC:
+		case A192CBC:
+		case A256CBC:
+<span class="fc" id="L715">			return AES_CBC_IV_LENGTH;</span>
 		default:
-<span class="fc" id="L394">			return -1;</span>
-		}
-	}
-
-	/**
-	 * Check if an algorithm is supported.
-	 * 
-	 * @param alg the algorithm
-	 * @return if it is supported
-	 */
-	public static boolean isSupportedAes(AlgorithmID alg) {
-<span class="nc bnc" id="L405" title="All 2 branches missed.">		if (ivLength(alg) == -1) {</span>
-<span class="nc" id="L406">			return false;</span>
-		} else {
-<span class="nc" id="L408">			return true;</span>
+<span class="fc" id="L717">			return -1;</span>
 		}
 	}
 }
-
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Introspect.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ACE library</a> &gt; <a href="index.source.html" class="el_package">se.sics.ace.as</a> &gt; <span class="el_source">Introspect.java</span></div><h1>Introspect.java</h1><pre class="source lang-java linenums">/*******************************************************************************
- * Copyright (c) 2019, RISE AB
+ * Copyright (c) 2025, RISE AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without 
@@ -318,41 +318,40 @@ public class Introspect implements Endpoint, AutoCloseable {
             try {
                 // Get the RS id (audience) from the COSE KID header.
 <span class="fc" id="L320">				org.eclipse.californium.cose.Message coseRaw = org.eclipse.californium.cose.Message</span>
-<span class="fc" id="L321">						.DecodeFromBytes(</span>
-<span class="fc" id="L322">                        token.EncodeToBytes());</span>
-<span class="fc" id="L323">                CBORObject kid = coseRaw.findAttribute(HeaderKeys.KID);</span>
-<span class="fc" id="L324">                Set&lt;String&gt; aud = new HashSet&lt;&gt;();</span>
-<span class="pc bpc" id="L325" title="1 of 2 branches missed.">                if(kid == null) {</span>
-<span class="nc bnc" id="L326" title="All 2 branches missed.">                    if (senderId == null) {</span>
-<span class="nc" id="L327">                        throw new AceException(&quot;Cannot determine Audience&quot;</span>
+<span class="fc" id="L321">						.DecodeFromBytes(token.EncodeToBytes());</span>
+<span class="fc" id="L322">                CBORObject kid = coseRaw.findAttribute(HeaderKeys.KID);</span>
+<span class="fc" id="L323">                Set&lt;String&gt; aud = new HashSet&lt;&gt;();</span>
+<span class="pc bpc" id="L324" title="1 of 2 branches missed.">                if(kid == null) {</span>
+<span class="nc bnc" id="L325" title="All 2 branches missed.">                    if (senderId == null) {</span>
+<span class="nc" id="L326">                        throw new AceException(&quot;Cannot determine Audience&quot;</span>
                                 + &quot;of the token for introspection&quot;);
                     }
-<span class="nc" id="L330">                    aud.add(senderId);</span>
+<span class="nc" id="L329">                    aud.add(senderId);</span>
                 } else {
-<span class="fc" id="L332">                    CBORObject audArray = CBORObject.DecodeFromBytes(</span>
-<span class="fc" id="L333">                            kid.GetByteString());</span>
-<span class="fc bfc" id="L334" title="All 2 branches covered.">                    for (int i=0; i&lt;audArray.size();i++) {</span>
-<span class="fc" id="L335">                        aud.add(audArray.get(i).AsString());</span>
+<span class="fc" id="L331">                    CBORObject audArray = CBORObject.DecodeFromBytes(</span>
+<span class="fc" id="L332">                            kid.GetByteString());</span>
+<span class="fc bfc" id="L333" title="All 2 branches covered.">                    for (int i=0; i&lt;audArray.size();i++) {</span>
+<span class="fc" id="L334">                        aud.add(audArray.get(i).AsString());</span>
                     }
                 }            
-<span class="fc" id="L338">                CwtCryptoCtx ctx = EndpointUtils.makeCommonCtx(aud, this.db,</span>
+<span class="fc" id="L337">                CwtCryptoCtx ctx = EndpointUtils.makeCommonCtx(aud, this.db,</span>
                         this.keyPair, verify);
-<span class="fc" id="L340">                return CWT.processCOSE(token.EncodeToBytes(), ctx);</span>
-<span class="nc" id="L341">            } catch (Exception e) {</span>
-<span class="nc" id="L342">                LOGGER.severe(&quot;Error while processing CWT: &quot; + e.getMessage());</span>
-<span class="nc" id="L343">                throw new AceException(e.getMessage());</span>
+<span class="fc" id="L339">                return CWT.processCOSE(token.EncodeToBytes(), ctx);</span>
+<span class="nc" id="L340">            } catch (Exception e) {</span>
+<span class="nc" id="L341">                LOGGER.severe(&quot;Error while processing CWT: &quot; + e.getMessage());</span>
+<span class="nc" id="L342">                throw new AceException(e.getMessage());</span>
             }
-<span class="pc bpc" id="L345" title="1 of 2 branches missed.">        } else if (token.getType().equals(CBORType.ByteString)) {</span>
-<span class="fc" id="L346">            return ReferenceToken.parse(token);</span>
+<span class="pc bpc" id="L344" title="1 of 2 branches missed.">        } else if (token.getType().equals(CBORType.ByteString)) {</span>
+<span class="fc" id="L345">            return ReferenceToken.parse(token);</span>
         }
-<span class="nc" id="L348">        throw new AceException(&quot;Unknown access token format&quot;);        </span>
+<span class="nc" id="L347">        throw new AceException(&quot;Unknown access token format&quot;);        </span>
     }
 
 
     @Override
     public void close() throws AceException {
-<span class="fc" id="L354">        this.db.close();        </span>
-<span class="fc" id="L355">    }</span>
+<span class="fc" id="L353">        this.db.close();        </span>
+<span class="fc" id="L354">    }</span>
     
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

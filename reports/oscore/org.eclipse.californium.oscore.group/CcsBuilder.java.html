@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CcsBuilder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Cf-OSCORE</a> &gt; <a href="index.source.html" class="el_package">org.eclipse.californium.oscore.group</a> &gt; <span class="el_source">CcsBuilder.java</span></div><h1>CcsBuilder.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2025 RISE SICS and others.
+ * 
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0
+ * and Eclipse Distribution License v1.0 which accompany this distribution.
+ * 
+ * The Eclipse Public License is available at
+ *    http://www.eclipse.org/legal/epl-v20.html
+ * and the Eclipse Distribution License is available at
+ *    http://www.eclipse.org/org/documents/edl-v10.html.
+ * 
+ * Contributors:
+ *    Rikard Höglund (RISE SICS)
+ *    
+ ******************************************************************************/
+package org.eclipse.californium.oscore.group;
+
+import org.eclipse.californium.cose.AlgorithmID;
+import org.eclipse.californium.cose.CoseException;
+import org.eclipse.californium.cose.OneKey;
+
+import com.upokecenter.cbor.CBORObject;
+
+/**
+ * Methods for building CCS to use as credentials.
+ *
+ */
+<span class="nc" id="L29">public class CcsBuilder {</span>
+
+	/**
+	 * Build a CCS with basic parameters containing a random key.
+	 * 
+	 * @param alg algorithm to use for generating the key
+	 * 
+	 * @return the CCS
+	 */
+	public static CBORObject buildBasicCcs(AlgorithmID alg) {
+
+<span class="nc" id="L40">		return buildCcs(null, &quot;&quot;, null, null, null, null, null, alg);</span>
+	}
+
+	/**
+	 * Build a CCS with specific parameters containing a random key.
+	 * 
+	 * @param issuer the issuer
+	 * @param subject the subject
+	 * @param audience the audience
+	 * @param expirationTime the expiration time
+	 * @param notBefore the notBefore parameter
+	 * @param issuedAt the issuedAt parameter
+	 * @param cwtId the CWT ID
+	 * @param alg algorithm to use for generating the key
+	 * 
+	 * @return the CCS
+	 */
+	public static CBORObject buildCcs(String issuer, String subject, String audience, Integer expirationTime,
+			Integer notBefore, Integer issuedAt, byte[] cwtId, AlgorithmID alg) {
+
+<span class="nc" id="L60">		CBORObject ccs = CBORObject.NewOrderedMap();</span>
+
+<span class="nc bnc" id="L62" title="All 2 branches missed.">		if (issuer != null) {</span>
+<span class="nc" id="L63">			ccs.Add(CBORObject.FromObject(1), CBORObject.FromObject(issuer));</span>
+		}
+<span class="nc bnc" id="L65" title="All 2 branches missed.">		if (subject != null) {</span>
+<span class="nc" id="L66">			ccs.Add(CBORObject.FromObject(2), CBORObject.FromObject(subject));</span>
+		}
+<span class="nc bnc" id="L68" title="All 2 branches missed.">		if (audience != null) {</span>
+<span class="nc" id="L69">			ccs.Add(CBORObject.FromObject(3), CBORObject.FromObject(audience));</span>
+		}
+<span class="nc bnc" id="L71" title="All 2 branches missed.">		if (expirationTime != null) {</span>
+<span class="nc" id="L72">			ccs.Add(CBORObject.FromObject(4), CBORObject.FromObject(expirationTime));</span>
+		}
+<span class="nc bnc" id="L74" title="All 2 branches missed.">		if (notBefore != null) {</span>
+<span class="nc" id="L75">			ccs.Add(CBORObject.FromObject(5), CBORObject.FromObject(notBefore));</span>
+		}
+<span class="nc bnc" id="L77" title="All 2 branches missed.">		if (issuedAt != null) {</span>
+<span class="nc" id="L78">			ccs.Add(CBORObject.FromObject(6), CBORObject.FromObject(issuedAt));</span>
+		}
+<span class="nc bnc" id="L80" title="All 2 branches missed.">		if (cwtId != null) {</span>
+<span class="nc" id="L81">			ccs.Add(CBORObject.FromObject(7), CBORObject.FromObject(cwtId));</span>
+		}
+<span class="nc" id="L83">		OneKey key = null;</span>
+		try {
+<span class="nc" id="L85">			key = OneKey.generateKey(alg);</span>
+<span class="nc" id="L86">		} catch (CoseException e) {</span>
+<span class="nc" id="L87">			System.err.println(&quot;Failed to build COSE OneKey!&quot;);</span>
+<span class="nc" id="L88">			e.printStackTrace();</span>
+<span class="nc" id="L89">		}</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">		if (key != null) {</span>
+<span class="nc" id="L91">			ccs.Add(CBORObject.FromObject(8), CBORObject.FromObject(key.AsCBOR()));</span>
+		}
+
+<span class="nc" id="L94">		return ccs;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>
