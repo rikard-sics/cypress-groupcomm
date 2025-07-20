@@ -139,7 +139,7 @@ public class CoapDeliverer implements MessageDeliverer {
     @SuppressWarnings("resource") 
     @Override
     public void deliverRequest(final Exchange ex) {
-        Request request = ex.getCurrentRequest();
+        Request request = ex.getRequest();
         Response r = null;
         
         // authz-info is not under access control
