@@ -84,7 +84,7 @@ public class MessageReadTest {
 		boolean usedForOSCORE = true;
 		boolean supportCombinedRequest = false;
 		AppProfile appProfile = new AppProfile(authMethods, useMessage4, usedForOSCORE, supportCombinedRequest);
-		int trustModel = Constants.TRUST_MODEL_STRICT;
+		int trustModel = Constants.TRUST_MODEL_LEARNING;
 
 		// Specify the database of OSCORE Security Contexts
 		HashMapCtxDB db = new HashMapCtxDB();
@@ -106,7 +106,7 @@ public class MessageReadTest {
 		EdhocSession session = new EdhocSession(initiator, true, method, connectionIdentifierInitiator, keyPairs,
 				idCreds, creds, cipherSuites, peerSupportedCipherSuites, supportedEADs, appProfile, trustModel, db);
 
-		SideProcessor sideProcessor = new SideProcessor(trustModel, null, null);
+		SideProcessor sideProcessor = new SideProcessor(trustModel, null, null, null);
 		sideProcessor.setEdhocSession(session);
 
 		// Force a specific ephemeral key
