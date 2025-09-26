@@ -8,6 +8,9 @@ OscoreRsServer
 **Next start the Authorization Server**  
 OscoreAsServer
 
+**Next, start the admin client to create and configure the groups.**  
+OscoreAdminClient
+
 **Now start the server applications:**  
 OscoreAsRsClient -name Server1  
 OscoreAsRsClient -name Server2  

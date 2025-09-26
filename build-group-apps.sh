@@ -4,6 +4,7 @@
 # OscoreAsServer: ACE Authorization Server
 # OscoreRsServer: Group Manager
 # OscoreAsRsClient: Group OSCORE Server/Client which will join the group(s)
+# OscoreAdminClient: Administrator Client which will create and configure group(s)
 # Adversary: Adversary for testing attacks against the group(s)
 
 # Fail script with error if any command fails
@@ -111,6 +112,8 @@ mvn clean package -Dfully.qualified.main.class="se.sics.prototype.apps.OscoreRsS
 mv target/OscoreRsServer.jar .
 mvn clean package -Dfully.qualified.main.class="se.sics.prototype.apps.OscoreAsRsClient" -DjarName="OscoreAsRsClient"
 mv target/OscoreAsRsClient.jar .
+mvn clean package -Dfully.qualified.main.class="se.sics.prototype.apps.OscoreAdminClient" -DjarName="OscoreAdminClient"
+mv target/OscoreAdminClient.jar .
 mvn clean package -Dfully.qualified.main.class="se.sics.prototype.apps.Adversary" -DjarName="Adversary"
 mv target/Adversary.jar .
 
