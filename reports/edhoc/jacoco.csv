@@ -4,8 +4,8 @@ Cf-EDHOC,org.eclipse.californium.edhoc,SideProcessor,1117,435,225,50,269,111,147
 Cf-EDHOC,org.eclipse.californium.edhoc,EdhocStack,0,67,0,0,0,5,0,1,0,1
 Cf-EDHOC,org.eclipse.californium.edhoc,EdhocCoapStackFactory,17,54,2,4,2,16,2,5,0,4
 Cf-EDHOC,org.eclipse.californium.edhoc,EdhocEndpointInfo,0,114,0,0,0,37,0,17,0,17
-Cf-EDHOC,org.eclipse.californium.edhoc,AppProfile,0,35,0,0,0,11,0,5,0,5
 Cf-EDHOC,org.eclipse.californium.edhoc,MessageProcessor,3613,4578,616,560,804,1301,498,135,3,41
+Cf-EDHOC,org.eclipse.californium.edhoc,AppProfile,0,35,0,0,0,11,0,5,0,5
 Cf-EDHOC,org.eclipse.californium.edhoc,EdhocSession,191,775,53,47,43,247,50,76,6,69
 Cf-EDHOC,org.eclipse.californium.edhoc,Constants,3,146,0,0,1,11,1,1,1,1
 Cf-EDHOC,org.eclipse.californium.edhoc,ClientEdhocExecutor,778,483,109,35,211,132,76,4,4,4
@@ -14,4 +14,4 @@ Cf-EDHOC,org.eclipse.californium.edhoc,Hkdf,5,215,2,10,1,50,3,7,1,3
 Cf-EDHOC,org.eclipse.californium.edhoc,KeyRemapping,268,414,8,4,51,83,9,16,4,15
 Cf-EDHOC,org.eclipse.californium.edhoc,SharedSecretCalculation.Tuple,0,31,0,0,0,6,0,1,0,1
 Cf-EDHOC,org.eclipse.californium.edhoc,EdhocResource,843,325,90,27,230,80,61,3,3,2
-Cf-EDHOC,org.eclipse.californium.edhoc,SharedSecretCalculation,3130,1868,51,85,320,376,54,49,13,22
+Cf-EDHOC,org.eclipse.californium.edhoc,SharedSecretCalculation,3135,1863,53,83,321,375,56,47,13,22
