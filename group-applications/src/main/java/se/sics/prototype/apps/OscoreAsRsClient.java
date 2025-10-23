@@ -741,10 +741,9 @@ public class OscoreAsRsClient {
 
 		// Possibly continue with extra steps after joining (for client2 in the
 		// CYPRESS demo)
-
 		if (memberName.toLowerCase().equals("client2")) {
 			demoExtraGMSteps(memberName, groupName, rsAddr, portNumberRSnosec, ctxDB, cKeyPair, responseFromAS,
-					clientCcsBytes, credFmtExpected, nonce_server);
+					clientCcsBytes, credFmtExpected, nonce_server, cnonce);
 		}
 
 		return groupOscoreCtx;
@@ -786,10 +785,11 @@ public class OscoreAsRsClient {
 		System.out.println("Sending to URI: " + "coap://" + rsAddr + ":" + portNumberRSnosec + "/"
 				+ rootGroupMembershipResource + "/" + KeyStorage.newGroupName1);
 
-		CoapClient c = OSCOREProfileRequests.getClient(new InetSocketAddress(
-				"coap://" + rsAddr + ":" + portNumberRSnosec + "/" + rootGroupMembershipResource + "/"
-						+ KeyStorage.newGroupName1,
-				portNumberRSnosec), ctxDB);
+		CoapClient c = OSCOREProfileRequests
+				.getClient(
+						new InetSocketAddress("coap://" + rsAddr + ":" + portNumberRSnosec + "/"
+								+ rootGroupMembershipResource + "/" + KeyStorage.newGroupName1, portNumberRSnosec),
+						ctxDB);
 
 		System.out.println("Sending join request using OSCORE to GM (using the wrong group name in the path).");
 
@@ -945,18 +945,18 @@ public class OscoreAsRsClient {
 	 */
 	private static void demoExtraGMSteps(String memberName, String groupName, String rsAddr, int portNumberRSnosec,
 			OSCoreCtxDB ctxDB, OneKey cKeyPair, Response responseFromAS, byte[] clientCcsBytes,
-			CBORObject credFmtExpected, byte[] nonce_server)
+			CBORObject credFmtExpected, byte[] nonce_server, byte[] cnonce)
 			throws AceException, OSException, CoseException, ConnectorException, IOException {
 
 		// === GET to /ace-group/GROUPNAME
 
 		printPause(memberName, "Will send request to GM at /ace-group/GROUPNAME.");
 
-		CoapClient c = OSCOREProfileRequests
-				.getClient(
-						new InetSocketAddress("coap://" + rsAddr + ":" + portNumberRSnosec + "/"
-								+ rootGroupMembershipResource + "/" + groupName, portNumberRSnosec),
-						ctxDB);
+		String targetUri = "coap://" + rsAddr + ":" + portNumberRSnosec + "/" + rootGroupMembershipResource + "/"
+				+ groupName;
+		System.out.println("Sending request to URI: " + targetUri);
+
+		CoapClient c = OSCOREProfileRequests.getClient(new InetSocketAddress(targetUri, portNumberRSnosec), ctxDB);
 
 		Request gmReq = new Request(Code.GET, Type.CON);
 		gmReq.getOptions().setOscore(new byte[0]);
@@ -965,28 +965,15 @@ public class OscoreAsRsClient {
 
 		printResponseFromRS(r2.advanced());
 
-		// === GET to /ace-group/num
+		// === GET to /ace-group/GROUPNAME/num
 
-		printPause(memberName, "Will send request to GM at /ace-group/num.");
+		printPause(memberName, "Will send request to GM at /ace-group/GROUPNAME/num.");
 
-		c = OSCOREProfileRequests.getClient(new InetSocketAddress(
-				"coap://" + rsAddr + ":" + portNumberRSnosec + "/" + rootGroupMembershipResource + "/" + "num",
-				portNumberRSnosec), ctxDB);
+		targetUri = "coap://" + rsAddr + ":" + portNumberRSnosec + "/" + rootGroupMembershipResource + "/" + groupName
+				+ "/" + "num";
+		System.out.println("Sending request to URI: " + targetUri);
 
-		gmReq = new Request(Code.GET, Type.CON);
-		gmReq.getOptions().setOscore(new byte[0]);
-
-		r2 = c.advanced(gmReq);
-
-		printResponseFromRS(r2.advanced());
-
-		// === GET to /ace-group/creds
-
-		printPause(memberName, "Will send request to GM at /ace-group/creds.");
-
-		c = OSCOREProfileRequests.getClient(new InetSocketAddress(
-				"coap://" + rsAddr + ":" + portNumberRSnosec + "/" + rootGroupMembershipResource + "/" + "creds",
-				portNumberRSnosec), ctxDB);
+		c = OSCOREProfileRequests.getClient(new InetSocketAddress(targetUri, portNumberRSnosec), ctxDB);
 
 		gmReq = new Request(Code.GET, Type.CON);
 		gmReq.getOptions().setOscore(new byte[0]);
@@ -995,14 +982,15 @@ public class OscoreAsRsClient {
 
 		printResponseFromRS(r2.advanced());
 
-		// === GET to /ace-group/kdc-cred, verify the PoP-evidence in the
-		// response
+		// === GET to /ace-group/GROUPNAME/creds
 
-		printPause(memberName, "Will send request to GM at /ace-group/kdc-cred.");
+		printPause(memberName, "Will send request to GM at /ace-group/GROUPNAME/creds.");
 
-		c = OSCOREProfileRequests.getClient(new InetSocketAddress(
-				"coap://" + rsAddr + ":" + portNumberRSnosec + "/" + rootGroupMembershipResource + "/" + "kdc-cred",
-				portNumberRSnosec), ctxDB);
+		targetUri = "coap://" + rsAddr + ":" + portNumberRSnosec + "/" + rootGroupMembershipResource + "/" + groupName
+				+ "/" + "creds";
+		System.out.println("Sending request to URI: " + targetUri);
+
+		c = OSCOREProfileRequests.getClient(new InetSocketAddress(targetUri, portNumberRSnosec), ctxDB);
 
 		gmReq = new Request(Code.GET, Type.CON);
 		gmReq.getOptions().setOscore(new byte[0]);
@@ -1010,6 +998,72 @@ public class OscoreAsRsClient {
 		r2 = c.advanced(gmReq);
 
 		printResponseFromRS(r2.advanced());
+
+		// === GET to /ace-group/GROUPNAME/kdc-cred, verify the PoP-evidence in
+		// the response
+
+		printPause(memberName, "Will send request to GM at /ace-group/GROUPNAME/kdc-cred.");
+
+		targetUri = "coap://" + rsAddr + ":" + portNumberRSnosec + "/" + rootGroupMembershipResource + "/" + groupName
+				+ "/" + "kdc-cred";
+		System.out.println("Sending request to URI: " + targetUri);
+
+		c = OSCOREProfileRequests.getClient(new InetSocketAddress(targetUri, portNumberRSnosec), ctxDB);
+
+		gmReq = new Request(Code.GET, Type.CON);
+		gmReq.getOptions().setOscore(new byte[0]);
+
+		r2 = c.advanced(gmReq);
+
+		printResponseFromRS(r2.advanced());
+
+		// Verify the PoP-evidence
+
+		// Check the proof-of-possession evidence over kdc_nonce, using the GM's
+		// public key
+		byte[] responsePayload = r2.getPayload();
+		CBORObject joinResponse = CBORObject.DecodeFromBytes(responsePayload);
+
+		Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KDC_NONCE)));
+		Assert.assertEquals(CBORType.ByteString,
+				joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_NONCE)).getType());
+		Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KDC_CRED)));
+		Assert.assertEquals(CBORType.ByteString,
+				joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED)).getType());
+		Assert.assertEquals(true, joinResponse.ContainsKey(CBORObject.FromObject(GroupcommParameters.KDC_CRED_VERIFY)));
+		Assert.assertEquals(CBORType.ByteString,
+				joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED_VERIFY)).getType());
+
+		OneKey gmPublicKeyRetrieved = null;
+		byte[] kdcCredBytes = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED)).GetByteString();
+		CBORObject ccs = CBORObject.DecodeFromBytes(kdcCredBytes);
+		gmPublicKeyRetrieved = Util.ccsToOneKey(ccs);
+		if (gmPublicKeyRetrieved == null) {
+			Assert.fail("Invalid format of Group Manager authentication credential");
+		}
+
+		PublicKey gmPublicKey = gmPublicKeyRetrieved.AsPublicKey();
+
+		byte[] nonce_kdc = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_NONCE)).GetByteString();
+
+		CBORObject gmPopEvidence = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED_VERIFY));
+		byte[] rawGmPopEvidence = gmPopEvidence.GetByteString();
+
+		// Check KDF_CRED_VERIFY
+		int offset = 0;
+		byte[] serializedCNonceCBOR = CBORObject.FromObject(cnonce).EncodeToBytes();
+		byte[] serializedGMNonceCBOR = CBORObject.FromObject(nonce_kdc).EncodeToBytes();
+		byte[] popInput = new byte[serializedCNonceCBOR.length + serializedGMNonceCBOR.length];
+		System.arraycopy(serializedCNonceCBOR, 0, popInput, offset, serializedCNonceCBOR.length);
+		offset += serializedCNonceCBOR.length;
+		System.arraycopy(serializedGMNonceCBOR, 0, popInput, offset, serializedGMNonceCBOR.length);
+		offset += serializedGMNonceCBOR.length;
+
+		if (!Util.verifySignature(signKeyCurve, gmPublicKey, popInput, rawGmPopEvidence)) {
+			Assert.fail("Invalid GM's PoP evidence");
+		} else {
+			System.out.println("Successfully verified the PoP evidence!");
+		}
 
 	}
 

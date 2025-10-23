@@ -452,7 +452,7 @@ public class OscoreAdminClient {
 		requestPayloadCbor.Add(GroupcommParameters.GP_ENC_ALG, AlgorithmID.AES_CCM_16_64_128.AsCBOR());
 		requestPayloadCbor.Add(GroupcommParameters.ECDH_ALG, AlgorithmID.ECDH_SS_HKDF_256.AsCBOR());
 
-		requestPayloadCbor.Add(GroupcommParameters.GROUP_DESCRIPTION, CBORObject.FromObject("The first group."));
+		requestPayloadCbor.Add(GroupcommParameters.GROUP_DESCRIPTION, CBORObject.FromObject("The second group."));
 		requestPayloadCbor.Add(GroupcommParameters.MAX_STALE_SETS, CBORObject.FromObject(5));
 		requestPayloadCbor.Add(GroupcommParameters.GID_REUSE, CBORObject.FromObject(false));
 		requestPayloadCbor.Add(GroupcommParameters.DET_REQ, CBORObject.FromObject(false));
