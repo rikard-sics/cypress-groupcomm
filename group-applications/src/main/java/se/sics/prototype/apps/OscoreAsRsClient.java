@@ -53,13 +53,16 @@ import org.eclipse.californium.core.coap.CoAP.Code;
 import org.eclipse.californium.core.coap.CoAP.Type;
 import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.network.CoapEndpoint;
+import org.eclipse.californium.cose.CoseException;
 import org.eclipse.californium.cose.KeyKeys;
 import org.eclipse.californium.cose.OneKey;
+import org.eclipse.californium.elements.exception.ConnectorException;
 import org.eclipse.californium.elements.util.StringUtil;
 import org.eclipse.californium.oscore.HashMapCtxDB;
 import org.eclipse.californium.oscore.OSCoreCoapStackFactory;
 import org.eclipse.californium.oscore.OSCoreCtx;
 import org.eclipse.californium.oscore.OSCoreCtxDB;
+import org.eclipse.californium.oscore.OSException;
 import org.eclipse.californium.oscore.group.GroupCtx;
 import org.eclipse.californium.oscore.group.MultiKey;
 import org.junit.Assert;
@@ -68,6 +71,7 @@ import com.upokecenter.cbor.CBORObject;
 import com.upokecenter.cbor.CBORType;
 import com.upokecenter.cbor.CBORException;
 
+import se.sics.ace.AceException;
 import se.sics.ace.Constants;
 import se.sics.ace.GroupcommParameters;
 import se.sics.ace.Util;
@@ -483,13 +487,22 @@ public class OscoreAsRsClient {
 
 		CBORObject credFmtExpected = CBORObject.FromObject(Constants.COSE_HEADER_PARAM_KCCS);
 
-		// Now proceed with the Join request
+		// === Now proceed with the Join request
 
+		// Do extra steps for the demo for client2
+		if (memberName.toLowerCase().equals("client2")) {
+			demoExtraFailureSteps(memberName, groupName, rsAddr, portNumberRSnosec, ctxDB, cKeyPair, responseFromAS,
+					clientCcsBytes, credFmtExpected, nonce_server);
+		}
+
+		// Now continue with the normal joining
+
+		printPause(memberName, "Will send Join request using OSCORE to GM.");
 		CoapClient c = OSCOREProfileRequests.getClient(new InetSocketAddress(
 				"coap://" + rsAddr + ":" + portNumberRSnosec + "/" + rootGroupMembershipResource + "/" + groupName,
 				portNumberRSnosec), ctxDB);
 
-		System.out.println("Performing Join request using OSCORE to GM.");
+		System.out.println("Sending join request using OSCORE to GM.");
 
 		CBORObject requestPayload = CBORObject.NewMap();
 
@@ -726,7 +739,278 @@ public class OscoreAsRsClient {
 		MultiKey clientKey = new MultiKey(authCred, cKeyPair.get(KeyKeys.OKP_D).GetByteString());
 		GroupCtx groupOscoreCtx = Tools.generateGroupOSCOREContext(joinResponse, clientKey);
 
+		// Possibly continue with extra steps after joining (for client2 in the
+		// CYPRESS demo)
+
+		if (memberName.toLowerCase().equals("client2")) {
+			demoExtraGMSteps(memberName, groupName, rsAddr, portNumberRSnosec, ctxDB, cKeyPair, responseFromAS,
+					clientCcsBytes, credFmtExpected, nonce_server);
+		}
+
 		return groupOscoreCtx;
+	}
+
+	/**
+	 * Method to demonstrate additional failure steps in the interest of the
+	 * CYPRESS demo
+	 */
+	private static void demoExtraFailureSteps(String memberName, String groupName, String rsAddr, int portNumberRSnosec,
+			OSCoreCtxDB ctxDB, OneKey cKeyPair, Response responseFromAS, byte[] clientCcsBytes,
+			CBORObject credFmtExpected, byte[] nonce_server)
+			throws AceException, OSException, CoseException, ConnectorException, IOException {
+
+		// === The client of "g2" sends a Join Request to the wrong
+		// group-membership resource
+
+		boolean askForSignInfo = true;
+		boolean askForEcdhInfo = true;
+		boolean askForAuthCreds = true;
+		boolean provideAuthCreds = true;
+
+		// Create the scope
+		CBORObject cborArrayScope = CBORObject.NewArray();
+		CBORObject cborArrayEntry = CBORObject.NewArray();
+
+		cborArrayEntry.Add(groupName);
+
+		int myRoles = 0;
+		myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+		myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
+		cborArrayEntry.Add(myRoles);
+
+		cborArrayScope.Add(cborArrayEntry);
+		byte[] byteStringScope = cborArrayScope.EncodeToBytes();
+
+		printPause(memberName, "Will send Join request using OSCORE to GM (using the wrong group name in the path).");
+		// Note: Wrong group name used below (on purpose
+		System.out.println("Sending to URI: " + "coap://" + rsAddr + ":" + portNumberRSnosec + "/"
+				+ rootGroupMembershipResource + "/" + KeyStorage.newGroupName1);
+
+		CoapClient c = OSCOREProfileRequests.getClient(new InetSocketAddress(
+				"coap://" + rsAddr + ":" + portNumberRSnosec + "/" + rootGroupMembershipResource + "/"
+						+ KeyStorage.newGroupName1,
+				portNumberRSnosec), ctxDB);
+
+		System.out.println("Sending join request using OSCORE to GM (using the wrong group name in the path).");
+
+		CBORObject requestPayload = CBORObject.NewMap();
+
+		cborArrayScope = CBORObject.NewArray();
+		cborArrayScope.Add(groupName);
+
+		myRoles = 0;
+		myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+		myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
+		cborArrayScope.Add(myRoles);
+
+		byteStringScope = cborArrayScope.EncodeToBytes();
+		requestPayload.Add(GroupcommParameters.SCOPE, CBORObject.FromObject(byteStringScope));
+
+		if (askForAuthCreds) {
+
+			CBORObject getCreds = CBORObject.NewArray();
+
+			getCreds.Add(CBORObject.True); // This must be true
+
+			getCreds.Add(CBORObject.NewArray());
+			// The following is required to retrieve the authentication
+			// credentials of both the already present group members
+			myRoles = 0;
+			myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+			getCreds.get(1).Add(myRoles);
+			myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_REQUESTER);
+			myRoles = Util.addGroupOSCORERole(myRoles, GroupcommParameters.GROUP_OSCORE_RESPONDER);
+			getCreds.get(1).Add(myRoles);
+
+			getCreds.Add(CBORObject.NewArray()); // This must be empty
+
+			requestPayload.Add(GroupcommParameters.GET_CREDS, getCreds);
+
+		}
+
+		byte[] authCred = null;
+		byte[] cnonce = null;
+		if (provideAuthCreds) {
+
+			// This should never happen, if the Group Manager has provided
+			// 'kdc_challenge' in the Token POST response,
+			// or the joining node has computed N_S differently (e.g. through a
+			// TLS exporter)
+			if (nonce_server == null) {
+				Assert.fail("Error: the component N_S of the PoP evidence challence is null");
+			}
+
+			/*
+			 * // Build the public key according to the format used in the group
+			 * // Note: most likely, the result will NOT follow the required
+			 * deterministic // encoding in byte lexicographic order, and it has
+			 * to be adjusted offline OneKey publicKey = C1keyPair.PublicKey();
+			 * switch (credFmtExpected.AsInt32()) { case
+			 * Constants.COSE_HEADER_PARAM_CCS: // Build a CCS including the
+			 * public key encodedPublicKey = Util.oneKeyToCCS(publicKey, "");
+			 * break; case Constants.COSE_HEADER_PARAM_CWT: // Build a CWT
+			 * including the public key // Constants.COSE_HEADER_PARAM_X5CHAIN:
+			 * // Build/retrieve the certificate including the public key // }
+			 */
+
+			switch (credFmtExpected.AsInt32()) {
+			case Constants.COSE_HEADER_PARAM_KCCS:
+				// A CCS including the public key
+				if (signKeyCurve == KeyKeys.EC2_P256.AsInt32()) {
+					System.out.println("Needs further configuration");
+					authCred = StringUtil.hex2ByteArray(
+							"A2026008A101A5010203262001215820E8F9A8D5850A533CDA24B9FA8A1EE293F6A0E1E81E1E560A64FF134D65F7ECEC225820164A6D5D4B97F56D1F60A12811D55DE7A055EBAC6164C9EF9302CBCBFF1F0ABE");
+				}
+				if (signKeyCurve == KeyKeys.OKP_Ed25519.AsInt32()) {
+					authCred = clientCcsBytes;
+				}
+				break;
+			case Constants.COSE_HEADER_PARAM_KCWT:
+				// A CWT including the public key
+				// TODO
+				break;
+			case Constants.COSE_HEADER_PARAM_X5CHAIN:
+				// A certificate including the public key
+				// TODO
+				break;
+			default:
+				System.err.println("Error: credFmtExpected set incorrectly.");
+				break;
+			}
+
+			requestPayload.Add(GroupcommParameters.CLIENT_CRED, CBORObject.FromObject(authCred));
+
+			// Add the nonce for PoP of the Client's private key
+			cnonce = new byte[8];
+			new SecureRandom().nextBytes(cnonce);
+			requestPayload.Add(GroupcommParameters.CNONCE, cnonce);
+
+			// Add the signature computed over (scope | rsnonce | cnonce), using
+			// the Client's private key
+			int offset = 0;
+			PrivateKey privKey = cKeyPair.AsPrivateKey();
+
+			byte[] serializedScopeCBOR = CBORObject.FromObject(byteStringScope).EncodeToBytes();
+			byte[] serializedRSNonceCBOR = CBORObject.FromObject(nonce_server).EncodeToBytes();
+			byte[] serializedCNonceCBOR = CBORObject.FromObject(cnonce).EncodeToBytes();
+			byte[] dataToSign = new byte[serializedScopeCBOR.length + serializedRSNonceCBOR.length
+					+ serializedCNonceCBOR.length];
+			System.arraycopy(serializedScopeCBOR, 0, dataToSign, offset, serializedScopeCBOR.length);
+			offset += serializedScopeCBOR.length;
+			System.arraycopy(serializedRSNonceCBOR, 0, dataToSign, offset, serializedRSNonceCBOR.length);
+			offset += serializedRSNonceCBOR.length;
+			System.arraycopy(serializedCNonceCBOR, 0, dataToSign, offset, serializedCNonceCBOR.length);
+
+			byte[] clientSignature = Util.computeSignature(signKeyCurve, privKey, dataToSign);
+
+			if (clientSignature != null)
+				requestPayload.Add(GroupcommParameters.CLIENT_CRED_VERIFY, clientSignature);
+			else
+				Assert.fail("Computed signature is empty");
+
+		}
+
+		Request joinReq = new Request(Code.POST, Type.CON);
+		joinReq.getOptions().setOscore(new byte[0]);
+		joinReq.setPayload(requestPayload.EncodeToBytes());
+		joinReq.getOptions().setContentFormat(Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
+
+		// Submit the request
+		System.out.println("");
+		System.out.println("Sent Join request to GM: " + requestPayload.toString());
+		printMapPayload(requestPayload);
+
+		CoapResponse r2 = c.advanced(joinReq);
+
+		if (r2.getOptions().getLocationPath().size() != 0) {
+			System.out.print("Location-Path: ");
+			System.out.println(r2.getOptions().getLocationPathString());
+		}
+
+		printResponseFromRS(r2.advanced());
+
+		// === The client of "g2" sends a Join to the right group-membership
+		// resource for joining "g2", but the payload of the request indicates a
+		// wrong scope
+
+		// === The client of "g2" joins "g2", sending a correct Join Request to
+		// the
+		// right group-membership resource
+
+	}
+
+	/**
+	 * Method to demonstrate additional steps for interacting with the GM in the
+	 * interest of the CYPRESS demo
+	 */
+	private static void demoExtraGMSteps(String memberName, String groupName, String rsAddr, int portNumberRSnosec,
+			OSCoreCtxDB ctxDB, OneKey cKeyPair, Response responseFromAS, byte[] clientCcsBytes,
+			CBORObject credFmtExpected, byte[] nonce_server)
+			throws AceException, OSException, CoseException, ConnectorException, IOException {
+
+		// === GET to /ace-group/GROUPNAME
+
+		printPause(memberName, "Will send request to GM at /ace-group/GROUPNAME.");
+
+		CoapClient c = OSCOREProfileRequests
+				.getClient(
+						new InetSocketAddress("coap://" + rsAddr + ":" + portNumberRSnosec + "/"
+								+ rootGroupMembershipResource + "/" + groupName, portNumberRSnosec),
+						ctxDB);
+
+		Request gmReq = new Request(Code.GET, Type.CON);
+		gmReq.getOptions().setOscore(new byte[0]);
+
+		CoapResponse r2 = c.advanced(gmReq);
+
+		printResponseFromRS(r2.advanced());
+
+		// === GET to /ace-group/num
+
+		printPause(memberName, "Will send request to GM at /ace-group/num.");
+
+		c = OSCOREProfileRequests.getClient(new InetSocketAddress(
+				"coap://" + rsAddr + ":" + portNumberRSnosec + "/" + rootGroupMembershipResource + "/" + "num",
+				portNumberRSnosec), ctxDB);
+
+		gmReq = new Request(Code.GET, Type.CON);
+		gmReq.getOptions().setOscore(new byte[0]);
+
+		r2 = c.advanced(gmReq);
+
+		printResponseFromRS(r2.advanced());
+
+		// === GET to /ace-group/creds
+
+		printPause(memberName, "Will send request to GM at /ace-group/creds.");
+
+		c = OSCOREProfileRequests.getClient(new InetSocketAddress(
+				"coap://" + rsAddr + ":" + portNumberRSnosec + "/" + rootGroupMembershipResource + "/" + "creds",
+				portNumberRSnosec), ctxDB);
+
+		gmReq = new Request(Code.GET, Type.CON);
+		gmReq.getOptions().setOscore(new byte[0]);
+
+		r2 = c.advanced(gmReq);
+
+		printResponseFromRS(r2.advanced());
+
+		// === GET to /ace-group/kdc-cred, verify the PoP-evidence in the
+		// response
+
+		printPause(memberName, "Will send request to GM at /ace-group/kdc-cred.");
+
+		c = OSCOREProfileRequests.getClient(new InetSocketAddress(
+				"coap://" + rsAddr + ":" + portNumberRSnosec + "/" + rootGroupMembershipResource + "/" + "kdc-cred",
+				portNumberRSnosec), ctxDB);
+
+		gmReq = new Request(Code.GET, Type.CON);
+		gmReq.getOptions().setOscore(new byte[0]);
+
+		r2 = c.advanced(gmReq);
+
+		printResponseFromRS(r2.advanced());
+
 	}
 
 	/**
@@ -734,8 +1018,8 @@ public class OscoreAsRsClient {
 	 */
 	static void printPause(String memberName, String message) {
 
-		// Only print for Server7
-		if (!memberName.toLowerCase().equals("server7")) {
+		// Only print for client2
+		if (!memberName.toLowerCase().equals("client2")) {
 			return;
 		}
 

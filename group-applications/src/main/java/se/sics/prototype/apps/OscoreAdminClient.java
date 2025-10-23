@@ -43,6 +43,7 @@ import java.util.Set;
 
 import org.eclipse.californium.core.CoapClient;
 import org.eclipse.californium.core.CoapResponse;
+import org.eclipse.californium.core.Utils;
 import org.eclipse.californium.core.coap.CoAP;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
@@ -177,7 +178,6 @@ public class OscoreAdminClient {
 
 		// Wait for Authorization Server to become available
 		Tools.waitForAs(AS_HOST, AS_PORT);
-		System.out.println("Proceeding to request Token from AS.");
 
 		// Build empty sets of assigned Sender IDs; one set for each possible
 		for (int i = 0; i < 4; i++) {
@@ -223,11 +223,10 @@ public class OscoreAdminClient {
 			}
 		}
 
-		printPause(memberName, "Will now post Token to Group Manager and perform group joining");
+		printPause(memberName, "Will now post Token to Group Manager and perform group configuration");
 
 		// Wait for Group Manager to become available
 		Tools.waitForGm(GM_HOST, GM_PORT);
-		System.out.println("Proceeding to post Token to GM.");
 
 		// Get OneKey representation of this member's public/private key
 		OneKey cKeyPair = new MultiKey(KeyStorage.memberCcs.get(memberName),
@@ -246,6 +245,7 @@ public class OscoreAdminClient {
 		}
 
 		System.out.println("Admin config successful: " + adminSuccess);
+		System.out.println("Admin config has finished");
 	}
 
 	/**
@@ -351,15 +351,28 @@ public class OscoreAdminClient {
 		Assert.assertNotNull(ctxDB.getContext(
 				"coap://" + rsAddr + ":" + portNumberRSnosec + "/" + groupCollectionResourcePath));
 
+		// === Retrieve list of existing groups
+
+		System.out.println();
+		printPause(memberName, "Will now request the list of current groups (expected to be empty)");
+
+		CoapClient c = OSCOREProfileRequests.getClient(new InetSocketAddress(
+				"coap://" + rsAddr + ":" + portNumberRSnosec + "/" + groupCollectionResourcePath, GM_PORT), ctxDB);
+
+		Request adminReq = new Request(CoAP.Code.GET);
+		adminReq.getOptions().setOscore(new byte[0]);
+		CoapResponse adminRes = c.advanced(adminReq);
+		System.out.println(Utils.prettyPrint(adminRes));
+
 		// === Send a POST request to /manage to create the first group ====
 
 		System.out.println();
-		CoapClient c = OSCOREProfileRequests.getClient(
-				new InetSocketAddress("coap://" + rsAddr + ":" + portNumberRSnosec + "/" + groupCollectionResourcePath,
-						GM_PORT),
-				ctxDB);
+		printPause(memberName, "Send a POST request to /manage to create the first group (g1)");
 
-		Request adminReq = new Request(CoAP.Code.POST);
+		c = OSCOREProfileRequests.getClient(new InetSocketAddress(
+				"coap://" + rsAddr + ":" + portNumberRSnosec + "/" + groupCollectionResourcePath, GM_PORT), ctxDB);
+
+		adminReq = new Request(CoAP.Code.POST);
 		adminReq.getOptions().setOscore(new byte[0]);
 		adminReq.getOptions().setContentFormat(Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
 		CBORObject requestPayloadCbor = CBORObject.NewMap();
@@ -388,7 +401,7 @@ public class OscoreAdminClient {
 		// Utils.toHexString(requestPayloadCbor.EncodeToBytes()));
 		adminReq.setPayload(requestPayloadCbor.EncodeToBytes());
 
-		CoapResponse adminRes = c.advanced(adminReq);
+		adminRes = c.advanced(adminReq);
 		printResponseFromRS(adminRes.advanced());
 		System.out.println("group-configuration resource at: " + adminRes.getOptions().getLocationPath());
 
@@ -412,34 +425,11 @@ public class OscoreAdminClient {
 
 		System.out.println();
 
-		// Send a GET request to /manage/ for the group name of the first group
-		
-		c = OSCOREProfileRequests.getClient(new InetSocketAddress("coap://" + rsAddr + ":" + portNumberRSnosec + "/"
-				+ groupCollectionResourcePath + "/" + createdGroupName, portNumberRSnosec), ctxDB);
-
-		adminReq = new Request(CoAP.Code.GET);
-		adminReq.getOptions().setOscore(new byte[0]);
-
-		adminRes = c.advanced(adminReq);
-
-		Assert.assertNotNull(adminRes);
-		Assert.assertEquals(ResponseCode.CONTENT, adminRes.getCode());
-		Assert.assertNotNull(adminRes.getPayload());
-
-		responsePayloadCbor = CBORObject.DecodeFromBytes(adminRes.getPayload());
-		Assert.assertNotNull(responsePayloadCbor);
-
-		Assert.assertEquals(CBORType.Map, responsePayloadCbor.getType());
-		System.out.println("Response code: " + adminRes.advanced().getCode());
-		if (adminRes.getOptions().hasContentFormat()) {
-			System.out.println("Response Content-Format: " + adminRes.getOptions().getContentFormat());
-		}
-		System.out.println("Response payload:");
-		Util.prettyPrintCborMap(responsePayloadCbor);
-		 
 		// === Send a POST request to /manage to create the second group ====
 
 		System.out.println();
+		printPause(memberName, "Send a POST request to /manage to create the second group (g2)");
+
 		c = OSCOREProfileRequests.getClient(new InetSocketAddress(
 				"coap://" + rsAddr + ":" + portNumberRSnosec + "/" + groupCollectionResourcePath, GM_PORT), ctxDB);
 
@@ -493,11 +483,60 @@ public class OscoreAdminClient {
 		System.out.println("Response payload:");
 		Util.prettyPrintCborMap(responsePayloadCbor);
 		Assert.assertEquals(3, responsePayloadCbor.size());
-		
-		// Send a GET request to /manage/ for the group name of the second group
-		
+
+		// === Again retrieve list of existing groups
+
+		System.out.println();
+		printPause(memberName, "Will now request the list of current groups (expected to contain g1 and g2)");
+
+		c = OSCOREProfileRequests.getClient(new InetSocketAddress(
+				"coap://" + rsAddr + ":" + portNumberRSnosec + "/" + groupCollectionResourcePath, GM_PORT), ctxDB);
+
+		adminReq = new Request(CoAP.Code.GET);
+		adminReq.getOptions().setOscore(new byte[0]);
+
+		adminRes = c.advanced(adminReq);
+
+		System.out.println("Response payload:");
+		printResponseFromRS(adminRes.advanced());
+
+		// === Retrieve the group configuration of group g1
+
+		System.out.println();
+		printPause(memberName, "Will now request the group configuration of group g1");
+
+		c = OSCOREProfileRequests.getClient(new InetSocketAddress(
+				"coap://" + rsAddr + ":" + portNumberRSnosec + "/" + groupCollectionResourcePath + "/"
+						+ KeyStorage.newGroupName1,
+				GM_PORT), ctxDB);
+
+		adminReq = new Request(CoAP.Code.GET);
+		adminReq.getOptions().setOscore(new byte[0]);
+
+		adminRes = c.advanced(adminReq);
+
+		Assert.assertNotNull(adminRes);
+		Assert.assertEquals(ResponseCode.CONTENT, adminRes.getCode());
+		Assert.assertNotNull(adminRes.getPayload());
+
+		responsePayloadCbor = CBORObject.DecodeFromBytes(adminRes.getPayload());
+		Assert.assertNotNull(responsePayloadCbor);
+
+		Assert.assertEquals(CBORType.Map, responsePayloadCbor.getType());
+		System.out.println("Response code: " + adminRes.advanced().getCode());
+		if (adminRes.getOptions().hasContentFormat()) {
+			System.out.println("Response Content-Format: " + adminRes.getOptions().getContentFormat());
+		}
+		System.out.println("Response payload:");
+		Util.prettyPrintCborMap(responsePayloadCbor);
+
+		// === Retrieve the group configuration of group g2
+
+		System.out.println();
+		printPause(memberName, "Will now request the group configuration of group g2");
+
 		c = OSCOREProfileRequests.getClient(new InetSocketAddress("coap://" + rsAddr + ":" + portNumberRSnosec + "/"
-				+ groupCollectionResourcePath + "/" + createdGroupName, portNumberRSnosec), ctxDB);
+				+ groupCollectionResourcePath + "/" + KeyStorage.newGroupName2, GM_PORT), ctxDB);
 
 		adminReq = new Request(CoAP.Code.GET);
 		adminReq.getOptions().setOscore(new byte[0]);
@@ -527,8 +566,8 @@ public class OscoreAdminClient {
 	 */
 	static void printPause(String memberName, String message) {
 
-		// Only print for Server7
-		if (!memberName.toLowerCase().equals("server7")) {
+		// Only print for admin1
+		if (!memberName.toLowerCase().equals("admin1")) {
 			return;
 		}
 
