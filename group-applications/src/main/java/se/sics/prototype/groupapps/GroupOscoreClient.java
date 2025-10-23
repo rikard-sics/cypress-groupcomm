@@ -42,6 +42,8 @@ import org.eclipse.californium.oscore.InstallCryptoProviders;
 import org.eclipse.californium.oscore.OSCoreCoapStackFactory;
 import org.eclipse.californium.oscore.Utility;
 import org.eclipse.californium.oscore.group.GroupCtx;
+import org.eclipse.californium.oscore.group.OptionEncoder;
+
 import jakarta.websocket.ClientEndpoint;
 
 /**
@@ -118,6 +120,11 @@ public class GroupOscoreClient {
 	 */
 	private final static HashMapCtxDB db = new HashMapCtxDB();
 
+	/**
+	 * URI to perform request against.
+	 */
+	static String requestURI;
+
 	private static CoapClient client;
 
 	/**
@@ -134,7 +141,6 @@ public class GroupOscoreClient {
 		 * URI to perform request against. Need to check for IPv6 to surround it
 		 * with []
 		 */
-		String requestURI;
 		if (multicastIP instanceof Inet6Address) {
 			requestURI = "coap://" + "[" + multicastIP.getHostAddress() + "]" + ":" + destinationPort + requestResource;
 		} else {
@@ -186,7 +192,7 @@ public class GroupOscoreClient {
 		while (!command.equals("q")) {
 
 			System.out.println("Enter command: ");
-			command = scanner.next();
+			command = scanner.nextLine();
 
 			if (command.equals("q")) {
 				break;
@@ -207,15 +213,49 @@ public class GroupOscoreClient {
 	 * @return list with responses from servers
 	 */
 	private static ArrayList<CoapResponse> sendRequest(String payload) {
+
+		System.out.println("In sendRequest()");
+
+		// For sending a pairwise request
+		boolean pairwise = false;
+		byte[] targetRid = null;
+		String unicastURI = "";
+		if (payload.startsWith("p ")) {
+			pairwise = true;
+
+			// Split into 4 parts max: p, hex byte, URI, rest of payload
+			String[] parts = payload.split("\\s+", 4);
+
+			if (parts.length >= 2) {
+				// Parse the one-byte hex value
+				targetRid = new byte[] { (byte) Integer.parseInt(parts[1], 16) };
+			}
+
+			if (parts.length >= 3) {
+				// Extract the URI
+				unicastURI = parts[2].trim();
+			}
+
+			if (parts.length == 4) {
+				payload = parts[3].trim();
+			} else {
+				payload = "";
+			}
+		}
+
 		Request multicastRequest = Request.newPost();
 		multicastRequest.setPayload(payload);
 		multicastRequest.getOptions().setContentFormat(MediaTypeRegistry.TEXT_PLAIN);
 		multicastRequest.setType(Type.NON);
 		if (useOSCORE) {
-			multicastRequest.getOptions().setOscore(Bytes.EMPTY);
+			if (pairwise == false) {
+				multicastRequest.getOptions().setOscore(Bytes.EMPTY);
+				client.setURI(requestURI);
+			} else {
+				multicastRequest.getOptions().setOscore(OptionEncoder.set(true, unicastURI, targetRid));
+				client.setURI(unicastURI);
+			}
 		}
-
-		System.out.println("In sendrequest");
 
 		handler.clearResponses();
 		try {
