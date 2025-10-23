@@ -7,7 +7,7 @@ ACE library,se.sics.ace.coap.as,OscoreAS,58,189,5,7,10,41,8,4,3,3
 ACE library,se.sics.ace.coap.as,CoapDBConnector,22,82,5,7,10,26,6,10,1,9
 ACE library,se.sics.ace.cwt,CWT,81,641,29,54,22,152,27,32,1,14
 ACE library,se.sics.ace.cwt,CwtCryptoCtx,0,226,1,1,0,47,1,20,0,20
-ACE library,se.sics.ace,GroupcommParameters,829,376,275,31,195,100,152,6,1,4
+ACE library,se.sics.ace,GroupcommParameters,839,376,279,31,197,100,154,6,1,4
 ACE library,se.sics.ace,AceException,0,4,0,0,0,2,0,1,0,1
 ACE library,se.sics.ace,Util,806,955,137,117,183,238,112,47,8,22
 ACE library,se.sics.ace,GroupcommErrors,3,56,0,0,1,1,1,1,1,1
