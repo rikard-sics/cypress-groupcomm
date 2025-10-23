@@ -135,8 +135,12 @@ public class OscoreAsRsClient {
 	private static final String rootGroupMembershipResource = "ace-group";
 
 	// Uncomment to set EDDSA with curve Ed25519 for countersignatures
+
+	// TODO: Read this from the the KeyStorage
 	private static int signKeyCurve = KeyKeys.OKP_Ed25519.AsInt32();
+
 	// Uncomment to set curve X25519 for pairwise key derivation
+	// TODO: Read this from the the KeyStorage
 	private static int ecdhKeyCurve = KeyKeys.OKP_X25519.AsInt32();
 
 	static {
@@ -981,7 +985,9 @@ public class OscoreAsRsClient {
 		r2 = c.advanced(gmReq);
 
 		printResponseFromRS(r2.advanced());
-
+		CBORObject respCbor = CBORObject.DecodeFromBytes((r2.advanced().getPayload()));
+		System.out.println("Keying material version number: " + respCbor.AsInt32());
+		
 		// === GET to /ace-group/GROUPNAME/creds
 
 		printPause(memberName, "Will send request to GM at /ace-group/GROUPNAME/creds.");
@@ -1064,6 +1070,8 @@ public class OscoreAsRsClient {
 		} else {
 			System.out.println("Successfully verified the PoP evidence!");
 		}
+
+		printPause(memberName, "Client has joined successfully and is ready to send requests in the group.");
 
 	}
 

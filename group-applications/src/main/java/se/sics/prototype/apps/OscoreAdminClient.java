@@ -385,7 +385,7 @@ public class OscoreAdminClient {
 		requestPayloadCbor.Add(GroupcommParameters.PAIRWISE_MODE, CBORObject.FromObject(false));
 
 		requestPayloadCbor.Add(GroupcommParameters.HKDF, AlgorithmID.HMAC_SHA_256.AsCBOR());
-		requestPayloadCbor.Add(GroupcommParameters.SIGN_ALG, AlgorithmID.EDDSA.AsCBOR());
+		requestPayloadCbor.Add(GroupcommParameters.SIGN_ALG, AlgorithmID.ECDSA_256.AsCBOR());
 		requestPayloadCbor.Add(GroupcommParameters.GP_ENC_ALG, AlgorithmID.AES_CCM_16_64_128.AsCBOR());
 
 		requestPayloadCbor.Add(GroupcommParameters.GROUP_DESCRIPTION, CBORObject.FromObject("The first group."));
@@ -445,7 +445,7 @@ public class OscoreAdminClient {
 		requestPayloadCbor.Add(GroupcommParameters.GROUP_MODE, CBORObject.FromObject(true));
 		requestPayloadCbor.Add(GroupcommParameters.PAIRWISE_MODE, CBORObject.FromObject(true));
 
-		requestPayloadCbor.Add(GroupcommParameters.ALG, AlgorithmID.AES_CCM_16_64_128.AsCBOR());
+		requestPayloadCbor.Add(GroupcommParameters.ALG, AlgorithmID.CHACHA20_POLY1305.AsCBOR());
 
 		requestPayloadCbor.Add(GroupcommParameters.HKDF, AlgorithmID.HMAC_SHA_256.AsCBOR());
 		requestPayloadCbor.Add(GroupcommParameters.SIGN_ALG, AlgorithmID.EDDSA.AsCBOR());

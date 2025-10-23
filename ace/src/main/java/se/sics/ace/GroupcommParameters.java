@@ -511,7 +511,8 @@ public class GroupcommParameters {
     				value.equals(AlgorithmID.AES_CCM_16_128_128.AsCBOR()) ||
     				value.equals(AlgorithmID.AES_CCM_16_128_256.AsCBOR()) ||
     				value.equals(AlgorithmID.AES_CCM_64_128_128.AsCBOR()) ||
-    				value.equals(AlgorithmID.AES_CCM_64_128_256.AsCBOR())) {
+						value.equals(AlgorithmID.AES_CCM_64_128_256.AsCBOR())
+						|| value.equals(AlgorithmID.CHACHA20_POLY1305.AsCBOR())) {
     				return true;
     			}
     		}
@@ -568,7 +569,8 @@ public class GroupcommParameters {
     				value.equals(AlgorithmID.AES_CCM_16_128_128.AsCBOR()) ||
     				value.equals(AlgorithmID.AES_CCM_16_128_256.AsCBOR()) ||
     				value.equals(AlgorithmID.AES_CCM_64_128_128.AsCBOR()) ||
-    				value.equals(AlgorithmID.AES_CCM_64_128_256.AsCBOR())) {
+						value.equals(AlgorithmID.AES_CCM_64_128_256.AsCBOR())
+						|| value.equals(AlgorithmID.CHACHA20_POLY1305.AsCBOR())) {
     				return true;
     			}
     		}
