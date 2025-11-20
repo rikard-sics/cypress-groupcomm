@@ -33,7 +33,6 @@ import org.eclipse.californium.core.coap.CoAP.Type;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.network.CoapEndpoint;
-import org.eclipse.californium.cose.KeyKeys;
 import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.config.Configuration.DefinitionsProvider;
 import org.eclipse.californium.elements.util.Bytes;
@@ -103,12 +102,6 @@ public class GroupOscoreClient {
 	 * Payload in request sent (POST)
 	 */
 	// static final String requestPayload = "on";
-
-	/**
-	 * ED25519 curve value.
-	 * https://www.iana.org/assignments/cose/cose.xhtml#elliptic-curves
-	 */
-	static final int ED25519 = KeyKeys.OKP_Ed25519.AsInt32(); // Integer value 6
 
 	/**
 	 * Indicate if the basic UI for the client should be enabled
@@ -220,6 +213,12 @@ public class GroupOscoreClient {
 		boolean pairwise = false;
 		byte[] targetRid = null;
 		String unicastURI = "";
+
+		// Shortcut command to send pairwise to Server 6
+		if (payload.equals("pairwise")) {
+			payload = "p AA coap://192.168.0.66/toggle on";
+		}
+
 		if (payload.startsWith("p ")) {
 			pairwise = true;
 

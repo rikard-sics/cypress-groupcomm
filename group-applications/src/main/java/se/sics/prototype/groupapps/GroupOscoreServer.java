@@ -37,7 +37,6 @@ import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.network.Endpoint;
 import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.core.server.resources.Resource;
-import org.eclipse.californium.cose.KeyKeys;
 import org.eclipse.californium.elements.UDPConnector;
 import org.eclipse.californium.elements.UdpMulticastConnector;
 import org.eclipse.californium.elements.config.Configuration;
@@ -100,12 +99,6 @@ public class GroupOscoreServer {
 	static final int respondPort = CoAP.DEFAULT_COAP_PORT - 1000;
 
 	/**
-	 * ED25519 curve value.
-	 * https://www.iana.org/assignments/cose/cose.xhtml#elliptic-curves
-	 */
-	static final int ED25519 = KeyKeys.OKP_Ed25519.AsInt32(); // Integer value 6
-
-	/**
 	 * OSCORE Security Context database (receiver)
 	 */
 	private final static HashMapCtxDB db = new HashMapCtxDB();
@@ -144,10 +137,6 @@ public class GroupOscoreServer {
 			byte[] sidClient2 = KeyStorage.clientIds.get("Client2").getBytes();
 			MultiKey keyClient2 = new MultiKey(KeyStorage.memberCcs.get("Client2"));
 			ctx.addRecipientCtxCcs(sidClient2, replayWindow, keyClient2);
-
-			if (ctx.getSenderCtx().getContextIdString().toLowerCase().contains("bbbb")) {
-				ctx.setPairwiseModeResponses(true);
-			}
 
 			// Add the completed context to the context database
 			db.addContext(uriLocal, ctx);

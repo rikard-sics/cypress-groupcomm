@@ -134,14 +134,8 @@ public class OscoreAsRsClient {
 
 	private static final String rootGroupMembershipResource = "ace-group";
 
-	// Uncomment to set EDDSA with curve Ed25519 for countersignatures
-
-	// TODO: Read this from the the KeyStorage
-	private static int signKeyCurve = KeyKeys.OKP_Ed25519.AsInt32();
-
-	// Uncomment to set curve X25519 for pairwise key derivation
-	// TODO: Read this from the the KeyStorage
-	private static int ecdhKeyCurve = KeyKeys.OKP_X25519.AsInt32();
+	private static int signKeyCurve;
+	private static int ecdhKeyCurve;
 
 	static {
 		CoapConfig.register();
@@ -225,6 +219,8 @@ public class OscoreAsRsClient {
 		case "Server3":
 			group = KeyStorage.newGroupName1;
 			multicastIP = groupA_multicastIP;
+			signKeyCurve = KeyKeys.EC2_P256.AsInt32();
+			ecdhKeyCurve = KeyKeys.EC2_P256.AsInt32();
 			break;
 		case "Client2":
 		case "Server4":
@@ -232,6 +228,8 @@ public class OscoreAsRsClient {
 		case "Server6":
 			group = KeyStorage.newGroupName2;
 			multicastIP = groupB_multicastIP;
+			signKeyCurve = KeyKeys.OKP_Ed25519.AsInt32();
+			ecdhKeyCurve = KeyKeys.OKP_X25519.AsInt32();
 			break;
 		default:
 			System.err.println("Error: Invalid member name specified!");
