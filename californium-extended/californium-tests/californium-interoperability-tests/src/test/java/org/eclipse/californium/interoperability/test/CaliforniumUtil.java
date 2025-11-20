@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.eclipse.californium.core.CoapClient;
+import org.eclipse.californium.core.CoapExchange;
 import org.eclipse.californium.core.CoapResource;
 import org.eclipse.californium.core.CoapResponse;
 import org.eclipse.californium.core.CoapServer;
@@ -43,7 +44,6 @@ import org.eclipse.californium.core.coap.option.MapBasedOptionRegistry;
 import org.eclipse.californium.core.coap.option.OpaqueOption;
 import org.eclipse.californium.core.coap.option.StandardOptionRegistry;
 import org.eclipse.californium.core.network.CoapEndpoint;
-import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.elements.DtlsEndpointContext;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.californium.elements.MapBasedEndpointContext;
@@ -194,12 +194,12 @@ public class CaliforniumUtil extends ConnectorUtil {
 				@Override
 				public void handlePOST(CoapExchange exchange) {
 					addReceivedExchange(exchange);
+					checkContentFormat(exchange, MediaTypeRegistry.MAX_TYPE - 10);
 					Response response = new Response(ResponseCode.CHANGED);
 					response.setPayload("Custom Greetings!");
 					response.getOptions().setContentFormat(MediaTypeRegistry.MAX_TYPE - 10);
 					Option custom = OPTION_TRACE_CONTEXT.create("test".getBytes());
 					response.getOptions().addOption(custom);
-					response.getOptions().setContentFormat(MediaTypeRegistry.MAX_TYPE - 10);
 					exchange.respond(response);
 				}
 			});
@@ -208,6 +208,7 @@ public class CaliforniumUtil extends ConnectorUtil {
 				@Override
 				public void handlePOST(CoapExchange exchange) {
 					addReceivedExchange(exchange);
+					checkContentFormat(exchange, MediaTypeRegistry.TEXT_PLAIN);
 					Response response = new Response(ResponseCode.CHANGED);
 					response.getOptions().setLocationPath("/command/1234-abcde");
 					response.getOptions().setLocationQuery("hono-command=blink");

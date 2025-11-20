@@ -175,7 +175,6 @@ public class OpenSslClientAuthenticationInteroperabilityTest {
 	}
 
 	@Test
-	@Ignore
 	public void testOpenSslClientTrustTrustRoot() throws Exception {
 		scandiumUtil.start(BIND, ScandiumUtil.TRUST_ROOT, cipherSuite);
 
@@ -271,7 +270,6 @@ public class OpenSslClientAuthenticationInteroperabilityTest {
 	}
 
 	@Test
-	@Ignore
 	public void testOpenSslClientEd25519() throws Exception {
 		assumeTrue("X25519 not support by JCE", XECDHECryptography.SupportedGroup.X25519.isUsable());
 		scandiumUtil.loadEdDsaCredentials(ConnectorUtil.SERVER_EDDSA_NAME);
@@ -292,7 +290,6 @@ public class OpenSslClientAuthenticationInteroperabilityTest {
 	}
 
 	@Test
-	@Ignore
 	public void testOpenSslClientX448() throws Exception {
 		assumeTrue("X448 not support by JCE", XECDHECryptography.SupportedGroup.X448.isUsable());
 		scandiumUtil.start(BIND, ScandiumUtil.TRUST_ROOT, cipherSuite);
@@ -393,7 +390,6 @@ public class OpenSslClientAuthenticationInteroperabilityTest {
 	}
 
 	@Test
-	@Ignore
 	public void testOpenSslClientExportKeyMaterial() throws Exception {
 		String exportLabel = "EXPERIMENTAL_TEST";
 
