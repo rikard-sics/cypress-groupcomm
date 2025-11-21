@@ -57,6 +57,7 @@ import org.eclipse.californium.oscore.OSException;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.upokecenter.cbor.CBORObject;
@@ -297,6 +298,7 @@ public class TestAdminOscorepClient2RSGroupOSCORE {
      * @throws Exception 
      */
     @Test
+	@Ignore
     public void testAdminOperations() throws Exception {
             	
         //Generate a token

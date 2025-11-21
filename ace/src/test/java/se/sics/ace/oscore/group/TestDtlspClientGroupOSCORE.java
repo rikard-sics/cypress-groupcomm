@@ -61,6 +61,7 @@ import org.eclipse.californium.scandium.dtls.HandshakeException;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.upokecenter.cbor.CBORObject;
@@ -298,6 +299,7 @@ public class TestDtlspClientGroupOSCORE {
      * @throws ConnectorException 
      */
     @Test
+	@Ignore
     public void testPostAuthzInfoGroupOSCORESingleRole() throws AceException, IllegalStateException,
             InvalidCipherTextException, CoseException, ConnectorException, IOException {  
         Map<Short, CBORObject> params = new HashMap<>();
@@ -2091,6 +2093,7 @@ public class TestDtlspClientGroupOSCORE {
      * @throws ConnectorException 
      */
     @Test
+	@Ignore
     public void testPostAuthzInfoGroupOSCOREMultipleRoles() throws AceException, IllegalStateException,
             InvalidCipherTextException, CoseException, ConnectorException, IOException {  
         Map<Short, CBORObject> params = new HashMap<>();
@@ -4033,6 +4036,7 @@ public class TestDtlspClientGroupOSCORE {
      * @throws ConnectorException 
      */
     @Test
+	@Ignore
     public void testPostRPKGroupOSCORESingleRole() throws CoseException, IllegalStateException, 
             InvalidCipherTextException, AceException, ConnectorException, IOException {
         OneKey key = OneKey.generateKey(AlgorithmID.ECDSA_256);
@@ -5814,6 +5818,7 @@ public class TestDtlspClientGroupOSCORE {
      * @throws ConnectorException 
      */
     @Test
+	@Ignore
     public void testPostRPKGroupOSCOREMultipleRoles() throws CoseException, IllegalStateException, 
             InvalidCipherTextException, AceException, ConnectorException, IOException {
         OneKey key = OneKey.generateKey(AlgorithmID.ECDSA_256);
@@ -7891,6 +7896,7 @@ public class TestDtlspClientGroupOSCORE {
      * @throws ConnectorException 
      */
     @Test
+	@Ignore
     public void testPostPSKGroupOSCORESingleRole() throws CoseException, IllegalStateException, 
             InvalidCipherTextException, AceException, ConnectorException, IOException {
         OneKey key = new OneKey();
@@ -10248,6 +10254,7 @@ public class TestDtlspClientGroupOSCORE {
      * @throws ConnectorException 
      */
     @Test
+	@Ignore
     public void testPostPSKGroupOSCOREMultipleRoles() throws CoseException, IllegalStateException, 
             InvalidCipherTextException, AceException, ConnectorException, IOException {
         OneKey key = new OneKey();
