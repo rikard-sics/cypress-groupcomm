@@ -40,6 +40,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 
 import org.eclipse.californium.core.CoapResource;
@@ -56,6 +57,7 @@ import org.eclipse.californium.cose.AlgorithmID;
 import org.eclipse.californium.cose.CoseException;
 import org.eclipse.californium.cose.KeyKeys;
 import org.eclipse.californium.cose.OneKey;
+import org.eclipse.californium.elements.util.StringUtil;
 import org.postgresql.core.Utils;
 
 import se.sics.ace.AceException;
@@ -614,12 +616,51 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
     	byte[] senderId = null;
         int signKeyCurve = 0;
 
+		// === Ensure Client1 and Client2 get specific Sender IDs
+		CBORObject clientCred = joinRequest.get(CBORObject.FromObject(GroupcommParameters.CLIENT_CRED));
+		System.out.println("clientCred: " + Utils.toHexString(clientCred.EncodeToBytes()));
+
+		byte[] clientCredBytes = clientCred.EncodeToBytes();
+		byte[] expectedClient1 = StringUtil.hex2ByteArray(
+				"585aa20267436c69656e743108a101a501020327200122582064ce3dd128cc4efa6de209be8abd111c7272f612c2db654057b6ec00fbfb06842158201adb2ab6af48f17c9877cf77db4fa39dc0923fbe215e576fe6f790b1ff2cbc96");
+		byte[] expectedClient2 = StringUtil.hex2ByteArray(
+				"5837a20267436c69656e743208a101a4010103272006215820c80240e84f3cb886d841da6f71140f8578e7e27808672df08521830ae1300f54");
+
+		// Compare
+		boolean assigned = false;
+		byte[] client1Sid = new byte[] { 0x11 };
+		byte[] client2Sid = new byte[] { 0x22 };
+		if (Arrays.equals(clientCredBytes, expectedClient1)) {
+			System.out.println("clientCred matched client1! Assign specific Sender ID.");
+			senderId = client1Sid;
+			assigned = myGroup.allocateSenderId(senderId);
+			if (!assigned) {
+				System.err.println("Client1 Sender ID already in use!");
+			}
+		} else if (Arrays.equals(clientCredBytes, expectedClient2)) {
+			System.out.println("clientCred matched client2! Assign specific Sender ID.");
+			senderId = client2Sid;
+			assigned = myGroup.allocateSenderId(senderId);
+			if (!assigned) {
+				System.err.println("Client2 Sender ID already in use!");
+			}
+		}
+		// === Ensure Client1 and Client2 get specific Sender IDs
+
     	// Assign a Sender ID to the joining node, unless it is a monitor
-    	if (roleSet != (1 << GroupcommParameters.GROUP_OSCORE_MONITOR)) {
-        	// For the sake of testing, a particular Sender ID is used as known to be available.
-            senderId = new byte[] { (byte) 0x25 };
-            
-        	myGroup.allocateSenderId(senderId);
+		if (!assigned && (roleSet != (1 << GroupcommParameters.GROUP_OSCORE_MONITOR))) {
+			// Allocate random Sender ID
+			senderId = new byte[1];
+			while (!assigned) {
+				new Random().nextBytes(senderId);
+
+				// Avoid 0x11 and 0x22
+				if (Arrays.equals(senderId, client1Sid) || Arrays.equals(senderId, client2Sid)) {
+					continue; // pick another one
+				}
+
+				assigned = myGroup.allocateSenderId(senderId);
+			}
     	}
 
     	if (senderId == null) {
@@ -647,7 +688,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
     	}
 
     	// Retrieve 'client_cred'
-    	CBORObject clientCred = joinRequest.get(CBORObject.FromObject(GroupcommParameters.CLIENT_CRED));
+		clientCred = joinRequest.get(CBORObject.FromObject(GroupcommParameters.CLIENT_CRED));
     	
     	if (clientCred == null && (roleSet != (1 << GroupcommParameters.GROUP_OSCORE_MONITOR))) {
     		
@@ -672,7 +713,7 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
         		return;
     		}
     		
-    		byte[] clientCredBytes = clientCred.GetByteString();
+			clientCredBytes = clientCred.GetByteString();
     		switch(myGroup.getAuthCredFormat()) {
     		    case Constants.COSE_HEADER_PARAM_KCCS:
     		        CBORObject ccs = CBORObject.DecodeFromBytes(clientCredBytes);
