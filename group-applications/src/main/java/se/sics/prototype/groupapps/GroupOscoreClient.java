@@ -216,7 +216,8 @@ public class GroupOscoreClient {
 
 		// Shortcut command to send pairwise to Server 6
 		if (payload.equals("pairwise")) {
-			payload = "p AA coap://192.168.0.66/toggle on";
+			payload = "p AA coap://192.168.0.66:4683/toggle on";
+			// payload = "p AA coap://127.0.0.1:4683/toggle on";
 		}
 
 		if (payload.startsWith("p ")) {

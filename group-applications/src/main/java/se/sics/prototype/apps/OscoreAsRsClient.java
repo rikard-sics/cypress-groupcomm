@@ -237,10 +237,6 @@ public class OscoreAsRsClient {
 			break;
 		}
 
-		// Set public/private key to use in the group
-		String publicPrivateKey;
-		publicPrivateKey = CBORObject.DecodeFromBytes(KeyStorage.memberCcs.get(memberName)).toString();
-
 		// Set key (OSCORE master secret) to use towards AS
 		byte[] keyToAS;
 		keyToAS = KeyStorage.memberAsKeys.get(memberName);
@@ -250,7 +246,6 @@ public class OscoreAsRsClient {
 		System.out.println("\tGM: " + GM_HOST + ":" + GM_PORT);
 		System.out.println("\tMember name: " + memberName);
 		System.out.println("\tGroup: " + group);
-		System.out.println("\tGroup Key: " + publicPrivateKey);
 		System.out.println("\tKey to AS: " + StringUtil.byteArray2Hex(keyToAS));
 
 		printPause(memberName, "Will now request Token from AS");
@@ -284,6 +279,7 @@ public class OscoreAsRsClient {
 		// Get OneKey representation of this member's public/private key
 		OneKey cKeyPair = new MultiKey(KeyStorage.memberCcs.get(memberName),
 				KeyStorage.memberPrivateKeys.get(memberName)).getCoseKey();
+
 		// Get byte array of this member's CCS
 		byte[] memberCcs = KeyStorage.memberCcs.get(memberName);
 
@@ -570,9 +566,7 @@ public class OscoreAsRsClient {
 			case Constants.COSE_HEADER_PARAM_KCCS:
 				// A CCS including the public key
 				if (signKeyCurve == KeyKeys.EC2_P256.AsInt32()) {
-					System.out.println("Needs further configuration");
-					authCred = StringUtil.hex2ByteArray(
-							"A2026008A101A5010203262001215820E8F9A8D5850A533CDA24B9FA8A1EE293F6A0E1E81E1E560A64FF134D65F7ECEC225820164A6D5D4B97F56D1F60A12811D55DE7A055EBAC6164C9EF9302CBCBFF1F0ABE");
+					authCred = clientCcsBytes;
 				}
 				if (signKeyCurve == KeyKeys.OKP_Ed25519.AsInt32()) {
 					authCred = clientCcsBytes;
@@ -763,8 +757,6 @@ public class OscoreAsRsClient {
 		// === The client of "g2" sends a Join Request to the wrong
 		// group-membership resource
 
-		boolean askForSignInfo = true;
-		boolean askForEcdhInfo = true;
 		boolean askForAuthCreds = true;
 		boolean provideAuthCreds = true;
 
@@ -859,9 +851,7 @@ public class OscoreAsRsClient {
 			case Constants.COSE_HEADER_PARAM_KCCS:
 				// A CCS including the public key
 				if (signKeyCurve == KeyKeys.EC2_P256.AsInt32()) {
-					System.out.println("Needs further configuration");
-					authCred = StringUtil.hex2ByteArray(
-							"A2026008A101A5010203262001215820E8F9A8D5850A533CDA24B9FA8A1EE293F6A0E1E81E1E560A64FF134D65F7ECEC225820164A6D5D4B97F56D1F60A12811D55DE7A055EBAC6164C9EF9302CBCBFF1F0ABE");
+					authCred = clientCcsBytes;
 				}
 				if (signKeyCurve == KeyKeys.OKP_Ed25519.AsInt32()) {
 					authCred = clientCcsBytes;

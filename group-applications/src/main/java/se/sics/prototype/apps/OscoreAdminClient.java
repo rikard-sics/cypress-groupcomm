@@ -128,8 +128,8 @@ public class OscoreAdminClient {
 	 */
 	public static void main(String[] args) throws URISyntaxException {
 
-		System.out.println("Starting OscoreAsRsClient:");
-		System.out.println("Group peer that joins a group and then acts as OSCORE Server or Client");
+		System.out.println("Starting OscoreAdminClient:");
+		System.out.println("Group admin that configures group(s) at a GM");
 
 		// install needed cryptography providers
 		try {
