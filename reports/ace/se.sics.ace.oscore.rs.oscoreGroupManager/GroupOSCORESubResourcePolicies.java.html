@@ -75,44 +75,44 @@ public class GroupOSCORESubResourcePolicies extends CoapResource {
 
     @Override
     public void handleGET(CoapExchange exchange) {
-<span class="fc" id="L78">    	System.out.println(&quot;GET request reached the GM&quot;);</span>
+<span class="nc" id="L78">    	System.out.println(&quot;GET request reached the GM&quot;);</span>
     	
     	// Retrieve the entry for the target group, using the last path segment of
     	// the URI path as the name of the OSCORE group
-<span class="fc" id="L82">    	GroupInfo targetedGroup = existingGroupInfo.get(this.getParent().getName());</span>
+<span class="nc" id="L82">    	GroupInfo targetedGroup = existingGroupInfo.get(this.getParent().getName());</span>
     	
     	// This should never happen if existing groups are maintained properly
-<span class="pc bpc" id="L85" title="1 of 2 branches missed.">    	if (targetedGroup == null) {</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">    	if (targetedGroup == null) {</span>
 <span class="nc" id="L86">        	exchange.respond(CoAP.ResponseCode.SERVICE_UNAVAILABLE,</span>
         					 &quot;Error when retrieving material for the OSCORE group&quot;);
 <span class="nc" id="L88">        	return;</span>
     	}
     	
-<span class="fc" id="L91">    	String groupName = targetedGroup.getGroupName();</span>
+<span class="nc" id="L91">    	String groupName = targetedGroup.getGroupName();</span>
     	
     	// This should never happen if active groups are maintained properly
-<span class="pc bpc" id="L94" title="1 of 2 branches missed.">  		if (!groupName.equals(this.getParent().getName())) {</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">  		if (!groupName.equals(this.getParent().getName())) {</span>
 <span class="nc" id="L95">    	exchange.respond(CoAP.ResponseCode.SERVICE_UNAVAILABLE,</span>
     					 &quot;Error when retrieving material for the OSCORE group&quot;);
 <span class="nc" id="L97">			return;</span>
 		}
     	
-<span class="fc" id="L100">    	String subject = null;</span>
-<span class="fc" id="L101">    	Request request = exchange.advanced().getCurrentRequest();</span>
+<span class="nc" id="L100">    	String subject = null;</span>
+<span class="nc" id="L101">    	Request request = exchange.advanced().getCurrentRequest();</span>
         
         try {
-<span class="fc" id="L104">			subject = CoapReq.getInstance(request).getSenderId();</span>
+<span class="nc" id="L104">			subject = CoapReq.getInstance(request).getSenderId();</span>
 <span class="nc" id="L105">		} catch (AceException e) {</span>
 <span class="nc" id="L106">		    System.err.println(&quot;Error while retrieving the client identity: &quot; + e.getMessage());</span>
-<span class="fc" id="L107">		}</span>
-<span class="pc bpc" id="L108" title="1 of 2 branches missed.">        if (subject == null) {</span>
+<span class="nc" id="L107">		}</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">        if (subject == null) {</span>
         	// At this point, this should not really happen, due to the earlier check at the Token Repository
 <span class="nc" id="L110">        	exchange.respond(CoAP.ResponseCode.UNAUTHORIZED,</span>
         					 &quot;Unauthenticated client tried to get access&quot;);
 <span class="nc" id="L112">        	return;</span>
         }
     	
-<span class="pc bpc" id="L115" title="1 of 2 branches missed.">    	if (!targetedGroup.isGroupMember(subject)) {	</span>
+<span class="nc bnc" id="L115" title="All 2 branches missed.">    	if (!targetedGroup.isGroupMember(subject)) {	</span>
     		// The requester is not a current group member.
 <span class="nc" id="L117">    		CBORObject responseMap = CBORObject.NewMap();</span>
     		
@@ -131,28 +131,28 @@ public class GroupOSCORESubResourcePolicies extends CoapResource {
         	
     	// Respond to the Policies Request
         
-<span class="fc" id="L134">    	CBORObject myResponse = null;</span>
-<span class="fc" id="L135">    	CBORObject groupPolicies = targetedGroup.getGroupPolicies();</span>
+<span class="nc" id="L134">    	CBORObject myResponse = null;</span>
+<span class="nc" id="L135">    	CBORObject groupPolicies = targetedGroup.getGroupPolicies();</span>
     	
-<span class="pc bpc" id="L137" title="1 of 2 branches missed.">    	if (groupPolicies == null) {</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">    	if (groupPolicies == null) {</span>
         	// This should not happen for this Group Manager, since default policies apply
     		// if not specified when creating the group
 <span class="nc" id="L140">    		myResponse = CBORObject.FromObject(new byte[0]);</span>
     	}
     	else {
-<span class="fc" id="L143">    		myResponse = CBORObject.NewMap();</span>
-<span class="fc" id="L144">    		myResponse.Add(GroupcommParameters.GROUP_POLICIES, groupPolicies);</span>
+<span class="nc" id="L143">    		myResponse = CBORObject.NewMap();</span>
+<span class="nc" id="L144">    		myResponse.Add(GroupcommParameters.GROUP_POLICIES, groupPolicies);</span>
     	}
     	
-<span class="fc" id="L147">    	byte[] responsePayload = myResponse.EncodeToBytes();</span>
+<span class="nc" id="L147">    	byte[] responsePayload = myResponse.EncodeToBytes();</span>
     	
-<span class="fc" id="L149">    	Response coapResponse = new Response(CoAP.ResponseCode.CONTENT);</span>
-<span class="fc" id="L150">    	coapResponse.setPayload(responsePayload);</span>
-<span class="fc" id="L151">    	coapResponse.getOptions().setContentFormat(Constants.APPLICATION_ACE_GROUPCOMM_CBOR);</span>
+<span class="nc" id="L149">    	Response coapResponse = new Response(CoAP.ResponseCode.CONTENT);</span>
+<span class="nc" id="L150">    	coapResponse.setPayload(responsePayload);</span>
+<span class="nc" id="L151">    	coapResponse.getOptions().setContentFormat(Constants.APPLICATION_ACE_GROUPCOMM_CBOR);</span>
 
-<span class="fc" id="L153">    	exchange.respond(coapResponse);</span>
+<span class="nc" id="L153">    	exchange.respond(coapResponse);</span>
 
-<span class="fc" id="L155">    }</span>
+<span class="nc" id="L155">    }</span>
     
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

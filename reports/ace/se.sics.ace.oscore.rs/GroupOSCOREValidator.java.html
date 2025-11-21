@@ -344,8 +344,8 @@ public class GroupOSCOREValidator implements AudienceValidator, ScopeValidator {
 <span class="fc bfc" id="L344" title="All 2 branches covered.">    	if (this.myGroupMembershipResources.contains(resourceId))</span>
 <span class="fc" id="L345">    		isGroupMembershipResource = true;</span>
     	
-<span class="fc bfc" id="L347" title="All 2 branches covered.">    	if (this.myGroupAdminResources.contains(resourceId))</span>
-<span class="fc" id="L348">    		isGroupAdminResource = true;</span>
+<span class="pc bpc" id="L347" title="1 of 2 branches missed.">    	if (this.myGroupAdminResources.contains(resourceId))</span>
+<span class="nc" id="L348">    		isGroupAdminResource = true;</span>
     	
 <span class="fc" id="L350">    	scopeMustBeBinary = isGroupMembershipResource | isGroupAdminResource;</span>
 <span class="fc" id="L351">    	scopeForOscoreGroupManager = isGroupMembershipResource | isGroupAdminResource;</span>
@@ -398,7 +398,7 @@ public class GroupOSCOREValidator implements AudienceValidator, ScopeValidator {
 <span class="nc" id="L398">	  	  			throw new AceException(&quot;Tperm must have a positive integer value&quot;);</span>
 	  	  		}
 	        	
-<span class="fc bfc" id="L401" title="All 2 branches covered.">	        	if ((tperm % 2) == 0) {</span>
+<span class="pc bpc" id="L401" title="1 of 2 branches missed.">	        	if ((tperm % 2) == 0) {</span>
 	        		// This is a user scope entry
 	        		
 		        	// Retrieve the group name of the OSCORE group
@@ -422,38 +422,38 @@ public class GroupOSCOREValidator implements AudienceValidator, ScopeValidator {
 			      	  	
 <span class="fc" id="L423">		      	  	Map&lt;String, Set&lt;Short&gt;&gt; resources = this.myScopes.get(rootGroupMembershipResourcePath + &quot;/&quot; + scopeStr);</span>
 		      	  		      	  	
-<span class="pc bpc" id="L425" title="1 of 4 branches missed.">		      	  	if (resources != null &amp;&amp; resources.containsKey(resourceId)) {</span>
+<span class="pc bpc" id="L425" title="2 of 4 branches missed.">		      	  	if (resources != null &amp;&amp; resources.containsKey(resourceId)) {</span>
 <span class="pc bpc" id="L426" title="1 of 2 branches missed.">		      	  		if (resources.get(resourceId).contains(actionId)) {</span>
 <span class="fc" id="L427">		      	  			return true;</span>
 		      	  		}
 		      	  	}
 	      	  	
-<span class="fc" id="L431">	        	} // end of handling a user scope entry</span>
+<span class="nc" id="L431">	        	} // end of handling a user scope entry</span>
 	        	
 	        	else {
 	        		// This is an admin scope entry
 	        		
-<span class="pc bpc" id="L436" title="1 of 2 branches missed.">      	  			if (cborScope.get(entryIndex).get(0).getType() != CBORType.TextString &amp;&amp;</span>
+<span class="nc bnc" id="L436" title="All 2 branches missed.">      	  			if (cborScope.get(entryIndex).get(0).getType() != CBORType.TextString &amp;&amp;</span>
 <span class="nc bnc" id="L437" title="All 2 branches missed.">      	  				cborScope.get(entryIndex).get(0).equals(CBORObject.True) == false) {</span>
 <span class="nc" id="L438">      	  				throw new AceException(&quot;Toid must be a CBOR text string or the CBOR simple value true&quot;);</span>
     	      	  	}
       	  			
 		      	  	// Retrieve the list of admin permissions
-<span class="fc" id="L442">	        		Set&lt;Integer&gt; permissionIdSet = Util.getGroupOSCOREAdminPermissions(tperm);</span>
-<span class="fc bfc" id="L443" title="All 2 branches covered.">	        		for (Integer elem : permissionIdSet) {</span>
-<span class="pc bpc" id="L444" title="1 of 2 branches missed.">	        			if (elem.intValue() &lt; GroupcommParameters.GROUP_OSCORE_ADMIN_PERMISSIONS.length) {</span>
-<span class="fc" id="L445">	        				continue;</span>
+<span class="nc" id="L442">	        		Set&lt;Integer&gt; permissionIdSet = Util.getGroupOSCOREAdminPermissions(tperm);</span>
+<span class="nc bnc" id="L443" title="All 2 branches missed.">	        		for (Integer elem : permissionIdSet) {</span>
+<span class="nc bnc" id="L444" title="All 2 branches missed.">	        			if (elem.intValue() &lt; GroupcommParameters.GROUP_OSCORE_ADMIN_PERMISSIONS.length) {</span>
+<span class="nc" id="L445">	        				continue;</span>
 	        			}
 	        			else {
 <span class="nc" id="L448">	        				throw new AceException(&quot;Unrecognized admin permission&quot;);</span>
 	        			}
 	        		}
 	        		
-<span class="fc" id="L452">		      	  	Map&lt;String, Set&lt;Short&gt;&gt; resources = this.myScopes.get(groupCollectionResourcePath);</span>
+<span class="nc" id="L452">		      	  	Map&lt;String, Set&lt;Short&gt;&gt; resources = this.myScopes.get(groupCollectionResourcePath);</span>
 	  		      	  	
-<span class="pc bpc" id="L454" title="2 of 4 branches missed.">		      	  	if (resources != null &amp;&amp; resources.containsKey(resourceId)) {</span>
-<span class="pc bpc" id="L455" title="1 of 2 branches missed.">		      	  		if (resources.get(resourceId).contains(actionId)) {</span>
-<span class="fc" id="L456">		      	  			return true;</span>
+<span class="nc bnc" id="L454" title="All 4 branches missed.">		      	  	if (resources != null &amp;&amp; resources.containsKey(resourceId)) {</span>
+<span class="nc bnc" id="L455" title="All 2 branches missed.">		      	  		if (resources.get(resourceId).contains(actionId)) {</span>
+<span class="nc" id="L456">		      	  			return true;</span>
 		      	  		}
 		      	  	}
 	        		
@@ -494,8 +494,8 @@ public class GroupOSCOREValidator implements AudienceValidator, ScopeValidator {
 <span class="fc bfc" id="L494" title="All 2 branches covered.">    	if (this.myGroupMembershipResources.contains(resourceId))</span>
 <span class="fc" id="L495">    		isGroupMembershipResource = true;</span>
     	
-<span class="fc bfc" id="L497" title="All 2 branches covered.">    	if (this.myGroupAdminResources.contains(resourceId))</span>
-<span class="fc" id="L498">    		isGroupAdminResource = true;</span>
+<span class="pc bpc" id="L497" title="1 of 2 branches missed.">    	if (this.myGroupAdminResources.contains(resourceId))</span>
+<span class="nc" id="L498">    		isGroupAdminResource = true;</span>
     	
 <span class="fc" id="L500">    	scopeMustBeBinary = isGroupMembershipResource | isGroupAdminResource;</span>
 <span class="fc" id="L501">    	scopeForOscoreGroupManager = isGroupMembershipResource | isGroupAdminResource;</span>
@@ -547,7 +547,7 @@ public class GroupOSCOREValidator implements AudienceValidator, ScopeValidator {
 <span class="nc" id="L547">	  	  			throw new AceException(&quot;Tperm must have a positive integer value&quot;);</span>
 	  	  		}
 
-<span class="fc bfc" id="L550" title="All 2 branches covered.">	        	if ((tperm % 2) == 0) {</span>
+<span class="pc bpc" id="L550" title="1 of 2 branches missed.">	        	if ((tperm % 2) == 0) {</span>
 	        		// This is a user scope entry
 
 		        	// Retrieve the group name of the OSCORE group
@@ -572,34 +572,34 @@ public class GroupOSCOREValidator implements AudienceValidator, ScopeValidator {
 		        	
 <span class="fc" id="L573">		      	  	Map&lt;String, Set&lt;Short&gt;&gt; resources = this.myScopes.get(rootGroupMembershipResourcePath + &quot;/&quot; + scopeStr);</span>
 		      	  	
-<span class="pc bpc" id="L575" title="1 of 4 branches missed.">		      	  	if (resources != null &amp;&amp; resources.containsKey(resourceId)) {</span>
+<span class="pc bpc" id="L575" title="2 of 4 branches missed.">		      	  	if (resources != null &amp;&amp; resources.containsKey(resourceId)) {</span>
 <span class="fc" id="L576">		      	  			return true;</span>
 		      	  	}
 	      	  	
-<span class="fc" id="L579">	        	}  // end of handling a user scope entry</span>
+<span class="nc" id="L579">	        	}  // end of handling a user scope entry</span>
 	      	  	
 	        	else {
 	        		// This is an admin scope entry
 	        		
-<span class="pc bpc" id="L584" title="1 of 2 branches missed.">      	  			if (cborScope.get(entryIndex).get(0).getType() != CBORType.TextString &amp;&amp;</span>
+<span class="nc bnc" id="L584" title="All 2 branches missed.">      	  			if (cborScope.get(entryIndex).get(0).getType() != CBORType.TextString &amp;&amp;</span>
 <span class="nc bnc" id="L585" title="All 2 branches missed.">      	  				cborScope.get(entryIndex).get(0).equals(CBORObject.True) == false) {</span>
 <span class="nc" id="L586">      	  				throw new AceException(&quot;Toid must be a CBOR text string or the CBOR simple value true&quot;);</span>
     	      	  	}
       	  			
 		      	  	// Retrieve the list of admin permissions
-<span class="fc" id="L590">	        		Set&lt;Integer&gt; permissionIdSet = Util.getGroupOSCOREAdminPermissions(tperm);</span>
-<span class="fc bfc" id="L591" title="All 2 branches covered.">	        		for (Integer elem : permissionIdSet) {</span>
-<span class="pc bpc" id="L592" title="1 of 2 branches missed.">	        			if (elem.intValue() &lt; GroupcommParameters.GROUP_OSCORE_ADMIN_PERMISSIONS.length)</span>
-<span class="fc" id="L593">	        				continue;</span>
+<span class="nc" id="L590">	        		Set&lt;Integer&gt; permissionIdSet = Util.getGroupOSCOREAdminPermissions(tperm);</span>
+<span class="nc bnc" id="L591" title="All 2 branches missed.">	        		for (Integer elem : permissionIdSet) {</span>
+<span class="nc bnc" id="L592" title="All 2 branches missed.">	        			if (elem.intValue() &lt; GroupcommParameters.GROUP_OSCORE_ADMIN_PERMISSIONS.length)</span>
+<span class="nc" id="L593">	        				continue;</span>
 	        			else {
 <span class="nc" id="L595">	        				throw new AceException(&quot;Unrecognized admin permission&quot;);</span>
 	        			}
 	        		}
 	        		
-<span class="fc" id="L599">		      	  	Map&lt;String, Set&lt;Short&gt;&gt; resources = this.myScopes.get(groupCollectionResourcePath);</span>
+<span class="nc" id="L599">		      	  	Map&lt;String, Set&lt;Short&gt;&gt; resources = this.myScopes.get(groupCollectionResourcePath);</span>
 	  		      	
-<span class="pc bpc" id="L601" title="2 of 4 branches missed.">		      	  	if (resources != null &amp;&amp; resources.containsKey(resourceId)) {</span>
-<span class="fc" id="L602">		      	  			return true;</span>
+<span class="nc bnc" id="L601" title="All 4 branches missed.">		      	  	if (resources != null &amp;&amp; resources.containsKey(resourceId)) {</span>
+<span class="nc" id="L602">		      	  			return true;</span>
 		      	  	}
 
 	        	} // end of handling an admin scope entry
@@ -683,7 +683,7 @@ public class GroupOSCOREValidator implements AudienceValidator, ScopeValidator {
 <span class="nc" id="L683">	  	  			throw new AceException(&quot;Tperm must have a positive integer value&quot;);</span>
 	  	  		}
 	        	
-<span class="fc bfc" id="L686" title="All 2 branches covered.">	        	if ((tperm % 2) == 0) {</span>
+<span class="pc bpc" id="L686" title="1 of 2 branches missed.">	        	if ((tperm % 2) == 0) {</span>
 	        		// This is a user scope entry
 	        		
 		        	// Retrieve the group name of the OSCORE group
@@ -715,22 +715,22 @@ public class GroupOSCOREValidator implements AudienceValidator, ScopeValidator {
 	        	else {
 	        		// This is an admin scope entry
 	        		
-<span class="pc bpc" id="L718" title="1 of 2 branches missed.">      	  			if (cborScope.get(entryIndex).get(0).getType() != CBORType.TextString &amp;&amp;</span>
+<span class="nc bnc" id="L718" title="All 2 branches missed.">      	  			if (cborScope.get(entryIndex).get(0).getType() != CBORType.TextString &amp;&amp;</span>
 <span class="nc bnc" id="L719" title="All 2 branches missed.">      	  				cborScope.get(entryIndex).get(0).equals(CBORObject.True) == false) {</span>
 <span class="nc" id="L720">      	  				throw new AceException(&quot;Toid must be a CBOR text string or the CBOR simple value true&quot;);</span>
     	      	  	}
       	  			
 		      	  	// Retrieve the list of admin permissions
-<span class="fc" id="L724">	        		Set&lt;Integer&gt; permissionIdSet = Util.getGroupOSCOREAdminPermissions(tperm);</span>
-<span class="fc bfc" id="L725" title="All 2 branches covered.">	        		for (Integer elem : permissionIdSet) {</span>
-<span class="pc bpc" id="L726" title="1 of 2 branches missed.">	        			if (elem.intValue() &lt; GroupcommParameters.GROUP_OSCORE_ADMIN_PERMISSIONS.length)</span>
-<span class="fc" id="L727">	        				continue;</span>
+<span class="nc" id="L724">	        		Set&lt;Integer&gt; permissionIdSet = Util.getGroupOSCOREAdminPermissions(tperm);</span>
+<span class="nc bnc" id="L725" title="All 2 branches missed.">	        		for (Integer elem : permissionIdSet) {</span>
+<span class="nc bnc" id="L726" title="All 2 branches missed.">	        			if (elem.intValue() &lt; GroupcommParameters.GROUP_OSCORE_ADMIN_PERMISSIONS.length)</span>
+<span class="nc" id="L727">	        				continue;</span>
 	        			else {
 <span class="nc" id="L729">	        				throw new AceException(&quot;Unrecognized admin permission&quot;);</span>
 	        			}
 	        		}
 	        		
-<span class="pc bpc" id="L733" title="1 of 2 branches missed.">		        	if (this.myScopes.containsKey(groupCollectionResourcePath) == false) {</span>
+<span class="nc bnc" id="L733" title="All 2 branches missed.">		        	if (this.myScopes.containsKey(groupCollectionResourcePath) == false) {</span>
 		        		// More fine-grained checks are not possible at this point in time
 		        		// (i.e., upon checking an uploaded access token), since the list of valid
 		        		// scopes may not comprise OSCORE groups whose name matches with the Toid

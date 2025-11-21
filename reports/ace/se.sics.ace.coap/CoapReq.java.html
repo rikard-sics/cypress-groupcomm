@@ -86,7 +86,7 @@ public class CoapReq implements Message {
 <span class="fc" id="L86">    protected CoapReq(Request req, boolean payloadMustBeCbor) throws AceException {</span>
 <span class="fc" id="L87">        this.request = req;</span>
 <span class="fc" id="L88">        CBORObject cborPayload = null;</span>
-<span class="pc bpc" id="L89" title="1 of 6 branches missed.">        if (req.getPayload() != null &amp;&amp; req.getPayload() != Bytes.EMPTY &amp;&amp; payloadMustBeCbor) {</span>
+<span class="pc bpc" id="L89" title="2 of 6 branches missed.">        if (req.getPayload() != null &amp;&amp; req.getPayload() != Bytes.EMPTY &amp;&amp; payloadMustBeCbor) {</span>
             try {
 <span class="fc" id="L91">                cborPayload = CBORObject.DecodeFromBytes(req.getPayload());</span>
 <span class="nc" id="L92">            } catch (CBORException ex) {</span>

@@ -192,21 +192,21 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
     @Override
     public synchronized void handleGET(CoapExchange exchange) {
     	
-<span class="fc" id="L195">    	System.out.println(&quot;GET request reached the GM at /&quot; + groupCollectionResourcePath);</span>
+<span class="nc" id="L195">    	System.out.println(&quot;GET request reached the GM at /&quot; + groupCollectionResourcePath);</span>
         
     	// Process the request for retrieving the full list of Group Configurations
     	
-<span class="fc" id="L199">    	String subject = null;</span>
-<span class="fc" id="L200">    	String errorString = null;</span>
+<span class="nc" id="L199">    	String subject = null;</span>
+<span class="nc" id="L200">    	String errorString = null;</span>
     	
-<span class="fc" id="L202">    	Request request = exchange.advanced().getCurrentRequest();</span>
+<span class="nc" id="L202">    	Request request = exchange.advanced().getCurrentRequest();</span>
         
         try {
-<span class="fc" id="L205">			subject = CoapReq.getInstance(request).getSenderId();</span>
+<span class="nc" id="L205">			subject = CoapReq.getInstance(request).getSenderId();</span>
 <span class="nc" id="L206">		} catch (AceException e) {</span>
 <span class="nc" id="L207">		    System.err.println(&quot;Error while retrieving the client identity: &quot; + e.getMessage());</span>
-<span class="fc" id="L208">		}</span>
-<span class="pc bpc" id="L209" title="1 of 2 branches missed.">        if (subject == null) {</span>
+<span class="nc" id="L208">		}</span>
+<span class="nc bnc" id="L209" title="All 2 branches missed.">        if (subject == null) {</span>
         	// At this point, this should not really happen, due to the earlier check at the Token Repository
 <span class="nc" id="L211">        	errorString = new String(&quot;Unauthenticated client tried to get access&quot;);</span>
 <span class="nc" id="L212">        	System.err.println(errorString);</span>
@@ -215,27 +215,27 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
         }
         
     	// Check that at least one scope entry in the access token allows the &quot;List&quot; admin permission
-<span class="fc" id="L218">    	CBORObject[] permissionSetToken = Util.getGroupOSCOREAdminPermissionsFromToken(subject, null);</span>
-<span class="pc bpc" id="L219" title="1 of 2 branches missed.">    	if (permissionSetToken == null) {</span>
+<span class="nc" id="L218">    	CBORObject[] permissionSetToken = Util.getGroupOSCOREAdminPermissionsFromToken(subject, null);</span>
+<span class="nc bnc" id="L219" title="All 2 branches missed.">    	if (permissionSetToken == null) {</span>
 <span class="nc" id="L220">        	errorString = new String(&quot;Operation not permitted&quot;);</span>
 <span class="nc" id="L221">    		System.err.println(errorString);</span>
 <span class="nc" id="L222">    		exchange.respond(CoAP.ResponseCode.FORBIDDEN, errorString);</span>
 <span class="nc" id="L223">    		return;</span>
     	}
     	
-<span class="fc" id="L226">    	String auxString = new String(&quot;&quot;);</span>
+<span class="nc" id="L226">    	String auxString = new String(&quot;&quot;);</span>
     	
-<span class="fc bfc" id="L228" title="All 2 branches covered.">    	for (String groupName : this.groupConfigurationResources.keySet()) {</span>
-<span class="fc" id="L229">    		boolean selected = false;</span>
+<span class="nc bnc" id="L228" title="All 2 branches missed.">    	for (String groupName : this.groupConfigurationResources.keySet()) {</span>
+<span class="nc" id="L229">    		boolean selected = false;</span>
     		
-<span class="pc bpc" id="L231" title="1 of 2 branches missed.">    		for (int i = 0; i &lt; permissionSetToken.length; i++) {</span>
-<span class="fc bfc" id="L232" title="All 2 branches covered.">    			if (Util.matchingGroupOscoreName(groupName, permissionSetToken[i].get(0))) {</span>
+<span class="nc bnc" id="L231" title="All 2 branches missed.">    		for (int i = 0; i &lt; permissionSetToken.length; i++) {</span>
+<span class="nc bnc" id="L232" title="All 2 branches missed.">    			if (Util.matchingGroupOscoreName(groupName, permissionSetToken[i].get(0))) {</span>
     				try {
-<span class="fc" id="L234">        				int permissions = permissionSetToken[i].get(1).AsInt32();</span>
-<span class="pc bpc" id="L235" title="1 of 2 branches missed.">    					if (Util.checkGroupOSCOREAdminPermission(permissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST)) {</span>
+<span class="nc" id="L234">        				int permissions = permissionSetToken[i].get(1).AsInt32();</span>
+<span class="nc bnc" id="L235" title="All 2 branches missed.">    					if (Util.checkGroupOSCOREAdminPermission(permissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST)) {</span>
     						// One match has been found
-<span class="fc" id="L237">    						selected = true;</span>
-<span class="fc" id="L238">    						break;</span>
+<span class="nc" id="L237">    						selected = true;</span>
+<span class="nc" id="L238">    						break;</span>
     					}
 <span class="nc" id="L240">					} catch (AceException e) {</span>
 <span class="nc" id="L241">						System.err.println(&quot;Error while checking the group name against the group name pattern: &quot; + e.getMessage());</span>
@@ -243,51 +243,51 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
     			}
     		}
     		
-<span class="pc bpc" id="L246" title="1 of 2 branches missed.">    		if (selected == false) {</span>
+<span class="nc bnc" id="L246" title="All 2 branches missed.">    		if (selected == false) {</span>
     			// Move to the next group-configuration resource
 <span class="nc" id="L248">    			continue;</span>
     		}
     		
     		// This group configuration has passed the filtering and has been selected
-<span class="fc bfc" id="L252" title="All 2 branches covered.">    		if (auxString.equals(&quot;&quot;) == false) {</span>
-<span class="fc" id="L253">    			auxString += &quot;,&quot;;</span>
+<span class="nc bnc" id="L252" title="All 2 branches missed.">    		if (auxString.equals(&quot;&quot;) == false) {</span>
+<span class="nc" id="L253">    			auxString += &quot;,&quot;;</span>
     		}
     		
-<span class="fc" id="L256">    		auxString += &quot;&lt;&quot; + request.getURI() + &quot;/&quot; + groupName + &quot;&gt;;rt=\&quot;core.osc.gconf\&quot;&quot;;</span>
-<span class="fc" id="L257">    	}</span>
+<span class="nc" id="L256">    		auxString += &quot;&lt;&quot; + request.getURI() + &quot;/&quot; + groupName + &quot;&gt;;rt=\&quot;core.osc.gconf\&quot;&quot;;</span>
+<span class="nc" id="L257">    	}</span>
     	
     	// Respond to the request for retrieving the full list of Group Configurations
 
-<span class="fc" id="L261">    	Response coapResponse = new Response(CoAP.ResponseCode.CONTENT);</span>
+<span class="nc" id="L261">    	Response coapResponse = new Response(CoAP.ResponseCode.CONTENT);</span>
 
-<span class="pc bpc" id="L263" title="1 of 2 branches missed.">    	if (this.existingGroupInfo.size() != 0) {</span>
-<span class="fc" id="L264">        	byte[] responsePayload = auxString.getBytes(Constants.charset);</span>
-<span class="fc" id="L265">        	coapResponse.setPayload(responsePayload);</span>
-<span class="fc" id="L266">    		coapResponse.getOptions().setContentFormat(MediaTypeRegistry.APPLICATION_LINK_FORMAT);</span>
+<span class="nc bnc" id="L263" title="All 2 branches missed.">    	if (this.existingGroupInfo.size() != 0) {</span>
+<span class="nc" id="L264">        	byte[] responsePayload = auxString.getBytes(Constants.charset);</span>
+<span class="nc" id="L265">        	coapResponse.setPayload(responsePayload);</span>
+<span class="nc" id="L266">    		coapResponse.getOptions().setContentFormat(MediaTypeRegistry.APPLICATION_LINK_FORMAT);</span>
     	}
 
-<span class="fc" id="L269">    	exchange.respond(coapResponse);</span>
+<span class="nc" id="L269">    	exchange.respond(coapResponse);</span>
 
-<span class="fc" id="L271">    }</span>
+<span class="nc" id="L271">    }</span>
     
     @Override
     public synchronized void handleFETCH(CoapExchange exchange) {
 
-<span class="fc" id="L276">    	System.out.println(&quot;FETCH request reached the GM at /&quot; + groupCollectionResourcePath);</span>
+<span class="nc" id="L276">    	System.out.println(&quot;FETCH request reached the GM at /&quot; + groupCollectionResourcePath);</span>
         
     	// Process the request for retrieving a list of Group Configurations by filters
     	
-<span class="fc" id="L280">    	String subject = null;</span>
-<span class="fc" id="L281">    	String errorString = null;</span>
+<span class="nc" id="L280">    	String subject = null;</span>
+<span class="nc" id="L281">    	String errorString = null;</span>
     	
-<span class="fc" id="L283">    	Request request = exchange.advanced().getCurrentRequest();</span>
+<span class="nc" id="L283">    	Request request = exchange.advanced().getCurrentRequest();</span>
         
         try {
-<span class="fc" id="L286">			subject = CoapReq.getInstance(request).getSenderId();</span>
+<span class="nc" id="L286">			subject = CoapReq.getInstance(request).getSenderId();</span>
 <span class="nc" id="L287">		} catch (AceException e) {</span>
 <span class="nc" id="L288">		    System.err.println(&quot;Error while retrieving the client identity: &quot; + e.getMessage());</span>
-<span class="fc" id="L289">		}</span>
-<span class="pc bpc" id="L290" title="1 of 2 branches missed.">        if (subject == null) {</span>
+<span class="nc" id="L289">		}</span>
+<span class="nc bnc" id="L290" title="All 2 branches missed.">        if (subject == null) {</span>
         	// At this point, this should not really happen, due to the earlier check at the Token Repository
 <span class="nc" id="L292">        	errorString = new String(&quot;Unauthenticated client tried to get access&quot;);</span>
 <span class="nc" id="L293">    		System.err.println(errorString);</span>
@@ -296,75 +296,75 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
         }
     	
     	// Check that at least one scope entry in the access token allows the &quot;List&quot; admin permission
-<span class="fc" id="L299">    	CBORObject[] permissionSetToken = Util.getGroupOSCOREAdminPermissionsFromToken(subject, null);</span>
-<span class="pc bpc" id="L300" title="1 of 2 branches missed.">    	if (permissionSetToken == null) {</span>
+<span class="nc" id="L299">    	CBORObject[] permissionSetToken = Util.getGroupOSCOREAdminPermissionsFromToken(subject, null);</span>
+<span class="nc bnc" id="L300" title="All 2 branches missed.">    	if (permissionSetToken == null) {</span>
 <span class="nc" id="L301">        	errorString = new String(&quot;Operation not permitted&quot;);</span>
 <span class="nc" id="L302">    		System.err.println(errorString);</span>
 <span class="nc" id="L303">    		exchange.respond(CoAP.ResponseCode.FORBIDDEN, errorString);</span>
 <span class="nc" id="L304">    		return;</span>
     	}
         
-<span class="fc" id="L307">    	byte[] requestPayload = exchange.getRequestPayload();</span>
+<span class="nc" id="L307">    	byte[] requestPayload = exchange.getRequestPayload();</span>
     	
-<span class="pc bpc" id="L309" title="2 of 4 branches missed.">    	if(requestPayload == null || (requestPayload.length == 0)) {</span>
+<span class="nc bnc" id="L309" title="All 4 branches missed.">    	if(requestPayload == null || (requestPayload.length == 0)) {</span>
 <span class="nc" id="L310">        	errorString = new String(&quot;A payload must be present&quot;);</span>
 <span class="nc" id="L311">    		System.err.println(errorString);</span>
 <span class="nc" id="L312">    		exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorString);</span>
 <span class="nc" id="L313">    		return;</span>
     	}
     	
-<span class="pc bpc" id="L316" title="1 of 2 branches missed.">    	if(exchange.getRequestOptions().hasContentFormat() == false ||</span>
-<span class="pc bpc" id="L317" title="1 of 2 branches missed.">    	   exchange.getRequestOptions().getContentFormat() != Constants.APPLICATION_ACE_GROUPCOMM_CBOR) {</span>
+<span class="nc bnc" id="L316" title="All 2 branches missed.">    	if(exchange.getRequestOptions().hasContentFormat() == false ||</span>
+<span class="nc bnc" id="L317" title="All 2 branches missed.">    	   exchange.getRequestOptions().getContentFormat() != Constants.APPLICATION_ACE_GROUPCOMM_CBOR) {</span>
 <span class="nc" id="L318">        	errorString = new String(&quot;The CoAP option Content-Format must be present, with value application/ace-groupcomm+cbor&quot;);</span>
 <span class="nc" id="L319">    		System.err.println(errorString);</span>
 <span class="nc" id="L320">    		exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorString);</span>
 <span class="nc" id="L321">    		return;</span>
     	}
 
-<span class="fc" id="L324">    	CBORObject requestCBOR = CBORObject.DecodeFromBytes(requestPayload);</span>
+<span class="nc" id="L324">    	CBORObject requestCBOR = CBORObject.DecodeFromBytes(requestPayload);</span>
     	
     	// The payload of the request must be a CBOR Map
-<span class="pc bpc" id="L327" title="1 of 2 branches missed.">    	if (!requestCBOR.getType().equals(CBORType.Map)) {</span>
+<span class="nc bnc" id="L327" title="All 2 branches missed.">    	if (!requestCBOR.getType().equals(CBORType.Map)) {</span>
 <span class="nc" id="L328">        	errorString = new String(&quot;Invalid payload format&quot;);</span>
 <span class="nc" id="L329">    		System.err.println(errorString);</span>
 <span class="nc" id="L330">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorString);</span>
 <span class="nc" id="L331">    		return;</span>
     	}
     	
-<span class="fc bfc" id="L334" title="All 2 branches covered.">    	for (CBORObject key : requestCBOR.getKeys()) {</span>
-<span class="fc" id="L335">    		boolean error = false;</span>
+<span class="nc bnc" id="L334" title="All 2 branches missed.">    	for (CBORObject key : requestCBOR.getKeys()) {</span>
+<span class="nc" id="L335">    		boolean error = false;</span>
     		
-<span class="pc bpc" id="L337" title="1 of 2 branches missed.">    		if (!GroupcommParameters.isAdminRequestParameterMeaningful(key, requestCBOR.get(key))) {</span>
+<span class="nc bnc" id="L337" title="All 2 branches missed.">    		if (!GroupcommParameters.isAdminRequestParameterMeaningful(key, requestCBOR.get(key))) {</span>
 <span class="nc" id="L338">    			error = true;</span>
     		}
-<span class="pc bpc" id="L340" title="3 of 6 branches missed.">    		if (!error &amp;&amp; key.equals(GroupcommParameters.GROUP_NAME) &amp;&amp; requestCBOR.get(key).isTagged()) {</span>
+<span class="nc bnc" id="L340" title="All 6 branches missed.">    		if (!error &amp;&amp; key.equals(GroupcommParameters.GROUP_NAME) &amp;&amp; requestCBOR.get(key).isTagged()) {</span>
 <span class="nc bnc" id="L341" title="All 4 branches missed.">    			 if (!requestCBOR.get(key).HasOneTag() || !requestCBOR.get(key).HasTag(21065)) {</span>
 <span class="nc" id="L342">    				 error = true;</span>
     			 }
     		}
 
-<span class="pc bpc" id="L346" title="1 of 2 branches missed.">    		if (error) {</span>
+<span class="nc bnc" id="L346" title="All 2 branches missed.">    		if (error) {</span>
 <span class="nc" id="L347">            	errorString = new String(&quot;Invalid format of paramemeter with CBOR abbreviation: &quot; + key.AsInt32());</span>
 <span class="nc" id="L348">        		System.err.println(errorString);</span>
 <span class="nc" id="L349">    			exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorString);</span>
 <span class="nc" id="L350">    			return;</span>
     		}
-<span class="fc" id="L352">    	}</span>
+<span class="nc" id="L352">    	}</span>
     	
-<span class="fc" id="L354">    	String auxString = new String(&quot;&quot;);</span>
+<span class="nc" id="L354">    	String auxString = new String(&quot;&quot;);</span>
     	
-<span class="fc bfc" id="L356" title="All 2 branches covered.">    	for (String groupName : this.groupConfigurationResources.keySet()) {</span>
+<span class="nc bnc" id="L356" title="All 2 branches missed.">    	for (String groupName : this.groupConfigurationResources.keySet()) {</span>
     		
-<span class="fc" id="L358">			boolean selected = false;</span>
+<span class="nc" id="L358">			boolean selected = false;</span>
     		
-<span class="pc bpc" id="L360" title="1 of 2 branches missed.">		    for (int i = 0; i &lt; permissionSetToken.length; i++) {</span>
-<span class="pc bpc" id="L361" title="1 of 2 branches missed.">		        if (Util.matchingGroupOscoreName(groupName, permissionSetToken[i].get(0))) {</span>
+<span class="nc bnc" id="L360" title="All 2 branches missed.">		    for (int i = 0; i &lt; permissionSetToken.length; i++) {</span>
+<span class="nc bnc" id="L361" title="All 2 branches missed.">		        if (Util.matchingGroupOscoreName(groupName, permissionSetToken[i].get(0))) {</span>
 		            try {
-<span class="fc" id="L363">			            int permissions = permissionSetToken[i].get(1).AsInt32();</span>
-<span class="pc bpc" id="L364" title="1 of 2 branches missed.">		                if (Util.checkGroupOSCOREAdminPermission(permissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST)) {</span>
+<span class="nc" id="L363">			            int permissions = permissionSetToken[i].get(1).AsInt32();</span>
+<span class="nc bnc" id="L364" title="All 2 branches missed.">		                if (Util.checkGroupOSCOREAdminPermission(permissions, GroupcommParameters.GROUP_OSCORE_ADMIN_LIST)) {</span>
 		                    // One match has been found
-<span class="fc" id="L366">		                    selected = true;</span>
-<span class="fc" id="L367">		                    break;</span>
+<span class="nc" id="L366">		                    selected = true;</span>
+<span class="nc" id="L367">		                    break;</span>
 		                }
 <span class="nc" id="L369">		            } catch (AceException e) {</span>
 <span class="nc" id="L370">		                System.err.println(&quot;Error while checking the group name against the group name pattern: &quot; + e.getMessage());</span>
@@ -372,24 +372,24 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
 		        }
 		    }
 		    
-<span class="pc bpc" id="L375" title="1 of 2 branches missed.">		    if (selected == false) {</span>
+<span class="nc bnc" id="L375" title="All 2 branches missed.">		    if (selected == false) {</span>
 		        // Move to the next group-configuration resource
 <span class="nc" id="L377">		        continue;</span>
 		    }
 		    
-<span class="fc" id="L380">			CBORObject configurationParameters = this.groupConfigurationResources.get(groupName).getConfigurationParameters();</span>
+<span class="nc" id="L380">			CBORObject configurationParameters = this.groupConfigurationResources.get(groupName).getConfigurationParameters();</span>
 		    
     		// Perform the filtering based on the specified filter criteria
-<span class="fc bfc" id="L383" title="All 2 branches covered.">    		for (CBORObject elemKey : requestCBOR.getKeys()) {</span>
+<span class="nc bnc" id="L383" title="All 2 branches missed.">    		for (CBORObject elemKey : requestCBOR.getKeys()) {</span>
     			
     			// The parameter in the filter must be present in the configuration
-<span class="pc bpc" id="L386" title="1 of 2 branches missed.">    			if (configurationParameters.ContainsKey(elemKey) == false) {</span>
+<span class="nc bnc" id="L386" title="All 2 branches missed.">    			if (configurationParameters.ContainsKey(elemKey) == false) {</span>
 <span class="nc" id="L387">    				selected = false;</span>
 <span class="nc" id="L388">    				break;</span>
     			}
     			
-<span class="pc bpc" id="L391" title="1 of 2 branches missed.">    			if (elemKey.equals(GroupcommParameters.GROUP_NAME)) {</span>
-<span class="pc bpc" id="L392" title="1 of 2 branches missed.">    				if (!Util.matchingGroupOscoreName(groupName, requestCBOR.get(elemKey))) {</span>
+<span class="nc bnc" id="L391" title="All 2 branches missed.">    			if (elemKey.equals(GroupcommParameters.GROUP_NAME)) {</span>
+<span class="nc bnc" id="L392" title="All 2 branches missed.">    				if (!Util.matchingGroupOscoreName(groupName, requestCBOR.get(elemKey))) {</span>
 <span class="nc" id="L393">    					selected = false;</span>
 <span class="nc" id="L394">    					break;</span>
     				}
@@ -399,51 +399,51 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
 <span class="nc" id="L399">					break;</span>
     			}
     			
-<span class="fc" id="L402">    		}</span>
+<span class="nc" id="L402">    		}</span>
     		
-<span class="pc bpc" id="L404" title="1 of 2 branches missed.">			if (selected == true) {</span>
+<span class="nc bnc" id="L404" title="All 2 branches missed.">			if (selected == true) {</span>
     			// This group configuration has passed the filtering and has been selected
-<span class="pc bpc" id="L406" title="1 of 2 branches missed.">	    		if (auxString.equals(&quot;&quot;) == false) {</span>
+<span class="nc bnc" id="L406" title="All 2 branches missed.">	    		if (auxString.equals(&quot;&quot;) == false) {</span>
 <span class="nc" id="L407">	    			auxString += &quot;,&quot;;</span>
 	    		}
-<span class="fc" id="L409">        		auxString += &quot;&lt;&quot; + request.getURI() + &quot;/&quot; + groupName + &quot;&gt;;rt=\&quot;core.osc.gconf\&quot;&quot;;</span>
+<span class="nc" id="L409">        		auxString += &quot;&lt;&quot; + request.getURI() + &quot;/&quot; + groupName + &quot;&gt;;rt=\&quot;core.osc.gconf\&quot;&quot;;</span>
 			}
 
-<span class="fc" id="L412">    	}</span>
+<span class="nc" id="L412">    	}</span>
     	
     	
     	// Respond to the request for retrieving a list of Group Configurations by filters
         
-<span class="fc" id="L417">    	Response coapResponse = new Response(CoAP.ResponseCode.CONTENT);</span>
+<span class="nc" id="L417">    	Response coapResponse = new Response(CoAP.ResponseCode.CONTENT);</span>
 
-<span class="pc bpc" id="L419" title="1 of 2 branches missed.">    	if (this.existingGroupInfo.size() != 0) {</span>
-<span class="fc" id="L420">        	byte[] responsePayload = auxString.getBytes(Constants.charset);</span>
-<span class="fc" id="L421">        	coapResponse.setPayload(responsePayload);</span>
-<span class="fc" id="L422">    		coapResponse.getOptions().setContentFormat(MediaTypeRegistry.APPLICATION_LINK_FORMAT);</span>
+<span class="nc bnc" id="L419" title="All 2 branches missed.">    	if (this.existingGroupInfo.size() != 0) {</span>
+<span class="nc" id="L420">        	byte[] responsePayload = auxString.getBytes(Constants.charset);</span>
+<span class="nc" id="L421">        	coapResponse.setPayload(responsePayload);</span>
+<span class="nc" id="L422">    		coapResponse.getOptions().setContentFormat(MediaTypeRegistry.APPLICATION_LINK_FORMAT);</span>
     	}
 
-<span class="fc" id="L425">    	exchange.respond(coapResponse);</span>
+<span class="nc" id="L425">    	exchange.respond(coapResponse);</span>
 
-<span class="fc" id="L427">    }</span>
+<span class="nc" id="L427">    }</span>
     
     @Override
     public synchronized void handlePOST(CoapExchange exchange) {
         
-<span class="fc" id="L432">    	System.out.println(&quot;POST request reached the GM at /&quot; + groupCollectionResourcePath);</span>
+<span class="nc" id="L432">    	System.out.println(&quot;POST request reached the GM at /&quot; + groupCollectionResourcePath);</span>
     	
     	// Process the request for creating a new Group Configuration
     	
-<span class="fc" id="L436">    	String subject = null;</span>
-<span class="fc" id="L437">    	String errorString = null;</span>
+<span class="nc" id="L436">    	String subject = null;</span>
+<span class="nc" id="L437">    	String errorString = null;</span>
     	
-<span class="fc" id="L439">    	Request request = exchange.advanced().getCurrentRequest();</span>
+<span class="nc" id="L439">    	Request request = exchange.advanced().getCurrentRequest();</span>
         
         try {
-<span class="fc" id="L442">			subject = CoapReq.getInstance(request).getSenderId();</span>
+<span class="nc" id="L442">			subject = CoapReq.getInstance(request).getSenderId();</span>
 <span class="nc" id="L443">		} catch (AceException e) {</span>
 <span class="nc" id="L444">		    System.err.println(&quot;Error while retrieving the client identity: &quot; + e.getMessage());</span>
-<span class="fc" id="L445">		}</span>
-<span class="pc bpc" id="L446" title="1 of 2 branches missed.">        if (subject == null) {</span>
+<span class="nc" id="L445">		}</span>
+<span class="nc bnc" id="L446" title="All 2 branches missed.">        if (subject == null) {</span>
         	// At this point, this should not really happen, due to the earlier check at the Token Repository
 <span class="nc" id="L448">        	errorString = new String(&quot;Unauthenticated client tried to get access&quot;);</span>
 <span class="nc" id="L449">        	System.err.println(errorString);</span>
@@ -452,54 +452,54 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
         }
         
     	// Check that at least one scope entry in the access token allows the &quot;Create&quot; admin permission
-<span class="fc" id="L455">        boolean permitted = false;</span>
-<span class="fc" id="L456">    	CBORObject[] adminScopeEntries = Util.getGroupOSCOREAdminPermissionsFromToken(subject, null);</span>
-<span class="pc bpc" id="L457" title="1 of 2 branches missed.">    	if (adminScopeEntries == null) {</span>
+<span class="nc" id="L455">        boolean permitted = false;</span>
+<span class="nc" id="L456">    	CBORObject[] adminScopeEntries = Util.getGroupOSCOREAdminPermissionsFromToken(subject, null);</span>
+<span class="nc bnc" id="L457" title="All 2 branches missed.">    	if (adminScopeEntries == null) {</span>
 <span class="nc" id="L458">        	errorString = new String(&quot;Operation not permitted&quot;);</span>
 <span class="nc" id="L459">    		System.err.println(errorString);</span>
 <span class="nc" id="L460">    		exchange.respond(CoAP.ResponseCode.FORBIDDEN, errorString);</span>
 <span class="nc" id="L461">    		return;</span>
     	}
 
-<span class="pc bpc" id="L464" title="1 of 2 branches missed.">    	for (int i = 0; i &lt; adminScopeEntries.length; i++) {</span>
+<span class="nc bnc" id="L464" title="All 2 branches missed.">    	for (int i = 0; i &lt; adminScopeEntries.length; i++) {</span>
     		try {
-<span class="fc" id="L466">        		short permissions = (short) adminScopeEntries[i].get(1).AsInt32(); </span>
-<span class="fc" id="L467">        		permitted = Util.checkGroupOSCOREAdminPermission(permissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);</span>
+<span class="nc" id="L466">        		short permissions = (short) adminScopeEntries[i].get(1).AsInt32(); </span>
+<span class="nc" id="L467">        		permitted = Util.checkGroupOSCOREAdminPermission(permissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE);</span>
 <span class="nc" id="L468">			} catch (AceException e) {</span>
 <span class="nc" id="L469">				System.err.println(&quot;Error while verifying the admin permissions: &quot; + e.getMessage());</span>
-<span class="fc" id="L470">			}</span>
-<span class="pc bpc" id="L471" title="1 of 2 branches missed.">    		if (permitted) {</span>
-<span class="fc" id="L472">    			break;</span>
+<span class="nc" id="L470">			}</span>
+<span class="nc bnc" id="L471" title="All 2 branches missed.">    		if (permitted) {</span>
+<span class="nc" id="L472">    			break;</span>
     		}
     	}
-<span class="pc bpc" id="L475" title="1 of 2 branches missed.">    	if (!permitted) {</span>
+<span class="nc bnc" id="L475" title="All 2 branches missed.">    	if (!permitted) {</span>
 <span class="nc" id="L476">        	errorString = new String(&quot;Operation not permitted&quot;);</span>
 <span class="nc" id="L477">    		System.err.println(errorString);</span>
 <span class="nc" id="L478">    		exchange.respond(CoAP.ResponseCode.FORBIDDEN, errorString);</span>
 <span class="nc" id="L479">    		return;</span>
     	}
     	
-<span class="fc" id="L482">    	byte[] requestPayload = exchange.getRequestPayload();</span>
+<span class="nc" id="L482">    	byte[] requestPayload = exchange.getRequestPayload();</span>
     	
-<span class="pc bpc" id="L484" title="2 of 4 branches missed.">    	if(requestPayload == null || (requestPayload.length == 0)) {</span>
+<span class="nc bnc" id="L484" title="All 4 branches missed.">    	if(requestPayload == null || (requestPayload.length == 0)) {</span>
 <span class="nc" id="L485">        	errorString = new String(&quot;A payload must be present&quot;);</span>
 <span class="nc" id="L486">    		System.err.println(errorString);</span>
 <span class="nc" id="L487">    		exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorString);</span>
 <span class="nc" id="L488">    		return;</span>
     	}
     	
-<span class="pc bpc" id="L491" title="1 of 2 branches missed.">    	if(exchange.getRequestOptions().hasContentFormat() == false ||</span>
-<span class="pc bpc" id="L492" title="1 of 2 branches missed.">    	   exchange.getRequestOptions().getContentFormat() != Constants.APPLICATION_ACE_GROUPCOMM_CBOR) {</span>
+<span class="nc bnc" id="L491" title="All 2 branches missed.">    	if(exchange.getRequestOptions().hasContentFormat() == false ||</span>
+<span class="nc bnc" id="L492" title="All 2 branches missed.">    	   exchange.getRequestOptions().getContentFormat() != Constants.APPLICATION_ACE_GROUPCOMM_CBOR) {</span>
 <span class="nc" id="L493">        	errorString = new String(&quot;The CoAP option Content-Format must be present, with value application/ace-groupcomm+cbor&quot;);</span>
 <span class="nc" id="L494">    		System.err.println(errorString);</span>
 <span class="nc" id="L495">    		exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorString);</span>
 <span class="nc" id="L496">    		return;</span>
     	}
 
-<span class="fc" id="L499">    	CBORObject requestCBOR = CBORObject.DecodeFromBytes(requestPayload);</span>
+<span class="nc" id="L499">    	CBORObject requestCBOR = CBORObject.DecodeFromBytes(requestPayload);</span>
     	
     	// The payload of the request must be a CBOR Map
-<span class="pc bpc" id="L502" title="1 of 2 branches missed.">    	if (!requestCBOR.getType().equals(CBORType.Map)) {</span>
+<span class="nc bnc" id="L502" title="All 2 branches missed.">    	if (!requestCBOR.getType().equals(CBORType.Map)) {</span>
 <span class="nc" id="L503">        	errorString = new String(&quot;Invalid payload format&quot;);</span>
 <span class="nc" id="L504">    		System.err.println(errorString);</span>
 <span class="nc" id="L505">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorString);</span>
@@ -507,7 +507,7 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
     	}
     	
     	// The payload of the request must include the status parameter 'group_name'
-<span class="pc bpc" id="L510" title="1 of 2 branches missed.">    	if (!requestCBOR.getKeys().contains(GroupcommParameters.GROUP_NAME)) {</span>
+<span class="nc bnc" id="L510" title="All 2 branches missed.">    	if (!requestCBOR.getKeys().contains(GroupcommParameters.GROUP_NAME)) {</span>
 <span class="nc" id="L511">    		errorString = new String(&quot;The status parameter 'group_name' must be present&quot;);</span>
 <span class="nc" id="L512">    		System.err.println(errorString);</span>
 <span class="nc" id="L513">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorString);</span>
@@ -517,11 +517,11 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
     	// The payload of the request must not include:
     	// - The status parameters 'rt', 'ace_groupcomm_profile', and 'joining_uri'
     	// - The parameters 'conf_filter' and 'app_groups_diff', as not pertaining to this request
-<span class="pc bpc" id="L520" title="1 of 2 branches missed.">    	if (requestCBOR.getKeys().contains(GroupcommParameters.RT) ||</span>
-<span class="pc bpc" id="L521" title="1 of 2 branches missed.">    		requestCBOR.getKeys().contains(GroupcommParameters.ACE_GROUPCOMM_PROFILE) ||</span>
-<span class="pc bpc" id="L522" title="1 of 2 branches missed.">    		requestCBOR.getKeys().contains(GroupcommParameters.JOINING_URI) ||</span>
-<span class="pc bpc" id="L523" title="1 of 2 branches missed.">    		requestCBOR.getKeys().contains(GroupcommParameters.CONF_FILTER) ||</span>
-<span class="pc bpc" id="L524" title="1 of 2 branches missed.">    		requestCBOR.getKeys().contains(GroupcommParameters.APP_GROUPS_DIFF)) {</span>
+<span class="nc bnc" id="L520" title="All 2 branches missed.">    	if (requestCBOR.getKeys().contains(GroupcommParameters.RT) ||</span>
+<span class="nc bnc" id="L521" title="All 2 branches missed.">    		requestCBOR.getKeys().contains(GroupcommParameters.ACE_GROUPCOMM_PROFILE) ||</span>
+<span class="nc bnc" id="L522" title="All 2 branches missed.">    		requestCBOR.getKeys().contains(GroupcommParameters.JOINING_URI) ||</span>
+<span class="nc bnc" id="L523" title="All 2 branches missed.">    		requestCBOR.getKeys().contains(GroupcommParameters.CONF_FILTER) ||</span>
+<span class="nc bnc" id="L524" title="All 2 branches missed.">    		requestCBOR.getKeys().contains(GroupcommParameters.APP_GROUPS_DIFF)) {</span>
 <span class="nc" id="L525">			errorString = new String(&quot;Invalid set of parameters in the request&quot;);</span>
 <span class="nc" id="L526">    		System.err.println(errorString);</span>
 <span class="nc" id="L527">    		exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorString);</span>
@@ -529,7 +529,7 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
     	}
     	
     	// This Group Manager does not support RSA an signature algorithm
-<span class="pc bpc" id="L532" title="1 of 2 branches missed.">		if (requestCBOR.getKeys().contains(GroupcommParameters.SIGN_ALG)) {</span>
+<span class="nc bnc" id="L532" title="All 2 branches missed.">		if (requestCBOR.getKeys().contains(GroupcommParameters.SIGN_ALG)) {</span>
 <span class="nc" id="L533">    		CBORObject signAlg = requestCBOR.get(GroupcommParameters.SIGN_ALG);</span>
 <span class="nc bnc" id="L534" title="All 2 branches missed.">    		if (signAlg.equals(AlgorithmID.RSA_PSS_256.AsCBOR()) ||</span>
 <span class="nc bnc" id="L535" title="All 2 branches missed.">    			signAlg.equals(AlgorithmID.RSA_PSS_384.AsCBOR()) ||</span>
@@ -553,45 +553,45 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
 			}
 		}
     	
-<span class="fc bfc" id="L556" title="All 2 branches covered.">    	for (CBORObject key : requestCBOR.getKeys()) {</span>
-<span class="pc bpc" id="L557" title="1 of 2 branches missed.">    		if (!GroupcommParameters.isAdminRequestParameterMeaningful(key, requestCBOR.get(key))) {</span>
+<span class="nc bnc" id="L556" title="All 2 branches missed.">    	for (CBORObject key : requestCBOR.getKeys()) {</span>
+<span class="nc bnc" id="L557" title="All 2 branches missed.">    		if (!GroupcommParameters.isAdminRequestParameterMeaningful(key, requestCBOR.get(key))) {</span>
 <span class="nc" id="L558">    			errorString = new String(&quot;Malformed or unrecognized paramemeter with CBOR abbreviation: &quot; + key.AsInt32());</span>
 <span class="nc" id="L559">    			System.err.println(errorString);</span>
 <span class="nc" id="L560">    			exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorString);</span>
 <span class="nc" id="L561">    			return;</span>
     		}
-<span class="fc" id="L563">    	}</span>
+<span class="nc" id="L563">    	}</span>
 
-<span class="fc" id="L565">    	CBORObject ret = createNewGroupConfiguration(request, adminScopeEntries);</span>
+<span class="nc" id="L565">    	CBORObject ret = createNewGroupConfiguration(request, adminScopeEntries);</span>
     	    	
     	// Respond to the request for creating a new Group Configuration
         
-<span class="fc" id="L569">    	ResponseCode responseCode = CoAP.ResponseCode.valueOf(ret.get(0).AsInt32());</span>
-<span class="fc" id="L570">    	Response coapResponse = new Response(responseCode);</span>
-<span class="pc bpc" id="L571" title="1 of 2 branches missed.">    	if (ret.get(1) != null) {</span>
-<span class="fc" id="L572">    		int contentFormat = ret.get(1).AsInt32();</span>
-<span class="fc" id="L573">        	coapResponse.getOptions().setContentFormat(contentFormat);</span>
+<span class="nc" id="L569">    	ResponseCode responseCode = CoAP.ResponseCode.valueOf(ret.get(0).AsInt32());</span>
+<span class="nc" id="L570">    	Response coapResponse = new Response(responseCode);</span>
+<span class="nc bnc" id="L571" title="All 2 branches missed.">    	if (ret.get(1) != null) {</span>
+<span class="nc" id="L572">    		int contentFormat = ret.get(1).AsInt32();</span>
+<span class="nc" id="L573">        	coapResponse.getOptions().setContentFormat(contentFormat);</span>
 
-<span class="fc" id="L575">			String groupName = ret.get(ret.size() - 1).get(GroupcommParameters.GROUP_NAME).AsString();</span>
-<span class="fc" id="L576">			String locationPath = new String(groupCollectionResourcePath + &quot;/&quot; + groupName);</span>
+<span class="nc" id="L575">			String groupName = ret.get(ret.size() - 1).get(GroupcommParameters.GROUP_NAME).AsString();</span>
+<span class="nc" id="L576">			String locationPath = new String(groupCollectionResourcePath + &quot;/&quot; + groupName);</span>
 
-<span class="fc" id="L578">			coapResponse.getOptions().setLocationPath(locationPath);</span>
+<span class="nc" id="L578">			coapResponse.getOptions().setLocationPath(locationPath);</span>
     	}
-<span class="fc" id="L580">    	byte[] responsePayload = null;</span>
-<span class="pc bpc" id="L581" title="1 of 2 branches missed.">    	if (ret.get(2) == null) {</span>
+<span class="nc" id="L580">    	byte[] responsePayload = null;</span>
+<span class="nc bnc" id="L581" title="All 2 branches missed.">    	if (ret.get(2) == null) {</span>
 <span class="nc" id="L582">    		responsePayload = Bytes.EMPTY;</span>
     	}
-<span class="pc bpc" id="L584" title="1 of 2 branches missed.">    	else if (ret.get(2).getType() == CBORType.Map) {</span>
-<span class="fc" id="L585">    		responsePayload = ret.get(2).EncodeToBytes();</span>
+<span class="nc bnc" id="L584" title="All 2 branches missed.">    	else if (ret.get(2).getType() == CBORType.Map) {</span>
+<span class="nc" id="L585">    		responsePayload = ret.get(2).EncodeToBytes();</span>
     	}
 <span class="nc bnc" id="L587" title="All 2 branches missed.">    	else if (ret.get(2).getType() == CBORType.TextString) {</span>
 <span class="nc" id="L588">    		responsePayload = ret.get(2).AsString().getBytes(Constants.charset);</span>
     	}
-<span class="fc" id="L590">    	coapResponse.setPayload(responsePayload);</span>
+<span class="nc" id="L590">    	coapResponse.setPayload(responsePayload);</span>
 
-<span class="fc" id="L592">    	exchange.respond(coapResponse);</span>
+<span class="nc" id="L592">    	exchange.respond(coapResponse);</span>
     	
-<span class="fc" id="L594">    }</span>
+<span class="nc" id="L594">    }</span>
     
 	/**
      * Create a new group-configuration resource
@@ -606,16 +606,16 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
      */
     private CBORObject createNewGroupConfiguration(final Request request, final CBORObject[] adminScopeEntries) {
     	
-<span class="fc" id="L609">    	String groupName = null;</span>
-<span class="fc" id="L610">    	CBORObject ret = CBORObject.NewArray();</span>
+<span class="nc" id="L609">    	String groupName = null;</span>
+<span class="nc" id="L610">    	CBORObject ret = CBORObject.NewArray();</span>
     	
-<span class="fc" id="L612">    	CBORObject requestCBOR = CBORObject.DecodeFromBytes(request.getPayload());</span>
+<span class="nc" id="L612">    	CBORObject requestCBOR = CBORObject.DecodeFromBytes(request.getPayload());</span>
 
     	// Build a preliminary group configuration, with the final name still to be determined
-<span class="fc" id="L615">    	CBORObject buildOutput = GroupOSCOREGroupConfigurationResource.buildGroupConfiguration(requestCBOR, null);</span>
+<span class="nc" id="L615">    	CBORObject buildOutput = GroupOSCOREGroupConfigurationResource.buildGroupConfiguration(requestCBOR, null);</span>
     	
     	// In case of failure, return the information to return an error response to the Administrator
-<span class="pc bpc" id="L618" title="1 of 2 branches missed.">    	if (buildOutput.size() == 3) {</span>
+<span class="nc bnc" id="L618" title="All 2 branches missed.">    	if (buildOutput.size() == 3) {</span>
 
 <span class="nc bnc" id="L620" title="All 2 branches missed.">    		for (int i = 0; i &lt; buildOutput.size(); i++) {</span>
 <span class="nc" id="L621">    			ret.Add(buildOutput.get(i));</span>
@@ -624,10 +624,10 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
     	}
     	
     	// Determine the group name to use
-<span class="fc" id="L627">    	String proposedName = requestCBOR.get(GroupcommParameters.GROUP_NAME).AsString();</span>
-<span class="fc" id="L628">    	groupName = allocateGroupName(proposedName, adminScopeEntries);</span>
+<span class="nc" id="L627">    	String proposedName = requestCBOR.get(GroupcommParameters.GROUP_NAME).AsString();</span>
+<span class="nc" id="L628">    	groupName = allocateGroupName(proposedName, adminScopeEntries);</span>
     	
-<span class="pc bpc" id="L630" title="1 of 2 branches missed.">    	if (groupName == null) {</span>
+<span class="nc bnc" id="L630" title="All 2 branches missed.">    	if (groupName == null) {</span>
     		// No available and suitable name could be allocated for the new group.
     		//
     		// Return the information for replying with an error response.
@@ -647,40 +647,40 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
     	// The new name is available and suitable. Add the group configuration to the collection
     	
     	// Complete the group configuration with the selected group name
-<span class="fc" id="L650">    	CBORObject groupConfiguration = buildOutput.get(3);</span>
-<span class="fc" id="L651">    	groupConfiguration.Add(GroupcommParameters.GROUP_NAME, groupName);</span>
+<span class="nc" id="L650">    	CBORObject groupConfiguration = buildOutput.get(3);</span>
+<span class="nc" id="L651">    	groupConfiguration.Add(GroupcommParameters.GROUP_NAME, groupName);</span>
     	
     	// Complete the group configuration with the URI of the associated group-membership resource
-<span class="fc" id="L654">    	String requestUri = request.getURI();</span>
-<span class="fc" id="L655">    	int index = requestUri.lastIndexOf(super.getURI());</span>
-<span class="fc" id="L656">    	String baseUri = request.getURI().substring(0, index + 1);</span>
-<span class="fc" id="L657">    	String joiningUri = baseUri + rootGroupMembershipResourcePath + &quot;/&quot; + groupName;</span>
-<span class="fc" id="L658">    	groupConfiguration.Add(GroupcommParameters.JOINING_URI, joiningUri);</span>
+<span class="nc" id="L654">    	String requestUri = request.getURI();</span>
+<span class="nc" id="L655">    	int index = requestUri.lastIndexOf(super.getURI());</span>
+<span class="nc" id="L656">    	String baseUri = request.getURI().substring(0, index + 1);</span>
+<span class="nc" id="L657">    	String joiningUri = baseUri + rootGroupMembershipResourcePath + &quot;/&quot; + groupName;</span>
+<span class="nc" id="L658">    	groupConfiguration.Add(GroupcommParameters.JOINING_URI, joiningUri);</span>
     	
     	// Complete the group configuration with the URI of the associated Authorization Server
-<span class="fc" id="L661">    	groupConfiguration.Add(GroupcommParameters.AS_URI, this.asUri);</span>
+<span class="nc" id="L661">    	groupConfiguration.Add(GroupcommParameters.AS_URI, this.asUri);</span>
     	
-<span class="fc" id="L663">    	GroupOSCOREGroupConfigurationResource groupConfigurationResource = null;</span>
+<span class="nc" id="L663">    	GroupOSCOREGroupConfigurationResource groupConfigurationResource = null;</span>
     	
-<span class="fc" id="L665">    	synchronized(groupConfigurationResources) {</span>
-<span class="fc" id="L666">            groupConfigurationResource =  new GroupOSCOREGroupConfigurationResource(groupName, groupConfiguration,</span>
+<span class="nc" id="L665">    	synchronized(groupConfigurationResources) {</span>
+<span class="nc" id="L666">            groupConfigurationResource =  new GroupOSCOREGroupConfigurationResource(groupName, groupConfiguration,</span>
             																		this.groupConfigurationResources,
 														  							this.existingGroupInfo);
-<span class="fc" id="L669">            groupConfigurationResources.put(groupName, groupConfigurationResource);</span>
+<span class="nc" id="L669">            groupConfigurationResources.put(groupName, groupConfigurationResource);</span>
             	
-<span class="fc" id="L671">    	}</span>
+<span class="nc" id="L671">    	}</span>
 
-<span class="fc" id="L673">    	Set&lt;Short&gt; actions = new HashSet&lt;&gt;();</span>
-<span class="fc" id="L674">    	actions.add(Constants.GET);</span>
-<span class="fc" id="L675">    	actions.add(Constants.FETCH);</span>
-<span class="fc" id="L676">    	actions.add(Constants.POST);</span>
-<span class="fc" id="L677">    	actions.add(Constants.PATCH);</span>
-<span class="fc" id="L678">    	actions.add(Constants.iPATCH);</span>
-<span class="fc" id="L679">    	actions.add(Constants.DELETE);</span>
-<span class="fc" id="L680">    	this.myScopes.get(groupCollectionResourcePath).put(groupCollectionResourcePath + &quot;/&quot; + groupName, actions);</span>
+<span class="nc" id="L673">    	Set&lt;Short&gt; actions = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L674">    	actions.add(Constants.GET);</span>
+<span class="nc" id="L675">    	actions.add(Constants.FETCH);</span>
+<span class="nc" id="L676">    	actions.add(Constants.POST);</span>
+<span class="nc" id="L677">    	actions.add(Constants.PATCH);</span>
+<span class="nc" id="L678">    	actions.add(Constants.iPATCH);</span>
+<span class="nc" id="L679">    	actions.add(Constants.DELETE);</span>
+<span class="nc" id="L680">    	this.myScopes.get(groupCollectionResourcePath).put(groupCollectionResourcePath + &quot;/&quot; + groupName, actions);</span>
     	
     	try {
-<span class="fc" id="L683">			this.valid.setGroupAdminResources(Collections.singleton(groupCollectionResourcePath + &quot;/&quot; + groupName));</span>
+<span class="nc" id="L683">			this.valid.setGroupAdminResources(Collections.singleton(groupCollectionResourcePath + &quot;/&quot; + groupName));</span>
 <span class="nc" id="L684">		} catch (AceException e) {</span>
 <span class="nc" id="L685">			groupConfigurationResources.remove(groupName); // rollback</span>
 <span class="nc" id="L686">			myScopes.get(groupCollectionResourcePath).remove(groupCollectionResourcePath + &quot;/&quot; + groupName); // rollback</span>
@@ -692,30 +692,30 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
 <span class="nc" id="L692">    		ret.Add(payloadCBOR);</span>
 <span class="nc" id="L693">    		System.err.println(errorString + &quot;\n&quot; + e.getMessage());</span>
 <span class="nc" id="L694">    		return ret;</span>
-<span class="fc" id="L695">		}</span>
+<span class="nc" id="L695">		}</span>
 
-<span class="fc" id="L697">    	this.add(groupConfigurationResource);</span>
+<span class="nc" id="L697">    	this.add(groupConfigurationResource);</span>
     	
     	
     	// Create the group-membership resource and make it actually accessible
     	
-<span class="fc" id="L702">    	createGroupMembershipResource(groupConfigurationResource.getConfigurationParameters());</span>
+<span class="nc" id="L702">    	createGroupMembershipResource(groupConfigurationResource.getConfigurationParameters());</span>
     	
     	
     	// Finalize the payload for the response to the Administrator
     	
-<span class="fc" id="L707">    	CBORObject finalPayloadCBOR = CBORObject.NewMap();</span>
+<span class="nc" id="L707">    	CBORObject finalPayloadCBOR = CBORObject.NewMap();</span>
     	
-<span class="fc" id="L709">    	finalPayloadCBOR = buildOutput.get(2);    	</span>
-<span class="fc" id="L710">    	finalPayloadCBOR.Add(GroupcommParameters.GROUP_NAME, groupName);</span>
-<span class="fc" id="L711">    	finalPayloadCBOR.Add(GroupcommParameters.JOINING_URI, joiningUri);</span>
-<span class="fc" id="L712">    	finalPayloadCBOR.Add(GroupcommParameters.AS_URI, this.asUri);</span>
+<span class="nc" id="L709">    	finalPayloadCBOR = buildOutput.get(2);    	</span>
+<span class="nc" id="L710">    	finalPayloadCBOR.Add(GroupcommParameters.GROUP_NAME, groupName);</span>
+<span class="nc" id="L711">    	finalPayloadCBOR.Add(GroupcommParameters.JOINING_URI, joiningUri);</span>
+<span class="nc" id="L712">    	finalPayloadCBOR.Add(GroupcommParameters.AS_URI, this.asUri);</span>
     	
-<span class="fc" id="L714">    	ret.Add(buildOutput.get(0));</span>
-<span class="fc" id="L715">    	ret.Add(buildOutput.get(1));</span>
-<span class="fc" id="L716">    	ret.Add(finalPayloadCBOR);</span>
+<span class="nc" id="L714">    	ret.Add(buildOutput.get(0));</span>
+<span class="nc" id="L715">    	ret.Add(buildOutput.get(1));</span>
+<span class="nc" id="L716">    	ret.Add(finalPayloadCBOR);</span>
     	
-<span class="fc" id="L718">    	return ret;</span>
+<span class="nc" id="L718">    	return ret;</span>
     	
     }
 
@@ -732,36 +732,36 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
      */
     private String allocateGroupName(final String proposedGroupName, final CBORObject[] adminScopeEntries) {
     	
-<span class="fc" id="L735">    	String newName = null;</span>
+<span class="nc" id="L735">    	String newName = null;</span>
     	
-<span class="fc" id="L737">    	synchronized (groupConfigurationResources) {</span>
+<span class="nc" id="L737">    	synchronized (groupConfigurationResources) {</span>
     		
-<span class="fc bfc" id="L739" title="All 2 branches covered.">        	if (!groupConfigurationResources.containsKey(proposedGroupName)) {</span>
+<span class="nc bnc" id="L739" title="All 2 branches missed.">        	if (!groupConfigurationResources.containsKey(proposedGroupName)) {</span>
         		// The proposed name is available.
         		
         		// Check if there is at least one scope entry such that the name matches the name pattern
         		// and the set of permissions includes the &quot;Create&quot; admin permission
-<span class="fc" id="L744">        		boolean permitted = false;</span>
+<span class="nc" id="L744">        		boolean permitted = false;</span>
         		
-<span class="pc bpc" id="L746" title="1 of 2 branches missed.">        		for (int i = 0; i &lt; adminScopeEntries.length; i++) {</span>
+<span class="nc bnc" id="L746" title="All 2 branches missed.">        		for (int i = 0; i &lt; adminScopeEntries.length; i++) {</span>
         		    try {
-<span class="fc" id="L748">        		        short permissions = (short) adminScopeEntries[i].get(1).AsInt32();</span>
-<span class="pc bpc" id="L749" title="1 of 2 branches missed.">        		        if (Util.checkGroupOSCOREAdminPermission(permissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE)) {</span>
-<span class="fc" id="L750">        		        	permitted = Util.matchingGroupOscoreName(proposedGroupName, adminScopeEntries[i].get(0));</span>
+<span class="nc" id="L748">        		        short permissions = (short) adminScopeEntries[i].get(1).AsInt32();</span>
+<span class="nc bnc" id="L749" title="All 2 branches missed.">        		        if (Util.checkGroupOSCOREAdminPermission(permissions, GroupcommParameters.GROUP_OSCORE_ADMIN_CREATE)) {</span>
+<span class="nc" id="L750">        		        	permitted = Util.matchingGroupOscoreName(proposedGroupName, adminScopeEntries[i].get(0));</span>
         		        }
 <span class="nc" id="L752">        		    } catch (AceException e) {</span>
 <span class="nc" id="L753">        		        System.err.println(&quot;Error while verifying the admin permissions: &quot; + e.getMessage());</span>
-<span class="fc" id="L754">        		    }</span>
-<span class="fc bfc" id="L755" title="All 2 branches covered.">        		    if (permitted) {</span>
-<span class="fc" id="L756">        		        break;</span>
+<span class="nc" id="L754">        		    }</span>
+<span class="nc bnc" id="L755" title="All 2 branches missed.">        		    if (permitted) {</span>
+<span class="nc" id="L756">        		        break;</span>
         		    }
         		}
-<span class="pc bpc" id="L759" title="1 of 2 branches missed.">        		if (permitted) {</span>
+<span class="nc bnc" id="L759" title="All 2 branches missed.">        		if (permitted) {</span>
 	        		// Reserve the proposed name, by adding a dummy entry
 	        		// in the collection of group-configuration resources
-<span class="fc" id="L762">	        		newName = new String(proposedGroupName);</span>
-<span class="fc" id="L763">	        		groupConfigurationResources.put(newName, null);</span>
-<span class="fc" id="L764">	        		return newName;</span>
+<span class="nc" id="L762">	        		newName = new String(proposedGroupName);</span>
+<span class="nc" id="L763">	        		groupConfigurationResources.put(newName, null);</span>
+<span class="nc" id="L764">	        		return newName;</span>
         		}
         	}
         	// The proposed group name is not available, or the requesting Administrator does not
@@ -769,17 +769,17 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
         	
         	// The result is either a group name that is available and can be given to a group
         	// created by the requesting Administrator, or null if no group name could be found
-<span class="fc" id="L772">        	newName = findAlternativeGroupName(proposedGroupName, adminScopeEntries);</span>
+<span class="nc" id="L772">        	newName = findAlternativeGroupName(proposedGroupName, adminScopeEntries);</span>
         	
-<span class="pc bpc" id="L774" title="1 of 2 branches missed.">    		if (newName != null) {</span>
+<span class="nc bnc" id="L774" title="All 2 branches missed.">    		if (newName != null) {</span>
         		// Reserve the proposed name, by adding a dummy entry
         		// in the collection of group-configuration resources
-<span class="fc" id="L777">        		groupConfigurationResources.put(newName, null);</span>
+<span class="nc" id="L777">        		groupConfigurationResources.put(newName, null);</span>
     		}
     		
-<span class="fc" id="L780">    	}</span>
+<span class="nc" id="L780">    	}</span>
     	
-<span class="fc" id="L782">    	return newName;</span>
+<span class="nc" id="L782">    	return newName;</span>
     	
     }
     
@@ -795,51 +795,51 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
 
     	// The set of permissions resulting from the union of the Tperm of all the admin scope entries whose Toid is the
     	// wildcard name pattern. That is, any possible group name is associated with at least this set of permissions.
-<span class="fc" id="L798">    	int basePermissions = 0;</span>
+<span class="nc" id="L798">    	int basePermissions = 0;</span>
     	
     	// The set of permissions that the requesting Administrator has for the originally proposed group name 'proposedGroupName'.
     	// This is the union of the Tperm values from the admin scope entries against whose Toid 'proposedGroupName' matches.
     	// If an alternative group name is found, this must be associated with exactly the same set of permissions (no more, no less).
-<span class="fc" id="L803">    	int targetPermissions = 0;   </span>
+<span class="nc" id="L803">    	int targetPermissions = 0;   </span>
     	
     	// The admin scope entries for this Administrator such that their Toid is a literal name pattern.
     	// This does not include the entry whose Toid is equal to the originally proposed group name.
-<span class="fc" id="L807">    	Set&lt;CBORObject&gt; literalPatternEntries = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L807">    	Set&lt;CBORObject&gt; literalPatternEntries = new HashSet&lt;&gt;();</span>
 
     	// The admin scope entries for this Administrator such that their Toid is a complex name pattern (I-Regexp regular expressions).
-<span class="fc" id="L810">    	Set&lt;CBORObject&gt; complexPatternEntries = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L810">    	Set&lt;CBORObject&gt; complexPatternEntries = new HashSet&lt;&gt;();</span>
     	    	
     	
     	// PHASE 1 - Fill data structures
     	
     	// Go through all the admin scope entries for this Administrator
-<span class="fc bfc" id="L816" title="All 2 branches covered.">    	for (int i = 0; i &lt; adminScopeEntries.length; i++) {</span>
+<span class="nc bnc" id="L816" title="All 2 branches missed.">    	for (int i = 0; i &lt; adminScopeEntries.length; i++) {</span>
     		
-<span class="fc" id="L818">    		CBORObject toid = adminScopeEntries[i].get(0);</span>
-<span class="fc" id="L819">    		short tperm = (short) adminScopeEntries[i].get(1).AsInt32();</span>
+<span class="nc" id="L818">    		CBORObject toid = adminScopeEntries[i].get(0);</span>
+<span class="nc" id="L819">    		short tperm = (short) adminScopeEntries[i].get(1).AsInt32();</span>
     		
     		// Toid is the wildcard pattern
-<span class="pc bpc" id="L822" title="1 of 2 branches missed.">    		if (toid.equals(CBORObject.True)) {</span>
+<span class="nc bnc" id="L822" title="All 2 branches missed.">    		if (toid.equals(CBORObject.True)) {</span>
 <span class="nc" id="L823">    			basePermissions |= tperm;</span>
 <span class="nc" id="L824">    			targetPermissions |= tperm;</span>
     		}
 
-<span class="pc bpc" id="L827" title="1 of 2 branches missed.">    		if ((toid.getType() == CBORType.TextString)) {</span>
+<span class="nc bnc" id="L827" title="All 2 branches missed.">    		if ((toid.getType() == CBORType.TextString)) {</span>
 
-<span class="fc" id="L829">    			String pattern = toid.AsString();</span>
+<span class="nc" id="L829">    			String pattern = toid.AsString();</span>
     			
         		// Toid is a literal pattern
-<span class="pc bpc" id="L832" title="1 of 2 branches missed.">    			if (toid.isTagged() == false) {</span>
-<span class="fc bfc" id="L833" title="All 2 branches covered.">    				if (pattern.equals(proposedGroupName)) {</span>
-<span class="fc" id="L834">    					targetPermissions |= tperm;</span>
+<span class="nc bnc" id="L832" title="All 2 branches missed.">    			if (toid.isTagged() == false) {</span>
+<span class="nc bnc" id="L833" title="All 2 branches missed.">    				if (pattern.equals(proposedGroupName)) {</span>
+<span class="nc" id="L834">    					targetPermissions |= tperm;</span>
     				}
     				else {
-<span class="fc" id="L837">    					literalPatternEntries.add(adminScopeEntries[i]);</span>
+<span class="nc" id="L837">    					literalPatternEntries.add(adminScopeEntries[i]);</span>
     				}
     			}
     			
     			// Toid is a complex pattern (I-Regexp regular expression)
-<span class="pc bpc" id="L842" title="1 of 2 branches missed.">    			if (toid.HasTag(21065)) {</span>
+<span class="nc bnc" id="L842" title="All 2 branches missed.">    			if (toid.HasTag(21065)) {</span>
 <span class="nc" id="L843">    				Pattern pat = Pattern.compile(pattern);</span>
 <span class="nc" id="L844">    				Matcher myMatcher = pat.matcher(proposedGroupName);</span>
 <span class="nc bnc" id="L845" title="All 2 branches missed.">    				if (myMatcher.matches()) {</span>
@@ -856,18 +856,18 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
     	
     	// PHASE 2 - Check if a group name from a stored literal pattern works
     	
-<span class="pc bpc" id="L859" title="1 of 2 branches missed.">    	for (CBORObject entryLiteral : literalPatternEntries) {</span>
+<span class="nc bnc" id="L859" title="All 2 branches missed.">    	for (CBORObject entryLiteral : literalPatternEntries) {</span>
     		
-<span class="fc" id="L861">    		String newName = new String(entryLiteral.get(0).AsString());</span>
+<span class="nc" id="L861">    		String newName = new String(entryLiteral.get(0).AsString());</span>
     		
-<span class="fc" id="L863">    		int newPermissions = basePermissions;</span>
-<span class="fc" id="L864">    		newPermissions |= entryLiteral.get(1).AsInt32();</span>
+<span class="nc" id="L863">    		int newPermissions = basePermissions;</span>
+<span class="nc" id="L864">    		newPermissions |= entryLiteral.get(1).AsInt32();</span>
     		
-<span class="pc bpc" id="L866" title="1 of 4 branches missed.">    		if ((groupConfigurationResources.containsKey(newName)) || (newPermissions &gt; targetPermissions)) {</span>
+<span class="nc bnc" id="L866" title="All 4 branches missed.">    		if ((groupConfigurationResources.containsKey(newName)) || (newPermissions &gt; targetPermissions)) {</span>
 <span class="nc" id="L867">    			continue;</span>
     		}
 
-<span class="pc bpc" id="L870" title="1 of 2 branches missed.">    		for (CBORObject entryComplex : complexPatternEntries) {</span>
+<span class="nc bnc" id="L870" title="All 2 branches missed.">    		for (CBORObject entryComplex : complexPatternEntries) {</span>
 <span class="nc" id="L871">    			String pattern = entryComplex.get(0).AsString();</span>
 <span class="nc" id="L872">				Pattern pat = Pattern.compile(pattern);</span>
 <span class="nc" id="L873">				Matcher myMatcher = pat.matcher(newName);</span>
@@ -880,8 +880,8 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
 				}
 <span class="nc" id="L881">    		}</span>
 
-<span class="pc bpc" id="L883" title="2 of 4 branches missed.">    		if ((newPermissions == targetPermissions) &amp;&amp; (!groupConfigurationResources.containsKey(newName))) {</span>
-<span class="fc" id="L884">    			return newName;</span>
+<span class="nc bnc" id="L883" title="All 4 branches missed.">    		if ((newPermissions == targetPermissions) &amp;&amp; (!groupConfigurationResources.containsKey(newName))) {</span>
+<span class="nc" id="L884">    			return newName;</span>
     		}
     		
 <span class="nc" id="L887">    	}</span>
@@ -1087,172 +1087,172 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
      */
     private boolean createGroupMembershipResource(final CBORObject groupConfiguration) {
     	
-<span class="fc" id="L1090">    	String groupName = groupConfiguration.get(GroupcommParameters.GROUP_NAME).AsString();</span>
+<span class="nc" id="L1090">    	String groupName = groupConfiguration.get(GroupcommParameters.GROUP_NAME).AsString();</span>
     	
     	// Include a new scope associated with the new group-membership resource and its sub-resources
     	
-<span class="fc" id="L1094">    	Map&lt;String, Set&lt;Short&gt;&gt; scopeDescription = new HashMap&lt;&gt;();</span>
-<span class="fc" id="L1095">    	Set&lt;Short&gt; actions = new HashSet&lt;&gt;();</span>
-<span class="fc" id="L1096">    	actions.add(Constants.FETCH);</span>
-<span class="fc" id="L1097">    	scopeDescription.put(rootGroupMembershipResourcePath, actions);</span>
-<span class="fc" id="L1098">    	actions = new HashSet&lt;&gt;();</span>
-<span class="fc" id="L1099">    	actions.add(Constants.GET);</span>
-<span class="fc" id="L1100">    	actions.add(Constants.POST);</span>
-<span class="fc" id="L1101">    	scopeDescription.put(rootGroupMembershipResourcePath + &quot;/&quot; + groupName, actions);</span>
-<span class="fc" id="L1102">    	actions = new HashSet&lt;&gt;();</span>
-<span class="fc" id="L1103">    	actions.add(Constants.GET);</span>
-<span class="fc" id="L1104">    	actions.add(Constants.FETCH);</span>
-<span class="fc" id="L1105">    	scopeDescription.put(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/creds&quot;, actions);</span>
-<span class="fc" id="L1106">    	actions = new HashSet&lt;&gt;();</span>
-<span class="fc" id="L1107">    	actions.add(Constants.GET);</span>
-<span class="fc" id="L1108">    	scopeDescription.put(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/kdc-cred&quot;, actions);</span>
-<span class="fc" id="L1109">    	scopeDescription.put(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/verif-data&quot;, actions);</span>
-<span class="fc" id="L1110">    	scopeDescription.put(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/num&quot;, actions);</span>
-<span class="fc" id="L1111">    	scopeDescription.put(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/active&quot;, actions);</span>
-<span class="fc" id="L1112">    	scopeDescription.put(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/policies&quot;, actions);</span>
-<span class="fc" id="L1113">    	actions = new HashSet&lt;&gt;();</span>
-<span class="fc" id="L1114">    	actions.add(Constants.FETCH);</span>
-<span class="fc" id="L1115">    	scopeDescription.put(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/stale-sids&quot;, actions);</span>
-<span class="fc" id="L1116">    	myScopes.put(rootGroupMembershipResourcePath + &quot;/&quot; + groupName, scopeDescription);</span>
+<span class="nc" id="L1094">    	Map&lt;String, Set&lt;Short&gt;&gt; scopeDescription = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L1095">    	Set&lt;Short&gt; actions = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L1096">    	actions.add(Constants.FETCH);</span>
+<span class="nc" id="L1097">    	scopeDescription.put(rootGroupMembershipResourcePath, actions);</span>
+<span class="nc" id="L1098">    	actions = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L1099">    	actions.add(Constants.GET);</span>
+<span class="nc" id="L1100">    	actions.add(Constants.POST);</span>
+<span class="nc" id="L1101">    	scopeDescription.put(rootGroupMembershipResourcePath + &quot;/&quot; + groupName, actions);</span>
+<span class="nc" id="L1102">    	actions = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L1103">    	actions.add(Constants.GET);</span>
+<span class="nc" id="L1104">    	actions.add(Constants.FETCH);</span>
+<span class="nc" id="L1105">    	scopeDescription.put(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/creds&quot;, actions);</span>
+<span class="nc" id="L1106">    	actions = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L1107">    	actions.add(Constants.GET);</span>
+<span class="nc" id="L1108">    	scopeDescription.put(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/kdc-cred&quot;, actions);</span>
+<span class="nc" id="L1109">    	scopeDescription.put(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/verif-data&quot;, actions);</span>
+<span class="nc" id="L1110">    	scopeDescription.put(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/num&quot;, actions);</span>
+<span class="nc" id="L1111">    	scopeDescription.put(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/active&quot;, actions);</span>
+<span class="nc" id="L1112">    	scopeDescription.put(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/policies&quot;, actions);</span>
+<span class="nc" id="L1113">    	actions = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L1114">    	actions.add(Constants.FETCH);</span>
+<span class="nc" id="L1115">    	scopeDescription.put(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/stale-sids&quot;, actions);</span>
+<span class="nc" id="L1116">    	myScopes.put(rootGroupMembershipResourcePath + &quot;/&quot; + groupName, scopeDescription);</span>
     	
     	
     	// Mark the new group-membership resource and its sub-resources as such for the access Validator
     	
     	try {
-<span class="fc" id="L1122">	    	valid.setGroupMembershipResources(Collections.singleton(rootGroupMembershipResourcePath + &quot;/&quot; + groupName));</span>
-<span class="fc" id="L1123">	    	valid.setGroupMembershipResources(Collections.singleton(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/creds&quot;));</span>
-<span class="fc" id="L1124">	    	valid.setGroupMembershipResources(Collections.singleton(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/kdc-cred&quot;));</span>
-<span class="fc" id="L1125">	    	valid.setGroupMembershipResources(Collections.singleton(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/verif-data&quot;));</span>
-<span class="fc" id="L1126">	    	valid.setGroupMembershipResources(Collections.singleton(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/num&quot;));</span>
-<span class="fc" id="L1127">	    	valid.setGroupMembershipResources(Collections.singleton(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/active&quot;));</span>
-<span class="fc" id="L1128">	    	valid.setGroupMembershipResources(Collections.singleton(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/policies&quot;));</span>
-<span class="fc" id="L1129">	    	valid.setGroupMembershipResources(Collections.singleton(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/stale-sids&quot;));</span>
+<span class="nc" id="L1122">	    	valid.setGroupMembershipResources(Collections.singleton(rootGroupMembershipResourcePath + &quot;/&quot; + groupName));</span>
+<span class="nc" id="L1123">	    	valid.setGroupMembershipResources(Collections.singleton(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/creds&quot;));</span>
+<span class="nc" id="L1124">	    	valid.setGroupMembershipResources(Collections.singleton(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/kdc-cred&quot;));</span>
+<span class="nc" id="L1125">	    	valid.setGroupMembershipResources(Collections.singleton(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/verif-data&quot;));</span>
+<span class="nc" id="L1126">	    	valid.setGroupMembershipResources(Collections.singleton(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/num&quot;));</span>
+<span class="nc" id="L1127">	    	valid.setGroupMembershipResources(Collections.singleton(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/active&quot;));</span>
+<span class="nc" id="L1128">	    	valid.setGroupMembershipResources(Collections.singleton(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/policies&quot;));</span>
+<span class="nc" id="L1129">	    	valid.setGroupMembershipResources(Collections.singleton(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/stale-sids&quot;));</span>
     	}
 <span class="nc" id="L1131">    	catch (AceException e) {</span>
 <span class="nc" id="L1132">    		System.err.println(&quot;Error while verifying the admin permissions: &quot; + e.getMessage());</span>
 <span class="nc" id="L1133">    		return false;</span>
-<span class="fc" id="L1134">    	}</span>
+<span class="nc" id="L1134">    	}</span>
     	
     	
     	// Create the actual associated group-membership resource and its sub-resources
 
     	// Group-membership resource - The name of the OSCORE group is used as resource name
-<span class="fc" id="L1140">    	Resource groupMembershipResource = new GroupOSCOREGroupMembershipResource(groupName,</span>
+<span class="nc" id="L1140">    	Resource groupMembershipResource = new GroupOSCOREGroupMembershipResource(groupName,</span>
     	                                                                          this.existingGroupInfo,
     	                                                                          rootGroupMembershipResourcePath,
     	                                                                          this.myScopes,
     	                                                                          this.valid);
     	// Add the /creds sub-resource
-<span class="fc" id="L1146">    	Resource credsSubResource = new GroupOSCORESubResourceCreds(&quot;creds&quot;, existingGroupInfo);</span>
-<span class="fc" id="L1147">    	groupMembershipResource.add(credsSubResource);</span>
+<span class="nc" id="L1146">    	Resource credsSubResource = new GroupOSCORESubResourceCreds(&quot;creds&quot;, existingGroupInfo);</span>
+<span class="nc" id="L1147">    	groupMembershipResource.add(credsSubResource);</span>
 
     	// Add the /kdc-cred sub-resource
-<span class="fc" id="L1150">    	Resource kdcCredSubResource = new GroupOSCORESubResourceKdcCred(&quot;kdc-cred&quot;, existingGroupInfo);</span>
-<span class="fc" id="L1151">    	groupMembershipResource.add(kdcCredSubResource);</span>
+<span class="nc" id="L1150">    	Resource kdcCredSubResource = new GroupOSCORESubResourceKdcCred(&quot;kdc-cred&quot;, existingGroupInfo);</span>
+<span class="nc" id="L1151">    	groupMembershipResource.add(kdcCredSubResource);</span>
 
     	// Add the /verif-data sub-resource
-<span class="fc" id="L1154">    	Resource verifDataSubResource = new GroupOSCORESubResourceVerifData(&quot;verif-data&quot;, existingGroupInfo);</span>
-<span class="fc" id="L1155">    	groupMembershipResource.add(verifDataSubResource);</span>
+<span class="nc" id="L1154">    	Resource verifDataSubResource = new GroupOSCORESubResourceVerifData(&quot;verif-data&quot;, existingGroupInfo);</span>
+<span class="nc" id="L1155">    	groupMembershipResource.add(verifDataSubResource);</span>
 
     	// Add the /num sub-resource
-<span class="fc" id="L1158">    	Resource numSubResource = new GroupOSCORESubResourceNum(&quot;num&quot;, existingGroupInfo);</span>
-<span class="fc" id="L1159">    	groupMembershipResource.add(numSubResource);</span>
+<span class="nc" id="L1158">    	Resource numSubResource = new GroupOSCORESubResourceNum(&quot;num&quot;, existingGroupInfo);</span>
+<span class="nc" id="L1159">    	groupMembershipResource.add(numSubResource);</span>
 
     	// Add the /active sub-resource
-<span class="fc" id="L1162">    	Resource activeSubResource = new GroupOSCORESubResourceActive(&quot;active&quot;, existingGroupInfo);</span>
-<span class="fc" id="L1163">    	groupMembershipResource.add(activeSubResource);</span>
+<span class="nc" id="L1162">    	Resource activeSubResource = new GroupOSCORESubResourceActive(&quot;active&quot;, existingGroupInfo);</span>
+<span class="nc" id="L1163">    	groupMembershipResource.add(activeSubResource);</span>
 
     	// Add the /policies sub-resource
-<span class="fc" id="L1166">    	Resource policiesSubResource = new GroupOSCORESubResourcePolicies(&quot;policies&quot;, existingGroupInfo);</span>
-<span class="fc" id="L1167">    	groupMembershipResource.add(policiesSubResource);</span>
+<span class="nc" id="L1166">    	Resource policiesSubResource = new GroupOSCORESubResourcePolicies(&quot;policies&quot;, existingGroupInfo);</span>
+<span class="nc" id="L1167">    	groupMembershipResource.add(policiesSubResource);</span>
 
     	// Add the /stale-sids sub-resource
-<span class="fc" id="L1170">    	Resource staleSidsSubResource = new GroupOSCORESubResourceStaleSids(&quot;stale-sids&quot;, existingGroupInfo);</span>
-<span class="fc" id="L1171">    	groupMembershipResource.add(staleSidsSubResource);</span>
+<span class="nc" id="L1170">    	Resource staleSidsSubResource = new GroupOSCORESubResourceStaleSids(&quot;stale-sids&quot;, existingGroupInfo);</span>
+<span class="nc" id="L1171">    	groupMembershipResource.add(staleSidsSubResource);</span>
 
     	// Add the /nodes sub-resource, as root to actually accessible per-node sub-resources
-<span class="fc" id="L1174">    	Resource nodesSubResource = new GroupOSCORESubResourceNodes(&quot;nodes&quot;);</span>
-<span class="fc" id="L1175">    	groupMembershipResource.add(nodesSubResource);</span>
+<span class="nc" id="L1174">    	Resource nodesSubResource = new GroupOSCORESubResourceNodes(&quot;nodes&quot;);</span>
+<span class="nc" id="L1175">    	groupMembershipResource.add(nodesSubResource);</span>
     	
     	
     	// Create the GroupInfo object according to the group configuration
     	
-<span class="fc" id="L1180">    	final byte[] masterSecret = new byte[16];</span>
+<span class="nc" id="L1180">    	final byte[] masterSecret = new byte[16];</span>
     	try {
-<span class="fc" id="L1182">			SecureRandom.getInstanceStrong().nextBytes(masterSecret);</span>
+<span class="nc" id="L1182">			SecureRandom.getInstanceStrong().nextBytes(masterSecret);</span>
 <span class="nc" id="L1183">		} catch (NoSuchAlgorithmException e) {</span>
 <span class="nc" id="L1184">			System.err.println(&quot;Error when generating the OSCORE Master Secret for the OSCORE group with name \&quot;&quot; + groupName + &quot;\&quot;&quot;);</span>
 <span class="nc" id="L1185">			e.printStackTrace();</span>
 <span class="nc" id="L1186">			return false;</span>
-<span class="fc" id="L1187">		}</span>
+<span class="nc" id="L1187">		}</span>
     	
-<span class="fc" id="L1189">    	final byte[] masterSalt = new byte[8];</span>
+<span class="nc" id="L1189">    	final byte[] masterSalt = new byte[8];</span>
     	try {
-<span class="fc" id="L1191">			SecureRandom.getInstanceStrong().nextBytes(masterSalt);</span>
+<span class="nc" id="L1191">			SecureRandom.getInstanceStrong().nextBytes(masterSalt);</span>
 <span class="nc" id="L1192">		} catch (NoSuchAlgorithmException e) {</span>
 <span class="nc" id="L1193">			System.err.println(&quot;Error when generating the OSCORE Master Salt for the OSCORE group with name \&quot;&quot; + groupName + &quot;\&quot;&quot;);</span>
 <span class="nc" id="L1194">			e.printStackTrace();</span>
 <span class="nc" id="L1195">			return false;</span>
-<span class="fc" id="L1196">		}</span>
+<span class="nc" id="L1196">		}</span>
     	
     	final AlgorithmID hkdf;
     	try {
-<span class="fc" id="L1200">			hkdf = AlgorithmID.FromCBOR(groupConfiguration.get(GroupcommParameters.HKDF));</span>
+<span class="nc" id="L1200">			hkdf = AlgorithmID.FromCBOR(groupConfiguration.get(GroupcommParameters.HKDF));</span>
 <span class="nc" id="L1201">		} catch (CoseException e) {</span>
 <span class="nc" id="L1202">			System.err.println(&quot;Error when setting the HKDF Algorithm for the OSCORE group with name \&quot;&quot; + groupName + &quot;\&quot;&quot;);</span>
 <span class="nc" id="L1203">			e.printStackTrace();</span>
 <span class="nc" id="L1204">			return false;</span>
-<span class="fc" id="L1205">		}</span>
+<span class="nc" id="L1205">		}</span>
     	
-<span class="fc" id="L1207">    	final int credFmt = groupConfiguration.get(GroupcommParameters.CRED_FMT).AsInt32();</span>
+<span class="nc" id="L1207">    	final int credFmt = groupConfiguration.get(GroupcommParameters.CRED_FMT).AsInt32();</span>
     	
-<span class="fc" id="L1209">		AlgorithmID gpEncAlg = null;</span>
+<span class="nc" id="L1209">		AlgorithmID gpEncAlg = null;</span>
     	try {
-<span class="pc bpc" id="L1211" title="1 of 2 branches missed.">			if (!groupConfiguration.get(GroupcommParameters.GP_ENC_ALG).isNull()) {</span>
-<span class="fc" id="L1212">				gpEncAlg = AlgorithmID.FromCBOR(groupConfiguration.get(GroupcommParameters.GP_ENC_ALG));</span>
+<span class="nc bnc" id="L1211" title="All 2 branches missed.">			if (!groupConfiguration.get(GroupcommParameters.GP_ENC_ALG).isNull()) {</span>
+<span class="nc" id="L1212">				gpEncAlg = AlgorithmID.FromCBOR(groupConfiguration.get(GroupcommParameters.GP_ENC_ALG));</span>
 			}
 <span class="nc" id="L1214">		} catch (CoseException e) {</span>
 <span class="nc" id="L1215">			System.err.println(&quot;Error when setting the Group Encryption Algorithm for the OSCORE group with name \&quot;&quot; + groupName + &quot;\&quot;&quot;);</span>
 <span class="nc" id="L1216">			e.printStackTrace();</span>
 <span class="nc" id="L1217">			return false;</span>
-<span class="fc" id="L1218">		}</span>
+<span class="nc" id="L1218">		}</span>
     	
-<span class="fc" id="L1220">		AlgorithmID signAlg = null;</span>
+<span class="nc" id="L1220">		AlgorithmID signAlg = null;</span>
     	try {
-<span class="pc bpc" id="L1222" title="1 of 2 branches missed.">			if (!groupConfiguration.get(GroupcommParameters.SIGN_ALG).isNull()) {</span>
-<span class="fc" id="L1223">				signAlg = AlgorithmID.FromCBOR(groupConfiguration.get(GroupcommParameters.SIGN_ALG));</span>
+<span class="nc bnc" id="L1222" title="All 2 branches missed.">			if (!groupConfiguration.get(GroupcommParameters.SIGN_ALG).isNull()) {</span>
+<span class="nc" id="L1223">				signAlg = AlgorithmID.FromCBOR(groupConfiguration.get(GroupcommParameters.SIGN_ALG));</span>
 			}
 <span class="nc" id="L1225">		} catch (CoseException e) {</span>
 <span class="nc" id="L1226">			System.err.println(&quot;Error when setting the Signature Algorithm for the OSCORE group with name \&quot;&quot; + groupName + &quot;\&quot;&quot;);</span>
 <span class="nc" id="L1227">			e.printStackTrace();</span>
 <span class="nc" id="L1228">			return false;</span>
-<span class="fc" id="L1229">		}</span>
+<span class="nc" id="L1229">		}</span>
     	
-<span class="fc" id="L1231">    	final CBORObject signParams = groupConfiguration.get(GroupcommParameters.SIGN_PARAMS);</span>
+<span class="nc" id="L1231">    	final CBORObject signParams = groupConfiguration.get(GroupcommParameters.SIGN_PARAMS);</span>
 
-<span class="fc" id="L1233">		AlgorithmID alg = null;</span>
+<span class="nc" id="L1233">		AlgorithmID alg = null;</span>
     	try {
-<span class="pc bpc" id="L1235" title="1 of 2 branches missed.">			if (!groupConfiguration.get(GroupcommParameters.ALG).isNull()) {</span>
-<span class="fc" id="L1236">				alg = AlgorithmID.FromCBOR(groupConfiguration.get(GroupcommParameters.ALG));</span>
+<span class="nc bnc" id="L1235" title="All 2 branches missed.">			if (!groupConfiguration.get(GroupcommParameters.ALG).isNull()) {</span>
+<span class="nc" id="L1236">				alg = AlgorithmID.FromCBOR(groupConfiguration.get(GroupcommParameters.ALG));</span>
 			}
 <span class="nc" id="L1238">		} catch (CoseException e) {</span>
 <span class="nc" id="L1239">			System.err.println(&quot;Error when setting the AEAD Algorithm for the OSCORE group with name \&quot;&quot; + groupName + &quot;\&quot;&quot;);</span>
 <span class="nc" id="L1240">			e.printStackTrace();</span>
 <span class="nc" id="L1241">			return false;</span>
-<span class="fc" id="L1242">		}</span>
+<span class="nc" id="L1242">		}</span>
     	
-<span class="fc" id="L1244">		AlgorithmID ecdhAlg = null;</span>
+<span class="nc" id="L1244">		AlgorithmID ecdhAlg = null;</span>
     	try {
-<span class="pc bpc" id="L1246" title="1 of 2 branches missed.">			if (!groupConfiguration.get(GroupcommParameters.ECDH_ALG).isNull()) {</span>
-<span class="fc" id="L1247">				ecdhAlg = AlgorithmID.FromCBOR(groupConfiguration.get(GroupcommParameters.ECDH_ALG));</span>
+<span class="nc bnc" id="L1246" title="All 2 branches missed.">			if (!groupConfiguration.get(GroupcommParameters.ECDH_ALG).isNull()) {</span>
+<span class="nc" id="L1247">				ecdhAlg = AlgorithmID.FromCBOR(groupConfiguration.get(GroupcommParameters.ECDH_ALG));</span>
 			}
 <span class="nc" id="L1249">		} catch (CoseException e) {</span>
 <span class="nc" id="L1250">			System.err.println(&quot;Error when setting the Pairwise Key Agreement Algorithm for the OSCORE group with name \&quot;&quot; + groupName + &quot;\&quot;&quot;);</span>
 <span class="nc" id="L1251">			e.printStackTrace();</span>
 <span class="nc" id="L1252">			return false;</span>
-<span class="fc" id="L1253">		}</span>
+<span class="nc" id="L1253">		}</span>
     	
-<span class="fc" id="L1255">    	final CBORObject ecdhParams = groupConfiguration.get(GroupcommParameters.ECDH_PARAMS);</span>
+<span class="nc" id="L1255">    	final CBORObject ecdhParams = groupConfiguration.get(GroupcommParameters.ECDH_PARAMS);</span>
     	
     	    	
     	// Generate the Group ID, according to the following rationale:
@@ -1263,14 +1263,14 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
     	// - The Epoch of an Group ID changes each time the group is rekeyed. Its size is up to 4 bytes.
     	// - The initial value of Epoch is all zeroes.
     	
-<span class="fc" id="L1266">    	boolean available = false;</span>
-<span class="fc" id="L1267">    	byte[] groupIdPrefix = new byte[this.groupIdPrefixSize];</span>
-<span class="fc" id="L1268">    	byte[] groupIdEpoch = new byte[] { (byte) 0x00, (byte) 0x00 };</span>
+<span class="nc" id="L1266">    	boolean available = false;</span>
+<span class="nc" id="L1267">    	byte[] groupIdPrefix = new byte[this.groupIdPrefixSize];</span>
+<span class="nc" id="L1268">    	byte[] groupIdEpoch = new byte[] { (byte) 0x00, (byte) 0x00 };</span>
     	
-<span class="fc" id="L1270">    	synchronized (this.usedGroupIdPrefixes) {</span>
+<span class="nc" id="L1270">    	synchronized (this.usedGroupIdPrefixes) {</span>
     		
-<span class="fc" id="L1272">        	int sizeLimit = (int) Math.pow(2, this.groupIdPrefixSize);</span>
-<span class="pc bpc" id="L1273" title="1 of 2 branches missed.">        	if (this.usedGroupIdPrefixes.size() == sizeLimit) {</span>
+<span class="nc" id="L1272">        	int sizeLimit = (int) Math.pow(2, this.groupIdPrefixSize);</span>
+<span class="nc bnc" id="L1273" title="All 2 branches missed.">        	if (this.usedGroupIdPrefixes.size() == sizeLimit) {</span>
         		// Rollback
 <span class="nc" id="L1275">    			groupConfigurationResources.remove(groupName);</span>
 <span class="nc" id="L1276">    			myScopes.get(groupCollectionResourcePath).remove(groupCollectionResourcePath + &quot;/&quot; + groupName);</span>
@@ -1279,41 +1279,41 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
 <span class="nc" id="L1279">    			return false;</span>
         	}
         	        	
-<span class="fc" id="L1282">        	CBORObject groupIdPrefixCbor = null;</span>
-<span class="fc bfc" id="L1283" title="All 2 branches covered.">        	while(available == false) {</span>
+<span class="nc" id="L1282">        	CBORObject groupIdPrefixCbor = null;</span>
+<span class="nc bnc" id="L1283" title="All 2 branches missed.">        	while(available == false) {</span>
             	try {
-<span class="fc" id="L1285">        			SecureRandom.getInstanceStrong().nextBytes(groupIdPrefix);</span>
+<span class="nc" id="L1285">        			SecureRandom.getInstanceStrong().nextBytes(groupIdPrefix);</span>
 <span class="nc" id="L1286">        		} catch (NoSuchAlgorithmException e) {</span>
 <span class="nc" id="L1287">        			System.err.println(&quot;Error when generating the OSCORE Group ID for the OSCORE group with name \&quot;&quot; + groupName + &quot;\&quot;&quot;);</span>
 <span class="nc" id="L1288">        			e.printStackTrace();</span>
 <span class="nc" id="L1289">        			return false;</span>
-<span class="fc" id="L1290">        		}</span>
-<span class="fc" id="L1291">            	groupIdPrefixCbor = CBORObject.FromObject(groupIdPrefix);</span>
-<span class="pc bpc" id="L1292" title="1 of 2 branches missed.">            	available = (this.usedGroupIdPrefixes.contains(groupIdPrefixCbor) == false);</span>
+<span class="nc" id="L1290">        		}</span>
+<span class="nc" id="L1291">            	groupIdPrefixCbor = CBORObject.FromObject(groupIdPrefix);</span>
+<span class="nc bnc" id="L1292" title="All 2 branches missed.">            	available = (this.usedGroupIdPrefixes.contains(groupIdPrefixCbor) == false);</span>
         	}
         	
-<span class="fc" id="L1295">        	this.usedGroupIdPrefixes.add(groupIdPrefixCbor);</span>
+<span class="nc" id="L1295">        	this.usedGroupIdPrefixes.add(groupIdPrefixCbor);</span>
         	
-<span class="fc" id="L1297">    	}</span>
+<span class="nc" id="L1297">    	}</span>
 
     	
     	// Set the asymmetric key pair and public key of the Group Manager
     	
     	// Asymmetric key pair, as a OneKey object
     	
-<span class="fc" id="L1304">    	OneKey gmKeyPair = null;</span>
+<span class="nc" id="L1304">    	OneKey gmKeyPair = null;</span>
     	CBORObject parameters;
     	
-<span class="fc" id="L1307">    	boolean useGroupMode = groupConfiguration.get(GroupcommParameters.GROUP_MODE).AsBoolean();</span>
-<span class="pc bpc" id="L1308" title="1 of 2 branches missed.">    	if (useGroupMode == true) {</span>
-<span class="fc" id="L1309">    		parameters = groupConfiguration.get(GroupcommParameters.SIGN_PARAMS);</span>
+<span class="nc" id="L1307">    	boolean useGroupMode = groupConfiguration.get(GroupcommParameters.GROUP_MODE).AsBoolean();</span>
+<span class="nc bnc" id="L1308" title="All 2 branches missed.">    	if (useGroupMode == true) {</span>
+<span class="nc" id="L1309">    		parameters = groupConfiguration.get(GroupcommParameters.SIGN_PARAMS);</span>
     	}
     	else {
 <span class="nc" id="L1312">    		parameters = groupConfiguration.get(GroupcommParameters.ECDH_PARAMS);</span>
     	}
-<span class="fc" id="L1314">    	gmKeyPair = Util.retrieveGmKeyPair(gmSigningKeyPairs, gmKeyAgreementKeyPairs, useGroupMode, parameters);</span>
+<span class="nc" id="L1314">    	gmKeyPair = Util.retrieveGmKeyPair(gmSigningKeyPairs, gmKeyAgreementKeyPairs, useGroupMode, parameters);</span>
     	
-<span class="pc bpc" id="L1316" title="1 of 2 branches missed.">    	if (gmKeyPair == null) {</span>
+<span class="nc bnc" id="L1316" title="All 2 branches missed.">    	if (gmKeyPair == null) {</span>
     		// This should never happen
     		
     		// Rollback
@@ -1327,13 +1327,13 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
     	    	
     	// Serialization of the public authentication credential, according to the format used in the group
     	
-<span class="fc" id="L1330">    	byte[] gmAuthCred = Util.retrieveGmAuthCred(credFmt, gmSigningPublicAuthCred, gmKeyAgreementPublicAuthCred, useGroupMode, parameters);</span>
+<span class="nc" id="L1330">    	byte[] gmAuthCred = Util.retrieveGmAuthCred(credFmt, gmSigningPublicAuthCred, gmKeyAgreementPublicAuthCred, useGroupMode, parameters);</span>
 
 
-<span class="fc" id="L1333">    	int mode = GroupcommParameters.GROUP_OSCORE_GROUP_PAIRWISE_MODE;</span>
-<span class="fc" id="L1334">    	boolean usePairwiseMode = groupConfiguration.get(GroupcommParameters.PAIRWISE_MODE).AsBoolean();</span>
-<span class="pc bpc" id="L1335" title="2 of 4 branches missed.">    	if (useGroupMode == true &amp;&amp; usePairwiseMode == true) {</span>
-<span class="fc" id="L1336">    		mode = GroupcommParameters.GROUP_OSCORE_GROUP_PAIRWISE_MODE;</span>
+<span class="nc" id="L1333">    	int mode = GroupcommParameters.GROUP_OSCORE_GROUP_PAIRWISE_MODE;</span>
+<span class="nc" id="L1334">    	boolean usePairwiseMode = groupConfiguration.get(GroupcommParameters.PAIRWISE_MODE).AsBoolean();</span>
+<span class="nc bnc" id="L1335" title="All 4 branches missed.">    	if (useGroupMode == true &amp;&amp; usePairwiseMode == true) {</span>
+<span class="nc" id="L1336">    		mode = GroupcommParameters.GROUP_OSCORE_GROUP_PAIRWISE_MODE;</span>
     	}
 <span class="nc bnc" id="L1338" title="All 4 branches missed.">    	else if (useGroupMode == true &amp;&amp; usePairwiseMode == false) {</span>
 <span class="nc" id="L1339">    		mode = GroupcommParameters.GROUP_OSCORE_GROUP_MODE_ONLY;</span>
@@ -1342,15 +1342,15 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
 <span class="nc" id="L1342">    		mode = GroupcommParameters.GROUP_OSCORE_PAIRWISE_MODE_ONLY;</span>
     	}
     	
-<span class="fc" id="L1345">    	CBORObject groupPolicies = groupConfiguration.get(GroupcommParameters.GROUP_POLICIES);</span>
+<span class="nc" id="L1345">    	CBORObject groupPolicies = groupConfiguration.get(GroupcommParameters.GROUP_POLICIES);</span>
     	
-<span class="fc" id="L1347">    	boolean groupIdReuse = groupConfiguration.get(GroupcommParameters.GID_REUSE).AsBoolean();</span>
+<span class="nc" id="L1347">    	boolean groupIdReuse = groupConfiguration.get(GroupcommParameters.GID_REUSE).AsBoolean();</span>
     	
-<span class="fc" id="L1349">    	int maxStaleIdsSets = groupConfiguration.get(GroupcommParameters.MAX_STALE_SETS).AsInt32();</span>
+<span class="nc" id="L1349">    	int maxStaleIdsSets = groupConfiguration.get(GroupcommParameters.MAX_STALE_SETS).AsInt32();</span>
     	
-<span class="fc" id="L1351">    	int detHashAlg = 0;</span>
-<span class="pc bpc" id="L1352" title="1 of 2 branches missed.">    	if (groupConfiguration.get(GroupcommParameters.DET_REQ) != null) {</span>
-<span class="pc bpc" id="L1353" title="1 of 2 branches missed.">    		if (groupConfiguration.get(GroupcommParameters.DET_REQ).equals(CBORObject.True)) {</span>
+<span class="nc" id="L1351">    	int detHashAlg = 0;</span>
+<span class="nc bnc" id="L1352" title="All 2 branches missed.">    	if (groupConfiguration.get(GroupcommParameters.DET_REQ) != null) {</span>
+<span class="nc bnc" id="L1353" title="All 2 branches missed.">    		if (groupConfiguration.get(GroupcommParameters.DET_REQ).equals(CBORObject.True)) {</span>
 <span class="nc bnc" id="L1354" title="All 2 branches missed.">    			if (groupConfiguration.get(GroupcommParameters.DET_HASH_ALG) != null) {</span>
 <span class="nc" id="L1355">    				detHashAlg = groupConfiguration.get(GroupcommParameters.DET_HASH_ALG).AsInt32();</span>
     			}
@@ -1360,13 +1360,13 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
     		}	
     	}
     	
-<span class="fc" id="L1363">    	GroupInfo myGroupInfo = new GroupInfo(groupName,</span>
+<span class="nc" id="L1363">    	GroupInfo myGroupInfo = new GroupInfo(groupName,</span>
 										      masterSecret,
 										      masterSalt,
 										      groupIdPrefixSize,
 										      groupIdPrefix,
 										      groupIdEpoch.length,
-<span class="fc" id="L1369">										      Util.bytesToInt(groupIdEpoch),</span>
+<span class="nc" id="L1369">										      Util.bytesToInt(groupIdEpoch),</span>
 										      groupIdReuse,
 										      prefixMonitorNames,
 										      nodeNameSeparator,
@@ -1389,22 +1389,22 @@ public class GroupOSCOREGroupCollectionResource extends CoapResource {
 										      maxStaleIdsSets,
 										      detHashAlg);
     	
-<span class="fc" id="L1392">    	boolean initialStatus = groupConfiguration.get(GroupcommParameters.ACTIVE).AsBoolean();</span>
-<span class="fc" id="L1393">    	myGroupInfo.setStatus(initialStatus);</span>
+<span class="nc" id="L1392">    	boolean initialStatus = groupConfiguration.get(GroupcommParameters.ACTIVE).AsBoolean();</span>
+<span class="nc" id="L1393">    	myGroupInfo.setStatus(initialStatus);</span>
     	
-<span class="pc bpc" id="L1395" title="1 of 2 branches missed.">    	if (groupConfiguration.get(GroupcommParameters.EXP) != null) {</span>
-<span class="fc" id="L1396">    		Long exp = groupConfiguration.get(GroupcommParameters.EXP).AsInt64Value();</span>
-<span class="fc" id="L1397">    		myGroupInfo.setExp(exp);</span>
+<span class="nc bnc" id="L1395" title="All 2 branches missed.">    	if (groupConfiguration.get(GroupcommParameters.EXP) != null) {</span>
+<span class="nc" id="L1396">    		Long exp = groupConfiguration.get(GroupcommParameters.EXP).AsInt64Value();</span>
+<span class="nc" id="L1397">    		myGroupInfo.setExp(exp);</span>
     	}
 
     	
 		// Store the information on this OSCORE group
-<span class="fc" id="L1402">    	this.existingGroupInfo.put(groupName, myGroupInfo);</span>
+<span class="nc" id="L1402">    	this.existingGroupInfo.put(groupName, myGroupInfo);</span>
     	
     	// Finally make the group-membership resource accessible
-<span class="fc" id="L1405">    	this.groupOSCORERootGroupMembership.add(groupMembershipResource);</span>
+<span class="nc" id="L1405">    	this.groupOSCORERootGroupMembership.add(groupMembershipResource);</span>
     	
-<span class="fc" id="L1407">    	return true;</span>
+<span class="nc" id="L1407">    	return true;</span>
     	
     }
 

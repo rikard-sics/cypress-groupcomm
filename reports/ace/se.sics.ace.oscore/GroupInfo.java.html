@@ -287,7 +287,7 @@ public class GroupInfo {
     	
 <span class="fc" id="L288">    	this.groupPolicies = groupPolicies;</span>
     	
-<span class="fc bfc" id="L290" title="All 2 branches covered.">    	if (groupPolicies == null) {</span>
+<span class="pc bpc" id="L290" title="1 of 2 branches missed.">    	if (groupPolicies == null) {</span>
     		// Set default policy values
 <span class="fc" id="L292">        	CBORObject defaultGroupPolicies = CBORObject.NewMap();</span>
 <span class="fc" id="L293">        	defaultGroupPolicies.Add(GroupcommPolicies.KEY_CHECK_INTERVAL, CBORObject.FromObject(3600));</span>
@@ -316,14 +316,14 @@ public class GroupInfo {
      */
     synchronized public CBORObject updateGroupInfo(final CBORObject updatedParameterValues) {
     	
-<span class="fc" id="L319">    	CBORObject changedParameters = CBORObject.NewMap();</span>
+<span class="nc" id="L319">    	CBORObject changedParameters = CBORObject.NewMap();</span>
     	
-<span class="fc bfc" id="L321" title="All 2 branches covered.">    	for (CBORObject key : updatedParameterValues.getKeys()) {</span>
+<span class="nc bnc" id="L321" title="All 2 branches missed.">    	for (CBORObject key : updatedParameterValues.getKeys()) {</span>
     		
-<span class="fc" id="L323">    		CBORObject value = updatedParameterValues.get(key);</span>
+<span class="nc" id="L323">    		CBORObject value = updatedParameterValues.get(key);</span>
     		
-<span class="fc bfc" id="L325" title="All 2 branches covered.">    		if (key.equals(GroupcommParameters.HKDF)) {</span>
-<span class="pc bpc" id="L326" title="1 of 2 branches missed.">    			if (getHkdf().AsCBOR().equals(value) == false) {</span>
+<span class="nc bnc" id="L325" title="All 2 branches missed.">    		if (key.equals(GroupcommParameters.HKDF)) {</span>
+<span class="nc bnc" id="L326" title="All 2 branches missed.">    			if (getHkdf().AsCBOR().equals(value) == false) {</span>
     		    	try {
 <span class="nc" id="L328">    		    		setHkdf(AlgorithmID.FromCBOR(value));</span>
 <span class="nc" id="L329">    				} catch (CoseException e) {</span>
@@ -335,14 +335,14 @@ public class GroupInfo {
 <span class="nc" id="L335">    		    	changedParameters.Add(key, value);</span>
     			}
     		}
-<span class="fc bfc" id="L338" title="All 2 branches covered.">    		if (key.equals(GroupcommParameters.CRED_FMT)) {</span>
-<span class="pc bpc" id="L339" title="1 of 2 branches missed.">    			if (getAuthCredFormat() != value.AsInt32()) {</span>
+<span class="nc bnc" id="L338" title="All 2 branches missed.">    		if (key.equals(GroupcommParameters.CRED_FMT)) {</span>
+<span class="nc bnc" id="L339" title="All 2 branches missed.">    			if (getAuthCredFormat() != value.AsInt32()) {</span>
 <span class="nc" id="L340">    				setAuthCredFormat(value.AsInt32());</span>
 <span class="nc" id="L341">    				changedParameters.Add(key, value);</span>
     			}
     		}
-<span class="fc bfc" id="L344" title="All 2 branches covered.">    		if (key.equals(GroupcommParameters.GP_ENC_ALG)) {</span>
-<span class="pc bpc" id="L345" title="1 of 2 branches missed.">    			if (getGpEncAlg().AsCBOR().equals(value) == false) {</span>
+<span class="nc bnc" id="L344" title="All 2 branches missed.">    		if (key.equals(GroupcommParameters.GP_ENC_ALG)) {</span>
+<span class="nc bnc" id="L345" title="All 2 branches missed.">    			if (getGpEncAlg().AsCBOR().equals(value) == false) {</span>
     		    	try {
 <span class="nc" id="L347">    		    		setGpEncAlg(AlgorithmID.FromCBOR(value));</span>
 <span class="nc" id="L348">    				} catch (CoseException e) {</span>
@@ -354,8 +354,8 @@ public class GroupInfo {
 <span class="nc" id="L354">    		    	changedParameters.Add(key, value);</span>
     			}
     		}
-<span class="fc bfc" id="L357" title="All 2 branches covered.">    		if (key.equals(GroupcommParameters.SIGN_ALG)) {</span>
-<span class="pc bpc" id="L358" title="1 of 2 branches missed.">    			if (getSignAlg().AsCBOR().equals(value) == false) {</span>
+<span class="nc bnc" id="L357" title="All 2 branches missed.">    		if (key.equals(GroupcommParameters.SIGN_ALG)) {</span>
+<span class="nc bnc" id="L358" title="All 2 branches missed.">    			if (getSignAlg().AsCBOR().equals(value) == false) {</span>
     		    	try {
 <span class="nc" id="L360">    		    		setSignAlg(AlgorithmID.FromCBOR(value));</span>
 <span class="nc" id="L361">    				} catch (CoseException e) {</span>
@@ -367,14 +367,14 @@ public class GroupInfo {
 <span class="nc" id="L367">    		    	changedParameters.Add(key, value);</span>
     			}
     		}
-<span class="fc bfc" id="L370" title="All 2 branches covered.">    		if (key.equals(GroupcommParameters.SIGN_PARAMS)) {</span>
-<span class="pc bpc" id="L371" title="1 of 2 branches missed.">    			if (getSignParams().equals(value) == false) {</span>
+<span class="nc bnc" id="L370" title="All 2 branches missed.">    		if (key.equals(GroupcommParameters.SIGN_PARAMS)) {</span>
+<span class="nc bnc" id="L371" title="All 2 branches missed.">    			if (getSignParams().equals(value) == false) {</span>
 <span class="nc" id="L372">    				setSignParams(value);</span>
 <span class="nc" id="L373">    				changedParameters.Add(key, value);</span>
     			}
     		}
-<span class="fc bfc" id="L376" title="All 2 branches covered.">    		if (key.equals(GroupcommParameters.ALG)) {</span>
-<span class="pc bpc" id="L377" title="1 of 2 branches missed.">    			if (getAlg().AsCBOR().equals(value) == false) {</span>
+<span class="nc bnc" id="L376" title="All 2 branches missed.">    		if (key.equals(GroupcommParameters.ALG)) {</span>
+<span class="nc bnc" id="L377" title="All 2 branches missed.">    			if (getAlg().AsCBOR().equals(value) == false) {</span>
     		    	try {
 <span class="nc" id="L379">    		    		setAlg(AlgorithmID.FromCBOR(value));</span>
 <span class="nc" id="L380">    				} catch (CoseException e) {</span>
@@ -386,8 +386,8 @@ public class GroupInfo {
 <span class="nc" id="L386">    		    	changedParameters.Add(key, value);</span>
     			}
     		}
-<span class="fc bfc" id="L389" title="All 2 branches covered.">    		if (key.equals(GroupcommParameters.ECDH_ALG)) {</span>
-<span class="pc bpc" id="L390" title="1 of 2 branches missed.">    			if (getEcdhAlg().AsCBOR().equals(value) == false) {</span>
+<span class="nc bnc" id="L389" title="All 2 branches missed.">    		if (key.equals(GroupcommParameters.ECDH_ALG)) {</span>
+<span class="nc bnc" id="L390" title="All 2 branches missed.">    			if (getEcdhAlg().AsCBOR().equals(value) == false) {</span>
     		    	try {
 <span class="nc" id="L392">    		    		setEcdhAlg(AlgorithmID.FromCBOR(value));</span>
 <span class="nc" id="L393">    				} catch (CoseException e) {</span>
@@ -399,44 +399,44 @@ public class GroupInfo {
 <span class="nc" id="L399">    		    	changedParameters.Add(key, value);</span>
     			}
     		}
-<span class="fc bfc" id="L402" title="All 2 branches covered.">    		if (key.equals(GroupcommParameters.ECDH_PARAMS)) {</span>
-<span class="pc bpc" id="L403" title="1 of 2 branches missed.">    			if (getEcdhParams().equals(value) == false) {</span>
+<span class="nc bnc" id="L402" title="All 2 branches missed.">    		if (key.equals(GroupcommParameters.ECDH_PARAMS)) {</span>
+<span class="nc bnc" id="L403" title="All 2 branches missed.">    			if (getEcdhParams().equals(value) == false) {</span>
 <span class="nc" id="L404">    				setEcdhParams(value);</span>
 <span class="nc" id="L405">    				changedParameters.Add(key, value);</span>
     			}
     		}
-<span class="fc bfc" id="L408" title="All 2 branches covered.">    		if (key.equals(GroupcommParameters.GROUP_POLICIES)) {</span>
-<span class="pc bpc" id="L409" title="1 of 2 branches missed.">    			if (getGroupPolicies().equals(value) == false) {</span>
+<span class="nc bnc" id="L408" title="All 2 branches missed.">    		if (key.equals(GroupcommParameters.GROUP_POLICIES)) {</span>
+<span class="nc bnc" id="L409" title="All 2 branches missed.">    			if (getGroupPolicies().equals(value) == false) {</span>
 <span class="nc" id="L410">    				setGroupPolicies(value);</span>
 <span class="nc" id="L411">    				changedParameters.Add(key, value);</span>
     			}
     		}
-<span class="fc bfc" id="L414" title="All 2 branches covered.">    		if (key.equals(GroupcommParameters.MAX_STALE_SETS)) {</span>
-<span class="pc bpc" id="L415" title="1 of 2 branches missed.">    			if (getMaxStaleIdsSets() != value.AsInt32()) {</span>
+<span class="nc bnc" id="L414" title="All 2 branches missed.">    		if (key.equals(GroupcommParameters.MAX_STALE_SETS)) {</span>
+<span class="nc bnc" id="L415" title="All 2 branches missed.">    			if (getMaxStaleIdsSets() != value.AsInt32()) {</span>
 <span class="nc" id="L416">    				setMaxStaleIdsSets(value.AsInt32());</span>
 <span class="nc" id="L417">    				changedParameters.Add(key, value);</span>
     			}
     		}
-<span class="fc bfc" id="L420" title="All 2 branches covered.">    		if (key.equals(GroupcommParameters.ACTIVE)) {</span>
-<span class="pc bpc" id="L421" title="1 of 2 branches missed.">    			if (getStatus() != value.AsBoolean()) {</span>
-<span class="fc" id="L422">    				setStatus(value.AsBoolean());</span>
-<span class="fc" id="L423">    				changedParameters.Add(key, value);</span>
+<span class="nc bnc" id="L420" title="All 2 branches missed.">    		if (key.equals(GroupcommParameters.ACTIVE)) {</span>
+<span class="nc bnc" id="L421" title="All 2 branches missed.">    			if (getStatus() != value.AsBoolean()) {</span>
+<span class="nc" id="L422">    				setStatus(value.AsBoolean());</span>
+<span class="nc" id="L423">    				changedParameters.Add(key, value);</span>
     			}
     		}
-<span class="pc bpc" id="L426" title="1 of 2 branches missed.">    		if (key.equals(GroupcommParameters.DET_HASH_ALG)) {</span>
+<span class="nc bnc" id="L426" title="All 2 branches missed.">    		if (key.equals(GroupcommParameters.DET_HASH_ALG)) {</span>
 <span class="nc bnc" id="L427" title="All 2 branches missed.">    			if (getDetHashAlg() != value.AsInt32()) {</span>
 <span class="nc" id="L428">    				setDetHashAlg(value.AsInt32());</span>
 <span class="nc" id="L429">    				changedParameters.Add(key, value);</span>
     			}
     		}
     		
-<span class="fc" id="L433">    	}</span>
+<span class="nc" id="L433">    	}</span>
     	
-<span class="pc bpc" id="L435" title="1 of 2 branches missed.">    	if (updatedParameterValues.get(GroupcommParameters.DET_HASH_ALG) != null) {</span>
+<span class="nc bnc" id="L435" title="All 2 branches missed.">    	if (updatedParameterValues.get(GroupcommParameters.DET_HASH_ALG) != null) {</span>
 <span class="nc" id="L436">    		setDetHashAlg(0);</span>
     	}
     	
-<span class="pc bpc" id="L439" title="2 of 4 branches missed.">    	if (changedParameters.ContainsKey(GroupcommParameters.GP_ENC_ALG) || changedParameters.ContainsKey(GroupcommParameters.ALG)) {</span>
+<span class="nc bnc" id="L439" title="All 4 branches missed.">    	if (changedParameters.ContainsKey(GroupcommParameters.GP_ENC_ALG) || changedParameters.ContainsKey(GroupcommParameters.ALG)) {</span>
     		
 <span class="nc" id="L441">    		int oldMaxSenderIdSize = this.maxSenderIdSize;</span>
 <span class="nc" id="L442">        	setMaxSenderIdSize();</span>
@@ -465,9 +465,9 @@ public class GroupInfo {
         	}
     	}
     	
-<span class="pc bpc" id="L468" title="2 of 4 branches missed.">    	if (changedParameters.ContainsKey(GroupcommParameters.SIGN_ALG) || changedParameters.ContainsKey(GroupcommParameters.SIGN_PARAMS) ||</span>
-<span class="pc bpc" id="L469" title="2 of 4 branches missed.">    		changedParameters.ContainsKey(GroupcommParameters.ECDH_ALG) || changedParameters.ContainsKey(GroupcommParameters.ECDH_PARAMS) ||</span>
-<span class="pc bpc" id="L470" title="1 of 2 branches missed.">    		changedParameters.ContainsKey(GroupcommParameters.CRED_FMT)) {</span>
+<span class="nc bnc" id="L468" title="All 4 branches missed.">    	if (changedParameters.ContainsKey(GroupcommParameters.SIGN_ALG) || changedParameters.ContainsKey(GroupcommParameters.SIGN_PARAMS) ||</span>
+<span class="nc bnc" id="L469" title="All 4 branches missed.">    		changedParameters.ContainsKey(GroupcommParameters.ECDH_ALG) || changedParameters.ContainsKey(GroupcommParameters.ECDH_PARAMS) ||</span>
+<span class="nc bnc" id="L470" title="All 2 branches missed.">    		changedParameters.ContainsKey(GroupcommParameters.CRED_FMT)) {</span>
     		
     		// The algorithms, corresponding parameters, or format of authentication credential have changed in the OSCORE group.
     		// The Group Manager has to switch to an appropriate asymmetric key pair and corresponding public authentication credential.
@@ -493,7 +493,7 @@ public class GroupInfo {
     		
     	}
     	
-<span class="fc" id="L496">    	return changedParameters;</span>
+<span class="nc" id="L496">    	return changedParameters;</span>
     		
     }
     
@@ -505,7 +505,7 @@ public class GroupInfo {
      */
     synchronized public final int getMode() {
     	
-<span class="fc" id="L508">    	return this.mode;</span>
+<span class="nc" id="L508">    	return this.mode;</span>
     	
     }
     
@@ -515,7 +515,7 @@ public class GroupInfo {
      */
     synchronized public final boolean getStatus() {
     	
-<span class="fc" id="L518">    	return this.status;</span>
+<span class="nc" id="L518">    	return this.status;</span>
     	
     }
     
@@ -535,7 +535,7 @@ public class GroupInfo {
      */
     synchronized public final Long getExp() {
     	
-<span class="fc" id="L538">    	return this.exp;</span>
+<span class="nc" id="L538">    	return this.exp;</span>
     	
     }
     
@@ -545,9 +545,9 @@ public class GroupInfo {
      */
     synchronized public void setExp(final Long exp) {
     	
-<span class="fc" id="L548">    	this.exp = exp;</span>
+<span class="nc" id="L548">    	this.exp = exp;</span>
     	
-<span class="fc" id="L550">    }</span>
+<span class="nc" id="L550">    }</span>
     
     /** Retrieve the asymmetric key pair of the Group Manager
      * 
@@ -555,7 +555,7 @@ public class GroupInfo {
      */
     synchronized public final OneKey getGmKeyPair() {
     	
-<span class="fc" id="L558">    	return this.gmKeyPair;</span>
+<span class="nc" id="L558">    	return this.gmKeyPair;</span>
     	
     }
     
@@ -575,7 +575,7 @@ public class GroupInfo {
      */
     synchronized public final byte[] getGmAuthCred() {
     	
-<span class="fc" id="L578">    	return this.gmAuthCred;</span>
+<span class="nc" id="L578">    	return this.gmAuthCred;</span>
     	
     }
     
@@ -617,7 +617,7 @@ public class GroupInfo {
      */
     synchronized public final String getGroupName() {
     	
-<span class="fc" id="L620">    	return new String(this.groupName); </span>
+<span class="nc" id="L620">    	return new String(this.groupName); </span>
     	
     }
     
@@ -849,7 +849,7 @@ public class GroupInfo {
      */
     synchronized public final AlgorithmID getHkdf() {
     	
-<span class="fc" id="L852">    	return this.hkdf;</span>
+<span class="nc" id="L852">    	return this.hkdf;</span>
     	
     }
     
@@ -893,7 +893,7 @@ public class GroupInfo {
      */
     synchronized public final AlgorithmID getSignAlg() {
     	
-<span class="fc" id="L896">    	return this.signAlg;</span>
+<span class="nc" id="L896">    	return this.signAlg;</span>
     	
     }
     
@@ -915,7 +915,7 @@ public class GroupInfo {
      */
     synchronized public final CBORObject getSignParams() {
     	
-<span class="fc" id="L918">    	return this.signParams;</span>
+<span class="nc" id="L918">    	return this.signParams;</span>
     	
     }
 
@@ -963,7 +963,7 @@ public class GroupInfo {
      */
     synchronized public final AlgorithmID getEcdhAlg() {
     	
-<span class="fc" id="L966">    	return this.ecdhAlg;</span>
+<span class="nc" id="L966">    	return this.ecdhAlg;</span>
     	
     }
     
@@ -985,7 +985,7 @@ public class GroupInfo {
      */
     synchronized public final CBORObject getEcdhParams() {
     	
-<span class="fc" id="L988">    	return this.ecdhParams;</span>
+<span class="nc" id="L988">    	return this.ecdhParams;</span>
     	
     }
 
@@ -1013,7 +1013,7 @@ public class GroupInfo {
      */
     synchronized public final int getAuthCredFormat() {
     	
-<span class="fc" id="L1016">    	return this.authCredFormat;</span>
+<span class="nc" id="L1016">    	return this.authCredFormat;</span>
     	
     }
     
@@ -1072,7 +1072,7 @@ public class GroupInfo {
     	
     	// All the possible values for the Sender IDs with this size have been allocated.
     	// Switch to the next size, up to 4 bytes, and update the maximum Sender ID value.
-<span class="pc bpc" id="L1075" title="1 of 2 branches missed.">    	if (this.usedSenderIds.get(this.senderIdSize - 1).size() == (this.maxSenderIdValue + 1)) {</span>
+<span class="nc bnc" id="L1075" title="All 2 branches missed.">    	if (this.usedSenderIds.get(this.senderIdSize - 1).size() == (this.maxSenderIdValue + 1)) {</span>
 <span class="nc" id="L1076">	    	this.senderIdSize++;</span>
 	    	
 	    	// The new intended size exceeds the maximum admitted one
@@ -1089,18 +1089,18 @@ public class GroupInfo {
 <span class="nc" id="L1089">        		this.maxSenderIdValue = (1 &lt;&lt; (this.senderIdSize * 8)) - 1;</span>
     	}
     	
-<span class="fc" id="L1092">    	byte[] senderIdByteArray = null;</span>
-<span class="pc bpc" id="L1093" title="1 of 2 branches missed.">    	for (int i = 0; i &lt;= this.maxSenderIdValue; i++) {</span>
-<span class="fc bfc" id="L1094" title="All 2 branches covered.">    		if (!this.usedSenderIds.get(this.senderIdSize - 1).contains(i)) {</span>
-<span class="fc" id="L1095">    			this.usedSenderIds.get(this.senderIdSize - 1).add(i);</span>
+<span class="nc" id="L1092">    	byte[] senderIdByteArray = null;</span>
+<span class="nc bnc" id="L1093" title="All 2 branches missed.">    	for (int i = 0; i &lt;= this.maxSenderIdValue; i++) {</span>
+<span class="nc bnc" id="L1094" title="All 2 branches missed.">    		if (!this.usedSenderIds.get(this.senderIdSize - 1).contains(i)) {</span>
+<span class="nc" id="L1095">    			this.usedSenderIds.get(this.senderIdSize - 1).add(i);</span>
     			
-<span class="fc" id="L1097">    			senderIdByteArray = new byte[this.senderIdSize];</span>
-<span class="fc" id="L1098">    			senderIdByteArray = Util.intToBytes(i, this.senderIdSize);</span>
-<span class="fc" id="L1099">    			break;</span>
+<span class="nc" id="L1097">    			senderIdByteArray = new byte[this.senderIdSize];</span>
+<span class="nc" id="L1098">    			senderIdByteArray = Util.intToBytes(i, this.senderIdSize);</span>
+<span class="nc" id="L1099">    			break;</span>
     		}
     	}
     	
-<span class="fc" id="L1103">    	return senderIdByteArray;</span>
+<span class="nc" id="L1103">    	return senderIdByteArray;</span>
     	
     }
     
@@ -1119,8 +1119,8 @@ public class GroupInfo {
 <span class="nc" id="L1119">    		return false;</span>
     	
     	// The specified Sender ID has been already assigned - And no recycling is admitted
-<span class="fc bfc" id="L1122" title="All 2 branches covered.">    	if (this.usedSenderIds.get(this.senderIdSize - 1).contains(Util.bytesToInt(id)))</span>
-<span class="fc" id="L1123">    		return false;</span>
+<span class="pc bpc" id="L1122" title="1 of 2 branches missed.">    	if (this.usedSenderIds.get(this.senderIdSize - 1).contains(Util.bytesToInt(id)))</span>
+<span class="nc" id="L1123">    		return false;</span>
     	
     	// In case the input array is 4 bytes in size and encoding a negative integer, this will return false
 <span class="fc" id="L1126">    	return allocateSenderId(Util.bytesToInt(id));</span>
@@ -1276,7 +1276,7 @@ public class GroupInfo {
      */
     synchronized public boolean isGroupMember(final String subject) {
 
-<span class="fc" id="L1279">    	return this.identities2nodeNames.containsKey(subject);</span>
+<span class="nc" id="L1279">    	return this.identities2nodeNames.containsKey(subject);</span>
     		
     }
     
@@ -1323,10 +1323,10 @@ public class GroupInfo {
      */
     synchronized public String getGroupMemberName(final String subject) {
     	
-<span class="pc bpc" id="L1326" title="1 of 2 branches missed.">    	if (!this.identities2nodeNames.containsKey(subject))</span>
+<span class="nc bnc" id="L1326" title="All 2 branches missed.">    	if (!this.identities2nodeNames.containsKey(subject))</span>
 <span class="nc" id="L1327">    		return null;</span>
     	
-<span class="fc" id="L1329">    	return this.identities2nodeNames.get(subject);</span>
+<span class="nc" id="L1329">    	return this.identities2nodeNames.get(subject);</span>
     	
     }
     
@@ -1339,10 +1339,10 @@ public class GroupInfo {
      */
     synchronized public CBORObject getGroupMemberSenderId(final String subject) {
     	
-<span class="pc bpc" id="L1342" title="1 of 2 branches missed.">    	if (!this.identities2senderIDs.containsKey(subject))</span>
+<span class="nc bnc" id="L1342" title="All 2 branches missed.">    	if (!this.identities2senderIDs.containsKey(subject))</span>
 <span class="nc" id="L1343">    		return null;</span>
     	
-<span class="fc" id="L1345">    	return this.identities2senderIDs.get(subject);</span>
+<span class="nc" id="L1345">    	return this.identities2senderIDs.get(subject);</span>
     	
     }
     
@@ -1404,18 +1404,18 @@ public class GroupInfo {
     synchronized public short getGroupMemberRoles(final String nodeName) {
     	
     	// First, check if the node is a monitor, based on the naming-schema
-<span class="fc" id="L1407">    	int prefixSize = prefixMonitorNames.length();</span>
-<span class="pc bpc" id="L1408" title="1 of 2 branches missed.">    	if (nodeName.length() &gt; (prefixMonitorNames.length()) &amp;&amp;</span>
-<span class="pc bpc" id="L1409" title="1 of 2 branches missed.">    		nodeName.substring(0, prefixSize).equals(prefixMonitorNames)) {</span>
+<span class="nc" id="L1407">    	int prefixSize = prefixMonitorNames.length();</span>
+<span class="nc bnc" id="L1408" title="All 2 branches missed.">    	if (nodeName.length() &gt; (prefixMonitorNames.length()) &amp;&amp;</span>
+<span class="nc bnc" id="L1409" title="All 2 branches missed.">    		nodeName.substring(0, prefixSize).equals(prefixMonitorNames)) {</span>
     		
 <span class="nc" id="L1411">    		return 1 &lt;&lt; GroupcommParameters.GROUP_OSCORE_MONITOR;</span>
     		
     	}
 
     	// The node is not a monitor and has a Sender ID
-<span class="fc" id="L1416">    	byte[] sid = Utils.hexToBytes(nodeName.substring(nodeName.indexOf(this.nodeNameSeparator) + 1));</span>
+<span class="nc" id="L1416">    	byte[] sid = Utils.hexToBytes(nodeName.substring(nodeName.indexOf(this.nodeNameSeparator) + 1));</span>
     	
-<span class="fc" id="L1418">    	return getGroupMemberRoles(sid);</span>
+<span class="nc" id="L1418">    	return getGroupMemberRoles(sid);</span>
     	
     }
     
@@ -1441,7 +1441,7 @@ public class GroupInfo {
      */
     synchronized public short getGroupMemberRoles(final byte[] sid) {
     	
-<span class="fc" id="L1444">    	return this.nodeRoles.get(sid.length - 1).get(Util.bytesToInt(sid)).shortValue();</span>
+<span class="nc" id="L1444">    	return this.nodeRoles.get(sid.length - 1).get(Util.bytesToInt(sid)).shortValue();</span>
     	
     }
         
@@ -1460,31 +1460,31 @@ public class GroupInfo {
      */
     synchronized public boolean removeGroupMemberBySubject(final String subject) {
     	
-<span class="pc bpc" id="L1463" title="1 of 2 branches missed.">    	if (!this.identities2nodeNames.containsKey(subject))</span>
+<span class="nc bnc" id="L1463" title="All 2 branches missed.">    	if (!this.identities2nodeNames.containsKey(subject))</span>
 <span class="nc" id="L1464">        		return false;</span>
     	
-<span class="pc bpc" id="L1466" title="1 of 2 branches missed.">    	if (getGroupMemberRoles((getGroupMemberName(subject))) != (1 &lt;&lt; GroupcommParameters.GROUP_OSCORE_MONITOR)) {</span>
+<span class="nc bnc" id="L1466" title="All 2 branches missed.">    	if (getGroupMemberRoles((getGroupMemberName(subject))) != (1 &lt;&lt; GroupcommParameters.GROUP_OSCORE_MONITOR)) {</span>
     	
-<span class="fc" id="L1468">	    	byte[] sid = getGroupMemberSenderId(subject).GetByteString();</span>
+<span class="nc" id="L1468">	    	byte[] sid = getGroupMemberSenderId(subject).GetByteString();</span>
 	    	
-<span class="pc bpc" id="L1470" title="1 of 2 branches missed.">	    	if (!this.nodeRoles.get(sid.length - 1).containsKey(Util.bytesToInt(sid)))</span>
+<span class="nc bnc" id="L1470" title="All 2 branches missed.">	    	if (!this.nodeRoles.get(sid.length - 1).containsKey(Util.bytesToInt(sid)))</span>
 <span class="nc" id="L1471">	    		return false;</span>
 	    	
-<span class="fc" id="L1473">	    	this.nodeRoles.get(sid.length - 1).remove(Util.bytesToInt(sid));</span>
+<span class="nc" id="L1473">	    	this.nodeRoles.get(sid.length - 1).remove(Util.bytesToInt(sid));</span>
 	    	
-<span class="fc" id="L1475">	    	deleteAuthCred(sid);</span>
+<span class="nc" id="L1475">	    	deleteAuthCred(sid);</span>
 	    	
-<span class="fc" id="L1477">	    	addStaleSenderId(sid);</span>
+<span class="nc" id="L1477">	    	addStaleSenderId(sid);</span>
 	    	
     	}
     	
-<span class="fc" id="L1481">    	String nodeName = getGroupMemberName(subject);</span>
-<span class="fc" id="L1482">    	this.birthGIDs.remove(nodeName);</span>
+<span class="nc" id="L1481">    	String nodeName = getGroupMemberName(subject);</span>
+<span class="nc" id="L1482">    	this.birthGIDs.remove(nodeName);</span>
     	
-<span class="fc" id="L1484">    	this.identities2nodeNames.remove(subject);</span>
-<span class="fc" id="L1485">    	this.identities2senderIDs.remove(subject);</span>
+<span class="nc" id="L1484">    	this.identities2nodeNames.remove(subject);</span>
+<span class="nc" id="L1485">    	this.identities2senderIDs.remove(subject);</span>
     	
-<span class="fc" id="L1487">    	return true;</span>
+<span class="nc" id="L1487">    	return true;</span>
     	
     }
     
@@ -1497,19 +1497,19 @@ public class GroupInfo {
      */
     synchronized public Map&lt;CBORObject, CBORObject&gt; getAuthCreds() {
     	
-<span class="fc" id="L1500">    	Map&lt;CBORObject, CBORObject&gt; authCreds = new HashMap&lt;CBORObject, CBORObject&gt;();</span>
+<span class="nc" id="L1500">    	Map&lt;CBORObject, CBORObject&gt; authCreds = new HashMap&lt;CBORObject, CBORObject&gt;();</span>
     	
     	// Go through each size of Sender ID, i.e. from 1 (i=0) to 4 (i=3) bytes
-<span class="fc bfc" id="L1503" title="All 2 branches covered.">    	for (int i = 0; i &lt; this.authCredRepo.size(); i++) {</span>
+<span class="nc bnc" id="L1503" title="All 2 branches missed.">    	for (int i = 0; i &lt; this.authCredRepo.size(); i++) {</span>
     		
     		// Retrieve each authentication credential
-<span class="fc bfc" id="L1506" title="All 2 branches covered.">    		for (Map.Entry&lt;CBORObject, CBORObject&gt; pair : authCredRepo.get(i).entrySet()) {</span>
-<span class="fc" id="L1507">    			authCreds.put(pair.getKey(), pair.getValue());</span>
-<span class="fc" id="L1508">    		}</span>
+<span class="nc bnc" id="L1506" title="All 2 branches missed.">    		for (Map.Entry&lt;CBORObject, CBORObject&gt; pair : authCredRepo.get(i).entrySet()) {</span>
+<span class="nc" id="L1507">    			authCreds.put(pair.getKey(), pair.getValue());</span>
+<span class="nc" id="L1508">    		}</span>
     		
     	}
     	
-<span class="fc" id="L1512">    	return authCreds;</span>
+<span class="nc" id="L1512">    	return authCreds;</span>
     	
     }
     
@@ -1522,10 +1522,10 @@ public class GroupInfo {
      */
     synchronized public CBORObject getAuthCred(final byte[] sid) {
     	
-<span class="pc bpc" id="L1525" title="2 of 4 branches missed.">    	if (sid.length &lt; 1 || sid.length &gt; 4)</span>
+<span class="nc bnc" id="L1525" title="All 4 branches missed.">    	if (sid.length &lt; 1 || sid.length &gt; 4)</span>
 <span class="nc" id="L1526">    		return null;</span>
     	
-<span class="fc" id="L1528">    	return this.authCredRepo.get(sid.length - 1).get(CBORObject.FromObject(sid));</span>
+<span class="nc" id="L1528">    	return this.authCredRepo.get(sid.length - 1).get(CBORObject.FromObject(sid));</span>
     	
     }
     
@@ -1559,15 +1559,15 @@ public class GroupInfo {
      */
     synchronized public boolean deleteAuthCred(final byte[] sid) {
     	
-<span class="pc bpc" id="L1562" title="2 of 4 branches missed.">    	if (sid.length &lt; 1 || sid.length &gt; 4)</span>
+<span class="nc bnc" id="L1562" title="All 4 branches missed.">    	if (sid.length &lt; 1 || sid.length &gt; 4)</span>
 <span class="nc" id="L1563">    		return false;</span>
     	
-<span class="pc bpc" id="L1565" title="1 of 2 branches missed.">    	if (!this.authCredRepo.get(sid.length - 1).containsKey(CBORObject.FromObject(sid)))</span>
+<span class="nc bnc" id="L1565" title="All 2 branches missed.">    	if (!this.authCredRepo.get(sid.length - 1).containsKey(CBORObject.FromObject(sid)))</span>
 <span class="nc" id="L1566">    		return false;</span>
     	
-<span class="fc" id="L1568">    	this.authCredRepo.get(sid.length - 1).remove(CBORObject.FromObject(sid));</span>
+<span class="nc" id="L1568">    	this.authCredRepo.get(sid.length - 1).remove(CBORObject.FromObject(sid));</span>
     	
-<span class="fc" id="L1570">    	return true;</span>
+<span class="nc" id="L1570">    	return true;</span>
     	
     }
     
@@ -1578,7 +1578,7 @@ public class GroupInfo {
      */
     synchronized public int getMaxStaleIdsSets() {
     	
-<span class="fc" id="L1581">    	return this.maxStaleIdsSets;</span>
+<span class="nc" id="L1581">    	return this.maxStaleIdsSets;</span>
     	
     }
     
@@ -1601,7 +1601,7 @@ public class GroupInfo {
      */
     synchronized public int getVersion() {
     	
-<span class="fc" id="L1604">    	return this.version;</span>
+<span class="nc" id="L1604">    	return this.version;</span>
     	
     }
     
@@ -1622,7 +1622,7 @@ public class GroupInfo {
      */
     synchronized public CBORObject getGroupPolicies() {
     	
-<span class="fc" id="L1625">    	return this.groupPolicies;</span>
+<span class="nc" id="L1625">    	return this.groupPolicies;</span>
     	
     }
 
@@ -1644,7 +1644,7 @@ public class GroupInfo {
      */
     synchronized public int getDetHashAlg() {
     	
-<span class="fc" id="L1647">    	return this.detHashAlg;</span>
+<span class="nc" id="L1647">    	return this.detHashAlg;</span>
     	
     }
     
@@ -1694,7 +1694,7 @@ public class GroupInfo {
      */
     synchronized public String getNodeNameSeparator() {
     	
-<span class="fc" id="L1697">    	return this.nodeNameSeparator;</span>
+<span class="nc" id="L1697">    	return this.nodeNameSeparator;</span>
     	
     }
 
@@ -1748,17 +1748,17 @@ public class GroupInfo {
      */
     synchronized public boolean addStaleSenderId(byte[] senderId) {
     	
-<span class="pc bpc" id="L1751" title="1 of 2 branches missed.">    	if (senderId == null) {</span>
+<span class="nc bnc" id="L1751" title="All 2 branches missed.">    	if (senderId == null) {</span>
 <span class="nc" id="L1752">    		return false;</span>
     	}
     	
-<span class="pc bpc" id="L1755" title="1 of 2 branches missed.">    	if (!this.staleSenderIds.containsKey(Integer.valueOf(version))) {</span>
+<span class="nc bnc" id="L1755" title="All 2 branches missed.">    	if (!this.staleSenderIds.containsKey(Integer.valueOf(version))) {</span>
     		// This should never happen
 <span class="nc" id="L1757">    		return false;</span>
     	}
     	
-<span class="fc" id="L1760">    	this.staleSenderIds.get(Integer.valueOf(version)).add(CBORObject.FromObject(senderId));</span>
-<span class="fc" id="L1761">    	return true;</span>
+<span class="nc" id="L1760">    	this.staleSenderIds.get(Integer.valueOf(version)).add(CBORObject.FromObject(senderId));</span>
+<span class="nc" id="L1761">    	return true;</span>
     	
     }
     

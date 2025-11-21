@@ -40,6 +40,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 
 import org.eclipse.californium.core.CoapResource;
@@ -56,6 +57,7 @@ import org.eclipse.californium.cose.AlgorithmID;
 import org.eclipse.californium.cose.CoseException;
 import org.eclipse.californium.cose.KeyKeys;
 import org.eclipse.californium.cose.OneKey;
+import org.eclipse.californium.elements.util.StringUtil;
 import org.postgresql.core.Utils;
 
 import se.sics.ace.AceException;
@@ -75,7 +77,7 @@ import se.sics.ace.rs.TokenRepository;
  */
 public class GroupOSCOREGroupMembershipResource extends CoapResource {
 	
-<span class="fc" id="L78">	private Map&lt;String, GroupInfo&gt; existingGroupInfo = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L80">	private Map&lt;String, GroupInfo&gt; existingGroupInfo = new HashMap&lt;&gt;();</span>
 	
 	private final String rootGroupMembershipResourcePath; 
 	
@@ -98,282 +100,282 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
     										  GroupOSCOREValidator valid) {
         
         // set resource identifier
-<span class="fc" id="L101">        super(resId);</span>
+<span class="fc" id="L103">        super(resId);</span>
         
         // set display name
-<span class="fc" id="L104">        getAttributes().setTitle(&quot;Group OSCORE Group-Membership Resource &quot; + resId);</span>
+<span class="fc" id="L106">        getAttributes().setTitle(&quot;Group OSCORE Group-Membership Resource &quot; + resId);</span>
      
-<span class="fc" id="L106">        this.existingGroupInfo = existingGroupInfo;</span>
-<span class="fc" id="L107">        this.rootGroupMembershipResourcePath = rootGroupMembershipResourcePath;</span>
-<span class="fc" id="L108">        this.myScopes = myScopes;</span>
-<span class="fc" id="L109">        this.valid = valid;</span>
-<span class="fc" id="L110">    }</span>
+<span class="fc" id="L108">        this.existingGroupInfo = existingGroupInfo;</span>
+<span class="fc" id="L109">        this.rootGroupMembershipResourcePath = rootGroupMembershipResourcePath;</span>
+<span class="fc" id="L110">        this.myScopes = myScopes;</span>
+<span class="fc" id="L111">        this.valid = valid;</span>
+<span class="fc" id="L112">    }</span>
     
     @Override
     public void handleGET(CoapExchange exchange) {
-<span class="fc" id="L114">    	System.out.println(&quot;GET request reached the GM&quot;);</span>
+<span class="nc" id="L116">    	System.out.println(&quot;GET request reached the GM&quot;);</span>
     	
     	// Retrieve the entry for the target group, using the last path segment
     	// of the URI path as the name of the OSCORE group
-<span class="fc" id="L118">    	GroupInfo targetedGroup = existingGroupInfo.get(this.getName());</span>
+<span class="nc" id="L120">    	GroupInfo targetedGroup = existingGroupInfo.get(this.getName());</span>
     	
     	// This should never happen if existing groups are maintained properly
-<span class="pc bpc" id="L121" title="1 of 2 branches missed.">    	if (targetedGroup == null) {</span>
-<span class="nc" id="L122">        	exchange.respond(CoAP.ResponseCode.SERVICE_UNAVAILABLE,</span>
+<span class="nc bnc" id="L123" title="All 2 branches missed.">    	if (targetedGroup == null) {</span>
+<span class="nc" id="L124">        	exchange.respond(CoAP.ResponseCode.SERVICE_UNAVAILABLE,</span>
         					 &quot;Error when retrieving material for the OSCORE group&quot;);
-<span class="nc" id="L124">        	return;</span>
+<span class="nc" id="L126">        	return;</span>
     	}
     	
-<span class="fc" id="L127">    	String groupName = targetedGroup.getGroupName();</span>
+<span class="nc" id="L129">    	String groupName = targetedGroup.getGroupName();</span>
     	
     	// This should never happen if active groups are maintained properly
-<span class="pc bpc" id="L130" title="1 of 2 branches missed.">	  		if (!groupName.equals(this.getName())) {</span>
-<span class="nc" id="L131">        	exchange.respond(CoAP.ResponseCode.SERVICE_UNAVAILABLE,</span>
+<span class="nc bnc" id="L132" title="All 2 branches missed.">	  		if (!groupName.equals(this.getName())) {</span>
+<span class="nc" id="L133">        	exchange.respond(CoAP.ResponseCode.SERVICE_UNAVAILABLE,</span>
         					 &quot;Error when retrieving material for the OSCORE group&quot;);
-<span class="nc" id="L133">				return;</span>
+<span class="nc" id="L135">				return;</span>
 			}  
     	
-<span class="fc" id="L136">    	String subject = null;</span>
-<span class="fc" id="L137">    	Request request = exchange.advanced().getCurrentRequest();</span>
+<span class="nc" id="L138">    	String subject = null;</span>
+<span class="nc" id="L139">    	Request request = exchange.advanced().getCurrentRequest();</span>
         
         try {
-<span class="fc" id="L140">			subject = CoapReq.getInstance(request).getSenderId();</span>
-<span class="nc" id="L141">		} catch (AceException e) {</span>
-<span class="nc" id="L142">		    System.err.println(&quot;Error while retrieving the client identity: &quot; + e.getMessage());</span>
-<span class="fc" id="L143">		}</span>
-<span class="pc bpc" id="L144" title="1 of 2 branches missed.">        if (subject == null) {</span>
+<span class="nc" id="L142">			subject = CoapReq.getInstance(request).getSenderId();</span>
+<span class="nc" id="L143">		} catch (AceException e) {</span>
+<span class="nc" id="L144">		    System.err.println(&quot;Error while retrieving the client identity: &quot; + e.getMessage());</span>
+<span class="nc" id="L145">		}</span>
+<span class="nc bnc" id="L146" title="All 2 branches missed.">        if (subject == null) {</span>
         	// At this point, this should not really happen,
         	// due to the earlier check at the Token Repository
-<span class="nc" id="L147">        	exchange.respond(CoAP.ResponseCode.UNAUTHORIZED,</span>
+<span class="nc" id="L149">        	exchange.respond(CoAP.ResponseCode.UNAUTHORIZED,</span>
         					 &quot;Unauthenticated client tried to get access&quot;);
-<span class="nc" id="L149">        	return;</span>
+<span class="nc" id="L151">        	return;</span>
         }
     	
-<span class="pc bpc" id="L152" title="1 of 2 branches missed.">    	if (!targetedGroup.isGroupMember(subject)) {	</span>
+<span class="nc bnc" id="L154" title="All 2 branches missed.">    	if (!targetedGroup.isGroupMember(subject)) {	</span>
     		// The requester is not a current group member.
-<span class="nc" id="L154">    		CBORObject responseMap = CBORObject.NewMap();</span>
+<span class="nc" id="L156">    		CBORObject responseMap = CBORObject.NewMap();</span>
     		
-<span class="nc" id="L156">    		CBORObject aceGroupcommError = CBORObject.NewMap();</span>
-<span class="nc" id="L157">    		aceGroupcommError.Add(0, GroupcommErrors.ONLY_FOR_GROUP_MEMBERS);</span>
-<span class="nc" id="L158">    		responseMap.Add(Constants.PROBLEM_DETAIL_ACE_GROUPCOMM_ERROR, aceGroupcommError);</span>
-<span class="nc" id="L159">    		responseMap.Add(Constants.PROBLEM_DETAIL_KEY_TITLE, GroupcommErrors.DESCRIPTION[GroupcommErrors.ONLY_FOR_GROUP_MEMBERS]);</span>
+<span class="nc" id="L158">    		CBORObject aceGroupcommError = CBORObject.NewMap();</span>
+<span class="nc" id="L159">    		aceGroupcommError.Add(0, GroupcommErrors.ONLY_FOR_GROUP_MEMBERS);</span>
+<span class="nc" id="L160">    		responseMap.Add(Constants.PROBLEM_DETAIL_ACE_GROUPCOMM_ERROR, aceGroupcommError);</span>
+<span class="nc" id="L161">    		responseMap.Add(Constants.PROBLEM_DETAIL_KEY_TITLE, GroupcommErrors.DESCRIPTION[GroupcommErrors.ONLY_FOR_GROUP_MEMBERS]);</span>
 
-<span class="nc" id="L161">    		byte[] responsePayload = responseMap.EncodeToBytes();</span>
-<span class="nc" id="L162">    		exchange.respond(CoAP.ResponseCode.FORBIDDEN,</span>
+<span class="nc" id="L163">    		byte[] responsePayload = responseMap.EncodeToBytes();</span>
+<span class="nc" id="L164">    		exchange.respond(CoAP.ResponseCode.FORBIDDEN,</span>
     						 responsePayload,
     						 Constants.APPLICATION_CONCISE_PROBLEM_DETAILS_CBOR);
     		
-<span class="nc" id="L166">    		return;</span>
+<span class="nc" id="L168">    		return;</span>
     	}
         
     	// Respond to the Key Distribution Request
         
-<span class="fc" id="L171">    	CBORObject myResponse = CBORObject.NewMap();</span>
+<span class="nc" id="L173">    	CBORObject myResponse = CBORObject.NewMap();</span>
     	
     	// Key Type Value assigned to the Group_OSCORE_Input_Material object.
-<span class="fc" id="L174">    	myResponse.Add(GroupcommParameters.GKTY, CBORObject.FromObject(GroupcommParameters.GROUP_OSCORE_INPUT_MATERIAL_OBJECT));</span>
+<span class="nc" id="L176">    	myResponse.Add(GroupcommParameters.GKTY, CBORObject.FromObject(GroupcommParameters.GROUP_OSCORE_INPUT_MATERIAL_OBJECT));</span>
     	
     	// This map is filled as the Group_OSCORE_Input_Material object
-<span class="fc" id="L177">    	CBORObject myMap = CBORObject.NewMap();</span>
+<span class="nc" id="L179">    	CBORObject myMap = CBORObject.NewMap();</span>
     	
     	// Fill the 'key' parameter
     	// Note that no Sender ID is included
-<span class="fc" id="L181">    	myMap.Add(OSCOREInputMaterialObjectParameters.hkdf, targetedGroup.getHkdf().AsCBOR());</span>
-<span class="fc" id="L182">    	myMap.Add(OSCOREInputMaterialObjectParameters.salt, targetedGroup.getMasterSalt());</span>
-<span class="fc" id="L183">    	myMap.Add(OSCOREInputMaterialObjectParameters.ms, targetedGroup.getMasterSecret());</span>
-<span class="fc" id="L184">    	myMap.Add(OSCOREInputMaterialObjectParameters.contextId, targetedGroup.getGroupId());</span>
-<span class="fc" id="L185">    	myMap.Add(GroupOSCOREInputMaterialObjectParameters.cred_fmt, targetedGroup.getAuthCredFormat());</span>
-<span class="pc bpc" id="L186" title="1 of 2 branches missed.">    	if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {</span>
+<span class="nc" id="L183">    	myMap.Add(OSCOREInputMaterialObjectParameters.hkdf, targetedGroup.getHkdf().AsCBOR());</span>
+<span class="nc" id="L184">    	myMap.Add(OSCOREInputMaterialObjectParameters.salt, targetedGroup.getMasterSalt());</span>
+<span class="nc" id="L185">    	myMap.Add(OSCOREInputMaterialObjectParameters.ms, targetedGroup.getMasterSecret());</span>
+<span class="nc" id="L186">    	myMap.Add(OSCOREInputMaterialObjectParameters.contextId, targetedGroup.getGroupId());</span>
+<span class="nc" id="L187">    	myMap.Add(GroupOSCOREInputMaterialObjectParameters.cred_fmt, targetedGroup.getAuthCredFormat());</span>
+<span class="nc bnc" id="L188" title="All 2 branches missed.">    	if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {</span>
     		// The group mode is used
-<span class="fc" id="L188">    		myMap.Add(GroupOSCOREInputMaterialObjectParameters.gp_enc_alg, targetedGroup.getGpEncAlg().AsCBOR());</span>
-<span class="fc" id="L189">        	myMap.Add(GroupOSCOREInputMaterialObjectParameters.sign_alg, targetedGroup.getSignAlg().AsCBOR());</span>
-<span class="pc bpc" id="L190" title="1 of 2 branches missed.">        	if (targetedGroup.getSignParams().size() != 0)</span>
-<span class="fc" id="L191">        		myMap.Add(GroupOSCOREInputMaterialObjectParameters.sign_params, targetedGroup.getSignParams());</span>
+<span class="nc" id="L190">    		myMap.Add(GroupOSCOREInputMaterialObjectParameters.gp_enc_alg, targetedGroup.getGpEncAlg().AsCBOR());</span>
+<span class="nc" id="L191">        	myMap.Add(GroupOSCOREInputMaterialObjectParameters.sign_alg, targetedGroup.getSignAlg().AsCBOR());</span>
+<span class="nc bnc" id="L192" title="All 2 branches missed.">        	if (targetedGroup.getSignParams().size() != 0)</span>
+<span class="nc" id="L193">        		myMap.Add(GroupOSCOREInputMaterialObjectParameters.sign_params, targetedGroup.getSignParams());</span>
     	}
-<span class="pc bpc" id="L193" title="1 of 2 branches missed.">    	if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_GROUP_MODE_ONLY) {</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">    	if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_GROUP_MODE_ONLY) {</span>
     		// The pairwise mode is used
-<span class="fc" id="L195">    		myMap.Add(OSCOREInputMaterialObjectParameters.alg, targetedGroup.getAlg().AsCBOR());</span>
-<span class="fc" id="L196">        	myMap.Add(GroupOSCOREInputMaterialObjectParameters.ecdh_alg, targetedGroup.getEcdhAlg().AsCBOR());</span>
-<span class="pc bpc" id="L197" title="1 of 2 branches missed.">        	if (targetedGroup.getEcdhParams().size() != 0)</span>
-<span class="fc" id="L198">        		myMap.Add(GroupOSCOREInputMaterialObjectParameters.ecdh_params, targetedGroup.getEcdhParams());</span>
+<span class="nc" id="L197">    		myMap.Add(OSCOREInputMaterialObjectParameters.alg, targetedGroup.getAlg().AsCBOR());</span>
+<span class="nc" id="L198">        	myMap.Add(GroupOSCOREInputMaterialObjectParameters.ecdh_alg, targetedGroup.getEcdhAlg().AsCBOR());</span>
+<span class="nc bnc" id="L199" title="All 2 branches missed.">        	if (targetedGroup.getEcdhParams().size() != 0)</span>
+<span class="nc" id="L200">        		myMap.Add(GroupOSCOREInputMaterialObjectParameters.ecdh_params, targetedGroup.getEcdhParams());</span>
     	}
-<span class="fc" id="L200">    	myResponse.Add(GroupcommParameters.KEY, myMap);</span>
+<span class="nc" id="L202">    	myResponse.Add(GroupcommParameters.KEY, myMap);</span>
     	
     	// The current version of the symmetric keying material
-<span class="fc" id="L203">    	myResponse.Add(GroupcommParameters.NUM, CBORObject.FromObject(targetedGroup.getVersion()));</span>
+<span class="nc" id="L205">    	myResponse.Add(GroupcommParameters.NUM, CBORObject.FromObject(targetedGroup.getVersion()));</span>
     	
     	// CBOR Value assigned to the coap_group_oscore profile.
-<span class="fc" id="L206">    	myResponse.Add(GroupcommParameters.ACE_GROUPCOMM_PROFILE, CBORObject.FromObject(GroupcommParameters.COAP_GROUP_OSCORE_APP));</span>
+<span class="nc" id="L208">    	myResponse.Add(GroupcommParameters.ACE_GROUPCOMM_PROFILE, CBORObject.FromObject(GroupcommParameters.COAP_GROUP_OSCORE_APP));</span>
     	
-<span class="fc" id="L208">    	long expValue = targetedGroup.getExp();</span>
-<span class="fc" id="L209">    	long exiValue = expValue - (System.currentTimeMillis() / 1000L);</span>
+<span class="nc" id="L210">    	long expValue = targetedGroup.getExp();</span>
+<span class="nc" id="L211">    	long exiValue = expValue - (System.currentTimeMillis() / 1000L);</span>
     	
     	// Expiration time in seconds, after which the OSCORE Security Context
     	// derived from the 'k' parameter is not valid anymore.
-<span class="fc" id="L213">    	myResponse.Add(GroupcommParameters.EXP, CBORObject.FromObject(expValue));</span>
+<span class="nc" id="L215">    	myResponse.Add(GroupcommParameters.EXP, CBORObject.FromObject(expValue));</span>
     	
     	// Number of seconds after which the OSCORE Security Context
     	// derived from the 'k' parameter is not valid anymore.
-<span class="fc" id="L217">    	myResponse.Add(GroupcommParameters.EXI, CBORObject.FromObject(exiValue));</span>
+<span class="nc" id="L219">    	myResponse.Add(GroupcommParameters.EXI, CBORObject.FromObject(exiValue));</span>
 
-<span class="fc" id="L219">    	byte[] responsePayload = myResponse.EncodeToBytes();</span>
+<span class="nc" id="L221">    	byte[] responsePayload = myResponse.EncodeToBytes();</span>
     	
-<span class="fc" id="L221">    	Response coapResponse = new Response(CoAP.ResponseCode.CONTENT);</span>
-<span class="fc" id="L222">    	coapResponse.setPayload(responsePayload);</span>
-<span class="fc" id="L223">    	coapResponse.getOptions().setContentFormat(Constants.APPLICATION_ACE_GROUPCOMM_CBOR);</span>
+<span class="nc" id="L223">    	Response coapResponse = new Response(CoAP.ResponseCode.CONTENT);</span>
+<span class="nc" id="L224">    	coapResponse.setPayload(responsePayload);</span>
+<span class="nc" id="L225">    	coapResponse.getOptions().setContentFormat(Constants.APPLICATION_ACE_GROUPCOMM_CBOR);</span>
 
-<span class="fc" id="L225">    	exchange.respond(coapResponse);</span>
+<span class="nc" id="L227">    	exchange.respond(coapResponse);</span>
 
-<span class="fc" id="L227">    }</span>
+<span class="nc" id="L229">    }</span>
     
     @Override
     public void handlePOST(CoapExchange exchange) {
         
-<span class="fc" id="L232">    	System.out.println(&quot;POST request reached the GM&quot;);</span>
+<span class="nc" id="L234">    	System.out.println(&quot;POST request reached the GM&quot;);</span>
     	
     	String groupName;
-<span class="fc" id="L235">    	Set&lt;String&gt; roles = new HashSet&lt;&gt;();</span>
-<span class="fc" id="L236">    	boolean provideAuthCreds = false;</span>
+<span class="nc" id="L237">    	Set&lt;String&gt; roles = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L238">    	boolean provideAuthCreds = false;</span>
     	
-<span class="fc" id="L238">    	String subject = null;</span>
-<span class="fc" id="L239">    	Request request = exchange.advanced().getCurrentRequest();</span>
+<span class="nc" id="L240">    	String subject = null;</span>
+<span class="nc" id="L241">    	Request request = exchange.advanced().getCurrentRequest();</span>
         
         try {
-<span class="fc" id="L242">			subject = CoapReq.getInstance(request).getSenderId();</span>
-<span class="nc" id="L243">		} catch (AceException e) {</span>
-<span class="nc" id="L244">		    System.err.println(&quot;Error while retrieving the client identity: &quot; + e.getMessage());</span>
-<span class="fc" id="L245">		}</span>
-<span class="pc bpc" id="L246" title="1 of 2 branches missed.">        if (subject == null) {</span>
+<span class="nc" id="L244">			subject = CoapReq.getInstance(request).getSenderId();</span>
+<span class="nc" id="L245">		} catch (AceException e) {</span>
+<span class="nc" id="L246">		    System.err.println(&quot;Error while retrieving the client identity: &quot; + e.getMessage());</span>
+<span class="nc" id="L247">		}</span>
+<span class="nc bnc" id="L248" title="All 2 branches missed.">        if (subject == null) {</span>
         	// At this point, this should not really happen, due to the earlier check at the Token Repository
-<span class="nc" id="L248">        	exchange.respond(CoAP.ResponseCode.UNAUTHORIZED,</span>
+<span class="nc" id="L250">        	exchange.respond(CoAP.ResponseCode.UNAUTHORIZED,</span>
         				     &quot;Unauthenticated client tried to get access&quot;);
-<span class="nc" id="L250">        	return;</span>
+<span class="nc" id="L252">        	return;</span>
         }
         
-<span class="fc" id="L253">        String rsNonceString = TokenRepository.getInstance().getRsnonce(subject);</span>
+<span class="nc" id="L255">        String rsNonceString = TokenRepository.getInstance().getRsnonce(subject);</span>
         
-<span class="pc bpc" id="L255" title="1 of 2 branches missed.">        if(rsNonceString == null) {</span>
+<span class="nc bnc" id="L257" title="All 2 branches missed.">        if(rsNonceString == null) {</span>
         	// Return an error response, with a new nonce for PoP of
         	// the Client's private key in the next Join Request
-<span class="nc" id="L258">    	    CBORObject responseMap = CBORObject.NewMap();</span>
-<span class="nc" id="L259">            byte[] rsnonce = new byte[8];</span>
-<span class="nc" id="L260">            new SecureRandom().nextBytes(rsnonce);</span>
-<span class="nc" id="L261">            responseMap.Add(GroupcommParameters.KDCCHALLENGE, rsnonce);</span>
-<span class="nc" id="L262">            TokenRepository.getInstance().setRsnonce(subject, Base64.getEncoder().encodeToString(rsnonce));</span>
-<span class="nc" id="L263">            byte[] responsePayload = responseMap.EncodeToBytes();</span>
-<span class="nc" id="L264">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+<span class="nc" id="L260">    	    CBORObject responseMap = CBORObject.NewMap();</span>
+<span class="nc" id="L261">            byte[] rsnonce = new byte[8];</span>
+<span class="nc" id="L262">            new SecureRandom().nextBytes(rsnonce);</span>
+<span class="nc" id="L263">            responseMap.Add(GroupcommParameters.KDCCHALLENGE, rsnonce);</span>
+<span class="nc" id="L264">            TokenRepository.getInstance().setRsnonce(subject, Base64.getEncoder().encodeToString(rsnonce));</span>
+<span class="nc" id="L265">            byte[] responsePayload = responseMap.EncodeToBytes();</span>
+<span class="nc" id="L266">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
         					 responsePayload,
         					 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
-<span class="nc" id="L267">        	return;</span>
+<span class="nc" id="L269">        	return;</span>
         }
                     
-<span class="fc" id="L270">        byte[] rsnonce = Base64.getDecoder().decode(rsNonceString);</span>
+<span class="nc" id="L272">        byte[] rsnonce = Base64.getDecoder().decode(rsNonceString);</span>
     	
-<span class="fc" id="L272">    	byte[] requestPayload = exchange.getRequestPayload();</span>
+<span class="nc" id="L274">    	byte[] requestPayload = exchange.getRequestPayload();</span>
     	
-<span class="pc bpc" id="L274" title="1 of 2 branches missed.">    	if(requestPayload == null) {</span>
-<span class="nc" id="L275">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+<span class="nc bnc" id="L276" title="All 2 branches missed.">    	if(requestPayload == null) {</span>
+<span class="nc" id="L277">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
     						 &quot;A payload must be present&quot;);
-<span class="nc" id="L277">    		return;</span>
+<span class="nc" id="L279">    		return;</span>
     	}
     	
-<span class="fc" id="L280">    	CBORObject joinRequest = CBORObject.DecodeFromBytes(requestPayload);</span>
+<span class="nc" id="L282">    	CBORObject joinRequest = CBORObject.DecodeFromBytes(requestPayload);</span>
     	
-<span class="fc" id="L282">		CBORObject errorResponseMap = CBORObject.NewMap();</span>
+<span class="nc" id="L284">		CBORObject errorResponseMap = CBORObject.NewMap();</span>
     	
     	// Prepare the 'sign_info' and 'ecdh_info' parameter,
 		// to possibly return it in a 4.00 (Bad Request) response        	
-<span class="fc" id="L286">		CBORObject signInfo = CBORObject.NewArray();</span>
-<span class="fc" id="L287">    	CBORObject ecdhInfo = CBORObject.NewArray();</span>
+<span class="nc" id="L288">		CBORObject signInfo = CBORObject.NewArray();</span>
+<span class="nc" id="L289">    	CBORObject ecdhInfo = CBORObject.NewArray();</span>
 			
     	// Retrieve the entry for the target group, using the last path segment of
     	// the URI path as the name of the OSCORE group
-<span class="fc" id="L291">    	GroupInfo targetedGroup = existingGroupInfo.get(this.getName());</span>
+<span class="nc" id="L293">    	GroupInfo targetedGroup = existingGroupInfo.get(this.getName());</span>
 		
     	// This should never happen if existing groups are maintained properly
-<span class="pc bpc" id="L294" title="1 of 2 branches missed.">    	if (targetedGroup == null) {</span>
-<span class="nc" id="L295">        	exchange.respond(CoAP.ResponseCode.SERVICE_UNAVAILABLE,</span>
+<span class="nc bnc" id="L296" title="All 2 branches missed.">    	if (targetedGroup == null) {</span>
+<span class="nc" id="L297">        	exchange.respond(CoAP.ResponseCode.SERVICE_UNAVAILABLE,</span>
         					 &quot;Error when retrieving material for the OSCORE group&quot;);
-<span class="nc" id="L297">        	return;</span>
+<span class="nc" id="L299">        	return;</span>
     	}
     	
-<span class="pc bpc" id="L300" title="1 of 2 branches missed.">    	if (!targetedGroup.getStatus()) {</span>
+<span class="nc bnc" id="L302" title="All 2 branches missed.">    	if (!targetedGroup.getStatus()) {</span>
     		// The group is currently inactive and no new members are admitted
-<span class="nc" id="L302">    		CBORObject responseMap = CBORObject.NewMap();</span>
+<span class="nc" id="L304">    		CBORObject responseMap = CBORObject.NewMap();</span>
     		
-<span class="nc" id="L304">    		CBORObject aceGroupcommError = CBORObject.NewMap();</span>
-<span class="nc" id="L305">    		aceGroupcommError.Add(0, GroupcommErrors.GROUP_NOT_ACTIVE);</span>
-<span class="nc" id="L306">    		responseMap.Add(Constants.PROBLEM_DETAIL_ACE_GROUPCOMM_ERROR, aceGroupcommError);</span>
-<span class="nc" id="L307">    		responseMap.Add(Constants.PROBLEM_DETAIL_KEY_TITLE, GroupcommErrors.DESCRIPTION[GroupcommErrors.GROUP_NOT_ACTIVE]);</span>
+<span class="nc" id="L306">    		CBORObject aceGroupcommError = CBORObject.NewMap();</span>
+<span class="nc" id="L307">    		aceGroupcommError.Add(0, GroupcommErrors.GROUP_NOT_ACTIVE);</span>
+<span class="nc" id="L308">    		responseMap.Add(Constants.PROBLEM_DETAIL_ACE_GROUPCOMM_ERROR, aceGroupcommError);</span>
+<span class="nc" id="L309">    		responseMap.Add(Constants.PROBLEM_DETAIL_KEY_TITLE, GroupcommErrors.DESCRIPTION[GroupcommErrors.GROUP_NOT_ACTIVE]);</span>
     		
-<span class="nc" id="L309">    		byte[] responsePayload = responseMap.EncodeToBytes();</span>
-<span class="nc" id="L310">    		exchange.respond(CoAP.ResponseCode.SERVICE_UNAVAILABLE,</span>
+<span class="nc" id="L311">    		byte[] responsePayload = responseMap.EncodeToBytes();</span>
+<span class="nc" id="L312">    		exchange.respond(CoAP.ResponseCode.SERVICE_UNAVAILABLE,</span>
     						 responsePayload,
     						 Constants.APPLICATION_CONCISE_PROBLEM_DETAILS_CBOR);
     		
-<span class="nc" id="L314">    		return;</span>
+<span class="nc" id="L316">    		return;</span>
     	}
     	
     	// The group mode is used
-<span class="pc bpc" id="L318" title="1 of 2 branches missed.">    	if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {</span>
-<span class="fc" id="L319">			CBORObject signInfoEntry = CBORObject.NewArray();</span>
-<span class="fc" id="L320">			signInfoEntry.Add(CBORObject.FromObject(targetedGroup.getGroupName())); // 'id' element</span>
-<span class="fc" id="L321">			signInfoEntry.Add(targetedGroup.getSignAlg().AsCBOR()); // 'sign_alg' element</span>
+<span class="nc bnc" id="L320" title="All 2 branches missed.">    	if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {</span>
+<span class="nc" id="L321">			CBORObject signInfoEntry = CBORObject.NewArray();</span>
+<span class="nc" id="L322">			signInfoEntry.Add(CBORObject.FromObject(targetedGroup.getGroupName())); // 'id' element</span>
+<span class="nc" id="L323">			signInfoEntry.Add(targetedGroup.getSignAlg().AsCBOR()); // 'sign_alg' element</span>
 			
 			// 'sign_parameters' element (The algorithm capabilities)
-<span class="fc" id="L324">	    	CBORObject arrayElem = targetedGroup.getSignParams().get(0);</span>
-<span class="pc bpc" id="L325" title="1 of 2 branches missed.">	    	if (arrayElem == null)</span>
-<span class="nc" id="L326">	    		signInfoEntry.Add(CBORObject.Null);</span>
+<span class="nc" id="L326">	    	CBORObject arrayElem = targetedGroup.getSignParams().get(0);</span>
+<span class="nc bnc" id="L327" title="All 2 branches missed.">	    	if (arrayElem == null)</span>
+<span class="nc" id="L328">	    		signInfoEntry.Add(CBORObject.Null);</span>
 	    	else
-<span class="fc" id="L328">	    		signInfoEntry.Add(arrayElem);</span>
+<span class="nc" id="L330">	    		signInfoEntry.Add(arrayElem);</span>
 	    	
 	    	// 'sign_key_parameters' element (The key type capabilities)
-<span class="fc" id="L331">	    	arrayElem = targetedGroup.getSignParams().get(1);</span>
-<span class="pc bpc" id="L332" title="1 of 2 branches missed.">	    	if (arrayElem == null)</span>
-<span class="nc" id="L333">	    		signInfoEntry.Add(CBORObject.Null);</span>
+<span class="nc" id="L333">	    	arrayElem = targetedGroup.getSignParams().get(1);</span>
+<span class="nc bnc" id="L334" title="All 2 branches missed.">	    	if (arrayElem == null)</span>
+<span class="nc" id="L335">	    		signInfoEntry.Add(CBORObject.Null);</span>
 	    	else
-<span class="fc" id="L335">	    		signInfoEntry.Add(arrayElem);</span>
+<span class="nc" id="L337">	    		signInfoEntry.Add(arrayElem);</span>
 	    	
 	    	// 'cred_fmt' element
-<span class="fc" id="L338">	    	signInfoEntry.Add(targetedGroup.getAuthCredFormat());</span>
-<span class="fc" id="L339">		    signInfo.Add(signInfoEntry);</span>
-<span class="fc" id="L340">		    errorResponseMap.Add(GroupcommParameters.SIGN_INFO, signInfo);</span>
+<span class="nc" id="L340">	    	signInfoEntry.Add(targetedGroup.getAuthCredFormat());</span>
+<span class="nc" id="L341">		    signInfo.Add(signInfoEntry);</span>
+<span class="nc" id="L342">		    errorResponseMap.Add(GroupcommParameters.SIGN_INFO, signInfo);</span>
     	}
     	
     	// The pairwise mode is used
-<span class="pc bpc" id="L344" title="1 of 2 branches missed.">    	if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_GROUP_MODE_ONLY) {</span>
-<span class="fc" id="L345">			CBORObject ecdhInfoEntry = CBORObject.NewArray();</span>
-<span class="fc" id="L346">			ecdhInfoEntry.Add(CBORObject.FromObject(targetedGroup.getGroupName())); // 'id' element</span>
-<span class="fc" id="L347">			ecdhInfoEntry.Add(targetedGroup.getEcdhAlg().AsCBOR()); // 'ecdh_alg' element</span>
+<span class="nc bnc" id="L346" title="All 2 branches missed.">    	if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_GROUP_MODE_ONLY) {</span>
+<span class="nc" id="L347">			CBORObject ecdhInfoEntry = CBORObject.NewArray();</span>
+<span class="nc" id="L348">			ecdhInfoEntry.Add(CBORObject.FromObject(targetedGroup.getGroupName())); // 'id' element</span>
+<span class="nc" id="L349">			ecdhInfoEntry.Add(targetedGroup.getEcdhAlg().AsCBOR()); // 'ecdh_alg' element</span>
 			
 			// 'ecdh_parameters' element (The algorithm capabilities)
-<span class="fc" id="L350">	    	CBORObject arrayElem = targetedGroup.getEcdhParams().get(0);</span>
-<span class="pc bpc" id="L351" title="1 of 2 branches missed.">	    	if (arrayElem == null)</span>
-<span class="nc" id="L352">	    		ecdhInfoEntry.Add(CBORObject.Null);</span>
+<span class="nc" id="L352">	    	CBORObject arrayElem = targetedGroup.getEcdhParams().get(0);</span>
+<span class="nc bnc" id="L353" title="All 2 branches missed.">	    	if (arrayElem == null)</span>
+<span class="nc" id="L354">	    		ecdhInfoEntry.Add(CBORObject.Null);</span>
 	    	else
-<span class="fc" id="L354">	    		ecdhInfoEntry.Add(arrayElem);</span>
+<span class="nc" id="L356">	    		ecdhInfoEntry.Add(arrayElem);</span>
 	    	
 	    	// 'ecdh_key_parameters' element (The key type capabilities)
-<span class="fc" id="L357">	    	arrayElem = targetedGroup.getEcdhParams().get(1);</span>
-<span class="pc bpc" id="L358" title="1 of 2 branches missed.">	    	if (arrayElem == null)</span>
-<span class="nc" id="L359">	    		ecdhInfoEntry.Add(CBORObject.Null);</span>
+<span class="nc" id="L359">	    	arrayElem = targetedGroup.getEcdhParams().get(1);</span>
+<span class="nc bnc" id="L360" title="All 2 branches missed.">	    	if (arrayElem == null)</span>
+<span class="nc" id="L361">	    		ecdhInfoEntry.Add(CBORObject.Null);</span>
 	    	else
-<span class="fc" id="L361">	    		ecdhInfoEntry.Add(arrayElem);</span>
+<span class="nc" id="L363">	    		ecdhInfoEntry.Add(arrayElem);</span>
 	    	
 	    	// 'cred_fmt' element
-<span class="fc" id="L364">	    	ecdhInfoEntry.Add(targetedGroup.getAuthCredFormat());</span>
-<span class="fc" id="L365">		    ecdhInfo.Add(ecdhInfoEntry);</span>
-<span class="fc" id="L366">		    errorResponseMap.Add(GroupcommParameters.ECDH_INFO, ecdhInfo);</span>
+<span class="nc" id="L366">	    	ecdhInfoEntry.Add(targetedGroup.getAuthCredFormat());</span>
+<span class="nc" id="L367">		    ecdhInfo.Add(ecdhInfoEntry);</span>
+<span class="nc" id="L368">		    errorResponseMap.Add(GroupcommParameters.ECDH_INFO, ecdhInfo);</span>
     	}
 	    
 	    
     	// The payload of the join request must be a CBOR Map
-<span class="pc bpc" id="L371" title="1 of 2 branches missed.">    	if (!joinRequest.getType().equals(CBORType.Map)) {</span>
-<span class="nc" id="L372">    		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
-<span class="nc" id="L373">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+<span class="nc bnc" id="L373" title="All 2 branches missed.">    	if (!joinRequest.getType().equals(CBORType.Map)) {</span>
+<span class="nc" id="L374">    		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
+<span class="nc" id="L375">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
     						 errorResponsePayload,
     						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
-<span class="nc" id="L376">    		return;</span>
+<span class="nc" id="L378">    		return;</span>
     	}
     		
     	// More steps follow:
@@ -388,396 +390,435 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
     	// of the GroupOSCOREJoinValidator used as Scope/Audience Validator.
     	
     	// Retrieve scope
-<span class="fc" id="L391">    	CBORObject scope = joinRequest.get(CBORObject.FromObject(GroupcommParameters.SCOPE));</span>
+<span class="nc" id="L393">    	CBORObject scope = joinRequest.get(CBORObject.FromObject(GroupcommParameters.SCOPE));</span>
     	
     	// Scope must be included for joining OSCORE groups
-<span class="pc bpc" id="L394" title="1 of 2 branches missed.">    	if (scope == null) {</span>
-<span class="nc" id="L395">    		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
-<span class="nc" id="L396">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+<span class="nc bnc" id="L396" title="All 2 branches missed.">    	if (scope == null) {</span>
+<span class="nc" id="L397">    		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
+<span class="nc" id="L398">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
     						 errorResponsePayload,
     						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
-<span class="nc" id="L399">    		return;</span>
+<span class="nc" id="L401">    		return;</span>
     	}
     	// Scope must be wrapped in a binary string for joining OSCORE groups
-<span class="pc bpc" id="L402" title="1 of 2 branches missed.">    	if (!scope.getType().equals(CBORType.ByteString)) {</span>
-<span class="nc" id="L403">    		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
-<span class="nc" id="L404">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+<span class="nc bnc" id="L404" title="All 2 branches missed.">    	if (!scope.getType().equals(CBORType.ByteString)) {</span>
+<span class="nc" id="L405">    		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
+<span class="nc" id="L406">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
     						 errorResponsePayload,
     						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
-<span class="nc" id="L407">    		return;</span>
+<span class="nc" id="L409">    		return;</span>
         }
     	
-<span class="fc" id="L410">    	byte[] rawScope = scope.GetByteString();</span>
-<span class="fc" id="L411">    	CBORObject cborScope = CBORObject.DecodeFromBytes(rawScope);</span>
+<span class="nc" id="L412">    	byte[] rawScope = scope.GetByteString();</span>
+<span class="nc" id="L413">    	CBORObject cborScope = CBORObject.DecodeFromBytes(rawScope);</span>
     	
     	// Invalid scope format for joining OSCORE groups
-<span class="pc bpc" id="L414" title="1 of 2 branches missed.">    	if (!cborScope.getType().equals(CBORType.Array)) {</span>
-<span class="nc" id="L415">    		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
-<span class="nc" id="L416">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+<span class="nc bnc" id="L416" title="All 2 branches missed.">    	if (!cborScope.getType().equals(CBORType.Array)) {</span>
+<span class="nc" id="L417">    		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
+<span class="nc" id="L418">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
     						 errorResponsePayload,
     						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
-<span class="nc" id="L419">    		return;</span>
+<span class="nc" id="L421">    		return;</span>
         }
     	
     	// Invalid scope format for joining OSCORE groups
-<span class="pc bpc" id="L423" title="1 of 2 branches missed.">    	if (cborScope.size() != 2) {</span>
-<span class="nc" id="L424">    		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
-<span class="nc" id="L425">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+<span class="nc bnc" id="L425" title="All 2 branches missed.">    	if (cborScope.size() != 2) {</span>
+<span class="nc" id="L426">    		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
+<span class="nc" id="L427">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
     						 errorResponsePayload,
     						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
-<span class="nc" id="L428">    		return;</span>
+<span class="nc" id="L430">    		return;</span>
         }
     	
     	// Retrieve the name of the OSCORE group
-<span class="fc" id="L432">  	  	CBORObject scopeElement = cborScope.get(0);</span>
-<span class="pc bpc" id="L433" title="1 of 2 branches missed.">  	  	if (scopeElement.getType().equals(CBORType.TextString)) {</span>
-<span class="fc" id="L434">  	  		groupName = scopeElement.AsString();</span>
+<span class="nc" id="L434">  	  	CBORObject scopeElement = cborScope.get(0);</span>
+<span class="nc bnc" id="L435" title="All 2 branches missed.">  	  	if (scopeElement.getType().equals(CBORType.TextString)) {</span>
+<span class="nc" id="L436">  	  		groupName = scopeElement.AsString();</span>
 
   	  		// The group name in 'scope' is not pertinent for this group-membership resource
-<span class="pc bpc" id="L437" title="1 of 2 branches missed.">  	  		if (!groupName.equals(this.getName())) {</span>
-<span class="nc" id="L438">        		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
-<span class="nc" id="L439">				exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+<span class="nc bnc" id="L439" title="All 2 branches missed.">  	  		if (!groupName.equals(this.getName())) {</span>
+<span class="nc" id="L440">        		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
+<span class="nc" id="L441">				exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
   								 errorResponsePayload,
   								 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
-<span class="nc" id="L442">  				return;</span>
+<span class="nc" id="L444">  				return;</span>
   			}      	  		
   	  	}
   	  	// Invalid scope format for joining OSCORE groups
   	  	else {
-<span class="nc" id="L447">    		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
-<span class="nc" id="L448">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+<span class="nc" id="L449">    		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
+<span class="nc" id="L450">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
   	  				 		 errorResponsePayload,
   	  						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
-<span class="nc" id="L451">    		return;</span>
+<span class="nc" id="L453">    		return;</span>
   	  	}
   	  	
   	  	// Retrieve the role or list of roles
-<span class="fc" id="L455">  	  	scopeElement = cborScope.get(1);</span>
+<span class="nc" id="L457">  	  	scopeElement = cborScope.get(1);</span>
   	  	
-<span class="fc" id="L457">  	  	int roleSet = 0;</span>
+<span class="nc" id="L459">  	  	int roleSet = 0;</span>
   	  	
-<span class="pc bpc" id="L459" title="1 of 2 branches missed.">    	if (scopeElement.getType().equals(CBORType.Integer)) {</span>
-<span class="fc" id="L460">    		roleSet = scopeElement.AsInt32();</span>
+<span class="nc bnc" id="L461" title="All 2 branches missed.">    	if (scopeElement.getType().equals(CBORType.Integer)) {</span>
+<span class="nc" id="L462">    		roleSet = scopeElement.AsInt32();</span>
     		
     		// Invalid format of roles
-<span class="pc bpc" id="L463" title="1 of 2 branches missed.">    		if (roleSet &lt; 0) {</span>
-<span class="nc" id="L464">        		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
-<span class="nc" id="L465">				exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+<span class="nc bnc" id="L465" title="All 2 branches missed.">    		if (roleSet &lt; 0) {</span>
+<span class="nc" id="L466">        		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
+<span class="nc" id="L467">				exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
   	  							 errorResponsePayload,
   	  							 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
-<span class="nc" id="L468">        		return;</span>
+<span class="nc" id="L470">        		return;</span>
     		}
  	  		// Invalid combination of roles
-<span class="pc bpc" id="L471" title="1 of 2 branches missed.">    		if(!GroupcommParameters.getValidGroupOSCORERoleCombinations().contains(roleSet)) {</span>
-<span class="nc" id="L472">        		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
-<span class="nc" id="L473">				exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+<span class="nc bnc" id="L473" title="All 2 branches missed.">    		if(!GroupcommParameters.getValidGroupOSCORERoleCombinations().contains(roleSet)) {</span>
+<span class="nc" id="L474">        		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
+<span class="nc" id="L475">				exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
 									 errorResponsePayload,
 									 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
-<span class="nc" id="L476">					return;</span>
+<span class="nc" id="L478">					return;</span>
     		}
-<span class="fc" id="L478">    		Set&lt;Integer&gt; roleIdSet = new HashSet&lt;Integer&gt;();</span>
+<span class="nc" id="L480">    		Set&lt;Integer&gt; roleIdSet = new HashSet&lt;Integer&gt;();</span>
     		try {
-<span class="fc" id="L480">        		roleIdSet = Util.getGroupOSCORERoles(roleSet);</span>
+<span class="nc" id="L482">        		roleIdSet = Util.getGroupOSCORERoles(roleSet);</span>
     		}
-<span class="nc" id="L482">    		catch(AceException e) {</span>
-<span class="nc" id="L483">    			System.err.println(e.getMessage());</span>
-<span class="fc" id="L484">    		}</span>
-<span class="fc" id="L485">    		short[] roleIdArray = new short[roleIdSet.size()];</span>
-<span class="fc" id="L486">    		int index = 0;</span>
-<span class="fc bfc" id="L487" title="All 2 branches covered.">    		for (Integer elem : roleIdSet)</span>
-<span class="fc" id="L488">    		    roleIdArray[index++] = elem.shortValue(); </span>
-<span class="fc bfc" id="L489" title="All 2 branches covered.">    		for (int i=0; i&lt;roleIdArray.length; i++) {</span>
-<span class="fc" id="L490">    			short roleIdentifier = roleIdArray[i];</span>
+<span class="nc" id="L484">    		catch(AceException e) {</span>
+<span class="nc" id="L485">    			System.err.println(e.getMessage());</span>
+<span class="nc" id="L486">    		}</span>
+<span class="nc" id="L487">    		short[] roleIdArray = new short[roleIdSet.size()];</span>
+<span class="nc" id="L488">    		int index = 0;</span>
+<span class="nc bnc" id="L489" title="All 2 branches missed.">    		for (Integer elem : roleIdSet)</span>
+<span class="nc" id="L490">    		    roleIdArray[index++] = elem.shortValue(); </span>
+<span class="nc bnc" id="L491" title="All 2 branches missed.">    		for (int i=0; i&lt;roleIdArray.length; i++) {</span>
+<span class="nc" id="L492">    			short roleIdentifier = roleIdArray[i];</span>
     			// Silently ignore unrecognized roles
-<span class="pc bpc" id="L492" title="1 of 2 branches missed.">    			if (roleIdentifier &lt; GroupcommParameters.GROUP_OSCORE_ROLES.length)</span>
-<span class="fc" id="L493">    				roles.add(GroupcommParameters.GROUP_OSCORE_ROLES[roleIdentifier]);</span>
+<span class="nc bnc" id="L494" title="All 2 branches missed.">    			if (roleIdentifier &lt; GroupcommParameters.GROUP_OSCORE_ROLES.length)</span>
+<span class="nc" id="L495">    				roles.add(GroupcommParameters.GROUP_OSCORE_ROLES[roleIdentifier]);</span>
     		}
     		  
-<span class="fc" id="L496">    	}</span>
+<span class="nc" id="L498">    	}</span>
   	  	
   	  	
     	// Invalid format of roles
   	  	else {
-<span class="nc" id="L501">    		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
-<span class="nc" id="L502">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+<span class="nc" id="L503">    		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
+<span class="nc" id="L504">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
   	  						 errorResponsePayload,
   	  						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
-<span class="nc" id="L505">    		return;</span>
+<span class="nc" id="L507">    		return;</span>
   	  	}
     
     	// Check that the indicated roles for this group are actually allowed by the Access Token 
-<span class="fc" id="L509">    	boolean allowed = false;</span>
-<span class="fc" id="L510">    	int[] roleSetToken = Util.getGroupOSCORERolesFromToken(subject, groupName);</span>
-<span class="pc bpc" id="L511" title="1 of 2 branches missed.">    	if (roleSetToken == null) {</span>
-<span class="nc" id="L512">    		exchange.respond(CoAP.ResponseCode.INTERNAL_SERVER_ERROR,</span>
+<span class="nc" id="L511">    	boolean allowed = false;</span>
+<span class="nc" id="L512">    	int[] roleSetToken = Util.getGroupOSCORERolesFromToken(subject, groupName);</span>
+<span class="nc bnc" id="L513" title="All 2 branches missed.">    	if (roleSetToken == null) {</span>
+<span class="nc" id="L514">    		exchange.respond(CoAP.ResponseCode.INTERNAL_SERVER_ERROR,</span>
     						 &quot;Error when retrieving allowed roles from Access Tokens&quot;);
-<span class="nc" id="L514">    		return;</span>
+<span class="nc" id="L516">    		return;</span>
     	}
     	else {
-<span class="pc bpc" id="L517" title="1 of 2 branches missed.">    		for (int index = 0; index &lt; roleSetToken.length; index++) {</span>
-<span class="pc bpc" id="L518" title="1 of 2 branches missed.">        		if ((roleSet &amp; roleSetToken[index]) == roleSet) {</span>
+<span class="nc bnc" id="L519" title="All 2 branches missed.">    		for (int index = 0; index &lt; roleSetToken.length; index++) {</span>
+<span class="nc bnc" id="L520" title="All 2 branches missed.">        		if ((roleSet &amp; roleSetToken[index]) == roleSet) {</span>
         			// 'scope' in at least one Access Token admits all the roles indicated
         			// for this group in the Joining Request
-<span class="fc" id="L521">        			allowed = true;</span>
-<span class="fc" id="L522">        			break;</span>
+<span class="nc" id="L523">        			allowed = true;</span>
+<span class="nc" id="L524">        			break;</span>
         		}
     		}	
     	}
     	
-<span class="pc bpc" id="L527" title="1 of 2 branches missed.">    	if (!allowed) {</span>
-<span class="nc" id="L528">    		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
-<span class="nc" id="L529">    		exchange.respond(CoAP.ResponseCode.FORBIDDEN,</span>
+<span class="nc bnc" id="L529" title="All 2 branches missed.">    	if (!allowed) {</span>
+<span class="nc" id="L530">    		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
+<span class="nc" id="L531">    		exchange.respond(CoAP.ResponseCode.FORBIDDEN,</span>
     						 errorResponsePayload,
     						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
-<span class="nc" id="L532">    		return;</span>
+<span class="nc" id="L534">    		return;</span>
     	}
     	
 		// Retrieve the nonce from the Client
-<span class="fc" id="L536">		CBORObject cnonce = joinRequest.get(CBORObject.FromObject(GroupcommParameters.CNONCE));</span>
+<span class="nc" id="L538">		CBORObject cnonce = joinRequest.get(CBORObject.FromObject(GroupcommParameters.CNONCE));</span>
     	
 		// A client nonce must be included for proof-of-possession for joining OSCORE groups
-<span class="pc bpc" id="L539" title="1 of 2 branches missed.">    	if (cnonce == null) {</span>
-<span class="nc" id="L540">    		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
-<span class="nc" id="L541">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorResponsePayload,</span>
+<span class="nc bnc" id="L541" title="All 2 branches missed.">    	if (cnonce == null) {</span>
+<span class="nc" id="L542">    		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
+<span class="nc" id="L543">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorResponsePayload,</span>
     						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
-<span class="nc" id="L543">    		return;</span>
+<span class="nc" id="L545">    		return;</span>
     	}
 
     	// The client nonce must be wrapped in a binary string for joining OSCORE groups
-<span class="pc bpc" id="L547" title="1 of 2 branches missed.">    	if (!cnonce.getType().equals(CBORType.ByteString)) {</span>
-<span class="nc" id="L548">    		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
-<span class="nc" id="L549">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorResponsePayload,</span>
+<span class="nc bnc" id="L549" title="All 2 branches missed.">    	if (!cnonce.getType().equals(CBORType.ByteString)) {</span>
+<span class="nc" id="L550">    		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
+<span class="nc" id="L551">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorResponsePayload,</span>
     						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
-<span class="nc" id="L551">    		return;</span>
+<span class="nc" id="L553">    		return;</span>
         }
     	
-<span class="fc" id="L554">    	byte[] serializedCNonceCBOR = cnonce.EncodeToBytes();</span>
+<span class="nc" id="L556">    	byte[] serializedCNonceCBOR = cnonce.EncodeToBytes();</span>
     	
     	// Retrieve 'get_creds'
     	// If present, this parameter must be a CBOR array or the CBOR simple value Null
-<span class="fc" id="L558">    	CBORObject getCreds = joinRequest.get(CBORObject.FromObject((GroupcommParameters.GET_CREDS)));</span>
-<span class="pc bpc" id="L559" title="1 of 2 branches missed.">    	if (getCreds != null) {</span>
+<span class="nc" id="L560">    	CBORObject getCreds = joinRequest.get(CBORObject.FromObject((GroupcommParameters.GET_CREDS)));</span>
+<span class="nc bnc" id="L561" title="All 2 branches missed.">    	if (getCreds != null) {</span>
     		
     		// Invalid format of 'get_creds'
-<span class="pc bpc" id="L562" title="3 of 4 branches missed.">    		if (!getCreds.getType().equals(CBORType.Array) &amp;&amp; !getCreds.equals(CBORObject.Null)) {</span>
-<span class="nc" id="L563">        		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
-<span class="nc" id="L564">				exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+<span class="nc bnc" id="L564" title="All 4 branches missed.">    		if (!getCreds.getType().equals(CBORType.Array) &amp;&amp; !getCreds.equals(CBORObject.Null)) {</span>
+<span class="nc" id="L565">        		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
+<span class="nc" id="L566">				exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
     							 errorResponsePayload,
     							 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
-<span class="nc" id="L567">        		return;</span>
+<span class="nc" id="L569">        		return;</span>
     		}
 
     		// Invalid format of 'get_creds'
-<span class="pc bpc" id="L571" title="1 of 2 branches missed.">    		if (getCreds.getType().equals(CBORType.Array)) {</span>
-<span class="pc bpc" id="L572" title="1 of 2 branches missed.">        		if ( getCreds.size() != 3 ||</span>
-<span class="pc bpc" id="L573" title="1 of 2 branches missed.">        	        !getCreds.get(0).getType().equals(CBORType.Boolean) ||</span>
-<span class="pc bpc" id="L574" title="1 of 2 branches missed.">        	         getCreds.get(0).AsBoolean() != true ||</span>
-<span class="pc bpc" id="L575" title="1 of 2 branches missed.">        			!getCreds.get(1).getType().equals(CBORType.Array) ||</span>
-<span class="pc bpc" id="L576" title="1 of 2 branches missed.">        			!getCreds.get(2).getType().equals(CBORType.Array) || </span>
-<span class="pc bpc" id="L577" title="1 of 2 branches missed.">        			 getCreds.get(2).size() != 0) {</span>
+<span class="nc bnc" id="L573" title="All 2 branches missed.">    		if (getCreds.getType().equals(CBORType.Array)) {</span>
+<span class="nc bnc" id="L574" title="All 2 branches missed.">        		if ( getCreds.size() != 3 ||</span>
+<span class="nc bnc" id="L575" title="All 2 branches missed.">        	        !getCreds.get(0).getType().equals(CBORType.Boolean) ||</span>
+<span class="nc bnc" id="L576" title="All 2 branches missed.">        	         getCreds.get(0).AsBoolean() != true ||</span>
+<span class="nc bnc" id="L577" title="All 2 branches missed.">        			!getCreds.get(1).getType().equals(CBORType.Array) ||</span>
+<span class="nc bnc" id="L578" title="All 2 branches missed.">        			!getCreds.get(2).getType().equals(CBORType.Array) || </span>
+<span class="nc bnc" id="L579" title="All 2 branches missed.">        			 getCreds.get(2).size() != 0) {</span>
             		
-<span class="nc" id="L579">            		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
-<span class="nc" id="L580">					exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+<span class="nc" id="L581">            		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
+<span class="nc" id="L582">					exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
         							 errorResponsePayload,
         							 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
-<span class="nc" id="L583">            		return;</span>
+<span class="nc" id="L585">            		return;</span>
             		
         		}
     		}
 
     		// Invalid format of 'get_creds'
-<span class="pc bpc" id="L589" title="1 of 2 branches missed.">    		if (getCreds.getType().equals(CBORType.Array)) {</span>
-<span class="fc bfc" id="L590" title="All 2 branches covered.">    			for (int i = 0; i &lt; getCreds.get(1).size(); i++) {</span>
+<span class="nc bnc" id="L591" title="All 2 branches missed.">    		if (getCreds.getType().equals(CBORType.Array)) {</span>
+<span class="nc bnc" id="L592" title="All 2 branches missed.">    			for (int i = 0; i &lt; getCreds.get(1).size(); i++) {</span>
     				// Possible elements of the first array have to be all integers and
     				// express a valid combination of roles encoded in the AIF data model
-<span class="pc bpc" id="L593" title="1 of 2 branches missed.">    				if (!getCreds.get(1).get(i).getType().equals(CBORType.Integer) ||</span>
-<span class="pc bpc" id="L594" title="1 of 2 branches missed.">    					!GroupcommParameters.getValidGroupOSCORERoleCombinations().contains(getCreds.get(1).get(i).AsInt32())) {</span>
+<span class="nc bnc" id="L595" title="All 2 branches missed.">    				if (!getCreds.get(1).get(i).getType().equals(CBORType.Integer) ||</span>
+<span class="nc bnc" id="L596" title="All 2 branches missed.">    					!GroupcommParameters.getValidGroupOSCORERoleCombinations().contains(getCreds.get(1).get(i).AsInt32())) {</span>
     					
-<span class="nc" id="L596">                		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
-<span class="nc" id="L597">						exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+<span class="nc" id="L598">                		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
+<span class="nc" id="L599">						exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
             							 errorResponsePayload,
             							 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
-<span class="nc" id="L600">                		return;</span>
+<span class="nc" id="L602">                		return;</span>
     					
     				}
     			}
     		}
 
-<span class="fc" id="L606">    		provideAuthCreds = true;</span>
+<span class="nc" id="L608">    		provideAuthCreds = true;</span>
     		
     	}
     	
     	// Retrieve the entry for the target OSCORE group, using the group name
-<span class="fc" id="L611">    	GroupInfo myGroup = existingGroupInfo.get(groupName);</span>
+<span class="nc" id="L613">    	GroupInfo myGroup = existingGroupInfo.get(groupName);</span>
     	
-<span class="fc" id="L613">    	String nodeName = null;</span>
-<span class="fc" id="L614">    	byte[] senderId = null;</span>
-<span class="fc" id="L615">        int signKeyCurve = 0;</span>
+<span class="nc" id="L615">    	String nodeName = null;</span>
+<span class="nc" id="L616">    	byte[] senderId = null;</span>
+<span class="nc" id="L617">        int signKeyCurve = 0;</span>
+
+		// === Ensure Client1 and Client2 get specific Sender IDs
+<span class="nc" id="L620">		CBORObject clientCred = joinRequest.get(CBORObject.FromObject(GroupcommParameters.CLIENT_CRED));</span>
+<span class="nc" id="L621">		System.out.println(&quot;clientCred: &quot; + Utils.toHexString(clientCred.EncodeToBytes()));</span>
+
+<span class="nc" id="L623">		byte[] clientCredBytes = clientCred.EncodeToBytes();</span>
+<span class="nc" id="L624">		byte[] expectedClient1 = StringUtil.hex2ByteArray(</span>
+				&quot;585aa20267436c69656e743108a101a501020327200122582064ce3dd128cc4efa6de209be8abd111c7272f612c2db654057b6ec00fbfb06842158201adb2ab6af48f17c9877cf77db4fa39dc0923fbe215e576fe6f790b1ff2cbc96&quot;);
+<span class="nc" id="L626">		byte[] expectedClient2 = StringUtil.hex2ByteArray(</span>
+				&quot;5837a20267436c69656e743208a101a4010103272006215820c80240e84f3cb886d841da6f71140f8578e7e27808672df08521830ae1300f54&quot;);
+
+		// Compare
+<span class="nc" id="L630">		boolean assigned = false;</span>
+<span class="nc" id="L631">		byte[] client1Sid = new byte[] { 0x11 };</span>
+<span class="nc" id="L632">		byte[] client2Sid = new byte[] { 0x22 };</span>
+<span class="nc bnc" id="L633" title="All 2 branches missed.">		if (Arrays.equals(clientCredBytes, expectedClient1)) {</span>
+<span class="nc" id="L634">			System.out.println(&quot;clientCred matched client1! Assign specific Sender ID.&quot;);</span>
+<span class="nc" id="L635">			senderId = client1Sid;</span>
+<span class="nc" id="L636">			assigned = myGroup.allocateSenderId(senderId);</span>
+<span class="nc bnc" id="L637" title="All 2 branches missed.">			if (!assigned) {</span>
+<span class="nc" id="L638">				System.err.println(&quot;Client1 Sender ID already in use!&quot;);</span>
+			}
+<span class="nc bnc" id="L640" title="All 2 branches missed.">		} else if (Arrays.equals(clientCredBytes, expectedClient2)) {</span>
+<span class="nc" id="L641">			System.out.println(&quot;clientCred matched client2! Assign specific Sender ID.&quot;);</span>
+<span class="nc" id="L642">			senderId = client2Sid;</span>
+<span class="nc" id="L643">			assigned = myGroup.allocateSenderId(senderId);</span>
+<span class="nc bnc" id="L644" title="All 2 branches missed.">			if (!assigned) {</span>
+<span class="nc" id="L645">				System.err.println(&quot;Client2 Sender ID already in use!&quot;);</span>
+			}
+		}
+		// === Ensure Client1 and Client2 get specific Sender IDs
 
     	// Assign a Sender ID to the joining node, unless it is a monitor
-<span class="pc bpc" id="L618" title="1 of 2 branches missed.">    	if (roleSet != (1 &lt;&lt; GroupcommParameters.GROUP_OSCORE_MONITOR)) {</span>
-        	// For the sake of testing, a particular Sender ID is used as known to be available.
-<span class="fc" id="L620">            senderId = new byte[] { (byte) 0x25 };</span>
-            
-<span class="fc" id="L622">        	myGroup.allocateSenderId(senderId);</span>
+<span class="nc bnc" id="L651" title="All 4 branches missed.">		if (!assigned &amp;&amp; (roleSet != (1 &lt;&lt; GroupcommParameters.GROUP_OSCORE_MONITOR))) {</span>
+			// Allocate random Sender ID
+<span class="nc" id="L653">			senderId = new byte[1];</span>
+<span class="nc bnc" id="L654" title="All 2 branches missed.">			while (!assigned) {</span>
+<span class="nc" id="L655">				new Random().nextBytes(senderId);</span>
+
+				// Avoid 0x11 and 0x22
+<span class="nc bnc" id="L658" title="All 4 branches missed.">				if (Arrays.equals(senderId, client1Sid) || Arrays.equals(senderId, client2Sid)) {</span>
+<span class="nc" id="L659">					continue; // pick another one</span>
+				}
+
+<span class="nc" id="L662">				assigned = myGroup.allocateSenderId(senderId);</span>
+			}
     	}
 
-<span class="pc bpc" id="L625" title="1 of 2 branches missed.">    	if (senderId == null) {</span>
+<span class="nc bnc" id="L666" title="All 2 branches missed.">    	if (senderId == null) {</span>
     		// All possible values are already in use for this OSCORE group
-<span class="nc" id="L627">    		CBORObject responseMap = CBORObject.NewMap();</span>
+<span class="nc" id="L668">    		CBORObject responseMap = CBORObject.NewMap();</span>
     		
-<span class="nc" id="L629">    		CBORObject aceGroupcommError = CBORObject.NewMap();</span>
-<span class="nc" id="L630">    		aceGroupcommError.Add(0, GroupcommErrors.UNAVAILABLE_INDIVIDUAL_KEYING_MATERIAL);</span>
-<span class="nc" id="L631">    		responseMap.Add(Constants.PROBLEM_DETAIL_ACE_GROUPCOMM_ERROR, aceGroupcommError);</span>
-<span class="nc" id="L632">    		responseMap.Add(Constants.PROBLEM_DETAIL_KEY_TITLE, GroupcommErrors.DESCRIPTION[GroupcommErrors.UNAVAILABLE_INDIVIDUAL_KEYING_MATERIAL]);</span>
+<span class="nc" id="L670">    		CBORObject aceGroupcommError = CBORObject.NewMap();</span>
+<span class="nc" id="L671">    		aceGroupcommError.Add(0, GroupcommErrors.UNAVAILABLE_INDIVIDUAL_KEYING_MATERIAL);</span>
+<span class="nc" id="L672">    		responseMap.Add(Constants.PROBLEM_DETAIL_ACE_GROUPCOMM_ERROR, aceGroupcommError);</span>
+<span class="nc" id="L673">    		responseMap.Add(Constants.PROBLEM_DETAIL_KEY_TITLE, GroupcommErrors.DESCRIPTION[GroupcommErrors.UNAVAILABLE_INDIVIDUAL_KEYING_MATERIAL]);</span>
 
-<span class="nc" id="L634">    		byte[] responsePayload = responseMap.EncodeToBytes();</span>
-<span class="nc" id="L635">    		exchange.respond(CoAP.ResponseCode.SERVICE_UNAVAILABLE,</span>
+<span class="nc" id="L675">    		byte[] responsePayload = responseMap.EncodeToBytes();</span>
+<span class="nc" id="L676">    		exchange.respond(CoAP.ResponseCode.SERVICE_UNAVAILABLE,</span>
     						 responsePayload,
     						 Constants.APPLICATION_CONCISE_PROBLEM_DETAILS_CBOR);
     		
-<span class="nc" id="L639">    		return;</span>
+<span class="nc" id="L680">    		return;</span>
     	}
     	
-<span class="fc" id="L642">    	nodeName = myGroup.allocateNodeName(senderId);</span>
+<span class="nc" id="L683">    	nodeName = myGroup.allocateNodeName(senderId);</span>
     	
-<span class="pc bpc" id="L644" title="1 of 2 branches missed.">    	if (nodeName == null) {</span>
-<span class="nc" id="L645">    		exchange.respond(CoAP.ResponseCode.INTERNAL_SERVER_ERROR, &quot;Error when assigning a node name&quot;);</span>
-<span class="nc" id="L646">    		return;</span>
+<span class="nc bnc" id="L685" title="All 2 branches missed.">    	if (nodeName == null) {</span>
+<span class="nc" id="L686">    		exchange.respond(CoAP.ResponseCode.INTERNAL_SERVER_ERROR, &quot;Error when assigning a node name&quot;);</span>
+<span class="nc" id="L687">    		return;</span>
     	}
 
     	// Retrieve 'client_cred'
-<span class="fc" id="L650">    	CBORObject clientCred = joinRequest.get(CBORObject.FromObject(GroupcommParameters.CLIENT_CRED));</span>
+<span class="nc" id="L691">		clientCred = joinRequest.get(CBORObject.FromObject(GroupcommParameters.CLIENT_CRED));</span>
     	
-<span class="pc bpc" id="L652" title="3 of 4 branches missed.">    	if (clientCred == null &amp;&amp; (roleSet != (1 &lt;&lt; GroupcommParameters.GROUP_OSCORE_MONITOR))) {</span>
+<span class="nc bnc" id="L693" title="All 4 branches missed.">    	if (clientCred == null &amp;&amp; (roleSet != (1 &lt;&lt; GroupcommParameters.GROUP_OSCORE_MONITOR))) {</span>
     		
     		// TODO: check if the Group Manager already owns this client's public key
     		
     	}
-<span class="pc bpc" id="L657" title="3 of 4 branches missed.">    	if (clientCred == null &amp;&amp; (roleSet != (1 &lt;&lt; GroupcommParameters.GROUP_OSCORE_MONITOR))) {</span>
-<span class="nc" id="L658">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+<span class="nc bnc" id="L698" title="All 4 branches missed.">    	if (clientCred == null &amp;&amp; (roleSet != (1 &lt;&lt; GroupcommParameters.GROUP_OSCORE_MONITOR))) {</span>
+<span class="nc" id="L699">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
     						 &quot;A public key was neither provided nor found as already stored&quot;);
-<span class="nc" id="L660">    		return;</span>
+<span class="nc" id="L701">    		return;</span>
     	}
     	
     	// Process the public key of the joining node
-<span class="pc bpc" id="L664" title="1 of 2 branches missed.">    	else if (roleSet != (1 &lt;&lt; GroupcommParameters.GROUP_OSCORE_MONITOR)) {</span>
+<span class="nc bnc" id="L705" title="All 2 branches missed.">    	else if (roleSet != (1 &lt;&lt; GroupcommParameters.GROUP_OSCORE_MONITOR)) {</span>
     		
-<span class="fc" id="L666">    		OneKey publicKey = null;</span>
-<span class="fc" id="L667">    		boolean valid = false;</span>
+<span class="nc" id="L707">    		OneKey publicKey = null;</span>
+<span class="nc" id="L708">    		boolean valid = false;</span>
     		
-<span class="pc bpc" id="L669" title="1 of 2 branches missed.">    		if (clientCred.getType() != CBORType.ByteString) {</span>
-<span class="nc" id="L670">				exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+<span class="nc bnc" id="L710" title="All 2 branches missed.">    		if (clientCred.getType() != CBORType.ByteString) {</span>
+<span class="nc" id="L711">				exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
 						 			 &quot;The parameter 'client_cred' must be a CBOR byte string&quot;);
-<span class="nc" id="L672">        		return;</span>
+<span class="nc" id="L713">        		return;</span>
     		}
     		
-<span class="fc" id="L675">    		byte[] clientCredBytes = clientCred.GetByteString();</span>
-<span class="pc bpc" id="L676" title="3 of 4 branches missed.">    		switch(myGroup.getAuthCredFormat()) {</span>
+<span class="nc" id="L716">			clientCredBytes = clientCred.GetByteString();</span>
+<span class="nc bnc" id="L717" title="All 4 branches missed.">    		switch(myGroup.getAuthCredFormat()) {</span>
     		    case Constants.COSE_HEADER_PARAM_KCCS:
-<span class="fc" id="L678">    		        CBORObject ccs = CBORObject.DecodeFromBytes(clientCredBytes);</span>
-<span class="pc bpc" id="L679" title="1 of 2 branches missed.">    		        if (ccs.getType() == CBORType.Map) {</span>
+<span class="nc" id="L719">    		        CBORObject ccs = CBORObject.DecodeFromBytes(clientCredBytes);</span>
+<span class="nc bnc" id="L720" title="All 2 branches missed.">    		        if (ccs.getType() == CBORType.Map) {</span>
     		            // Retrieve the public key from the CCS
-<span class="fc" id="L681">    		            publicKey = Util.ccsToOneKey(ccs);</span>
-<span class="fc" id="L682">    		            valid = true;</span>
+<span class="nc" id="L722">    		            publicKey = Util.ccsToOneKey(ccs);</span>
+<span class="nc" id="L723">    		            valid = true;</span>
     		        }
     		        else {
-<span class="nc" id="L685">					exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+<span class="nc" id="L726">					exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
 					 			 &quot;Invalid format of authentication credential&quot;);
-<span class="nc" id="L687">    	        		return;</span>
+<span class="nc" id="L728">    	        		return;</span>
     		        }
     		        break;
     		    case Constants.COSE_HEADER_PARAM_KCWT:
-<span class="nc" id="L691">    		        CBORObject cwt = CBORObject.DecodeFromBytes(clientCredBytes);</span>
-<span class="nc bnc" id="L692" title="All 2 branches missed.">    		        if (cwt.getType() == CBORType.Array) {</span>
+<span class="nc" id="L732">    		        CBORObject cwt = CBORObject.DecodeFromBytes(clientCredBytes);</span>
+<span class="nc bnc" id="L733" title="All 2 branches missed.">    		        if (cwt.getType() == CBORType.Array) {</span>
     		            // Retrieve the public key from the CWT
     		            // TODO
     		        }
     		        else {
-<span class="nc" id="L697">					exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+<span class="nc" id="L738">					exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
 					 			 &quot;Invalid format of authentication credential&quot;);
-<span class="nc" id="L699">    	        		return;</span>
+<span class="nc" id="L740">    	        		return;</span>
     		        }
     		        break;
     		    case Constants.COSE_HEADER_PARAM_X5CHAIN:
     		        // Retrieve the public key from the certificate
-<span class="nc bnc" id="L704" title="All 2 branches missed.">    		        if (clientCred.getType() == CBORType.ByteString) {</span>
+<span class="nc bnc" id="L745" title="All 2 branches missed.">    		        if (clientCred.getType() == CBORType.ByteString) {</span>
     		            // TODO
     		        }
     		        else {
-<span class="nc" id="L708">					exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+<span class="nc" id="L749">					exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
 					 			 &quot;Invalid format of authentication credential&quot;);
-<span class="nc" id="L710">    	        		return;</span>
+<span class="nc" id="L751">    	        		return;</span>
     		        }
     		        break;
     		    default:
-<span class="nc" id="L714">				exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+<span class="nc" id="L755">				exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
 				 			 &quot;Invalid format of authentication credential&quot;);
-<span class="nc" id="L716">	        		return;</span>
+<span class="nc" id="L757">	        		return;</span>
     		}
-<span class="pc bpc" id="L718" title="2 of 4 branches missed.">    		if (publicKey == null ||  valid == false) {</span>
-<span class="nc" id="L719">        		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
-<span class="nc" id="L720">				exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorResponsePayload,</span>
+<span class="nc bnc" id="L759" title="All 4 branches missed.">    		if (publicKey == null ||  valid == false) {</span>
+<span class="nc" id="L760">        		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
+<span class="nc" id="L761">				exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorResponsePayload,</span>
         						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
-<span class="nc" id="L722">        		return;</span>
+<span class="nc" id="L763">        		return;</span>
     		}
     		
     		        		
     		// Sanity check on the type of public key        		
-<span class="pc bpc" id="L727" title="1 of 2 branches missed.">    		if (myGroup.getSignAlg().equals(AlgorithmID.ECDSA_256) ||</span>
-<span class="pc bpc" id="L728" title="1 of 2 branches missed.">    		    myGroup.getSignAlg().equals(AlgorithmID.ECDSA_384) ||</span>
-<span class="pc bpc" id="L729" title="1 of 2 branches missed.">    		    myGroup.getSignAlg().equals(AlgorithmID.ECDSA_512)) {</span>
+<span class="nc bnc" id="L768" title="All 2 branches missed.">    		if (myGroup.getSignAlg().equals(AlgorithmID.ECDSA_256) ||</span>
+<span class="nc bnc" id="L769" title="All 2 branches missed.">    		    myGroup.getSignAlg().equals(AlgorithmID.ECDSA_384) ||</span>
+<span class="nc bnc" id="L770" title="All 2 branches missed.">    		    myGroup.getSignAlg().equals(AlgorithmID.ECDSA_512)) {</span>
     			
     			// Invalid public key format
-<span class="nc" id="L732">    			if (!publicKey.get(KeyKeys.KeyType).</span>
-<span class="nc bnc" id="L733" title="All 2 branches missed.">    					equals(myGroup.getSignParams().get(0).get(0)) || // alg capability: key type</span>
-<span class="nc" id="L734">               		!publicKey.get(KeyKeys.KeyType).</span>
-<span class="nc bnc" id="L735" title="All 2 branches missed.">               			equals(myGroup.getSignParams().get(1).get(0)) || // key capability: key type</span>
-<span class="nc" id="L736">               		!publicKey.get(KeyKeys.EC2_Curve).</span>
-<span class="nc bnc" id="L737" title="All 2 branches missed.">               			equals(myGroup.getSignParams().get(1).get(1)))   // key capability: curve</span>
+<span class="nc" id="L773">    			if (!publicKey.get(KeyKeys.KeyType).</span>
+<span class="nc bnc" id="L774" title="All 2 branches missed.">    					equals(myGroup.getSignParams().get(0).get(0)) || // alg capability: key type</span>
+<span class="nc" id="L775">               		!publicKey.get(KeyKeys.KeyType).</span>
+<span class="nc bnc" id="L776" title="All 2 branches missed.">               			equals(myGroup.getSignParams().get(1).get(0)) || // key capability: key type</span>
+<span class="nc" id="L777">               		!publicKey.get(KeyKeys.EC2_Curve).</span>
+<span class="nc bnc" id="L778" title="All 2 branches missed.">               			equals(myGroup.getSignParams().get(1).get(1)))   // key capability: curve</span>
     			{ 
     					
-<span class="nc" id="L740">            			myGroup.deallocateSenderId(senderId);</span>
+<span class="nc" id="L781">            			myGroup.deallocateSenderId(senderId);</span>
             			
-<span class="nc" id="L742">            			CBORObject aceGroupcommError = CBORObject.NewMap();</span>
-<span class="nc" id="L743">            			aceGroupcommError.Add(0, GroupcommErrors.INCOMPATIBLE_CRED);</span>
-<span class="nc" id="L744">            			errorResponseMap.Add(Constants.PROBLEM_DETAIL_ACE_GROUPCOMM_ERROR, aceGroupcommError);</span>
-<span class="nc" id="L745">            			errorResponseMap.Add(Constants.PROBLEM_DETAIL_KEY_TITLE, GroupcommErrors.DESCRIPTION[GroupcommErrors.INCOMPATIBLE_CRED]);</span>
+<span class="nc" id="L783">            			CBORObject aceGroupcommError = CBORObject.NewMap();</span>
+<span class="nc" id="L784">            			aceGroupcommError.Add(0, GroupcommErrors.INCOMPATIBLE_CRED);</span>
+<span class="nc" id="L785">            			errorResponseMap.Add(Constants.PROBLEM_DETAIL_ACE_GROUPCOMM_ERROR, aceGroupcommError);</span>
+<span class="nc" id="L786">            			errorResponseMap.Add(Constants.PROBLEM_DETAIL_KEY_TITLE, GroupcommErrors.DESCRIPTION[GroupcommErrors.INCOMPATIBLE_CRED]);</span>
             			
-<span class="nc" id="L747">                		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
-<span class="nc" id="L748">					exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+<span class="nc" id="L788">                		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
+<span class="nc" id="L789">					exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
                 						 errorResponsePayload,
                 						 Constants.APPLICATION_CONCISE_PROBLEM_DETAILS_CBOR);
-<span class="nc" id="L751">            			return;</span>
+<span class="nc" id="L792">            			return;</span>
                     		
             	}
 
     		}
     		
-<span class="pc bpc" id="L757" title="1 of 2 branches missed.">    		if (myGroup.getSignAlg().equals(AlgorithmID.EDDSA)) {</span>
+<span class="nc bnc" id="L798" title="All 2 branches missed.">    		if (myGroup.getSignAlg().equals(AlgorithmID.EDDSA)) {</span>
     			
     			// Invalid public key format
-<span class="fc" id="L760">    			if (!publicKey.get(KeyKeys.KeyType).</span>
-<span class="pc bpc" id="L761" title="1 of 2 branches missed.">    					equals(myGroup.getSignParams().get(0).get(0)) || // alg capability: key type</span>
-<span class="fc" id="L762">           			!publicKey.get(KeyKeys.KeyType).</span>
-<span class="pc bpc" id="L763" title="1 of 2 branches missed.">           				equals(myGroup.getSignParams().get(1).get(0)) || // key capability: key type</span>
-<span class="fc" id="L764">           			!publicKey.get(KeyKeys.OKP_Curve).</span>
-<span class="pc bpc" id="L765" title="1 of 2 branches missed.">           				equals(myGroup.getSignParams().get(1).get(1)))   // key capability: curve</span>
+<span class="nc" id="L801">    			if (!publicKey.get(KeyKeys.KeyType).</span>
+<span class="nc bnc" id="L802" title="All 2 branches missed.">    					equals(myGroup.getSignParams().get(0).get(0)) || // alg capability: key type</span>
+<span class="nc" id="L803">           			!publicKey.get(KeyKeys.KeyType).</span>
+<span class="nc bnc" id="L804" title="All 2 branches missed.">           				equals(myGroup.getSignParams().get(1).get(0)) || // key capability: key type</span>
+<span class="nc" id="L805">           			!publicKey.get(KeyKeys.OKP_Curve).</span>
+<span class="nc bnc" id="L806" title="All 2 branches missed.">           				equals(myGroup.getSignParams().get(1).get(1)))   // key capability: curve</span>
     			{
 	            			
-<span class="nc" id="L768">						myGroup.deallocateSenderId(senderId);</span>
+<span class="nc" id="L809">						myGroup.deallocateSenderId(senderId);</span>
 
-<span class="nc" id="L770">						CBORObject aceGroupcommError = CBORObject.NewMap();</span>
-<span class="nc" id="L771">						aceGroupcommError.Add(0, GroupcommErrors.INCOMPATIBLE_CRED);</span>
-<span class="nc" id="L772">						errorResponseMap.Add(Constants.PROBLEM_DETAIL_ACE_GROUPCOMM_ERROR, aceGroupcommError);</span>
-<span class="nc" id="L773">						errorResponseMap.Add(Constants.PROBLEM_DETAIL_KEY_TITLE, GroupcommErrors.DESCRIPTION[GroupcommErrors.INCOMPATIBLE_CRED]);</span>
+<span class="nc" id="L811">						CBORObject aceGroupcommError = CBORObject.NewMap();</span>
+<span class="nc" id="L812">						aceGroupcommError.Add(0, GroupcommErrors.INCOMPATIBLE_CRED);</span>
+<span class="nc" id="L813">						errorResponseMap.Add(Constants.PROBLEM_DETAIL_ACE_GROUPCOMM_ERROR, aceGroupcommError);</span>
+<span class="nc" id="L814">						errorResponseMap.Add(Constants.PROBLEM_DETAIL_KEY_TITLE, GroupcommErrors.DESCRIPTION[GroupcommErrors.INCOMPATIBLE_CRED]);</span>
 						
-<span class="nc" id="L775">                		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
-<span class="nc" id="L776">					exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+<span class="nc" id="L816">                		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
+<span class="nc" id="L817">					exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
                 						 errorResponsePayload,
                 						 Constants.APPLICATION_CONCISE_PROBLEM_DETAILS_CBOR);
                 		
-<span class="nc" id="L780">            			return;</span>
+<span class="nc" id="L821">            			return;</span>
                 		
         		}
     				
@@ -785,85 +826,85 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
         	        		
     		// Check the proof-of-possession evidence over
         	// (scope | rsnonce | cnonce), using the Client's public key
-<span class="fc" id="L788">        	CBORObject clientPopEvidence = joinRequest.</span>
-<span class="fc" id="L789">        				get(CBORObject.FromObject(GroupcommParameters.CLIENT_CRED_VERIFY));</span>
+<span class="nc" id="L829">        	CBORObject clientPopEvidence = joinRequest.</span>
+<span class="nc" id="L830">        				get(CBORObject.FromObject(GroupcommParameters.CLIENT_CRED_VERIFY));</span>
         	
         	// A client PoP evidence must be included
-<span class="pc bpc" id="L792" title="1 of 2 branches missed.">        	if (clientPopEvidence == null) {</span>
-<span class="nc" id="L793">        		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
-<span class="nc" id="L794">				exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorResponsePayload,</span>
+<span class="nc bnc" id="L833" title="All 2 branches missed.">        	if (clientPopEvidence == null) {</span>
+<span class="nc" id="L834">        		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
+<span class="nc" id="L835">				exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorResponsePayload,</span>
         						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
-<span class="nc" id="L796">        		return;</span>
+<span class="nc" id="L837">        		return;</span>
         	}
 
         	// The client PoP evidence must be wrapped in a binary string
-<span class="pc bpc" id="L800" title="1 of 2 branches missed.">        	if (!clientPopEvidence.getType().equals(CBORType.ByteString)) {</span>
-<span class="nc" id="L801">        		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
-<span class="nc" id="L802">				exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorResponsePayload,</span>
+<span class="nc bnc" id="L841" title="All 2 branches missed.">        	if (!clientPopEvidence.getType().equals(CBORType.ByteString)) {</span>
+<span class="nc" id="L842">        		byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
+<span class="nc" id="L843">				exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorResponsePayload,</span>
         						 Constants.APPLICATION_ACE_GROUPCOMM_CBOR);
-<span class="nc" id="L804">        		return;</span>
+<span class="nc" id="L845">        		return;</span>
             }
         	
-<span class="fc" id="L807">        	byte[] rawClientPopEvidence = clientPopEvidence.GetByteString();</span>
+<span class="nc" id="L848">        	byte[] rawClientPopEvidence = clientPopEvidence.GetByteString();</span>
     		
-<span class="fc" id="L809">        	PublicKey pubKey = null;</span>
+<span class="nc" id="L850">        	PublicKey pubKey = null;</span>
             try {
-<span class="fc" id="L811">				pubKey = publicKey.AsPublicKey();</span>
-<span class="nc" id="L812">			} catch (CoseException e) {</span>
-<span class="nc" id="L813">				System.out.println(e.getMessage());</span>
-<span class="nc" id="L814">				exchange.respond(CoAP.ResponseCode.INTERNAL_SERVER_ERROR,</span>
+<span class="nc" id="L852">				pubKey = publicKey.AsPublicKey();</span>
+<span class="nc" id="L853">			} catch (CoseException e) {</span>
+<span class="nc" id="L854">				System.out.println(e.getMessage());</span>
+<span class="nc" id="L855">				exchange.respond(CoAP.ResponseCode.INTERNAL_SERVER_ERROR,</span>
 								 &quot;Failed to use the Client's public key to verify the PoP evidence&quot;);
-<span class="nc" id="L816">        		return;</span>
-<span class="fc" id="L817">			}</span>
-<span class="pc bpc" id="L818" title="1 of 2 branches missed.">            if (pubKey == null) {</span>
-<span class="nc" id="L819">            	exchange.respond(CoAP.ResponseCode.INTERNAL_SERVER_ERROR,</span>
+<span class="nc" id="L857">        		return;</span>
+<span class="nc" id="L858">			}</span>
+<span class="nc bnc" id="L859" title="All 2 branches missed.">            if (pubKey == null) {</span>
+<span class="nc" id="L860">            	exchange.respond(CoAP.ResponseCode.INTERNAL_SERVER_ERROR,</span>
             					 &quot;Failed to use the Client's public key to verify the PoP evidence&quot;);
-<span class="nc" id="L821">        		return;</span>
+<span class="nc" id="L862">        		return;</span>
             }
 
-<span class="fc" id="L824">            int offset = 0;</span>
+<span class="nc" id="L865">            int offset = 0;</span>
             
-<span class="fc" id="L826">            byte[] serializedScopeCBOR = CBORObject.FromObject(scope).EncodeToBytes();</span>
-<span class="fc" id="L827">            byte[] serializedGMNonceCBOR = CBORObject.FromObject(rsnonce).EncodeToBytes();</span>
-<span class="fc" id="L828">            byte[] popInput = new byte [serializedScopeCBOR.length +</span>
+<span class="nc" id="L867">            byte[] serializedScopeCBOR = CBORObject.FromObject(scope).EncodeToBytes();</span>
+<span class="nc" id="L868">            byte[] serializedGMNonceCBOR = CBORObject.FromObject(rsnonce).EncodeToBytes();</span>
+<span class="nc" id="L869">            byte[] popInput = new byte [serializedScopeCBOR.length +</span>
                                         serializedGMNonceCBOR.length +
                                         serializedCNonceCBOR.length];
-<span class="fc" id="L831">            System.arraycopy(serializedScopeCBOR, 0, popInput, offset, serializedScopeCBOR.length);</span>
-<span class="fc" id="L832">            offset += serializedScopeCBOR.length;</span>
-<span class="fc" id="L833">            System.arraycopy(serializedGMNonceCBOR, 0, popInput, offset, serializedGMNonceCBOR.length);</span>
-<span class="fc" id="L834">            offset += serializedGMNonceCBOR.length;</span>
-<span class="fc" id="L835">            System.arraycopy(serializedCNonceCBOR, 0, popInput, offset, serializedCNonceCBOR.length);</span>
+<span class="nc" id="L872">            System.arraycopy(serializedScopeCBOR, 0, popInput, offset, serializedScopeCBOR.length);</span>
+<span class="nc" id="L873">            offset += serializedScopeCBOR.length;</span>
+<span class="nc" id="L874">            System.arraycopy(serializedGMNonceCBOR, 0, popInput, offset, serializedGMNonceCBOR.length);</span>
+<span class="nc" id="L875">            offset += serializedGMNonceCBOR.length;</span>
+<span class="nc" id="L876">            System.arraycopy(serializedCNonceCBOR, 0, popInput, offset, serializedCNonceCBOR.length);</span>
 
 
             // The group mode is used. The PoP evidence is a signature
-<span class="pc bpc" id="L839" title="1 of 2 branches missed.">            if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {</span>
+<span class="nc bnc" id="L880" title="All 2 branches missed.">            if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {</span>
                 
-<span class="pc bpc" id="L841" title="1 of 2 branches missed.">                if (publicKey.get(KeyKeys.KeyType).equals(org.eclipse.californium.cose.KeyKeys.KeyType_EC2))</span>
-<span class="nc" id="L842">                    signKeyCurve = publicKey.get(KeyKeys.EC2_Curve).AsInt32();</span>
-<span class="pc bpc" id="L843" title="1 of 2 branches missed.">                else if (publicKey.get(KeyKeys.KeyType).equals(org.eclipse.californium.cose.KeyKeys.KeyType_OKP))</span>
-<span class="fc" id="L844">                    signKeyCurve = publicKey.get(KeyKeys.OKP_Curve).AsInt32();</span>
+<span class="nc bnc" id="L882" title="All 2 branches missed.">                if (publicKey.get(KeyKeys.KeyType).equals(org.eclipse.californium.cose.KeyKeys.KeyType_EC2))</span>
+<span class="nc" id="L883">                    signKeyCurve = publicKey.get(KeyKeys.EC2_Curve).AsInt32();</span>
+<span class="nc bnc" id="L884" title="All 2 branches missed.">                else if (publicKey.get(KeyKeys.KeyType).equals(org.eclipse.californium.cose.KeyKeys.KeyType_OKP))</span>
+<span class="nc" id="L885">                    signKeyCurve = publicKey.get(KeyKeys.OKP_Curve).AsInt32();</span>
 
                 // This should never happen, due to the previous sanity checks
-<span class="pc bpc" id="L847" title="1 of 2 branches missed.">                if (signKeyCurve == 0) {</span>
-<span class="nc" id="L848">                    exchange.respond(CoAP.ResponseCode.INTERNAL_SERVER_ERROR,</span>
+<span class="nc bnc" id="L888" title="All 2 branches missed.">                if (signKeyCurve == 0) {</span>
+<span class="nc" id="L889">                    exchange.respond(CoAP.ResponseCode.INTERNAL_SERVER_ERROR,</span>
                     				 &quot;Error when setting up the signature verification&quot;);
-<span class="nc" id="L850">                    return;</span>
+<span class="nc" id="L891">                    return;</span>
                 }
 
                 // Invalid Client's PoP signature
-<span class="pc bpc" id="L854" title="1 of 2 branches missed.">                if (!Util.verifySignature(signKeyCurve, pubKey, popInput, rawClientPopEvidence)) {</span>
+<span class="nc bnc" id="L895" title="All 2 branches missed.">                if (!Util.verifySignature(signKeyCurve, pubKey, popInput, rawClientPopEvidence)) {</span>
                 	
-<span class="nc" id="L856">                	CBORObject aceGroupcommError = CBORObject.NewMap();</span>
-<span class="nc" id="L857">                	aceGroupcommError.Add(0, GroupcommErrors.INVALID_POP_EVIDENCE);</span>
-<span class="nc" id="L858">                	errorResponseMap.Add(Constants.PROBLEM_DETAIL_ACE_GROUPCOMM_ERROR, aceGroupcommError);</span>
-<span class="nc" id="L859">                	errorResponseMap.Add(Constants.PROBLEM_DETAIL_KEY_TITLE, GroupcommErrors.DESCRIPTION[GroupcommErrors.INVALID_POP_EVIDENCE]);</span>
+<span class="nc" id="L897">                	CBORObject aceGroupcommError = CBORObject.NewMap();</span>
+<span class="nc" id="L898">                	aceGroupcommError.Add(0, GroupcommErrors.INVALID_POP_EVIDENCE);</span>
+<span class="nc" id="L899">                	errorResponseMap.Add(Constants.PROBLEM_DETAIL_ACE_GROUPCOMM_ERROR, aceGroupcommError);</span>
+<span class="nc" id="L900">                	errorResponseMap.Add(Constants.PROBLEM_DETAIL_KEY_TITLE, GroupcommErrors.DESCRIPTION[GroupcommErrors.INVALID_POP_EVIDENCE]);</span>
                 	
-<span class="nc" id="L861">                	byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
-<span class="nc" id="L862">					exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
+<span class="nc" id="L902">                	byte[] errorResponsePayload = errorResponseMap.EncodeToBytes();</span>
+<span class="nc" id="L903">					exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
                 					 errorResponsePayload,
                 					 Constants.APPLICATION_CONCISE_PROBLEM_DETAILS_CBOR);
                 	
-<span class="nc" id="L866">                    return;</span>
+<span class="nc" id="L907">                    return;</span>
                 }
             }
             // Only the pairwise mode is used. The PoP evidence is a MAC
@@ -871,131 +912,131 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
                 // TODO
             }
     		        		
-<span class="pc bpc" id="L874" title="1 of 2 branches missed.">            if (!myGroup.storeAuthCred(senderId, clientCred)) {</span>
-<span class="nc" id="L875">    			myGroup.deallocateSenderId(senderId);</span>
-<span class="nc" id="L876">				exchange.respond(CoAP.ResponseCode.INTERNAL_SERVER_ERROR,</span>
+<span class="nc bnc" id="L915" title="All 2 branches missed.">            if (!myGroup.storeAuthCred(senderId, clientCred)) {</span>
+<span class="nc" id="L916">    			myGroup.deallocateSenderId(senderId);</span>
+<span class="nc" id="L917">				exchange.respond(CoAP.ResponseCode.INTERNAL_SERVER_ERROR,</span>
 								 &quot;Error when storing the authentication credential&quot;);
-<span class="nc" id="L878">        		return;</span>
+<span class="nc" id="L919">        		return;</span>
     			
     		}
     		
     	}
     	
-<span class="fc" id="L884">    	boolean rejoin = false;</span>
-<span class="pc bpc" id="L885" title="1 of 2 branches missed.">    	if (myGroup.isGroupMember(subject) == true) {</span>
+<span class="nc" id="L925">    	boolean rejoin = false;</span>
+<span class="nc bnc" id="L926" title="All 2 branches missed.">    	if (myGroup.isGroupMember(subject) == true) {</span>
     		// This node is re-joining the group without having left
     		
-<span class="nc" id="L888">    		rejoin = true;</span>
-<span class="nc" id="L889">        	String oldNodeName = myGroup.getGroupMemberName(subject);</span>
+<span class="nc" id="L929">    		rejoin = true;</span>
+<span class="nc" id="L930">        	String oldNodeName = myGroup.getGroupMemberName(subject);</span>
         	
-<span class="nc" id="L891">        	Resource staleResource = getChild(&quot;nodes&quot;).getChild(oldNodeName);</span>
-<span class="nc" id="L892">    		this.getChild(&quot;nodes&quot;).getChild(oldNodeName).delete(staleResource);</span>
+<span class="nc" id="L932">        	Resource staleResource = getChild(&quot;nodes&quot;).getChild(oldNodeName);</span>
+<span class="nc" id="L933">    		this.getChild(&quot;nodes&quot;).getChild(oldNodeName).delete(staleResource);</span>
     		
-<span class="nc" id="L894">    		myGroup.removeGroupMemberBySubject(subject);</span>
+<span class="nc" id="L935">    		myGroup.removeGroupMemberBySubject(subject);</span>
 
     	}
     	
-<span class="pc bpc" id="L898" title="1 of 2 branches missed.">    	if (!myGroup.addGroupMember(senderId, nodeName, roleSet, subject)) {</span>
+<span class="nc bnc" id="L939" title="All 2 branches missed.">    	if (!myGroup.addGroupMember(senderId, nodeName, roleSet, subject)) {</span>
     		// The joining node is not a monitor; its node name is its Sender ID encoded as a String
-<span class="nc bnc" id="L900" title="All 2 branches missed.">			if (senderId != null) {</span>
-<span class="nc" id="L901">				myGroup.deallocateSenderId(senderId);</span>
+<span class="nc bnc" id="L941" title="All 2 branches missed.">			if (senderId != null) {</span>
+<span class="nc" id="L942">				myGroup.deallocateSenderId(senderId);</span>
 				
 				// Add the old Sender ID to the set of stale Sender IDs for this version of the symmetric keying material
-<span class="nc" id="L904">	    		myGroup.addStaleSenderId(senderId);</span>
+<span class="nc" id="L945">	    		myGroup.addStaleSenderId(senderId);</span>
 			}
 			// The joining node is a monitor; it got a node name but not a Sender ID
 			else {
-<span class="nc" id="L908">				myGroup.deallocateNodeName(nodeName);</span>
+<span class="nc" id="L949">				myGroup.deallocateNodeName(nodeName);</span>
 			}
-<span class="nc" id="L910">			myGroup.deleteBirthGid(nodeName);</span>
-<span class="nc" id="L911">			exchange.respond(CoAP.ResponseCode.INTERNAL_SERVER_ERROR,</span>
+<span class="nc" id="L951">			myGroup.deleteBirthGid(nodeName);</span>
+<span class="nc" id="L952">			exchange.respond(CoAP.ResponseCode.INTERNAL_SERVER_ERROR,</span>
 							 &quot;Error when adding the new group member&quot;);
-<span class="nc" id="L913">    		return;</span>
+<span class="nc" id="L954">    		return;</span>
     	}
     	
     	// Create and add the sub-resource associated to the new group member
     	try {
-<span class="fc" id="L918">    		valid.setGroupMembershipResources(Collections.singleton(rootGroupMembershipResourcePath + &quot;/&quot; +</span>
+<span class="nc" id="L959">    		valid.setGroupMembershipResources(Collections.singleton(rootGroupMembershipResourcePath + &quot;/&quot; +</span>
     							   			  groupName + &quot;/nodes/&quot; + nodeName));
-<span class="fc" id="L920">    		valid.setGroupMembershipResources(Collections.singleton(rootGroupMembershipResourcePath + &quot;/&quot; +</span>
+<span class="nc" id="L961">    		valid.setGroupMembershipResources(Collections.singleton(rootGroupMembershipResourcePath + &quot;/&quot; +</span>
     							   			  groupName + &quot;/nodes/&quot; + nodeName + &quot;/cred&quot;));
 		}
-<span class="nc" id="L923">		catch(AceException e) {</span>
-<span class="nc" id="L924">			myGroup.removeGroupMemberBySubject(subject);</span>
+<span class="nc" id="L964">		catch(AceException e) {</span>
+<span class="nc" id="L965">			myGroup.removeGroupMemberBySubject(subject);</span>
 			
 			// The joining node is not a monitor
-<span class="nc bnc" id="L927" title="All 2 branches missed.">			if (senderId != null) {</span>
-<span class="nc" id="L928">    			myGroup.deallocateSenderId(senderId);</span>
-<span class="nc" id="L929">    			myGroup.deleteAuthCred(senderId);</span>
+<span class="nc bnc" id="L968" title="All 2 branches missed.">			if (senderId != null) {</span>
+<span class="nc" id="L969">    			myGroup.deallocateSenderId(senderId);</span>
+<span class="nc" id="L970">    			myGroup.deleteAuthCred(senderId);</span>
 			}
 			
-<span class="nc" id="L932">			exchange.respond(CoAP.ResponseCode.INTERNAL_SERVER_ERROR,</span>
+<span class="nc" id="L973">			exchange.respond(CoAP.ResponseCode.INTERNAL_SERVER_ERROR,</span>
 							 &quot;Error when creating the node sub-resource&quot;);
-<span class="nc" id="L934">    		return;</span>
-<span class="fc" id="L935">		}</span>
+<span class="nc" id="L975">    		return;</span>
+<span class="nc" id="L976">		}</span>
 
-<span class="fc" id="L937">    	Set&lt;Short&gt; actions = new HashSet&lt;&gt;();</span>
-<span class="fc" id="L938">    	actions.add(Constants.GET);</span>
-<span class="fc" id="L939">    	actions.add(Constants.POST);</span>
-<span class="fc" id="L940">    	actions.add(Constants.DELETE);</span>
-<span class="fc" id="L941">    	myScopes.get(rootGroupMembershipResourcePath + &quot;/&quot; + groupName)</span>
-<span class="fc" id="L942">    	        .put(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/nodes/&quot; + nodeName, actions);</span>
-<span class="fc" id="L943">    	Resource nodeCoAPResource = new GroupOSCORESubResourceNodename(nodeName, existingGroupInfo);</span>
-<span class="fc" id="L944">    	this.getChild(&quot;nodes&quot;).add(nodeCoAPResource);</span>
+<span class="nc" id="L978">    	Set&lt;Short&gt; actions = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L979">    	actions.add(Constants.GET);</span>
+<span class="nc" id="L980">    	actions.add(Constants.POST);</span>
+<span class="nc" id="L981">    	actions.add(Constants.DELETE);</span>
+<span class="nc" id="L982">    	myScopes.get(rootGroupMembershipResourcePath + &quot;/&quot; + groupName)</span>
+<span class="nc" id="L983">    	        .put(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/nodes/&quot; + nodeName, actions);</span>
+<span class="nc" id="L984">    	Resource nodeCoAPResource = new GroupOSCORESubResourceNodename(nodeName, existingGroupInfo);</span>
+<span class="nc" id="L985">    	this.getChild(&quot;nodes&quot;).add(nodeCoAPResource);</span>
     	
-<span class="fc" id="L946">    	actions = new HashSet&lt;&gt;();</span>
-<span class="fc" id="L947">    	actions.add(Constants.POST);</span>
-<span class="fc" id="L948">    	myScopes.get(rootGroupMembershipResourcePath + &quot;/&quot; + groupName)</span>
-<span class="fc" id="L949">                .put(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/nodes/&quot; + nodeName + &quot;/cred&quot;, actions);</span>
-<span class="fc" id="L950">    	nodeCoAPResource = new GroupOSCORESubResourceNodenameCred(&quot;cred&quot;, existingGroupInfo);</span>
-<span class="fc" id="L951">    	this.getChild(&quot;nodes&quot;).getChild(nodeName).add(nodeCoAPResource);</span>
+<span class="nc" id="L987">    	actions = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L988">    	actions.add(Constants.POST);</span>
+<span class="nc" id="L989">    	myScopes.get(rootGroupMembershipResourcePath + &quot;/&quot; + groupName)</span>
+<span class="nc" id="L990">                .put(rootGroupMembershipResourcePath + &quot;/&quot; + groupName + &quot;/nodes/&quot; + nodeName + &quot;/cred&quot;, actions);</span>
+<span class="nc" id="L991">    	nodeCoAPResource = new GroupOSCORESubResourceNodenameCred(&quot;cred&quot;, existingGroupInfo);</span>
+<span class="nc" id="L992">    	this.getChild(&quot;nodes&quot;).getChild(nodeName).add(nodeCoAPResource);</span>
     	
     	
         // Respond to the Join Request
         
-<span class="fc" id="L956">    	CBORObject joinResponse = CBORObject.NewMap();</span>
+<span class="nc" id="L997">    	CBORObject joinResponse = CBORObject.NewMap();</span>
     	
     	// Key Type Value assigned to the Group_OSCORE_Input_Material object.
-<span class="fc" id="L959">    	joinResponse.Add(GroupcommParameters.GKTY, CBORObject.FromObject(GroupcommParameters.GROUP_OSCORE_INPUT_MATERIAL_OBJECT));</span>
+<span class="nc" id="L1000">    	joinResponse.Add(GroupcommParameters.GKTY, CBORObject.FromObject(GroupcommParameters.GROUP_OSCORE_INPUT_MATERIAL_OBJECT));</span>
     	
     	// This map is filled as the Group_OSCORE_Input_Material object
-<span class="fc" id="L962">    	CBORObject myMap = CBORObject.NewMap();</span>
+<span class="nc" id="L1003">    	CBORObject myMap = CBORObject.NewMap();</span>
     	
     	// Fill the 'key' parameter
-<span class="pc bpc" id="L965" title="1 of 2 branches missed.">    	if (senderId != null) {</span>
+<span class="nc bnc" id="L1006" title="All 2 branches missed.">    	if (senderId != null) {</span>
 			// The joining node is not a monitor
-<span class="fc" id="L967">    		myMap.Add(GroupOSCOREInputMaterialObjectParameters.group_SenderID, senderId);</span>
+<span class="nc" id="L1008">    		myMap.Add(GroupOSCOREInputMaterialObjectParameters.group_SenderID, senderId);</span>
     	}
-<span class="fc" id="L969">    	myMap.Add(OSCOREInputMaterialObjectParameters.hkdf, targetedGroup.getHkdf().AsCBOR());</span>
-<span class="fc" id="L970">    	myMap.Add(OSCOREInputMaterialObjectParameters.salt, targetedGroup.getMasterSalt());</span>
-<span class="fc" id="L971">    	myMap.Add(OSCOREInputMaterialObjectParameters.ms, targetedGroup.getMasterSecret());</span>
-<span class="fc" id="L972">    	myMap.Add(OSCOREInputMaterialObjectParameters.contextId, targetedGroup.getGroupId());</span>
-<span class="fc" id="L973">    	myMap.Add(GroupOSCOREInputMaterialObjectParameters.cred_fmt, targetedGroup.getAuthCredFormat());</span>
-<span class="pc bpc" id="L974" title="1 of 2 branches missed.">    	if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {</span>
+<span class="nc" id="L1010">    	myMap.Add(OSCOREInputMaterialObjectParameters.hkdf, targetedGroup.getHkdf().AsCBOR());</span>
+<span class="nc" id="L1011">    	myMap.Add(OSCOREInputMaterialObjectParameters.salt, targetedGroup.getMasterSalt());</span>
+<span class="nc" id="L1012">    	myMap.Add(OSCOREInputMaterialObjectParameters.ms, targetedGroup.getMasterSecret());</span>
+<span class="nc" id="L1013">    	myMap.Add(OSCOREInputMaterialObjectParameters.contextId, targetedGroup.getGroupId());</span>
+<span class="nc" id="L1014">    	myMap.Add(GroupOSCOREInputMaterialObjectParameters.cred_fmt, targetedGroup.getAuthCredFormat());</span>
+<span class="nc bnc" id="L1015" title="All 2 branches missed.">    	if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {</span>
     	    // The group mode is used
-<span class="fc" id="L976">    	    myMap.Add(GroupOSCOREInputMaterialObjectParameters.gp_enc_alg, targetedGroup.getGpEncAlg().AsCBOR());</span>
-<span class="fc" id="L977">    	    myMap.Add(GroupOSCOREInputMaterialObjectParameters.sign_alg, targetedGroup.getSignAlg().AsCBOR());</span>
-<span class="pc bpc" id="L978" title="1 of 2 branches missed.">    	    if (targetedGroup.getSignParams().size() != 0)</span>
-<span class="fc" id="L979">    	        myMap.Add(GroupOSCOREInputMaterialObjectParameters.sign_params, targetedGroup.getSignParams());</span>
+<span class="nc" id="L1017">    	    myMap.Add(GroupOSCOREInputMaterialObjectParameters.gp_enc_alg, targetedGroup.getGpEncAlg().AsCBOR());</span>
+<span class="nc" id="L1018">    	    myMap.Add(GroupOSCOREInputMaterialObjectParameters.sign_alg, targetedGroup.getSignAlg().AsCBOR());</span>
+<span class="nc bnc" id="L1019" title="All 2 branches missed.">    	    if (targetedGroup.getSignParams().size() != 0)</span>
+<span class="nc" id="L1020">    	        myMap.Add(GroupOSCOREInputMaterialObjectParameters.sign_params, targetedGroup.getSignParams());</span>
     	}
-<span class="pc bpc" id="L981" title="1 of 2 branches missed.">    	if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_GROUP_MODE_ONLY) {</span>
+<span class="nc bnc" id="L1022" title="All 2 branches missed.">    	if (targetedGroup.getMode() != GroupcommParameters.GROUP_OSCORE_GROUP_MODE_ONLY) {</span>
     	    // The pairwise mode is used
-<span class="fc" id="L983">    	    myMap.Add(OSCOREInputMaterialObjectParameters.alg, targetedGroup.getAlg().AsCBOR());</span>
-<span class="fc" id="L984">    	    myMap.Add(GroupOSCOREInputMaterialObjectParameters.ecdh_alg, targetedGroup.getEcdhAlg().AsCBOR());</span>
-<span class="pc bpc" id="L985" title="1 of 2 branches missed.">    	    if (targetedGroup.getEcdhParams().size() != 0)</span>
-<span class="fc" id="L986">    	        myMap.Add(GroupOSCOREInputMaterialObjectParameters.ecdh_params, targetedGroup.getEcdhParams());</span>
+<span class="nc" id="L1024">    	    myMap.Add(OSCOREInputMaterialObjectParameters.alg, targetedGroup.getAlg().AsCBOR());</span>
+<span class="nc" id="L1025">    	    myMap.Add(GroupOSCOREInputMaterialObjectParameters.ecdh_alg, targetedGroup.getEcdhAlg().AsCBOR());</span>
+<span class="nc bnc" id="L1026" title="All 2 branches missed.">    	    if (targetedGroup.getEcdhParams().size() != 0)</span>
+<span class="nc" id="L1027">    	        myMap.Add(GroupOSCOREInputMaterialObjectParameters.ecdh_params, targetedGroup.getEcdhParams());</span>
     	}
-<span class="fc" id="L988">    	int detHashAlg = targetedGroup.getDetHashAlg();</span>
-<span class="pc bpc" id="L989" title="1 of 2 branches missed.">    	if (detHashAlg != 0) {</span>
-<span class="nc" id="L990">    		byte[] detClientSenderId = targetedGroup.getDetClientSenderId();</span>
-<span class="nc bnc" id="L991" title="All 2 branches missed.">    		if (detClientSenderId != null) {</span>
+<span class="nc" id="L1029">    	int detHashAlg = targetedGroup.getDetHashAlg();</span>
+<span class="nc bnc" id="L1030" title="All 2 branches missed.">    	if (detHashAlg != 0) {</span>
+<span class="nc" id="L1031">    		byte[] detClientSenderId = targetedGroup.getDetClientSenderId();</span>
+<span class="nc bnc" id="L1032" title="All 2 branches missed.">    		if (detClientSenderId != null) {</span>
     			// At this point, there must really be a Sender ID allocated to the Deterministic Client
-<span class="nc" id="L993">	    		myMap.Add(GroupOSCOREInputMaterialObjectParameters.det_senderId, detClientSenderId);</span>
-<span class="nc" id="L994">	    		myMap.Add(GroupOSCOREInputMaterialObjectParameters.det_hash_alg, detHashAlg);</span>
+<span class="nc" id="L1034">	    		myMap.Add(GroupOSCOREInputMaterialObjectParameters.det_senderId, detClientSenderId);</span>
+<span class="nc" id="L1035">	    		myMap.Add(GroupOSCOREInputMaterialObjectParameters.det_hash_alg, detHashAlg);</span>
     		}
     	}
     	
-<span class="fc" id="L998">    	joinResponse.Add(GroupcommParameters.KEY, myMap);</span>
+<span class="nc" id="L1039">    	joinResponse.Add(GroupcommParameters.KEY, myMap);</span>
     	
     	// If backward security has to be preserved:
     	//
@@ -1005,74 +1046,74 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
     	// 2) The OSCORE group should be rekeyed
 
     	// The current version of the symmetric keying material
-<span class="fc" id="L1008">    	joinResponse.Add(GroupcommParameters.NUM, CBORObject.FromObject(myGroup.getVersion()));</span>
+<span class="nc" id="L1049">    	joinResponse.Add(GroupcommParameters.NUM, CBORObject.FromObject(myGroup.getVersion()));</span>
     	
     	// CBOR Value assigned to the coap_group_oscore profile.
-<span class="fc" id="L1011">    	joinResponse.Add(GroupcommParameters.ACE_GROUPCOMM_PROFILE, CBORObject.FromObject(GroupcommParameters.COAP_GROUP_OSCORE_APP));</span>
+<span class="nc" id="L1052">    	joinResponse.Add(GroupcommParameters.ACE_GROUPCOMM_PROFILE, CBORObject.FromObject(GroupcommParameters.COAP_GROUP_OSCORE_APP));</span>
     	
-<span class="fc" id="L1013">    	long expValue = targetedGroup.getExp();</span>
-<span class="fc" id="L1014">    	long exiValue = expValue - (System.currentTimeMillis() / 1000L);</span>
+<span class="nc" id="L1054">    	long expValue = targetedGroup.getExp();</span>
+<span class="nc" id="L1055">    	long exiValue = expValue - (System.currentTimeMillis() / 1000L);</span>
     	
     	// Expiration time in seconds, after which the OSCORE Security Context
     	// derived from the 'k' parameter is not valid anymore.
-<span class="fc" id="L1018">    	joinResponse.Add(GroupcommParameters.EXP, CBORObject.FromObject(expValue));</span>
+<span class="nc" id="L1059">    	joinResponse.Add(GroupcommParameters.EXP, CBORObject.FromObject(expValue));</span>
     	
     	// Number of seconds after which the OSCORE Security Context
     	// derived from the 'k' parameter is not valid anymore.
-<span class="fc" id="L1022">    	joinResponse.Add(GroupcommParameters.EXI, CBORObject.FromObject(exiValue));</span>
+<span class="nc" id="L1063">    	joinResponse.Add(GroupcommParameters.EXI, CBORObject.FromObject(exiValue));</span>
     	
-<span class="pc bpc" id="L1024" title="1 of 2 branches missed.">    	if (provideAuthCreds) {</span>
+<span class="nc bnc" id="L1065" title="All 2 branches missed.">    	if (provideAuthCreds) {</span>
 
-<span class="fc" id="L1026">    		CBORObject authCredsArray = CBORObject.NewArray();        		</span>
-<span class="fc" id="L1027">    		CBORObject peerRoles = CBORObject.NewArray();</span>
-<span class="fc" id="L1028">    		CBORObject peerIdentifiers = CBORObject.NewArray();</span>
+<span class="nc" id="L1067">    		CBORObject authCredsArray = CBORObject.NewArray();        		</span>
+<span class="nc" id="L1068">    		CBORObject peerRoles = CBORObject.NewArray();</span>
+<span class="nc" id="L1069">    		CBORObject peerIdentifiers = CBORObject.NewArray();</span>
     		
-<span class="fc" id="L1030">    		Map&lt;CBORObject, CBORObject&gt; authCreds = myGroup.getAuthCreds();</span>
+<span class="nc" id="L1071">    		Map&lt;CBORObject, CBORObject&gt; authCreds = myGroup.getAuthCreds();</span>
         	
-<span class="fc bfc" id="L1032" title="All 2 branches covered.">    		for (CBORObject sid : authCreds.keySet()) {</span>
+<span class="nc bnc" id="L1073" title="All 2 branches missed.">    		for (CBORObject sid : authCreds.keySet()) {</span>
     			// This should never happen; silently ignore
-<span class="pc bpc" id="L1034" title="1 of 2 branches missed.">    			if (authCreds.get(sid) == null)</span>
-<span class="nc" id="L1035">    				continue;</span>
+<span class="nc bnc" id="L1075" title="All 2 branches missed.">    			if (authCreds.get(sid) == null)</span>
+<span class="nc" id="L1076">    				continue;</span>
 
-<span class="fc" id="L1037">    			byte[] peerSenderId = sid.GetByteString();</span>
+<span class="nc" id="L1078">    			byte[] peerSenderId = sid.GetByteString();</span>
     			// Skip the authentication credential of the just-added joining node
-<span class="pc bpc" id="L1039" title="1 of 4 branches missed.">    			if ((senderId != null) &amp;&amp; Arrays.equals(senderId, peerSenderId))</span>
-<span class="fc" id="L1040">    				continue;</span>
+<span class="nc bnc" id="L1080" title="All 4 branches missed.">    			if ((senderId != null) &amp;&amp; Arrays.equals(senderId, peerSenderId))</span>
+<span class="nc" id="L1081">    				continue;</span>
     			
-<span class="fc" id="L1042">    			boolean includeAuthCred = false;</span>
+<span class="nc" id="L1083">    			boolean includeAuthCred = false;</span>
             	
     			// Authentication credentials of all group members are requested
-<span class="pc bpc" id="L1045" title="1 of 2 branches missed.">    			if (getCreds.equals(CBORObject.Null)) {</span>
-<span class="nc" id="L1046">    				includeAuthCred = true;</span>
+<span class="nc bnc" id="L1086" title="All 2 branches missed.">    			if (getCreds.equals(CBORObject.Null)) {</span>
+<span class="nc" id="L1087">    				includeAuthCred = true;</span>
     			}
     			// Only authentication credentials of group members with certain roles are requested
     			else {
-<span class="pc bpc" id="L1050" title="1 of 2 branches missed.">    				for (int i = 0; i &lt; getCreds.get(1).size(); i++) {</span>
-<span class="fc" id="L1051">    					int filterRoles = getCreds.get(1).get(i).AsInt32();</span>
-<span class="fc" id="L1052">    					int memberRoles = myGroup.getGroupMemberRoles(peerSenderId);</span>
+<span class="nc bnc" id="L1091" title="All 2 branches missed.">    				for (int i = 0; i &lt; getCreds.get(1).size(); i++) {</span>
+<span class="nc" id="L1092">    					int filterRoles = getCreds.get(1).get(i).AsInt32();</span>
+<span class="nc" id="L1093">    					int memberRoles = myGroup.getGroupMemberRoles(peerSenderId);</span>
     					// The owner of this authentication credential does not have all its roles
     					// indicated in this AIF integer filter
-<span class="pc bpc" id="L1055" title="1 of 2 branches missed.">    					if (filterRoles != (filterRoles &amp; memberRoles)) {</span>
-<span class="nc" id="L1056">    						continue;</span>
+<span class="nc bnc" id="L1096" title="All 2 branches missed.">    					if (filterRoles != (filterRoles &amp; memberRoles)) {</span>
+<span class="nc" id="L1097">    						continue;</span>
     					}
     					else {
-<span class="fc" id="L1059">    						includeAuthCred = true;</span>
-<span class="fc" id="L1060">    						break;</span>
+<span class="nc" id="L1100">    						includeAuthCred = true;</span>
+<span class="nc" id="L1101">    						break;</span>
     					}
     				}
     			}
     			
-<span class="pc bpc" id="L1065" title="1 of 2 branches missed.">    			if (includeAuthCred) {</span>
-<span class="fc" id="L1066">    				authCredsArray.Add(authCreds.get(sid));</span>
-<span class="fc" id="L1067">        			peerRoles.Add(myGroup.getGroupMemberRoles(peerSenderId));</span>
-<span class="fc" id="L1068">        			peerIdentifiers.Add(peerSenderId);</span>
+<span class="nc bnc" id="L1106" title="All 2 branches missed.">    			if (includeAuthCred) {</span>
+<span class="nc" id="L1107">    				authCredsArray.Add(authCreds.get(sid));</span>
+<span class="nc" id="L1108">        			peerRoles.Add(myGroup.getGroupMemberRoles(peerSenderId));</span>
+<span class="nc" id="L1109">        			peerIdentifiers.Add(peerSenderId);</span>
     			}
 
-<span class="fc" id="L1071">    		}</span>
+<span class="nc" id="L1112">    		}</span>
     		    			
-<span class="fc" id="L1073">    		joinResponse.Add(GroupcommParameters.CREDS, authCredsArray);</span>
-<span class="fc" id="L1074">			joinResponse.Add(GroupcommParameters.PEER_ROLES, peerRoles);</span>
-<span class="fc" id="L1075">			joinResponse.Add(GroupcommParameters.PEER_IDENTIFIERS, peerIdentifiers);</span>
+<span class="nc" id="L1114">    		joinResponse.Add(GroupcommParameters.CREDS, authCredsArray);</span>
+<span class="nc" id="L1115">			joinResponse.Add(GroupcommParameters.PEER_ROLES, peerRoles);</span>
+<span class="nc" id="L1116">			joinResponse.Add(GroupcommParameters.PEER_IDENTIFIERS, peerIdentifiers);</span>
     			
     		
     		// Debug:
@@ -1090,61 +1131,61 @@ public class GroupOSCOREGroupMembershipResource extends CoapResource {
     	}
     	
     	// Group Policies
-<span class="fc" id="L1093">    	joinResponse.Add(GroupcommParameters.GROUP_POLICIES, myGroup.getGroupPolicies());</span>
+<span class="nc" id="L1134">    	joinResponse.Add(GroupcommParameters.GROUP_POLICIES, myGroup.getGroupPolicies());</span>
     	
     	
     	// Authentication Credential of the Group Manager together with proof-of-possession evidence
-<span class="fc" id="L1097">    	byte[] kdcNonce = new byte[8];</span>
-<span class="fc" id="L1098">    	new SecureRandom().nextBytes(kdcNonce);</span>
-<span class="fc" id="L1099">    	joinResponse.Add(GroupcommParameters.KDC_NONCE, kdcNonce);</span>
+<span class="nc" id="L1138">    	byte[] kdcNonce = new byte[8];</span>
+<span class="nc" id="L1139">    	new SecureRandom().nextBytes(kdcNonce);</span>
+<span class="nc" id="L1140">    	joinResponse.Add(GroupcommParameters.KDC_NONCE, kdcNonce);</span>
     	
-<span class="fc" id="L1101">    	CBORObject authCred = CBORObject.FromObject(targetedGroup.getGmAuthCred());</span>
+<span class="nc" id="L1142">    	CBORObject authCred = CBORObject.FromObject(targetedGroup.getGmAuthCred());</span>
     	
-<span class="fc" id="L1103">    	joinResponse.Add(GroupcommParameters.KDC_CRED, authCred);</span>
+<span class="nc" id="L1144">    	joinResponse.Add(GroupcommParameters.KDC_CRED, authCred);</span>
     	
     	PrivateKey gmPrivKey;
 		try {
-<span class="fc" id="L1107">			gmPrivKey = targetedGroup.getGmKeyPair().AsPrivateKey();</span>
-<span class="nc" id="L1108">		} catch (CoseException e) {</span>
-<span class="nc" id="L1109">			System.err.println(&quot;Error when computing the GM PoP evidence &quot; + e.getMessage());</span>
-<span class="nc" id="L1110">			exchange.respond(CoAP.ResponseCode.INTERNAL_SERVER_ERROR,</span>
+<span class="nc" id="L1148">			gmPrivKey = targetedGroup.getGmKeyPair().AsPrivateKey();</span>
+<span class="nc" id="L1149">		} catch (CoseException e) {</span>
+<span class="nc" id="L1150">			System.err.println(&quot;Error when computing the GM PoP evidence &quot; + e.getMessage());</span>
+<span class="nc" id="L1151">			exchange.respond(CoAP.ResponseCode.INTERNAL_SERVER_ERROR,</span>
 							 &quot;Error when computing the GM PoP evidence&quot;);
-<span class="nc" id="L1112">    		return;</span>
-<span class="fc" id="L1113">		}</span>
+<span class="nc" id="L1153">    		return;</span>
+<span class="nc" id="L1154">		}</span>
 
-<span class="fc" id="L1115">		int offset =  0;</span>
-<span class="fc" id="L1116">		byte[] serializedGMNonceCBOR = CBORObject.FromObject(kdcNonce).EncodeToBytes();</span>
-<span class="fc" id="L1117">    	byte[] popInput = new byte[serializedCNonceCBOR.length + serializedGMNonceCBOR.length];</span>
-<span class="fc" id="L1118">    	System.arraycopy(serializedCNonceCBOR, 0, popInput, offset, serializedCNonceCBOR.length);</span>
-<span class="fc" id="L1119">    	offset += serializedCNonceCBOR.length;</span>
-<span class="fc" id="L1120">    	System.arraycopy(serializedGMNonceCBOR, 0, popInput, offset, serializedGMNonceCBOR.length);</span>
+<span class="nc" id="L1156">		int offset =  0;</span>
+<span class="nc" id="L1157">		byte[] serializedGMNonceCBOR = CBORObject.FromObject(kdcNonce).EncodeToBytes();</span>
+<span class="nc" id="L1158">    	byte[] popInput = new byte[serializedCNonceCBOR.length + serializedGMNonceCBOR.length];</span>
+<span class="nc" id="L1159">    	System.arraycopy(serializedCNonceCBOR, 0, popInput, offset, serializedCNonceCBOR.length);</span>
+<span class="nc" id="L1160">    	offset += serializedCNonceCBOR.length;</span>
+<span class="nc" id="L1161">    	System.arraycopy(serializedGMNonceCBOR, 0, popInput, offset, serializedGMNonceCBOR.length);</span>
     	
-<span class="fc" id="L1122">		byte[] gmSignature = Util.computeSignature(signKeyCurve, gmPrivKey, popInput);</span>
-<span class="pc bpc" id="L1123" title="1 of 2 branches missed.">    	if (gmSignature != null) {</span>
-<span class="fc" id="L1124">    	    joinResponse.Add(GroupcommParameters.KDC_CRED_VERIFY, gmSignature);</span>
+<span class="nc" id="L1163">		byte[] gmSignature = Util.computeSignature(signKeyCurve, gmPrivKey, popInput);</span>
+<span class="nc bnc" id="L1164" title="All 2 branches missed.">    	if (gmSignature != null) {</span>
+<span class="nc" id="L1165">    	    joinResponse.Add(GroupcommParameters.KDC_CRED_VERIFY, gmSignature);</span>
     	}
     	else {
-<span class="nc" id="L1127">			exchange.respond(CoAP.ResponseCode.INTERNAL_SERVER_ERROR,</span>
+<span class="nc" id="L1168">			exchange.respond(CoAP.ResponseCode.INTERNAL_SERVER_ERROR,</span>
 							 &quot;Error when computing the GM PoP evidence&quot;);
-<span class="nc" id="L1129">    		return;</span>
+<span class="nc" id="L1170">    		return;</span>
     	}
     	
-<span class="fc" id="L1132">    	byte[] responsePayload = joinResponse.EncodeToBytes();</span>
-<span class="fc" id="L1133">    	String uriNodeResource = new String(rootGroupMembershipResourcePath + &quot;/&quot; +</span>
+<span class="nc" id="L1173">    	byte[] responsePayload = joinResponse.EncodeToBytes();</span>
+<span class="nc" id="L1174">    	String uriNodeResource = new String(rootGroupMembershipResourcePath + &quot;/&quot; +</span>
     										groupName + &quot;/nodes/&quot; + nodeName);
     	
-<span class="pc bpc" id="L1136" title="1 of 2 branches missed.">    	CoAP.ResponseCode responseCode = rejoin ? CoAP.ResponseCode.CHANGED : CoAP.ResponseCode.CREATED;</span>
+<span class="nc bnc" id="L1177" title="All 2 branches missed.">    	CoAP.ResponseCode responseCode = rejoin ? CoAP.ResponseCode.CHANGED : CoAP.ResponseCode.CREATED;</span>
     	
-<span class="fc" id="L1138">    	Response coapJoinResponse = new Response(responseCode);</span>
-<span class="fc" id="L1139">    	coapJoinResponse.setPayload(responsePayload);</span>
-<span class="fc" id="L1140">    	coapJoinResponse.getOptions().setContentFormat(Constants.APPLICATION_ACE_GROUPCOMM_CBOR);</span>
-<span class="fc" id="L1141">    	coapJoinResponse.getOptions().setLocationPath(uriNodeResource);</span>
+<span class="nc" id="L1179">    	Response coapJoinResponse = new Response(responseCode);</span>
+<span class="nc" id="L1180">    	coapJoinResponse.setPayload(responsePayload);</span>
+<span class="nc" id="L1181">    	coapJoinResponse.getOptions().setContentFormat(Constants.APPLICATION_ACE_GROUPCOMM_CBOR);</span>
+<span class="nc" id="L1182">    	coapJoinResponse.getOptions().setLocationPath(uriNodeResource);</span>
 
     	// Store cnonce for this joining node
-<span class="fc" id="L1144">    	TokenRepository.getInstance().setCnonce(subject, Base64.getEncoder().encodeToString(cnonce.GetByteString()));</span>
+<span class="nc" id="L1185">    	TokenRepository.getInstance().setCnonce(subject, Base64.getEncoder().encodeToString(cnonce.GetByteString()));</span>
     	
-<span class="fc" id="L1146">    	exchange.respond(coapJoinResponse);</span>
+<span class="nc" id="L1187">    	exchange.respond(coapJoinResponse);</span>
     	
-<span class="fc" id="L1148">    }</span>
+<span class="nc" id="L1189">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -81,106 +81,106 @@ public class GroupOSCORERootGroupMembershipResource extends CoapResource {
     
     @Override
     public void handleFETCH(CoapExchange exchange) {
-<span class="fc" id="L84">    	System.out.println(&quot;FETCH request reached the GM&quot;);</span>
+<span class="nc" id="L84">    	System.out.println(&quot;FETCH request reached the GM&quot;);</span>
     	
-<span class="fc" id="L86">    	String subject = null;</span>
-<span class="fc" id="L87">    	Request request = exchange.advanced().getCurrentRequest();</span>
+<span class="nc" id="L86">    	String subject = null;</span>
+<span class="nc" id="L87">    	Request request = exchange.advanced().getCurrentRequest();</span>
         
         try {
-<span class="fc" id="L90">			subject = CoapReq.getInstance(request).getSenderId();</span>
+<span class="nc" id="L90">			subject = CoapReq.getInstance(request).getSenderId();</span>
 <span class="nc" id="L91">		} catch (AceException e) {</span>
 <span class="nc" id="L92">		    System.err.println(&quot;Error while retrieving the client identity: &quot; + e.getMessage());</span>
-<span class="fc" id="L93">		}</span>
-<span class="pc bpc" id="L94" title="1 of 2 branches missed.">        if (subject == null) {</span>
+<span class="nc" id="L93">		}</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">        if (subject == null) {</span>
         	// At this point, this should not really happen, due to the earlier check at the Token Repository
 <span class="nc" id="L96">        	exchange.respond(CoAP.ResponseCode.UNAUTHORIZED,</span>
         					 &quot;Unauthenticated client tried to get access&quot;);
 <span class="nc" id="L98">        	return;</span>
         }
         
-<span class="fc" id="L101">    	byte[] requestPayload = exchange.getRequestPayload();</span>
+<span class="nc" id="L101">    	byte[] requestPayload = exchange.getRequestPayload();</span>
     	
-<span class="pc bpc" id="L103" title="1 of 2 branches missed.">    	if(requestPayload == null) {</span>
+<span class="nc bnc" id="L103" title="All 2 branches missed.">    	if(requestPayload == null) {</span>
 <span class="nc" id="L104">    		exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
     						 &quot;A payload must be present&quot;);
 <span class="nc" id="L106">    		return;</span>
     	}
     	
-<span class="fc" id="L109">    	CBORObject requestCBOR = CBORObject.DecodeFromBytes(requestPayload);</span>
+<span class="nc" id="L109">    	CBORObject requestCBOR = CBORObject.DecodeFromBytes(requestPayload);</span>
 		
     	// The payload of the request must be a CBOR Map
-<span class="pc bpc" id="L112" title="1 of 2 branches missed.">    	if (!requestCBOR.getType().equals(CBORType.Map)) {</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">    	if (!requestCBOR.getType().equals(CBORType.Map)) {</span>
 <span class="nc" id="L113">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
 							 &quot;Invalid payload format&quot;);
 <span class="nc" id="L115">    		return;</span>
     	}
     	
     	// The CBOR Map must include exactly one element, i.e. 'gid'
-<span class="pc bpc" id="L119" title="2 of 4 branches missed.">    	if ((requestCBOR.size() != 1) || (!requestCBOR.ContainsKey(GroupcommParameters.GID))) {</span>
+<span class="nc bnc" id="L119" title="All 4 branches missed.">    	if ((requestCBOR.size() != 1) || (!requestCBOR.ContainsKey(GroupcommParameters.GID))) {</span>
 <span class="nc" id="L120">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
 							 &quot;Invalid payload format&quot;);
 <span class="nc" id="L122">    		return;</span>
     	}
     	
     	// The 'gid' element must be a CBOR array, with at least one element
-<span class="pc bpc" id="L126" title="1 of 2 branches missed.">    	if (requestCBOR.get(GroupcommParameters.GID).getType() != CBORType.Array ||</span>
-<span class="pc bpc" id="L127" title="1 of 2 branches missed.">    		requestCBOR.get(GroupcommParameters.GID).size() == 0) {</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">    	if (requestCBOR.get(GroupcommParameters.GID).getType() != CBORType.Array ||</span>
+<span class="nc bnc" id="L127" title="All 2 branches missed.">    		requestCBOR.get(GroupcommParameters.GID).size() == 0) {</span>
 <span class="nc" id="L128">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
 							 &quot;Invalid payload format&quot;);
 <span class="nc" id="L130">    		return;</span>
     	}
     	
     	// Each element of 'gid' element must be a CBOR byte string
-<span class="fc bfc" id="L134" title="All 2 branches covered.">    	for (int i = 0 ; i &lt; requestCBOR.get(GroupcommParameters.GID).size(); i++) {</span>
-<span class="pc bpc" id="L135" title="1 of 2 branches missed.">        	if (requestCBOR.get(GroupcommParameters.GID).get(i).getType() != CBORType.ByteString) {</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">    	for (int i = 0 ; i &lt; requestCBOR.get(GroupcommParameters.GID).size(); i++) {</span>
+<span class="nc bnc" id="L135" title="All 2 branches missed.">        	if (requestCBOR.get(GroupcommParameters.GID).get(i).getType() != CBORType.ByteString) {</span>
 <span class="nc" id="L136">				exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
 								 &quot;Invalid payload format&quot;);
 <span class="nc" id="L138">	    		return;</span>
         	}
     	}
     	    		
-<span class="fc" id="L142">		List&lt;CBORObject&gt; inputGroupIds = new ArrayList&lt;CBORObject&gt; ();</span>
-<span class="fc bfc" id="L143" title="All 2 branches covered.">		for (int i = 0; i &lt; requestCBOR.get(GroupcommParameters.GID).size(); i++) {</span>
-<span class="fc" id="L144">			inputGroupIds.add(requestCBOR.get(GroupcommParameters.GID).get(i));</span>
+<span class="nc" id="L142">		List&lt;CBORObject&gt; inputGroupIds = new ArrayList&lt;CBORObject&gt; ();</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">		for (int i = 0; i &lt; requestCBOR.get(GroupcommParameters.GID).size(); i++) {</span>
+<span class="nc" id="L144">			inputGroupIds.add(requestCBOR.get(GroupcommParameters.GID).get(i));</span>
 		}
 		
-<span class="fc" id="L147">		List&lt;String&gt; preliminaryGroupNames = new ArrayList&lt;String&gt;();</span>
-<span class="fc" id="L148">		List&lt;CBORObject&gt; finalGroupNames = new ArrayList&lt;CBORObject&gt;();</span>
-<span class="fc" id="L149">		List&lt;CBORObject&gt; finalGroupIds = new ArrayList&lt;CBORObject&gt;();</span>
-<span class="fc" id="L150">		List&lt;CBORObject&gt; finalGroupURIs = new ArrayList&lt;CBORObject&gt;();</span>
+<span class="nc" id="L147">		List&lt;String&gt; preliminaryGroupNames = new ArrayList&lt;String&gt;();</span>
+<span class="nc" id="L148">		List&lt;CBORObject&gt; finalGroupNames = new ArrayList&lt;CBORObject&gt;();</span>
+<span class="nc" id="L149">		List&lt;CBORObject&gt; finalGroupIds = new ArrayList&lt;CBORObject&gt;();</span>
+<span class="nc" id="L150">		List&lt;CBORObject&gt; finalGroupURIs = new ArrayList&lt;CBORObject&gt;();</span>
 		
 		// Navigate the list of existing OSCORE groups
-<span class="fc bfc" id="L153" title="All 2 branches covered.">    	for (String groupName : existingGroupInfo.keySet()) {</span>
+<span class="nc bnc" id="L153" title="All 2 branches missed.">    	for (String groupName : existingGroupInfo.keySet()) {</span>
     		
-<span class="fc" id="L155">    		GroupInfo myGroup = existingGroupInfo.get(groupName);</span>
-<span class="fc" id="L156">    		byte[] storedGid = myGroup.getGroupId();</span>
+<span class="nc" id="L155">    		GroupInfo myGroup = existingGroupInfo.get(groupName);</span>
+<span class="nc" id="L156">    		byte[] storedGid = myGroup.getGroupId();</span>
     		
     		// Navigate the list of Group IDs specified in the request
-<span class="fc bfc" id="L159" title="All 2 branches covered.">    		for (int i = 0; i &lt; inputGroupIds.size(); i ++) {</span>
-<span class="fc" id="L160">    			byte[] inputGid = inputGroupIds.get(i).GetByteString();</span>
+<span class="nc bnc" id="L159" title="All 2 branches missed.">    		for (int i = 0; i &lt; inputGroupIds.size(); i ++) {</span>
+<span class="nc" id="L160">    			byte[] inputGid = inputGroupIds.get(i).GetByteString();</span>
     			
     			// A match is found with the examined OSCORE group
-<span class="fc bfc" id="L163" title="All 2 branches covered.">    			if (Arrays.equals(storedGid, inputGid)) {</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">    			if (Arrays.equals(storedGid, inputGid)) {</span>
         			// Store the used Group Name for future inspection
-<span class="fc" id="L165">    				preliminaryGroupNames.add(groupName);</span>
+<span class="nc" id="L165">    				preliminaryGroupNames.add(groupName);</span>
     				// No need to further consider this Group ID value
-<span class="fc" id="L167">    				inputGroupIds.remove(i);</span>
-<span class="fc" id="L168">    				break;</span>
+<span class="nc" id="L167">    				inputGroupIds.remove(i);</span>
+<span class="nc" id="L168">    				break;</span>
     			}
     		}
     		
-<span class="fc bfc" id="L172" title="All 2 branches covered.">    		if (inputGroupIds.isEmpty())</span>
-<span class="fc" id="L173">    			break;</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">    		if (inputGroupIds.isEmpty())</span>
+<span class="nc" id="L173">    			break;</span>
     		
-<span class="fc" id="L175">    	}</span>
+<span class="nc" id="L175">    	}</span>
 		
     	// Selects only names of groups where the requesting client is
     	// a current member or is authorized to have any role about
-<span class="fc bfc" id="L179" title="All 2 branches covered.">    	for (String groupName : preliminaryGroupNames) {</span>
+<span class="nc bnc" id="L179" title="All 2 branches missed.">    	for (String groupName : preliminaryGroupNames) {</span>
     		
-<span class="fc" id="L181">    		GroupInfo targetedGroup = existingGroupInfo.get(groupName);</span>
+<span class="nc" id="L181">    		GroupInfo targetedGroup = existingGroupInfo.get(groupName);</span>
     		
-<span class="pc bpc" id="L183" title="1 of 2 branches missed.">        	if (!targetedGroup.isGroupMember(subject)) {</span>
+<span class="nc bnc" id="L183" title="All 2 branches missed.">        	if (!targetedGroup.isGroupMember(subject)) {</span>
         		
         		// The requester is not a current group member.
         		//
@@ -197,51 +197,51 @@ public class GroupOSCORERootGroupMembershipResource extends CoapResource {
             	
         	}
         	
-<span class="fc" id="L200">        	finalGroupNames.add(CBORObject.FromObject(groupName));</span>
-<span class="fc" id="L201">        	byte[] gid = targetedGroup.getGroupId();</span>
-<span class="fc" id="L202">        	finalGroupIds.add(CBORObject.FromObject(gid));</span>
-<span class="fc" id="L203">        	finalGroupURIs.add(CBORObject.FromObject(this.getURI() + &quot;/&quot; + groupName));</span>
+<span class="nc" id="L200">        	finalGroupNames.add(CBORObject.FromObject(groupName));</span>
+<span class="nc" id="L201">        	byte[] gid = targetedGroup.getGroupId();</span>
+<span class="nc" id="L202">        	finalGroupIds.add(CBORObject.FromObject(gid));</span>
+<span class="nc" id="L203">        	finalGroupURIs.add(CBORObject.FromObject(this.getURI() + &quot;/&quot; + groupName));</span>
         	
-<span class="fc" id="L205">    	}</span>
+<span class="nc" id="L205">    	}</span>
     	
         
         // Respond to the Group Name and URI Retrieval Request
         
-<span class="fc" id="L210">    	byte[] responsePayload = null;</span>
-<span class="fc" id="L211">    	Response coapResponse = new Response(CoAP.ResponseCode.CONTENT);</span>
+<span class="nc" id="L210">    	byte[] responsePayload = null;</span>
+<span class="nc" id="L211">    	Response coapResponse = new Response(CoAP.ResponseCode.CONTENT);</span>
     	
     	// The response is an empty CBOR byte string
-<span class="fc bfc" id="L214" title="All 2 branches covered.">    	if (finalGroupNames.size() == 0) {</span>
-<span class="fc" id="L215">    		byte[] emptyArray = new byte[0];</span>
-<span class="fc" id="L216">    		responsePayload = CBORObject.FromObject(emptyArray).EncodeToBytes();</span>
-<span class="fc" id="L217">    	}</span>
+<span class="nc bnc" id="L214" title="All 2 branches missed.">    	if (finalGroupNames.size() == 0) {</span>
+<span class="nc" id="L215">    		byte[] emptyArray = new byte[0];</span>
+<span class="nc" id="L216">    		responsePayload = CBORObject.FromObject(emptyArray).EncodeToBytes();</span>
+<span class="nc" id="L217">    	}</span>
     	// The response is a CBOR may including three CBOR arrays
     	else {
-<span class="fc" id="L220">    		CBORObject myResponse = CBORObject.NewMap();</span>
+<span class="nc" id="L220">    		CBORObject myResponse = CBORObject.NewMap();</span>
 
-<span class="fc" id="L222">    		CBORObject gnameArray = CBORObject.NewArray();</span>
-<span class="fc" id="L223">    		CBORObject gidArray = CBORObject.NewArray();</span>
-<span class="fc" id="L224">    		CBORObject guriArray = CBORObject.NewArray();</span>
+<span class="nc" id="L222">    		CBORObject gnameArray = CBORObject.NewArray();</span>
+<span class="nc" id="L223">    		CBORObject gidArray = CBORObject.NewArray();</span>
+<span class="nc" id="L224">    		CBORObject guriArray = CBORObject.NewArray();</span>
     		
-<span class="fc bfc" id="L226" title="All 2 branches covered.">    		for (int i = 0; i &lt; finalGroupNames.size(); i++) {</span>
-<span class="fc" id="L227">    			gnameArray.Add(finalGroupNames.get(i));</span>
-<span class="fc" id="L228">    			gidArray.Add(finalGroupIds.get(i));</span>
-<span class="fc" id="L229">    			guriArray.Add(finalGroupURIs.get(i));</span>
+<span class="nc bnc" id="L226" title="All 2 branches missed.">    		for (int i = 0; i &lt; finalGroupNames.size(); i++) {</span>
+<span class="nc" id="L227">    			gnameArray.Add(finalGroupNames.get(i));</span>
+<span class="nc" id="L228">    			gidArray.Add(finalGroupIds.get(i));</span>
+<span class="nc" id="L229">    			guriArray.Add(finalGroupURIs.get(i));</span>
     		}
     		
-<span class="fc" id="L232">    		myResponse.Add(GroupcommParameters.GID, gidArray);</span>
-<span class="fc" id="L233">    		myResponse.Add(GroupcommParameters.GNAME, gnameArray);</span>
-<span class="fc" id="L234">    		myResponse.Add(GroupcommParameters.GURI, guriArray);</span>
+<span class="nc" id="L232">    		myResponse.Add(GroupcommParameters.GID, gidArray);</span>
+<span class="nc" id="L233">    		myResponse.Add(GroupcommParameters.GNAME, gnameArray);</span>
+<span class="nc" id="L234">    		myResponse.Add(GroupcommParameters.GURI, guriArray);</span>
     		
-<span class="fc" id="L236">    		responsePayload = myResponse.EncodeToBytes();</span>
-<span class="fc" id="L237">        	coapResponse.getOptions().setContentFormat(Constants.APPLICATION_ACE_GROUPCOMM_CBOR);</span>
+<span class="nc" id="L236">    		responsePayload = myResponse.EncodeToBytes();</span>
+<span class="nc" id="L237">        	coapResponse.getOptions().setContentFormat(Constants.APPLICATION_ACE_GROUPCOMM_CBOR);</span>
     	} 
         
-<span class="fc" id="L240">    	coapResponse.setPayload(responsePayload);</span>
+<span class="nc" id="L240">    	coapResponse.setPayload(responsePayload);</span>
 
-<span class="fc" id="L242">    	exchange.respond(coapResponse);</span>
+<span class="nc" id="L242">    	exchange.respond(coapResponse);</span>
     	
-<span class="fc" id="L244">    }</span>
+<span class="nc" id="L244">    }</span>
     
 }
 

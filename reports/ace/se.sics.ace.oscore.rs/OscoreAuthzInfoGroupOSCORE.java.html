@@ -176,7 +176,7 @@ public class OscoreAuthzInfoGroupOSCORE extends AuthzInfo {
         
         // This Token POST is not protected; then the parameters Nonce1 and Id1 have to be present.
         // Otherwise, if the Token POST is protected, these parameters are not expected, and are silently ignored if present
-<span class="fc bfc" id="L179" title="All 2 branches covered.">        if (subject == null) {</span>
+<span class="pc bpc" id="L179" title="1 of 2 branches missed.">        if (subject == null) {</span>
 <span class="fc" id="L180">	        nonce = cbor.get(CBORObject.FromObject(Constants.NONCE1));</span>
 <span class="pc bpc" id="L181" title="2 of 4 branches missed.">	        if (nonce == null || !nonce.getType().equals(CBORType.ByteString)) {</span>
 <span class="nc" id="L182">	            LOGGER.info(&quot;Missing or invalid parameter type for:&quot;</span>
@@ -225,16 +225,16 @@ public class OscoreAuthzInfoGroupOSCORE extends AuthzInfo {
 <span class="nc" id="L225">            return msg.failReply(Message.FAIL_BAD_REQUEST, map);</span>
         }        
         
-<span class="fc bfc" id="L228" title="All 2 branches covered.">        if (cbor.ContainsKey(CBORObject.FromObject(Constants.SIGN_INFO))) {</span>
-<span class="pc bpc" id="L229" title="1 of 2 branches missed.">    		if (cbor.get(CBORObject.FromObject(Constants.SIGN_INFO)).equals(CBORObject.Null)) {</span>
-<span class="fc" id="L230">    			provideSignInfo = true;</span>
+<span class="pc bpc" id="L228" title="1 of 2 branches missed.">        if (cbor.ContainsKey(CBORObject.FromObject(Constants.SIGN_INFO))) {</span>
+<span class="nc bnc" id="L229" title="All 2 branches missed.">    		if (cbor.get(CBORObject.FromObject(Constants.SIGN_INFO)).equals(CBORObject.Null)) {</span>
+<span class="nc" id="L230">    			provideSignInfo = true;</span>
     		}
 <span class="nc" id="L232">    		else invalid = true;</span>
     	}
     	
-<span class="fc bfc" id="L235" title="All 2 branches covered.">        if (cbor.ContainsKey(CBORObject.FromObject(Constants.ECDH_INFO))) {</span>
-<span class="pc bpc" id="L236" title="1 of 2 branches missed.">    		if (cbor.get(CBORObject.FromObject(Constants.ECDH_INFO)).equals(CBORObject.Null)) {</span>
-<span class="fc" id="L237">    			provideEcdhInfo = true;</span>
+<span class="pc bpc" id="L235" title="1 of 2 branches missed.">        if (cbor.ContainsKey(CBORObject.FromObject(Constants.ECDH_INFO))) {</span>
+<span class="nc bnc" id="L236" title="All 2 branches missed.">    		if (cbor.get(CBORObject.FromObject(Constants.ECDH_INFO)).equals(CBORObject.Null)) {</span>
+<span class="nc" id="L237">    			provideEcdhInfo = true;</span>
     		}
 <span class="nc" id="L239">    		else invalid = true;</span>
     	}
@@ -267,7 +267,7 @@ public class OscoreAuthzInfoGroupOSCORE extends AuthzInfo {
         
         // If the Token POST was a non protected request, then Nonces and IDs have
         // to be exchanged, and a new OSCORE Security Context has to be established
-<span class="fc bfc" id="L270" title="All 2 branches covered.">        if (subject == null) {</span>
+<span class="pc bpc" id="L270" title="1 of 2 branches missed.">        if (subject == null) {</span>
 <span class="fc" id="L271">	        String recipientIdString = authzInfoResponse.get(</span>
 <span class="fc" id="L272">	                CBORObject.FromObject(Constants.CLIENT_ID)).AsString();</span>
 <span class="pc bpc" id="L273" title="1 of 2 branches missed.">	        if (recipientIdString == null) {</span>
@@ -381,51 +381,51 @@ public class OscoreAuthzInfoGroupOSCORE extends AuthzInfo {
 	    
 <span class="fc" id="L382">    	CBORObject scope = claims.get(Constants.SCOPE);</span>
     	
-<span class="fc bfc" id="L384" title="All 2 branches covered.">    	if (scope.getType().equals(CBORType.ByteString)) {</span>
+<span class="pc bpc" id="L384" title="1 of 2 branches missed.">    	if (scope.getType().equals(CBORType.ByteString)) {</span>
     		
-<span class="fc" id="L386">    		Set&lt;String&gt; myGMAudiences = this.audience.getAllGMAudiences();</span>
-<span class="fc" id="L387">    		Set&lt;String&gt; myGroupMembershipResources = this.audience.getAllGroupMembershipResources();</span>
+<span class="nc" id="L386">    		Set&lt;String&gt; myGMAudiences = this.audience.getAllGMAudiences();</span>
+<span class="nc" id="L387">    		Set&lt;String&gt; myGroupMembershipResources = this.audience.getAllGroupMembershipResources();</span>
     		
-<span class="fc" id="L389">    		CBORObject audCbor = claims.get(Constants.AUD);</span>
-<span class="fc" id="L390">    		String aud = audCbor.AsString();</span>
+<span class="nc" id="L389">    		CBORObject audCbor = claims.get(Constants.AUD);</span>
+<span class="nc" id="L390">    		String aud = audCbor.AsString();</span>
     		
     		
-<span class="fc" id="L393">    		byte[] rawScope = scope.GetByteString();</span>
-<span class="fc" id="L394">    		CBORObject cborScope = CBORObject.DecodeFromBytes(rawScope);</span>
-<span class="fc" id="L395">    		Set&lt;String&gt; groupNames = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L393">    		byte[] rawScope = scope.GetByteString();</span>
+<span class="nc" id="L394">    		CBORObject cborScope = CBORObject.DecodeFromBytes(rawScope);</span>
+<span class="nc" id="L395">    		Set&lt;String&gt; groupNames = new HashSet&lt;&gt;();</span>
     		
     		// Check that the audience is in fact a Group Manager
-<span class="pc bpc" id="L398" title="1 of 2 branches missed.">			if (myGMAudiences.contains(aud)) {</span>
-<span class="fc" id="L399">				error = false;</span>
+<span class="nc bnc" id="L398" title="All 2 branches missed.">			if (myGMAudiences.contains(aud)) {</span>
+<span class="nc" id="L399">				error = false;</span>
 	    	}
 
-<span class="fc bfc" id="L402" title="All 2 branches covered.">      	  	for (int entryIndex = 0; entryIndex &lt; cborScope.size(); entryIndex++) {</span>
+<span class="nc bnc" id="L402" title="All 2 branches missed.">      	  	for (int entryIndex = 0; entryIndex &lt; cborScope.size(); entryIndex++) {</span>
       	  		
-<span class="pc bpc" id="L404" title="1 of 2 branches missed.">      	  		if (cborScope.get(entryIndex).get(1).getType() != CBORType.Integer) {</span>
+<span class="nc bnc" id="L404" title="All 2 branches missed.">      	  		if (cborScope.get(entryIndex).get(1).getType() != CBORType.Integer) {</span>
 <span class="nc" id="L405">      	  			error = true;</span>
 <span class="nc" id="L406">      	  			break;</span>
       	  		}
       	  		
-<span class="fc" id="L409">      	  		int tperm = cborScope.get(entryIndex).get(1).AsInt32();</span>
-<span class="pc bpc" id="L410" title="1 of 2 branches missed.">      	  		if (tperm &lt;= 0) {</span>
+<span class="nc" id="L409">      	  		int tperm = cborScope.get(entryIndex).get(1).AsInt32();</span>
+<span class="nc bnc" id="L410" title="All 2 branches missed.">      	  		if (tperm &lt;= 0) {</span>
 <span class="nc" id="L411">      	  			error = true;</span>
 <span class="nc" id="L412">      	  			break;</span>
       	  		}
-<span class="fc bfc" id="L414" title="All 2 branches covered.">      	  		if ((tperm % 2) == 0) {</span>
+<span class="nc bnc" id="L414" title="All 2 branches missed.">      	  		if ((tperm % 2) == 0) {</span>
       	  			// This is a user scope entry
-<span class="pc bpc" id="L416" title="1 of 2 branches missed.">      	  			if (cborScope.get(entryIndex).get(0).getType() != CBORType.TextString) {</span>
+<span class="nc bnc" id="L416" title="All 2 branches missed.">      	  			if (cborScope.get(entryIndex).get(0).getType() != CBORType.TextString) {</span>
 <span class="nc" id="L417">	      	  			error = true;</span>
 <span class="nc" id="L418">	      	  			break;</span>
 	      	  		}
       	  			// This OSCORE group currently exists
-<span class="fc" id="L421">      	  			String groupName = cborScope.get(entryIndex).get(0).AsString();</span>
-<span class="pc bpc" id="L422" title="1 of 2 branches missed.">      	  			if (myGroupMembershipResources.contains(rootGroupMembershipResource + &quot;/&quot; + groupName)) {</span>
-<span class="fc" id="L423">      	  				groupNames.add(groupName);</span>
+<span class="nc" id="L421">      	  			String groupName = cborScope.get(entryIndex).get(0).AsString();</span>
+<span class="nc bnc" id="L422" title="All 2 branches missed.">      	  			if (myGroupMembershipResources.contains(rootGroupMembershipResource + &quot;/&quot; + groupName)) {</span>
+<span class="nc" id="L423">      	  				groupNames.add(groupName);</span>
       	  			}
       	  		}
-<span class="fc bfc" id="L426" title="All 2 branches covered.">      	  		if ((tperm % 2) == 1) {</span>
+<span class="nc bnc" id="L426" title="All 2 branches missed.">      	  		if ((tperm % 2) == 1) {</span>
       	  			// This is an admin scope entry
-<span class="pc bpc" id="L428" title="1 of 2 branches missed.">      	  			if (cborScope.get(entryIndex).get(0).getType() != CBORType.TextString &amp;&amp;</span>
+<span class="nc bnc" id="L428" title="All 2 branches missed.">      	  			if (cborScope.get(entryIndex).get(0).getType() != CBORType.TextString &amp;&amp;</span>
 <span class="nc bnc" id="L429" title="All 2 branches missed.">      	  				cborScope.get(entryIndex).get(0).equals(CBORObject.True) == false) {</span>
 <span class="nc" id="L430">	      	  			error = true;</span>
 <span class="nc" id="L431">	      	  			break;</span>
@@ -434,7 +434,7 @@ public class OscoreAuthzInfoGroupOSCORE extends AuthzInfo {
 
       	  	}
     		
-<span class="pc bpc" id="L437" title="1 of 2 branches missed.">    		if (error == true) {</span>
+<span class="nc bnc" id="L437" title="All 2 branches missed.">    		if (error == true) {</span>
 <span class="nc" id="L438">                LOGGER.info(&quot;The audience must be a Group Manager; the format of the scope entries&quot; +</span>
                 			&quot; must be consistent the AIF-OSCORE-GROUPCOMM data model&quot;);
 <span class="nc" id="L440">                CBORObject map = CBORObject.NewMap();</span>
@@ -443,13 +443,13 @@ public class OscoreAuthzInfoGroupOSCORE extends AuthzInfo {
             }
     		
         	// Add the nonce for PoP of the Client's private key in the Join Request
-<span class="fc" id="L446">            byte[] rsnonce = new byte[8];</span>
-<span class="fc" id="L447">            new SecureRandom().nextBytes(rsnonce);</span>
-<span class="fc" id="L448">            payload.Add(Constants.KDCCHALLENGE, rsnonce);</span>
+<span class="nc" id="L446">            byte[] rsnonce = new byte[8];</span>
+<span class="nc" id="L447">            new SecureRandom().nextBytes(rsnonce);</span>
+<span class="nc" id="L448">            payload.Add(Constants.KDCCHALLENGE, rsnonce);</span>
             
-<span class="fc" id="L450">    	    CBORObject sid = responseMap.get(CBORObject.FromObject(Constants.SUB));</span>
+<span class="nc" id="L450">    	    CBORObject sid = responseMap.get(CBORObject.FromObject(Constants.SUB));</span>
     	    
-<span class="pc bpc" id="L452" title="1 of 2 branches missed.">    	    if (sid == null) { // This should never happen, as handled in TokenRepository.</span>
+<span class="nc bnc" id="L452" title="All 2 branches missed.">    	    if (sid == null) { // This should never happen, as handled in TokenRepository.</span>
 <span class="nc" id="L453">                LOGGER.info(&quot;Missing Sender ID after valid Access Token Posting&quot;);</span>
 <span class="nc" id="L454">                CBORObject map = CBORObject.NewMap();</span>
 <span class="nc" id="L455">                map.Add(Constants.ERROR, Constants.INVALID_REQUEST);</span>
@@ -457,87 +457,87 @@ public class OscoreAuthzInfoGroupOSCORE extends AuthzInfo {
             }
     	    
     	    // Add to the Token Repository an entry (sid, rsnonce)
-<span class="fc" id="L460">    	    TokenRepository.getInstance().setRsnonce(sid.AsString(), Base64.getEncoder().encodeToString(rsnonce));</span>
+<span class="nc" id="L460">    	    TokenRepository.getInstance().setRsnonce(sid.AsString(), Base64.getEncoder().encodeToString(rsnonce));</span>
     	    
-<span class="pc bpc" id="L462" title="1 of 4 branches missed.">	    	if (provideSignInfo || provideEcdhInfo) {</span>
+<span class="nc bnc" id="L462" title="All 4 branches missed.">	    	if (provideSignInfo || provideEcdhInfo) {</span>
 	    	    
-<span class="fc" id="L464">	    		CBORObject signInfo = CBORObject.NewArray();</span>
-<span class="fc" id="L465">	    		CBORObject ecdhInfo = CBORObject.NewArray();</span>
+<span class="nc" id="L464">	    		CBORObject signInfo = CBORObject.NewArray();</span>
+<span class="nc" id="L465">	    		CBORObject ecdhInfo = CBORObject.NewArray();</span>
 	    	
-<span class="fc bfc" id="L467" title="All 2 branches covered.">				for (String groupName : groupNames) {</span>
+<span class="nc bnc" id="L467" title="All 2 branches missed.">				for (String groupName : groupNames) {</span>
 					
 		        	// Retrieve the entry for the target group, using the name of the OSCORE group
-<span class="fc" id="L470">		        	GroupInfo myGroup = this.existingGroups.get(groupName);</span>
+<span class="nc" id="L470">		        	GroupInfo myGroup = this.existingGroups.get(groupName);</span>
 					
 		        	// The group uses the group mode
-<span class="pc bpc" id="L473" title="2 of 4 branches missed.">		        	if (provideSignInfo &amp;&amp; myGroup.getMode() != GroupcommParameters.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {</span>
+<span class="nc bnc" id="L473" title="All 4 branches missed.">		        	if (provideSignInfo &amp;&amp; myGroup.getMode() != GroupcommParameters.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {</span>
 		        	
-<span class="fc" id="L475">						CBORObject signInfoEntry = CBORObject.NewArray();</span>
+<span class="nc" id="L475">						CBORObject signInfoEntry = CBORObject.NewArray();</span>
 						
 						// 'id' element
-<span class="fc" id="L478">						signInfoEntry.Add(CBORObject.FromObject(groupName));</span>
+<span class="nc" id="L478">						signInfoEntry.Add(CBORObject.FromObject(groupName));</span>
 						
 						// 'sign_alg' element
-<span class="fc" id="L481">						signInfoEntry.Add(myGroup.getSignAlg().AsCBOR());</span>
+<span class="nc" id="L481">						signInfoEntry.Add(myGroup.getSignAlg().AsCBOR());</span>
 				    	
 						// 'sign_parameters' element (The algorithm capabilities)
-<span class="fc" id="L484">				    	CBORObject arrayElem = myGroup.getSignParams().get(0);</span>
-<span class="pc bpc" id="L485" title="1 of 2 branches missed.">				    	if (arrayElem == null)</span>
+<span class="nc" id="L484">				    	CBORObject arrayElem = myGroup.getSignParams().get(0);</span>
+<span class="nc bnc" id="L485" title="All 2 branches missed.">				    	if (arrayElem == null)</span>
 <span class="nc" id="L486">				    		signInfoEntry.Add(CBORObject.Null);</span>
 				    	else
-<span class="fc" id="L488">				    		signInfoEntry.Add(arrayElem);</span>
+<span class="nc" id="L488">				    		signInfoEntry.Add(arrayElem);</span>
 				    	
 				    	// 'sign_key_parameters' element (The key type capabilities)
-<span class="fc" id="L491">				    	arrayElem = myGroup.getSignParams().get(1);</span>
-<span class="pc bpc" id="L492" title="1 of 2 branches missed.">				    	if (arrayElem == null)</span>
+<span class="nc" id="L491">				    	arrayElem = myGroup.getSignParams().get(1);</span>
+<span class="nc bnc" id="L492" title="All 2 branches missed.">				    	if (arrayElem == null)</span>
 <span class="nc" id="L493">				    		signInfoEntry.Add(CBORObject.Null);</span>
 				    	else
-<span class="fc" id="L495">				    		signInfoEntry.Add(arrayElem);</span>
+<span class="nc" id="L495">				    		signInfoEntry.Add(arrayElem);</span>
 				    	
 				    	// 'cred_fmt' element
-<span class="fc" id="L498">				    	signInfoEntry.Add(myGroup.getAuthCredFormat());</span>
+<span class="nc" id="L498">				    	signInfoEntry.Add(myGroup.getAuthCredFormat());</span>
 	
-<span class="fc" id="L500">					    signInfo.Add(signInfoEntry);</span>
+<span class="nc" id="L500">					    signInfo.Add(signInfoEntry);</span>
 		        	}
 		        	
 		        	// The group uses the pairwise mode
-<span class="pc bpc" id="L504" title="2 of 4 branches missed.">		        	if (provideEcdhInfo &amp;&amp; myGroup.getMode() != GroupcommParameters.GROUP_OSCORE_GROUP_MODE_ONLY) {</span>
+<span class="nc bnc" id="L504" title="All 4 branches missed.">		        	if (provideEcdhInfo &amp;&amp; myGroup.getMode() != GroupcommParameters.GROUP_OSCORE_GROUP_MODE_ONLY) {</span>
 		        	
-<span class="fc" id="L506">						CBORObject ecdhEntry = CBORObject.NewArray();</span>
+<span class="nc" id="L506">						CBORObject ecdhEntry = CBORObject.NewArray();</span>
 						
 						// 'id' element
-<span class="fc" id="L509">						ecdhEntry.Add(CBORObject.FromObject(groupName));</span>
+<span class="nc" id="L509">						ecdhEntry.Add(CBORObject.FromObject(groupName));</span>
 						
 						// 'ecdh_alg' element
-<span class="fc" id="L512">						ecdhEntry.Add(myGroup.getEcdhAlg().AsCBOR());</span>
+<span class="nc" id="L512">						ecdhEntry.Add(myGroup.getEcdhAlg().AsCBOR());</span>
 				    	
 						// 'ecdh_parameters' element (The algorithm capabilities)
-<span class="fc" id="L515">				    	CBORObject arrayElem = myGroup.getEcdhParams().get(0);</span>
-<span class="pc bpc" id="L516" title="1 of 2 branches missed.">				    	if (arrayElem == null)</span>
+<span class="nc" id="L515">				    	CBORObject arrayElem = myGroup.getEcdhParams().get(0);</span>
+<span class="nc bnc" id="L516" title="All 2 branches missed.">				    	if (arrayElem == null)</span>
 <span class="nc" id="L517">				    		ecdhEntry.Add(CBORObject.Null);</span>
 				    	else
-<span class="fc" id="L519">				    		ecdhEntry.Add(arrayElem);</span>
+<span class="nc" id="L519">				    		ecdhEntry.Add(arrayElem);</span>
 				    	
 				    	// 'ecdh_key_parameters' element (The key type capabilities)
-<span class="fc" id="L522">				    	arrayElem = myGroup.getEcdhParams().get(1);</span>
-<span class="pc bpc" id="L523" title="1 of 2 branches missed.">				    	if (arrayElem == null)</span>
+<span class="nc" id="L522">				    	arrayElem = myGroup.getEcdhParams().get(1);</span>
+<span class="nc bnc" id="L523" title="All 2 branches missed.">				    	if (arrayElem == null)</span>
 <span class="nc" id="L524">				    		ecdhEntry.Add(CBORObject.Null);</span>
 				    	else
-<span class="fc" id="L526">				    		ecdhEntry.Add(arrayElem);</span>
+<span class="nc" id="L526">				    		ecdhEntry.Add(arrayElem);</span>
 				    	
 				    	// 'cred_fmt' element
-<span class="fc" id="L529">				    	ecdhEntry.Add(myGroup.getAuthCredFormat());</span>
+<span class="nc" id="L529">				    	ecdhEntry.Add(myGroup.getAuthCredFormat());</span>
 	
-<span class="fc" id="L531">					    ecdhInfo.Add(ecdhEntry);</span>
+<span class="nc" id="L531">					    ecdhInfo.Add(ecdhEntry);</span>
 		        	}
 				    
-<span class="fc" id="L534">				}</span>
+<span class="nc" id="L534">				}</span>
 
-<span class="pc bpc" id="L536" title="2 of 4 branches missed.">				if (provideSignInfo &amp;&amp; signInfo.size() != 0)</span>
-<span class="fc" id="L537">					payload.Add(Constants.SIGN_INFO, signInfo);</span>
+<span class="nc bnc" id="L536" title="All 4 branches missed.">				if (provideSignInfo &amp;&amp; signInfo.size() != 0)</span>
+<span class="nc" id="L537">					payload.Add(Constants.SIGN_INFO, signInfo);</span>
 				
-<span class="pc bpc" id="L539" title="2 of 4 branches missed.">				if (provideEcdhInfo &amp;&amp; ecdhInfo.size() != 0)</span>
-<span class="fc" id="L540">					payload.Add(Constants.ECDH_INFO, ecdhInfo);</span>
+<span class="nc bnc" id="L539" title="All 4 branches missed.">				if (provideEcdhInfo &amp;&amp; ecdhInfo.size() != 0)</span>
+<span class="nc" id="L540">					payload.Add(Constants.ECDH_INFO, ecdhInfo);</span>
 		    
 	    	}
     		

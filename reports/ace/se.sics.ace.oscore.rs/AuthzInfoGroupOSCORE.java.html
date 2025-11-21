@@ -154,16 +154,16 @@ public class AuthzInfoGroupOSCORE extends AuthzInfo {
 	    		
 <span class="fc" id="L155">	    	token = cbor.get(CBORObject.FromObject(Constants.ACCESS_TOKEN));</span>
 	    		
-<span class="fc bfc" id="L157" title="All 2 branches covered.">	    	if (cbor.ContainsKey(CBORObject.FromObject(Constants.SIGN_INFO))) {</span>
-<span class="pc bpc" id="L158" title="1 of 2 branches missed.">	    		if (cbor.get(CBORObject.FromObject(Constants.SIGN_INFO)).equals(CBORObject.Null)) {</span>
-<span class="fc" id="L159">	    			provideSignInfo = true;</span>
+<span class="pc bpc" id="L157" title="1 of 2 branches missed.">	    	if (cbor.ContainsKey(CBORObject.FromObject(Constants.SIGN_INFO))) {</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">	    		if (cbor.get(CBORObject.FromObject(Constants.SIGN_INFO)).equals(CBORObject.Null)) {</span>
+<span class="nc" id="L159">	    			provideSignInfo = true;</span>
 	    		}
 <span class="nc" id="L161">	    		else invalid = true;</span>
 	    	}
 	    	
-<span class="fc bfc" id="L164" title="All 2 branches covered.">	    	if (cbor.ContainsKey(CBORObject.FromObject(Constants.ECDH_INFO))) {</span>
-<span class="pc bpc" id="L165" title="1 of 2 branches missed.">	    	    if (cbor.get(CBORObject.FromObject(Constants.ECDH_INFO)).equals(CBORObject.Null)) {</span>
-<span class="fc" id="L166">	    	        provideEcdhInfo = true;</span>
+<span class="pc bpc" id="L164" title="1 of 2 branches missed.">	    	if (cbor.ContainsKey(CBORObject.FromObject(Constants.ECDH_INFO))) {</span>
+<span class="nc bnc" id="L165" title="All 2 branches missed.">	    	    if (cbor.get(CBORObject.FromObject(Constants.ECDH_INFO)).equals(CBORObject.Null)) {</span>
+<span class="nc" id="L166">	    	        provideEcdhInfo = true;</span>
 	    	    }
 <span class="nc" id="L168">	    	    else invalid = true;</span>
 	    	}
@@ -301,85 +301,85 @@ public class AuthzInfoGroupOSCORE extends AuthzInfo {
 <span class="fc" id="L301">    	    TokenRepository.getInstance().setRsnonce(sid.AsString(), Base64.getEncoder().encodeToString(rsnonce));</span>
     		
 			    		
-<span class="pc bpc" id="L304" title="1 of 4 branches missed.">    	    if (provideSignInfo || provideEcdhInfo) {</span>
+<span class="pc bpc" id="L304" title="2 of 4 branches missed.">    	    if (provideSignInfo || provideEcdhInfo) {</span>
     	        
-<span class="fc" id="L306">    	        CBORObject signInfo = CBORObject.NewArray();</span>
-<span class="fc" id="L307">    	        CBORObject ecdhInfo = CBORObject.NewArray();</span>
+<span class="nc" id="L306">    	        CBORObject signInfo = CBORObject.NewArray();</span>
+<span class="nc" id="L307">    	        CBORObject ecdhInfo = CBORObject.NewArray();</span>
 
-<span class="fc bfc" id="L309" title="All 2 branches covered.">    	        for (String groupName : groupNames) {</span>
+<span class="nc bnc" id="L309" title="All 2 branches missed.">    	        for (String groupName : groupNames) {</span>
     	            
     	            // Retrieve the entry for the target group, using the name of the OSCORE group
-<span class="fc" id="L312">    	            GroupInfo myGroup = this.existingGroups.get(groupName);</span>
+<span class="nc" id="L312">    	            GroupInfo myGroup = this.existingGroups.get(groupName);</span>
     	            
     	            // The group uses the group mode
-<span class="pc bpc" id="L315" title="2 of 4 branches missed.">    	            if (provideSignInfo &amp;&amp; myGroup.getMode() != GroupcommParameters.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {</span>
+<span class="nc bnc" id="L315" title="All 4 branches missed.">    	            if (provideSignInfo &amp;&amp; myGroup.getMode() != GroupcommParameters.GROUP_OSCORE_PAIRWISE_MODE_ONLY) {</span>
     	            
-<span class="fc" id="L317">    	                CBORObject signInfoEntry = CBORObject.NewArray();</span>
+<span class="nc" id="L317">    	                CBORObject signInfoEntry = CBORObject.NewArray();</span>
     	                
     	                // 'id' element
-<span class="fc" id="L320">    	                signInfoEntry.Add(CBORObject.FromObject(groupName));</span>
+<span class="nc" id="L320">    	                signInfoEntry.Add(CBORObject.FromObject(groupName));</span>
     	                
     	                // 'sign_alg' element
-<span class="fc" id="L323">    	                signInfoEntry.Add(myGroup.getSignAlg().AsCBOR());</span>
+<span class="nc" id="L323">    	                signInfoEntry.Add(myGroup.getSignAlg().AsCBOR());</span>
     	                
     	                // 'sign_parameters' element (The algorithm capabilities)
-<span class="fc" id="L326">    	                CBORObject arrayElem = myGroup.getSignParams().get(0);</span>
-<span class="pc bpc" id="L327" title="1 of 2 branches missed.">    	                if (arrayElem == null)</span>
+<span class="nc" id="L326">    	                CBORObject arrayElem = myGroup.getSignParams().get(0);</span>
+<span class="nc bnc" id="L327" title="All 2 branches missed.">    	                if (arrayElem == null)</span>
 <span class="nc" id="L328">    	                    signInfoEntry.Add(CBORObject.Null);</span>
     	                else
-<span class="fc" id="L330">    	                    signInfoEntry.Add(arrayElem);</span>
+<span class="nc" id="L330">    	                    signInfoEntry.Add(arrayElem);</span>
     	                
     	                // 'sign_key_parameters' element (The key type capabilities)
-<span class="fc" id="L333">    	                arrayElem = myGroup.getSignParams().get(1);</span>
-<span class="pc bpc" id="L334" title="1 of 2 branches missed.">    	                if (arrayElem == null)</span>
+<span class="nc" id="L333">    	                arrayElem = myGroup.getSignParams().get(1);</span>
+<span class="nc bnc" id="L334" title="All 2 branches missed.">    	                if (arrayElem == null)</span>
 <span class="nc" id="L335">    	                    signInfoEntry.Add(CBORObject.Null);</span>
     	                else
-<span class="fc" id="L337">    	                    signInfoEntry.Add(arrayElem);</span>
+<span class="nc" id="L337">    	                    signInfoEntry.Add(arrayElem);</span>
     	                
     	                // 'cred_fmt' element
-<span class="fc" id="L340">    	                signInfoEntry.Add(myGroup.getAuthCredFormat());</span>
+<span class="nc" id="L340">    	                signInfoEntry.Add(myGroup.getAuthCredFormat());</span>
 
-<span class="fc" id="L342">    	                signInfo.Add(signInfoEntry);</span>
+<span class="nc" id="L342">    	                signInfo.Add(signInfoEntry);</span>
     	            }
 
     	            // The group uses the pairwise mode
-<span class="pc bpc" id="L346" title="2 of 4 branches missed.">		        	if (provideEcdhInfo &amp;&amp; myGroup.getMode() != GroupcommParameters.GROUP_OSCORE_GROUP_MODE_ONLY) {</span>
+<span class="nc bnc" id="L346" title="All 4 branches missed.">		        	if (provideEcdhInfo &amp;&amp; myGroup.getMode() != GroupcommParameters.GROUP_OSCORE_GROUP_MODE_ONLY) {</span>
 		        		
-<span class="fc" id="L348">						CBORObject ecdhEntry = CBORObject.NewArray();</span>
+<span class="nc" id="L348">						CBORObject ecdhEntry = CBORObject.NewArray();</span>
 						
 						// 'id' element
-<span class="fc" id="L351">						ecdhEntry.Add(CBORObject.FromObject(groupName));</span>
+<span class="nc" id="L351">						ecdhEntry.Add(CBORObject.FromObject(groupName));</span>
 						
 						// 'ecdh_alg' element
-<span class="fc" id="L354">						ecdhEntry.Add(myGroup.getEcdhAlg().AsCBOR());</span>
+<span class="nc" id="L354">						ecdhEntry.Add(myGroup.getEcdhAlg().AsCBOR());</span>
 				    	
 						// 'ecdh_parameters' element (The algorithm capabilities)
-<span class="fc" id="L357">				    	CBORObject arrayElem = myGroup.getEcdhParams().get(0);</span>
-<span class="pc bpc" id="L358" title="1 of 2 branches missed.">				    	if (arrayElem == null)</span>
+<span class="nc" id="L357">				    	CBORObject arrayElem = myGroup.getEcdhParams().get(0);</span>
+<span class="nc bnc" id="L358" title="All 2 branches missed.">				    	if (arrayElem == null)</span>
 <span class="nc" id="L359">				    		ecdhEntry.Add(CBORObject.Null);</span>
 				    	else
-<span class="fc" id="L361">				    		ecdhEntry.Add(arrayElem);</span>
+<span class="nc" id="L361">				    		ecdhEntry.Add(arrayElem);</span>
 				    	
 				    	// 'ecdh_key_parameters' element (The key type capabilities)
-<span class="fc" id="L364">				    	arrayElem = myGroup.getEcdhParams().get(1);</span>
-<span class="pc bpc" id="L365" title="1 of 2 branches missed.">				    	if (arrayElem == null)</span>
+<span class="nc" id="L364">				    	arrayElem = myGroup.getEcdhParams().get(1);</span>
+<span class="nc bnc" id="L365" title="All 2 branches missed.">				    	if (arrayElem == null)</span>
 <span class="nc" id="L366">				    		ecdhEntry.Add(CBORObject.Null);</span>
 				    	else
-<span class="fc" id="L368">				    		ecdhEntry.Add(arrayElem);</span>
+<span class="nc" id="L368">				    		ecdhEntry.Add(arrayElem);</span>
 				    	
 				    	// 'cred_fmt' element
-<span class="fc" id="L371">				    	ecdhEntry.Add(myGroup.getAuthCredFormat());</span>
+<span class="nc" id="L371">				    	ecdhEntry.Add(myGroup.getAuthCredFormat());</span>
 	
-<span class="fc" id="L373">					    ecdhInfo.Add(ecdhEntry);</span>
+<span class="nc" id="L373">					    ecdhInfo.Add(ecdhEntry);</span>
 		        	}
     	            
-<span class="fc" id="L376">    	        }</span>
+<span class="nc" id="L376">    	        }</span>
 
-<span class="pc bpc" id="L378" title="2 of 4 branches missed.">    	        if (provideSignInfo &amp;&amp; signInfo.size() != 0)</span>
-<span class="fc" id="L379">    	            rep.Add(Constants.SIGN_INFO, signInfo);</span>
+<span class="nc bnc" id="L378" title="All 4 branches missed.">    	        if (provideSignInfo &amp;&amp; signInfo.size() != 0)</span>
+<span class="nc" id="L379">    	            rep.Add(Constants.SIGN_INFO, signInfo);</span>
     	        
-<span class="pc bpc" id="L381" title="2 of 4 branches missed.">    	        if (provideEcdhInfo &amp;&amp; ecdhInfo.size() != 0)</span>
-<span class="fc" id="L382">    	            rep.Add(Constants.ECDH_INFO, ecdhInfo);</span>
+<span class="nc bnc" id="L381" title="All 4 branches missed.">    	        if (provideEcdhInfo &amp;&amp; ecdhInfo.size() != 0)</span>
+<span class="nc" id="L382">    	            rep.Add(Constants.ECDH_INFO, ecdhInfo);</span>
 
     	    }
     		

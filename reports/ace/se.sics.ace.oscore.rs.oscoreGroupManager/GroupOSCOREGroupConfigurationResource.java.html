@@ -99,21 +99,21 @@ public class GroupOSCOREGroupConfigurationResource extends CoapResource {
     @Override
     public synchronized void handleGET(CoapExchange exchange) {
 
-<span class="fc" id="L102">    	System.out.println(&quot;GET request reached the GM at /&quot; + groupCollectionResourcePath + &quot;/&quot; + this.getName());</span>
+<span class="nc" id="L102">    	System.out.println(&quot;GET request reached the GM at /&quot; + groupCollectionResourcePath + &quot;/&quot; + this.getName());</span>
         
     	// Process the request for retrieving the Group Configuration
     	
-<span class="fc" id="L106">    	String subject = null;</span>
-<span class="fc" id="L107">    	String errorString = null;</span>
+<span class="nc" id="L106">    	String subject = null;</span>
+<span class="nc" id="L107">    	String errorString = null;</span>
     	
-<span class="fc" id="L109">    	Request request = exchange.advanced().getCurrentRequest();</span>
+<span class="nc" id="L109">    	Request request = exchange.advanced().getCurrentRequest();</span>
         
         try {
-<span class="fc" id="L112">			subject = CoapReq.getInstance(request).getSenderId();</span>
+<span class="nc" id="L112">			subject = CoapReq.getInstance(request).getSenderId();</span>
 <span class="nc" id="L113">		} catch (AceException e) {</span>
 <span class="nc" id="L114">		    System.err.println(&quot;Error while retrieving the client identity: &quot; + e.getMessage());</span>
-<span class="fc" id="L115">		}</span>
-<span class="pc bpc" id="L116" title="1 of 2 branches missed.">        if (subject == null) {</span>
+<span class="nc" id="L115">		}</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">        if (subject == null) {</span>
         	// At this point, this should not really happen, due to the earlier check at the Token Repository
 <span class="nc" id="L118">        	errorString = new String(&quot;Unauthenticated client tried to get access&quot;);</span>
 <span class="nc" id="L119">        	System.err.println(errorString);</span>
@@ -123,28 +123,28 @@ public class GroupOSCOREGroupConfigurationResource extends CoapResource {
     	
         // Check that at least one scope entry in the access token allows
         // the &quot;Read&quot; admin permission for this group-configuration resource
-<span class="fc" id="L126">        boolean permitted = false;</span>
-<span class="fc" id="L127">        CBORObject[] adminScopeEntries = Util.getGroupOSCOREAdminPermissionsFromToken(subject, this.getName());</span>
-<span class="pc bpc" id="L128" title="1 of 2 branches missed.">        if (adminScopeEntries == null) {</span>
+<span class="nc" id="L126">        boolean permitted = false;</span>
+<span class="nc" id="L127">        CBORObject[] adminScopeEntries = Util.getGroupOSCOREAdminPermissionsFromToken(subject, this.getName());</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">        if (adminScopeEntries == null) {</span>
 <span class="nc" id="L129">            errorString = new String(&quot;Operation not permitted&quot;);</span>
 <span class="nc" id="L130">            System.err.println(errorString);</span>
 <span class="nc" id="L131">            exchange.respond(CoAP.ResponseCode.FORBIDDEN, errorString);</span>
 <span class="nc" id="L132">            return;</span>
         }
-<span class="pc bpc" id="L134" title="1 of 2 branches missed.">        for (int i = 0; i &lt; adminScopeEntries.length; i++) {</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">        for (int i = 0; i &lt; adminScopeEntries.length; i++) {</span>
             try {
-<span class="fc" id="L136">                short permissions = (short) adminScopeEntries[i].get(1).AsInt32();</span>
-<span class="pc bpc" id="L137" title="1 of 2 branches missed.">		        if (Util.checkGroupOSCOREAdminPermission(permissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ)) {</span>
-<span class="fc" id="L138">		        	permitted = Util.matchingGroupOscoreName(this.getName(), adminScopeEntries[i].get(0));</span>
+<span class="nc" id="L136">                short permissions = (short) adminScopeEntries[i].get(1).AsInt32();</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">		        if (Util.checkGroupOSCOREAdminPermission(permissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ)) {</span>
+<span class="nc" id="L138">		        	permitted = Util.matchingGroupOscoreName(this.getName(), adminScopeEntries[i].get(0));</span>
 		        }
 <span class="nc" id="L140">            } catch (AceException e) {</span>
 <span class="nc" id="L141">                System.err.println(&quot;Error while verifying the admin permissions: &quot; + e.getMessage());</span>
-<span class="fc" id="L142">            }</span>
-<span class="pc bpc" id="L143" title="1 of 2 branches missed.">            if (permitted) {</span>
-<span class="fc" id="L144">                break;</span>
+<span class="nc" id="L142">            }</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">            if (permitted) {</span>
+<span class="nc" id="L144">                break;</span>
             }
         }
-<span class="pc bpc" id="L147" title="1 of 2 branches missed.">        if (!permitted) {</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">        if (!permitted) {</span>
 <span class="nc" id="L148">            errorString = new String(&quot;Operation not permitted&quot;);</span>
 <span class="nc" id="L149">            System.err.println(errorString);</span>
 <span class="nc" id="L150">            exchange.respond(CoAP.ResponseCode.FORBIDDEN, errorString);</span>
@@ -153,41 +153,41 @@ public class GroupOSCOREGroupConfigurationResource extends CoapResource {
         
     	// Respond to the request for retrieving the Group Configuration
         
-<span class="fc" id="L156">    	CBORObject myResponse = CBORObject.NewMap();</span>
-<span class="fc bfc" id="L157" title="All 2 branches covered.">    	for (CBORObject elemKey : this.groupConfiguration.getKeys()) {</span>
-<span class="fc" id="L158">    		myResponse.Add(elemKey, this.groupConfiguration.get(elemKey));</span>
-<span class="fc" id="L159">    	}</span>
+<span class="nc" id="L156">    	CBORObject myResponse = CBORObject.NewMap();</span>
+<span class="nc bnc" id="L157" title="All 2 branches missed.">    	for (CBORObject elemKey : this.groupConfiguration.getKeys()) {</span>
+<span class="nc" id="L158">    		myResponse.Add(elemKey, this.groupConfiguration.get(elemKey));</span>
+<span class="nc" id="L159">    	}</span>
     	
     	// Fill in the response
 
-<span class="fc" id="L163">    	byte[] responsePayload = myResponse.EncodeToBytes();</span>
+<span class="nc" id="L163">    	byte[] responsePayload = myResponse.EncodeToBytes();</span>
     	
-<span class="fc" id="L165">    	Response coapResponse = new Response(CoAP.ResponseCode.CONTENT);</span>
-<span class="fc" id="L166">    	coapResponse.setPayload(responsePayload);</span>
-<span class="fc" id="L167">    	coapResponse.getOptions().setContentFormat(Constants.APPLICATION_ACE_GROUPCOMM_CBOR);</span>
+<span class="nc" id="L165">    	Response coapResponse = new Response(CoAP.ResponseCode.CONTENT);</span>
+<span class="nc" id="L166">    	coapResponse.setPayload(responsePayload);</span>
+<span class="nc" id="L167">    	coapResponse.getOptions().setContentFormat(Constants.APPLICATION_ACE_GROUPCOMM_CBOR);</span>
 
-<span class="fc" id="L169">    	exchange.respond(coapResponse);</span>
+<span class="nc" id="L169">    	exchange.respond(coapResponse);</span>
 
-<span class="fc" id="L171">    }</span>
+<span class="nc" id="L171">    }</span>
     
     @Override
     public synchronized void handleFETCH(CoapExchange exchange) {
 
-<span class="fc" id="L176">    	System.out.println(&quot;FETCH request reached the GM at /&quot; + groupCollectionResourcePath + &quot;/&quot; + this.getName());</span>
+<span class="nc" id="L176">    	System.out.println(&quot;FETCH request reached the GM at /&quot; + groupCollectionResourcePath + &quot;/&quot; + this.getName());</span>
         
     	// Process the request for retrieving part of a Group Configuration by filters
     	
-<span class="fc" id="L180">    	String subject = null;</span>
-<span class="fc" id="L181">    	String errorString = null;</span>
+<span class="nc" id="L180">    	String subject = null;</span>
+<span class="nc" id="L181">    	String errorString = null;</span>
     	
-<span class="fc" id="L183">    	Request request = exchange.advanced().getCurrentRequest();</span>
+<span class="nc" id="L183">    	Request request = exchange.advanced().getCurrentRequest();</span>
         
         try {
-<span class="fc" id="L186">			subject = CoapReq.getInstance(request).getSenderId();</span>
+<span class="nc" id="L186">			subject = CoapReq.getInstance(request).getSenderId();</span>
 <span class="nc" id="L187">		} catch (AceException e) {</span>
 <span class="nc" id="L188">		    System.err.println(&quot;Error while retrieving the client identity: &quot; + e.getMessage());</span>
-<span class="fc" id="L189">		}</span>
-<span class="pc bpc" id="L190" title="1 of 2 branches missed.">        if (subject == null) {</span>
+<span class="nc" id="L189">		}</span>
+<span class="nc bnc" id="L190" title="All 2 branches missed.">        if (subject == null) {</span>
         	// At this point, this should not really happen, due to the earlier check at the Token Repository
 <span class="nc" id="L192">        	errorString = new String(&quot;Unauthenticated client tried to get access&quot;);</span>
 <span class="nc" id="L193">        	System.err.println(errorString);</span>
@@ -197,132 +197,132 @@ public class GroupOSCOREGroupConfigurationResource extends CoapResource {
         
         // Check that at least one scope entry in the access token allows
         // the &quot;Read&quot; admin permission for this group-configuration resource
-<span class="fc" id="L200">        boolean permitted = false;</span>
-<span class="fc" id="L201">        CBORObject[] adminScopeEntries = Util.getGroupOSCOREAdminPermissionsFromToken(subject, this.getName());</span>
-<span class="pc bpc" id="L202" title="1 of 2 branches missed.">        if (adminScopeEntries == null) {</span>
+<span class="nc" id="L200">        boolean permitted = false;</span>
+<span class="nc" id="L201">        CBORObject[] adminScopeEntries = Util.getGroupOSCOREAdminPermissionsFromToken(subject, this.getName());</span>
+<span class="nc bnc" id="L202" title="All 2 branches missed.">        if (adminScopeEntries == null) {</span>
 <span class="nc" id="L203">	        errorString = new String(&quot;Operation not permitted&quot;);</span>
 <span class="nc" id="L204">	        System.err.println(errorString);</span>
 <span class="nc" id="L205">	        exchange.respond(CoAP.ResponseCode.FORBIDDEN, errorString);</span>
 <span class="nc" id="L206">	        return;</span>
         }
-<span class="pc bpc" id="L208" title="1 of 2 branches missed.">        for (int i = 0; i &lt; adminScopeEntries.length; i++) {</span>
+<span class="nc bnc" id="L208" title="All 2 branches missed.">        for (int i = 0; i &lt; adminScopeEntries.length; i++) {</span>
         	try {
-<span class="fc" id="L210">        		short permissions = (short) adminScopeEntries[i].get(1).AsInt32();</span>
-<span class="pc bpc" id="L211" title="1 of 2 branches missed.">	            if (Util.checkGroupOSCOREAdminPermission(permissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ)) {</span>
-<span class="fc" id="L212">	                 permitted = Util.matchingGroupOscoreName(this.getName(), adminScopeEntries[i].get(0));</span>
+<span class="nc" id="L210">        		short permissions = (short) adminScopeEntries[i].get(1).AsInt32();</span>
+<span class="nc bnc" id="L211" title="All 2 branches missed.">	            if (Util.checkGroupOSCOREAdminPermission(permissions, GroupcommParameters.GROUP_OSCORE_ADMIN_READ)) {</span>
+<span class="nc" id="L212">	                 permitted = Util.matchingGroupOscoreName(this.getName(), adminScopeEntries[i].get(0));</span>
 	            }
 <span class="nc" id="L214">	        } catch (AceException e) {</span>
 <span class="nc" id="L215">	        	System.err.println(&quot;Error while verifying the admin permissions: &quot; + e.getMessage());</span>
-<span class="fc" id="L216">	        }</span>
-<span class="pc bpc" id="L217" title="1 of 2 branches missed.">	        if (permitted) {</span>
-<span class="fc" id="L218">	        	break;</span>
+<span class="nc" id="L216">	        }</span>
+<span class="nc bnc" id="L217" title="All 2 branches missed.">	        if (permitted) {</span>
+<span class="nc" id="L218">	        	break;</span>
 	        }
         }
-<span class="pc bpc" id="L221" title="1 of 2 branches missed.">		if (!permitted) {</span>
+<span class="nc bnc" id="L221" title="All 2 branches missed.">		if (!permitted) {</span>
 <span class="nc" id="L222">			errorString = new String(&quot;Operation not permitted&quot;);</span>
 <span class="nc" id="L223">			System.err.println(errorString);</span>
 <span class="nc" id="L224">			exchange.respond(CoAP.ResponseCode.FORBIDDEN, errorString);</span>
 <span class="nc" id="L225">			return;</span>
 		}
         
-<span class="fc" id="L228">    	byte[] requestPayload = exchange.getRequestPayload();</span>
+<span class="nc" id="L228">    	byte[] requestPayload = exchange.getRequestPayload();</span>
     	
-<span class="pc bpc" id="L230" title="2 of 4 branches missed.">    	if(requestPayload == null || (requestPayload.length == 0)) {</span>
+<span class="nc bnc" id="L230" title="All 4 branches missed.">    	if(requestPayload == null || (requestPayload.length == 0)) {</span>
 <span class="nc" id="L231">    		exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
     						 &quot;A payload must be present&quot;);
 <span class="nc" id="L233">    		return;</span>
     	}
 
-<span class="pc bpc" id="L236" title="1 of 2 branches missed.">    	if(exchange.getRequestOptions().hasContentFormat() == false ||</span>
-<span class="pc bpc" id="L237" title="1 of 2 branches missed.">    	   exchange.getRequestOptions().getContentFormat() != Constants.APPLICATION_ACE_GROUPCOMM_CBOR) {</span>
+<span class="nc bnc" id="L236" title="All 2 branches missed.">    	if(exchange.getRequestOptions().hasContentFormat() == false ||</span>
+<span class="nc bnc" id="L237" title="All 2 branches missed.">    	   exchange.getRequestOptions().getContentFormat() != Constants.APPLICATION_ACE_GROUPCOMM_CBOR) {</span>
 <span class="nc" id="L238">        	errorString = new String(&quot;The CoAP option Content-Format must be present, with value application/ace-groupcomm+cbor&quot;);</span>
 <span class="nc" id="L239">    		System.err.println(errorString);</span>
 <span class="nc" id="L240">    		exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorString);</span>
 <span class="nc" id="L241">    		return;</span>
     	}
     	
-<span class="fc" id="L244">    	CBORObject requestCBOR = CBORObject.DecodeFromBytes(requestPayload);</span>
+<span class="nc" id="L244">    	CBORObject requestCBOR = CBORObject.DecodeFromBytes(requestPayload);</span>
 		
     	// The payload of the request must be a CBOR Map
-<span class="pc bpc" id="L247" title="1 of 2 branches missed.">    	if (!requestCBOR.getType().equals(CBORType.Map)) {</span>
+<span class="nc bnc" id="L247" title="All 2 branches missed.">    	if (!requestCBOR.getType().equals(CBORType.Map)) {</span>
 <span class="nc" id="L248">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
 							 &quot;Invalid payload format&quot;);
 <span class="nc" id="L250">    		return;</span>
     	}
     	
     	// The CBOR Map in the payload must have only one element
-<span class="pc bpc" id="L254" title="1 of 2 branches missed.">    	if (requestCBOR.size() != 1) {</span>
+<span class="nc bnc" id="L254" title="All 2 branches missed.">    	if (requestCBOR.size() != 1) {</span>
 <span class="nc" id="L255">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
 							 &quot;Invalid payload format&quot;);
 <span class="nc" id="L257">    		return;</span>
     	}
     	
     	// The element of the CBOR Map must be 'conf_filter'
-<span class="pc bpc" id="L261" title="1 of 2 branches missed.">    	if (requestCBOR.ContainsKey(GroupcommParameters.CONF_FILTER) == false) {</span>
+<span class="nc bnc" id="L261" title="All 2 branches missed.">    	if (requestCBOR.ContainsKey(GroupcommParameters.CONF_FILTER) == false) {</span>
 <span class="nc" id="L262">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
 							 &quot;Invalid payload format&quot;);
 <span class="nc" id="L264">    		return;</span>
     	}
 
     	// The 'conf_filter' element of the CBOR Map must be a CBOR array
-<span class="pc bpc" id="L268" title="1 of 2 branches missed.">    	if (requestCBOR.get(GroupcommParameters.CONF_FILTER).getType() != CBORType.Array) {</span>
+<span class="nc bnc" id="L268" title="All 2 branches missed.">    	if (requestCBOR.get(GroupcommParameters.CONF_FILTER).getType() != CBORType.Array) {</span>
 <span class="nc" id="L269">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
 							 &quot;Invalid payload format&quot;);
 <span class="nc" id="L271">    		return;</span>
     	}
     	
     	// Check that the payload does not contain unexpected parameters
-<span class="fc bfc" id="L275" title="All 2 branches covered.">    	for (CBORObject elem : requestCBOR.getKeys()) {</span>
-<span class="pc bpc" id="L276" title="1 of 2 branches missed.">    		if (!elem.equals(GroupcommParameters.CONF_FILTER)) {</span>
+<span class="nc bnc" id="L275" title="All 2 branches missed.">    	for (CBORObject elem : requestCBOR.getKeys()) {</span>
+<span class="nc bnc" id="L276" title="All 2 branches missed.">    		if (!elem.equals(GroupcommParameters.CONF_FILTER)) {</span>
 <span class="nc" id="L277">    			exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
 						 &quot;Invalid payload format&quot;);
 <span class="nc" id="L279">    	    	System.err.println(&quot;XXX4&quot;);</span>
 <span class="nc" id="L280">    			return;</span>
     		}
-<span class="fc" id="L282">    	}</span>
+<span class="nc" id="L282">    	}</span>
     	
     	// Respond to the request for retrieving part of a Group Configuration by filters
         
-<span class="fc" id="L286">    	CBORObject myResponse = CBORObject.NewMap();</span>
+<span class="nc" id="L286">    	CBORObject myResponse = CBORObject.NewMap();</span>
     	
     	// Fill in the response
 
-<span class="fc" id="L290">    	CBORObject confFilter = requestCBOR.get(GroupcommParameters.CONF_FILTER);</span>
-<span class="fc bfc" id="L291" title="All 2 branches covered.">    	for (int i = 0; i &lt; confFilter.size(); i++) {</span>
-<span class="fc" id="L292">    		CBORObject elemKey = confFilter.get(i);</span>
-<span class="fc bfc" id="L293" title="All 2 branches covered.">    		if (this.groupConfiguration.ContainsKey(elemKey)) {</span>
-<span class="fc" id="L294">    			myResponse.Add(elemKey, this.groupConfiguration.get(elemKey));</span>
+<span class="nc" id="L290">    	CBORObject confFilter = requestCBOR.get(GroupcommParameters.CONF_FILTER);</span>
+<span class="nc bnc" id="L291" title="All 2 branches missed.">    	for (int i = 0; i &lt; confFilter.size(); i++) {</span>
+<span class="nc" id="L292">    		CBORObject elemKey = confFilter.get(i);</span>
+<span class="nc bnc" id="L293" title="All 2 branches missed.">    		if (this.groupConfiguration.ContainsKey(elemKey)) {</span>
+<span class="nc" id="L294">    			myResponse.Add(elemKey, this.groupConfiguration.get(elemKey));</span>
     		}
     	}
     	
-<span class="fc" id="L298">    	byte[] responsePayload = myResponse.EncodeToBytes();</span>
+<span class="nc" id="L298">    	byte[] responsePayload = myResponse.EncodeToBytes();</span>
     	
-<span class="fc" id="L300">    	Response coapResponse = new Response(CoAP.ResponseCode.CONTENT);</span>
-<span class="fc" id="L301">    	coapResponse.setPayload(responsePayload);</span>
-<span class="fc" id="L302">    	coapResponse.getOptions().setContentFormat(Constants.APPLICATION_ACE_GROUPCOMM_CBOR);</span>
+<span class="nc" id="L300">    	Response coapResponse = new Response(CoAP.ResponseCode.CONTENT);</span>
+<span class="nc" id="L301">    	coapResponse.setPayload(responsePayload);</span>
+<span class="nc" id="L302">    	coapResponse.getOptions().setContentFormat(Constants.APPLICATION_ACE_GROUPCOMM_CBOR);</span>
 
-<span class="fc" id="L304">    	exchange.respond(coapResponse);</span>
+<span class="nc" id="L304">    	exchange.respond(coapResponse);</span>
 
-<span class="fc" id="L306">    }</span>
+<span class="nc" id="L306">    }</span>
     
     @Override
     public synchronized void handlePOST(CoapExchange exchange) {
         
-<span class="fc" id="L311">    	System.out.println(&quot;POST request reached the GM at /&quot; + groupCollectionResourcePath + &quot;/&quot; + this.getName());</span>
+<span class="nc" id="L311">    	System.out.println(&quot;POST request reached the GM at /&quot; + groupCollectionResourcePath + &quot;/&quot; + this.getName());</span>
     	
     	// Process the request for overwriting a Group Configuration
     	
-<span class="fc" id="L315">    	String subject = null;</span>
-<span class="fc" id="L316">    	String errorString = null;</span>
+<span class="nc" id="L315">    	String subject = null;</span>
+<span class="nc" id="L316">    	String errorString = null;</span>
     	
-<span class="fc" id="L318">    	Request request = exchange.advanced().getCurrentRequest();</span>
+<span class="nc" id="L318">    	Request request = exchange.advanced().getCurrentRequest();</span>
         
         try {
-<span class="fc" id="L321">			subject = CoapReq.getInstance(request).getSenderId();</span>
+<span class="nc" id="L321">			subject = CoapReq.getInstance(request).getSenderId();</span>
 <span class="nc" id="L322">		} catch (AceException e) {</span>
 <span class="nc" id="L323">		    System.err.println(&quot;Error while retrieving the client identity: &quot; + e.getMessage());</span>
-<span class="fc" id="L324">		}</span>
-<span class="pc bpc" id="L325" title="1 of 2 branches missed.">        if (subject == null) {</span>
+<span class="nc" id="L324">		}</span>
+<span class="nc bnc" id="L325" title="All 2 branches missed.">        if (subject == null) {</span>
         	// At this point, this should not really happen, due to the earlier check at the Token Repository
 <span class="nc" id="L327">        	errorString = new String(&quot;Unauthenticated client tried to get access&quot;);</span>
 <span class="nc" id="L328">        	System.err.println(errorString);</span>
@@ -332,54 +332,54 @@ public class GroupOSCOREGroupConfigurationResource extends CoapResource {
         
         // Check that at least one scope entry in the access token allows
         // the &quot;Write&quot; admin permission for this group-configuration resource
-<span class="fc" id="L335">        boolean permitted = false;</span>
-<span class="fc" id="L336">        CBORObject[] adminScopeEntries = Util.getGroupOSCOREAdminPermissionsFromToken(subject, this.getName());</span>
-<span class="pc bpc" id="L337" title="1 of 2 branches missed.">        if (adminScopeEntries == null) {</span>
+<span class="nc" id="L335">        boolean permitted = false;</span>
+<span class="nc" id="L336">        CBORObject[] adminScopeEntries = Util.getGroupOSCOREAdminPermissionsFromToken(subject, this.getName());</span>
+<span class="nc bnc" id="L337" title="All 2 branches missed.">        if (adminScopeEntries == null) {</span>
 <span class="nc" id="L338">	        errorString = new String(&quot;Operation not permitted&quot;);</span>
 <span class="nc" id="L339">	        System.err.println(errorString);</span>
 <span class="nc" id="L340">	        exchange.respond(CoAP.ResponseCode.FORBIDDEN, errorString);</span>
 <span class="nc" id="L341">	        return;</span>
         }
-<span class="pc bpc" id="L343" title="1 of 2 branches missed.">        for (int i = 0; i &lt; adminScopeEntries.length; i++) {</span>
+<span class="nc bnc" id="L343" title="All 2 branches missed.">        for (int i = 0; i &lt; adminScopeEntries.length; i++) {</span>
         	try {
-<span class="fc" id="L345">        		short permissions = (short) adminScopeEntries[i].get(1).AsInt32();</span>
-<span class="pc bpc" id="L346" title="1 of 2 branches missed.">	            if (Util.checkGroupOSCOREAdminPermission(permissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE)) {</span>
-<span class="fc" id="L347">	                 permitted = Util.matchingGroupOscoreName(this.getName(), adminScopeEntries[i].get(0));</span>
+<span class="nc" id="L345">        		short permissions = (short) adminScopeEntries[i].get(1).AsInt32();</span>
+<span class="nc bnc" id="L346" title="All 2 branches missed.">	            if (Util.checkGroupOSCOREAdminPermission(permissions, GroupcommParameters.GROUP_OSCORE_ADMIN_WRITE)) {</span>
+<span class="nc" id="L347">	                 permitted = Util.matchingGroupOscoreName(this.getName(), adminScopeEntries[i].get(0));</span>
 	            }
 <span class="nc" id="L349">	        } catch (AceException e) {</span>
 <span class="nc" id="L350">	        	System.err.println(&quot;Error while verifying the admin permissions: &quot; + e.getMessage());</span>
-<span class="fc" id="L351">	        }</span>
-<span class="pc bpc" id="L352" title="1 of 2 branches missed.">	        if (permitted) {</span>
-<span class="fc" id="L353">	        	break;</span>
+<span class="nc" id="L351">	        }</span>
+<span class="nc bnc" id="L352" title="All 2 branches missed.">	        if (permitted) {</span>
+<span class="nc" id="L353">	        	break;</span>
 	        }
         }
-<span class="pc bpc" id="L356" title="1 of 2 branches missed.">		if (!permitted) {</span>
+<span class="nc bnc" id="L356" title="All 2 branches missed.">		if (!permitted) {</span>
 <span class="nc" id="L357">			errorString = new String(&quot;Operation not permitted&quot;);</span>
 <span class="nc" id="L358">			System.err.println(errorString);</span>
 <span class="nc" id="L359">			exchange.respond(CoAP.ResponseCode.FORBIDDEN, errorString);</span>
 <span class="nc" id="L360">			return;</span>
 		}
         
-<span class="fc" id="L363">    	byte[] requestPayload = exchange.getRequestPayload();</span>
+<span class="nc" id="L363">    	byte[] requestPayload = exchange.getRequestPayload();</span>
     	
-<span class="pc bpc" id="L365" title="2 of 4 branches missed.">    	if(requestPayload == null || (requestPayload.length == 0)) {</span>
+<span class="nc bnc" id="L365" title="All 4 branches missed.">    	if(requestPayload == null || (requestPayload.length == 0)) {</span>
 <span class="nc" id="L366">    		exchange.respond(CoAP.ResponseCode.BAD_REQUEST,</span>
     						 &quot;A payload must be present&quot;);
 <span class="nc" id="L368">    		return;</span>
     	}
 
-<span class="pc bpc" id="L371" title="1 of 2 branches missed.">    	if(exchange.getRequestOptions().hasContentFormat() == false ||</span>
-<span class="pc bpc" id="L372" title="1 of 2 branches missed.">    	   exchange.getRequestOptions().getContentFormat() != Constants.APPLICATION_ACE_GROUPCOMM_CBOR) {</span>
+<span class="nc bnc" id="L371" title="All 2 branches missed.">    	if(exchange.getRequestOptions().hasContentFormat() == false ||</span>
+<span class="nc bnc" id="L372" title="All 2 branches missed.">    	   exchange.getRequestOptions().getContentFormat() != Constants.APPLICATION_ACE_GROUPCOMM_CBOR) {</span>
 <span class="nc" id="L373">        	errorString = new String(&quot;The CoAP option Content-Format must be present, with value application/ace-groupcomm+cbor&quot;);</span>
 <span class="nc" id="L374">    		System.err.println(errorString);</span>
 <span class="nc" id="L375">    		exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorString);</span>
 <span class="nc" id="L376">    		return;</span>
     	}
     	
-<span class="fc" id="L379">    	CBORObject requestCBOR = CBORObject.DecodeFromBytes(requestPayload);</span>
+<span class="nc" id="L379">    	CBORObject requestCBOR = CBORObject.DecodeFromBytes(requestPayload);</span>
     	
     	// The payload of the request must be a CBOR Map
-<span class="pc bpc" id="L382" title="1 of 2 branches missed.">    	if (!requestCBOR.getType().equals(CBORType.Map)) {</span>
+<span class="nc bnc" id="L382" title="All 2 branches missed.">    	if (!requestCBOR.getType().equals(CBORType.Map)) {</span>
 <span class="nc" id="L383">        	errorString = new String(&quot;Invalid payload format&quot;);</span>
 <span class="nc" id="L384">    		System.err.println(errorString);</span>
 <span class="nc" id="L385">			exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorString);</span>
@@ -390,15 +390,15 @@ public class GroupOSCOREGroupConfigurationResource extends CoapResource {
     	// - The configuration parameters 'group_mode' and 'pairwise_mode'
     	// - The status parameters 'rt', 'ace_groupcomm_profile', 'joining_uri', 'group_name', and 'gid_reuse'
     	// - The parameters 'conf_filter' and 'app_groups_diff', as not pertaining to this request
-<span class="pc bpc" id="L393" title="1 of 2 branches missed.">    	if (requestCBOR.getKeys().contains(GroupcommParameters.GROUP_MODE) ||</span>
-<span class="pc bpc" id="L394" title="1 of 2 branches missed.">    		requestCBOR.getKeys().contains(GroupcommParameters.PAIRWISE_MODE) ||</span>
-<span class="pc bpc" id="L395" title="1 of 2 branches missed.">    		requestCBOR.getKeys().contains(GroupcommParameters.RT) ||</span>
-<span class="pc bpc" id="L396" title="1 of 2 branches missed.">    		requestCBOR.getKeys().contains(GroupcommParameters.ACE_GROUPCOMM_PROFILE) ||</span>
-<span class="pc bpc" id="L397" title="1 of 2 branches missed.">    		requestCBOR.getKeys().contains(GroupcommParameters.JOINING_URI) ||</span>
-<span class="pc bpc" id="L398" title="1 of 2 branches missed.">    		requestCBOR.getKeys().contains(GroupcommParameters.GROUP_NAME) ||</span>
-<span class="pc bpc" id="L399" title="1 of 2 branches missed.">    		requestCBOR.getKeys().contains(GroupcommParameters.GID_REUSE) ||</span>
-<span class="pc bpc" id="L400" title="1 of 2 branches missed.">    		requestCBOR.getKeys().contains(GroupcommParameters.CONF_FILTER) ||</span>
-<span class="pc bpc" id="L401" title="1 of 2 branches missed.">    		requestCBOR.getKeys().contains(GroupcommParameters.APP_GROUPS_DIFF)) {</span>
+<span class="nc bnc" id="L393" title="All 2 branches missed.">    	if (requestCBOR.getKeys().contains(GroupcommParameters.GROUP_MODE) ||</span>
+<span class="nc bnc" id="L394" title="All 2 branches missed.">    		requestCBOR.getKeys().contains(GroupcommParameters.PAIRWISE_MODE) ||</span>
+<span class="nc bnc" id="L395" title="All 2 branches missed.">    		requestCBOR.getKeys().contains(GroupcommParameters.RT) ||</span>
+<span class="nc bnc" id="L396" title="All 2 branches missed.">    		requestCBOR.getKeys().contains(GroupcommParameters.ACE_GROUPCOMM_PROFILE) ||</span>
+<span class="nc bnc" id="L397" title="All 2 branches missed.">    		requestCBOR.getKeys().contains(GroupcommParameters.JOINING_URI) ||</span>
+<span class="nc bnc" id="L398" title="All 2 branches missed.">    		requestCBOR.getKeys().contains(GroupcommParameters.GROUP_NAME) ||</span>
+<span class="nc bnc" id="L399" title="All 2 branches missed.">    		requestCBOR.getKeys().contains(GroupcommParameters.GID_REUSE) ||</span>
+<span class="nc bnc" id="L400" title="All 2 branches missed.">    		requestCBOR.getKeys().contains(GroupcommParameters.CONF_FILTER) ||</span>
+<span class="nc bnc" id="L401" title="All 2 branches missed.">    		requestCBOR.getKeys().contains(GroupcommParameters.APP_GROUPS_DIFF)) {</span>
 <span class="nc" id="L402">			errorString = new String(&quot;Invalid set of parameters in the request&quot;);</span>
 <span class="nc" id="L403">    		System.err.println(errorString);</span>
 <span class="nc" id="L404">    		exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorString);</span>
@@ -406,7 +406,7 @@ public class GroupOSCOREGroupConfigurationResource extends CoapResource {
     	}
     	
     	// This Group Manager does not support RSA an signature algorithm
-<span class="pc bpc" id="L409" title="1 of 2 branches missed.">    	if (requestCBOR.getKeys().contains(GroupcommParameters.SIGN_ALG)) {</span>
+<span class="nc bnc" id="L409" title="All 2 branches missed.">    	if (requestCBOR.getKeys().contains(GroupcommParameters.SIGN_ALG)) {</span>
 <span class="nc" id="L410">    		CBORObject signAlg = requestCBOR.get(GroupcommParameters.SIGN_ALG);</span>
 <span class="nc bnc" id="L411" title="All 2 branches missed.">    		if (signAlg.equals(AlgorithmID.RSA_PSS_256.AsCBOR()) ||</span>
 <span class="nc bnc" id="L412" title="All 2 branches missed.">    			signAlg.equals(AlgorithmID.RSA_PSS_384.AsCBOR()) ||</span>
@@ -430,60 +430,60 @@ public class GroupOSCOREGroupConfigurationResource extends CoapResource {
 			}
     	}
     	
-<span class="fc bfc" id="L433" title="All 2 branches covered.">    	for (CBORObject key : requestCBOR.getKeys()) {</span>
-<span class="pc bpc" id="L434" title="1 of 2 branches missed.">    		if (!GroupcommParameters.isAdminRequestParameterMeaningful(key, requestCBOR.get(key))) {</span>
+<span class="nc bnc" id="L433" title="All 2 branches missed.">    	for (CBORObject key : requestCBOR.getKeys()) {</span>
+<span class="nc bnc" id="L434" title="All 2 branches missed.">    		if (!GroupcommParameters.isAdminRequestParameterMeaningful(key, requestCBOR.get(key))) {</span>
 <span class="nc" id="L435">    			errorString = new String(&quot;Malformed or unrecognized paramemeter with CBOR abbreviation: &quot; + key.AsInt32());</span>
 <span class="nc" id="L436">    			System.err.println(errorString);</span>
 <span class="nc" id="L437">    			exchange.respond(CoAP.ResponseCode.BAD_REQUEST, errorString);</span>
 <span class="nc" id="L438">    			return;</span>
     		}
-<span class="fc" id="L440">    	}</span>
+<span class="nc" id="L440">    	}</span>
     	
     	// Build a the updated version of the group configuration, starting from the current version
     	
-<span class="fc" id="L444">    	CBORObject buildOutput = null;</span>
+<span class="nc" id="L444">    	CBORObject buildOutput = null;</span>
     	
-<span class="fc" id="L446">    	synchronized (this.groupConfiguration) {</span>
-<span class="fc" id="L447">    		buildOutput = buildGroupConfiguration(requestCBOR, this.groupConfiguration);</span>
+<span class="nc" id="L446">    	synchronized (this.groupConfiguration) {</span>
+<span class="nc" id="L447">    		buildOutput = buildGroupConfiguration(requestCBOR, this.groupConfiguration);</span>
     				
 			// In case of success, update the group configuration
-<span class="pc bpc" id="L450" title="1 of 2 branches missed.">			if (buildOutput.size() == 4) {</span>
+<span class="nc bnc" id="L450" title="All 2 branches missed.">			if (buildOutput.size() == 4) {</span>
 				
 				// For the three parameters 'group_name', 'joining_uri', and 'as_uri', the updated
 				// configuration always inherits the same value from the current configuration
-<span class="fc" id="L454">				buildOutput.get(3).Add(GroupcommParameters.GROUP_NAME, groupConfiguration.get(GroupcommParameters.GROUP_NAME));</span>
-<span class="fc" id="L455">				buildOutput.get(3).Add(GroupcommParameters.JOINING_URI, groupConfiguration.get(GroupcommParameters.JOINING_URI));</span>
-<span class="fc" id="L456">				buildOutput.get(3).Add(GroupcommParameters.AS_URI, groupConfiguration.get(GroupcommParameters.AS_URI));</span>
+<span class="nc" id="L454">				buildOutput.get(3).Add(GroupcommParameters.GROUP_NAME, groupConfiguration.get(GroupcommParameters.GROUP_NAME));</span>
+<span class="nc" id="L455">				buildOutput.get(3).Add(GroupcommParameters.JOINING_URI, groupConfiguration.get(GroupcommParameters.JOINING_URI));</span>
+<span class="nc" id="L456">				buildOutput.get(3).Add(GroupcommParameters.AS_URI, groupConfiguration.get(GroupcommParameters.AS_URI));</span>
 				
-<span class="fc" id="L458">				this.groupConfiguration = buildOutput.get(3);</span>
+<span class="nc" id="L458">				this.groupConfiguration = buildOutput.get(3);</span>
 			}
-<span class="fc" id="L460">    	}</span>
+<span class="nc" id="L460">    	}</span>
     	
     	// Update the group information in the corresponding group-membership resource 
     	
     	
     	// Prepare the set of parameters that are relevant for updating the group-memberhsip resource
-<span class="fc" id="L466">    	CBORObject updatedParameterValues = CBORObject.NewMap();</span>
+<span class="nc" id="L466">    	CBORObject updatedParameterValues = CBORObject.NewMap();</span>
     	
-<span class="fc" id="L468">    	updatedParameterValues.Add(GroupcommParameters.HKDF, this.groupConfiguration.get(GroupcommParameters.HKDF));</span>
-<span class="fc" id="L469">    	updatedParameterValues.Add(GroupcommParameters.CRED_FMT, this.groupConfiguration.get(GroupcommParameters.CRED_FMT));</span>
-<span class="fc" id="L470">    	updatedParameterValues.Add(GroupcommParameters.GP_ENC_ALG, this.groupConfiguration.get(GroupcommParameters.GP_ENC_ALG));</span>
-<span class="fc" id="L471">    	updatedParameterValues.Add(GroupcommParameters.SIGN_ALG, this.groupConfiguration.get(GroupcommParameters.SIGN_ALG));</span>
-<span class="fc" id="L472">    	updatedParameterValues.Add(GroupcommParameters.SIGN_PARAMS, this.groupConfiguration.get(GroupcommParameters.SIGN_PARAMS));</span>
-<span class="fc" id="L473">    	updatedParameterValues.Add(GroupcommParameters.ALG, this.groupConfiguration.get(GroupcommParameters.ALG));</span>
-<span class="fc" id="L474">    	updatedParameterValues.Add(GroupcommParameters.ECDH_ALG, this.groupConfiguration.get(GroupcommParameters.ECDH_ALG));</span>
-<span class="fc" id="L475">    	updatedParameterValues.Add(GroupcommParameters.ECDH_PARAMS, this.groupConfiguration.get(GroupcommParameters.ECDH_PARAMS));</span>
-<span class="fc" id="L476">    	updatedParameterValues.Add(GroupcommParameters.GROUP_POLICIES, this.groupConfiguration.get(GroupcommParameters.GROUP_POLICIES));</span>
-<span class="fc" id="L477">    	updatedParameterValues.Add(GroupcommParameters.MAX_STALE_SETS, this.groupConfiguration.get(GroupcommParameters.MAX_STALE_SETS));</span>
-<span class="fc" id="L478">    	updatedParameterValues.Add(GroupcommParameters.ACTIVE, this.groupConfiguration.get(GroupcommParameters.ACTIVE));</span>
+<span class="nc" id="L468">    	updatedParameterValues.Add(GroupcommParameters.HKDF, this.groupConfiguration.get(GroupcommParameters.HKDF));</span>
+<span class="nc" id="L469">    	updatedParameterValues.Add(GroupcommParameters.CRED_FMT, this.groupConfiguration.get(GroupcommParameters.CRED_FMT));</span>
+<span class="nc" id="L470">    	updatedParameterValues.Add(GroupcommParameters.GP_ENC_ALG, this.groupConfiguration.get(GroupcommParameters.GP_ENC_ALG));</span>
+<span class="nc" id="L471">    	updatedParameterValues.Add(GroupcommParameters.SIGN_ALG, this.groupConfiguration.get(GroupcommParameters.SIGN_ALG));</span>
+<span class="nc" id="L472">    	updatedParameterValues.Add(GroupcommParameters.SIGN_PARAMS, this.groupConfiguration.get(GroupcommParameters.SIGN_PARAMS));</span>
+<span class="nc" id="L473">    	updatedParameterValues.Add(GroupcommParameters.ALG, this.groupConfiguration.get(GroupcommParameters.ALG));</span>
+<span class="nc" id="L474">    	updatedParameterValues.Add(GroupcommParameters.ECDH_ALG, this.groupConfiguration.get(GroupcommParameters.ECDH_ALG));</span>
+<span class="nc" id="L475">    	updatedParameterValues.Add(GroupcommParameters.ECDH_PARAMS, this.groupConfiguration.get(GroupcommParameters.ECDH_PARAMS));</span>
+<span class="nc" id="L476">    	updatedParameterValues.Add(GroupcommParameters.GROUP_POLICIES, this.groupConfiguration.get(GroupcommParameters.GROUP_POLICIES));</span>
+<span class="nc" id="L477">    	updatedParameterValues.Add(GroupcommParameters.MAX_STALE_SETS, this.groupConfiguration.get(GroupcommParameters.MAX_STALE_SETS));</span>
+<span class="nc" id="L478">    	updatedParameterValues.Add(GroupcommParameters.ACTIVE, this.groupConfiguration.get(GroupcommParameters.ACTIVE));</span>
     	
-<span class="pc bpc" id="L480" title="1 of 2 branches missed.">    	if (this.groupConfiguration.get(GroupcommParameters.DET_HASH_ALG) != null) {</span>
+<span class="nc bnc" id="L480" title="All 2 branches missed.">    	if (this.groupConfiguration.get(GroupcommParameters.DET_HASH_ALG) != null) {</span>
 <span class="nc" id="L481">    		updatedParameterValues.Add(this.groupConfiguration.get(GroupcommParameters.DET_HASH_ALG));</span>
     	}
 
-<span class="fc" id="L484">    	CBORObject changedParameters = existingGroupInfo.get(this.getName()).updateGroupInfo(updatedParameterValues);</span>
+<span class="nc" id="L484">    	CBORObject changedParameters = existingGroupInfo.get(this.getName()).updateGroupInfo(updatedParameterValues);</span>
     	
-<span class="pc bpc" id="L486" title="1 of 2 branches missed.">    	if (changedParameters == null) {</span>
+<span class="nc bnc" id="L486" title="All 2 branches missed.">    	if (changedParameters == null) {</span>
     		// This should never happen
 <span class="nc" id="L488">			errorString = new String(&quot;Error while updating the group-membership resource&quot;);</span>
 <span class="nc" id="L489">			System.err.println(errorString);</span>
@@ -496,35 +496,35 @@ public class GroupOSCOREGroupConfigurationResource extends CoapResource {
     	
     	// Respond to the request for overwriting a Group Configuration
 		
-<span class="fc" id="L499">    	ResponseCode responseCode = CoAP.ResponseCode.valueOf(buildOutput.get(0).AsInt32());</span>
-<span class="fc" id="L500">    	Response coapResponse = new Response(responseCode);</span>
-<span class="pc bpc" id="L501" title="1 of 2 branches missed.">    	if (buildOutput.get(1) != null) {</span>
-<span class="fc" id="L502">    		int contentFormat = buildOutput.get(1).AsInt32();</span>
-<span class="fc" id="L503">        	coapResponse.getOptions().setContentFormat(contentFormat);</span>
+<span class="nc" id="L499">    	ResponseCode responseCode = CoAP.ResponseCode.valueOf(buildOutput.get(0).AsInt32());</span>
+<span class="nc" id="L500">    	Response coapResponse = new Response(responseCode);</span>
+<span class="nc bnc" id="L501" title="All 2 branches missed.">    	if (buildOutput.get(1) != null) {</span>
+<span class="nc" id="L502">    		int contentFormat = buildOutput.get(1).AsInt32();</span>
+<span class="nc" id="L503">        	coapResponse.getOptions().setContentFormat(contentFormat);</span>
     	}
-<span class="fc" id="L505">    	byte[] responsePayload = null;</span>
-<span class="pc bpc" id="L506" title="1 of 2 branches missed.">    	if (buildOutput.get(2) == null) {</span>
+<span class="nc" id="L505">    	byte[] responsePayload = null;</span>
+<span class="nc bnc" id="L506" title="All 2 branches missed.">    	if (buildOutput.get(2) == null) {</span>
 <span class="nc" id="L507">    		responsePayload = Bytes.EMPTY;</span>
     	}
-<span class="pc bpc" id="L509" title="1 of 2 branches missed.">    	else if (buildOutput.get(2).getType() == CBORType.Map) {</span>
+<span class="nc bnc" id="L509" title="All 2 branches missed.">    	else if (buildOutput.get(2).getType() == CBORType.Map) {</span>
     	   	// Prepare the information to return to the Administrator
-<span class="fc" id="L511">    	   	CBORObject finalPayloadCBOR = CBORObject.NewMap();</span>
+<span class="nc" id="L511">    	   	CBORObject finalPayloadCBOR = CBORObject.NewMap();</span>
         	
-<span class="fc" id="L513">        	finalPayloadCBOR = buildOutput.get(2);    	</span>
-<span class="fc" id="L514">        	finalPayloadCBOR.Add(GroupcommParameters.GROUP_NAME, this.groupConfiguration.get(GroupcommParameters.GROUP_NAME));</span>
-<span class="fc" id="L515">        	finalPayloadCBOR.Add(GroupcommParameters.JOINING_URI, this.groupConfiguration.get(GroupcommParameters.JOINING_URI));</span>
-<span class="fc" id="L516">        	finalPayloadCBOR.Add(GroupcommParameters.AS_URI, this.groupConfiguration.get(GroupcommParameters.AS_URI));</span>
+<span class="nc" id="L513">        	finalPayloadCBOR = buildOutput.get(2);    	</span>
+<span class="nc" id="L514">        	finalPayloadCBOR.Add(GroupcommParameters.GROUP_NAME, this.groupConfiguration.get(GroupcommParameters.GROUP_NAME));</span>
+<span class="nc" id="L515">        	finalPayloadCBOR.Add(GroupcommParameters.JOINING_URI, this.groupConfiguration.get(GroupcommParameters.JOINING_URI));</span>
+<span class="nc" id="L516">        	finalPayloadCBOR.Add(GroupcommParameters.AS_URI, this.groupConfiguration.get(GroupcommParameters.AS_URI));</span>
     		
-<span class="fc" id="L518">    		responsePayload = buildOutput.get(2).EncodeToBytes();</span>
-<span class="fc" id="L519">    	}</span>
+<span class="nc" id="L518">    		responsePayload = buildOutput.get(2).EncodeToBytes();</span>
+<span class="nc" id="L519">    	}</span>
 <span class="nc bnc" id="L520" title="All 2 branches missed.">    	else if (buildOutput.get(2).getType() == CBORType.TextString) {</span>
 <span class="nc" id="L521">    		responsePayload = buildOutput.get(2).AsString().getBytes(Constants.charset);</span>
     	}
-<span class="fc" id="L523">    	coapResponse.setPayload(responsePayload);</span>
+<span class="nc" id="L523">    	coapResponse.setPayload(responsePayload);</span>
 
-<span class="fc" id="L525">    	exchange.respond(coapResponse);</span>
+<span class="nc" id="L525">    	exchange.respond(coapResponse);</span>
     	
-<span class="fc" id="L527">    }</span>
+<span class="nc" id="L527">    }</span>
     
     // TODO - This is just a stub
     @Override
@@ -715,21 +715,21 @@ public class GroupOSCOREGroupConfigurationResource extends CoapResource {
     @Override
     public synchronized void handleDELETE(CoapExchange exchange) {
         
-<span class="fc" id="L718">    	System.out.println(&quot;DELETE request reached the GM at /&quot; + groupCollectionResourcePath + &quot;/&quot; + this.getName());</span>
+<span class="nc" id="L718">    	System.out.println(&quot;DELETE request reached the GM at /&quot; + groupCollectionResourcePath + &quot;/&quot; + this.getName());</span>
     	
     	// Process the request for deleting a Group Configuration
     	
-<span class="fc" id="L722">    	String subject = null;</span>
-<span class="fc" id="L723">    	String errorString = null;</span>
+<span class="nc" id="L722">    	String subject = null;</span>
+<span class="nc" id="L723">    	String errorString = null;</span>
     	
-<span class="fc" id="L725">    	Request request = exchange.advanced().getCurrentRequest();</span>
+<span class="nc" id="L725">    	Request request = exchange.advanced().getCurrentRequest();</span>
         
         try {
-<span class="fc" id="L728">			subject = CoapReq.getInstance(request).getSenderId();</span>
+<span class="nc" id="L728">			subject = CoapReq.getInstance(request).getSenderId();</span>
 <span class="nc" id="L729">		} catch (AceException e) {</span>
 <span class="nc" id="L730">		    System.err.println(&quot;Error while retrieving the client identity: &quot; + e.getMessage());</span>
-<span class="fc" id="L731">		}</span>
-<span class="pc bpc" id="L732" title="1 of 2 branches missed.">        if (subject == null) {</span>
+<span class="nc" id="L731">		}</span>
+<span class="nc bnc" id="L732" title="All 2 branches missed.">        if (subject == null) {</span>
         	// At this point, this should not really happen, due to the earlier check at the Token Repository
 <span class="nc" id="L734">        	errorString = new String(&quot;Unauthenticated client tried to get access&quot;);</span>
 <span class="nc" id="L735">        	System.err.println(errorString);</span>
@@ -739,28 +739,28 @@ public class GroupOSCOREGroupConfigurationResource extends CoapResource {
     	
         // Check that at least one scope entry in the access token allows
         // the &quot;Delete&quot; admin permission for this group-configuration resource
-<span class="fc" id="L742">        boolean permitted = false;</span>
-<span class="fc" id="L743">        CBORObject[] adminScopeEntries = Util.getGroupOSCOREAdminPermissionsFromToken(subject, this.getName());</span>
-<span class="pc bpc" id="L744" title="1 of 2 branches missed.">        if (adminScopeEntries == null) {</span>
+<span class="nc" id="L742">        boolean permitted = false;</span>
+<span class="nc" id="L743">        CBORObject[] adminScopeEntries = Util.getGroupOSCOREAdminPermissionsFromToken(subject, this.getName());</span>
+<span class="nc bnc" id="L744" title="All 2 branches missed.">        if (adminScopeEntries == null) {</span>
 <span class="nc" id="L745">	        errorString = new String(&quot;Operation not permitted&quot;);</span>
 <span class="nc" id="L746">	        System.err.println(errorString);</span>
 <span class="nc" id="L747">	        exchange.respond(CoAP.ResponseCode.FORBIDDEN, errorString);</span>
 <span class="nc" id="L748">	        return;</span>
         }
-<span class="pc bpc" id="L750" title="1 of 2 branches missed.">        for (int i = 0; i &lt; adminScopeEntries.length; i++) {</span>
+<span class="nc bnc" id="L750" title="All 2 branches missed.">        for (int i = 0; i &lt; adminScopeEntries.length; i++) {</span>
         	try {
-<span class="fc" id="L752">        		short permissions = (short) adminScopeEntries[i].get(1).AsInt32();</span>
-<span class="pc bpc" id="L753" title="1 of 2 branches missed.">	            if (Util.checkGroupOSCOREAdminPermission(permissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE)) {</span>
-<span class="fc" id="L754">	                 permitted = Util.matchingGroupOscoreName(this.getName(), adminScopeEntries[i].get(0));</span>
+<span class="nc" id="L752">        		short permissions = (short) adminScopeEntries[i].get(1).AsInt32();</span>
+<span class="nc bnc" id="L753" title="All 2 branches missed.">	            if (Util.checkGroupOSCOREAdminPermission(permissions, GroupcommParameters.GROUP_OSCORE_ADMIN_DELETE)) {</span>
+<span class="nc" id="L754">	                 permitted = Util.matchingGroupOscoreName(this.getName(), adminScopeEntries[i].get(0));</span>
 	            }
 <span class="nc" id="L756">	        } catch (AceException e) {</span>
 <span class="nc" id="L757">	        	System.err.println(&quot;Error while verifying the admin permissions: &quot; + e.getMessage());</span>
-<span class="fc" id="L758">	        }</span>
-<span class="pc bpc" id="L759" title="1 of 2 branches missed.">	        if (permitted) {</span>
-<span class="fc" id="L760">	        	break;</span>
+<span class="nc" id="L758">	        }</span>
+<span class="nc bnc" id="L759" title="All 2 branches missed.">	        if (permitted) {</span>
+<span class="nc" id="L760">	        	break;</span>
 	        }
         }
-<span class="pc bpc" id="L763" title="1 of 2 branches missed.">		if (!permitted) {</span>
+<span class="nc bnc" id="L763" title="All 2 branches missed.">		if (!permitted) {</span>
 <span class="nc" id="L764">			errorString = new String(&quot;Operation not permitted&quot;);</span>
 <span class="nc" id="L765">			System.err.println(errorString);</span>
 <span class="nc" id="L766">			exchange.respond(CoAP.ResponseCode.FORBIDDEN, errorString);</span>
@@ -769,28 +769,28 @@ public class GroupOSCOREGroupConfigurationResource extends CoapResource {
         
 		// Delete the entry associated with this group configuration
 		// from the set stored at the group-collection resource
-<span class="fc" id="L772">		synchronized(groupConfigurationResources) {</span>
-<span class="fc" id="L773">			this.groupConfigurationResources.remove(this.getName());</span>
-<span class="fc" id="L774">		}</span>
+<span class="nc" id="L772">		synchronized(groupConfigurationResources) {</span>
+<span class="nc" id="L773">			this.groupConfigurationResources.remove(this.getName());</span>
+<span class="nc" id="L774">		}</span>
 		
 		// Delete the corresponding group-membership resource
-<span class="fc" id="L777">		synchronized(existingGroupInfo) {</span>
-<span class="fc" id="L778">			existingGroupInfo.remove(this.getName());</span>
+<span class="nc" id="L777">		synchronized(existingGroupInfo) {</span>
+<span class="nc" id="L778">			existingGroupInfo.remove(this.getName());</span>
 			
-<span class="fc" id="L780">			CoapResource res = (CoapResource) this.getParent().getParent().getChild(rootGroupMembershipResourcePath).getChild(this.getName());</span>
-<span class="pc bpc" id="L781" title="1 of 2 branches missed.">			if (res != null) {</span>
-<span class="fc" id="L782">				res.delete();</span>
+<span class="nc" id="L780">			CoapResource res = (CoapResource) this.getParent().getParent().getChild(rootGroupMembershipResourcePath).getChild(this.getName());</span>
+<span class="nc bnc" id="L781" title="All 2 branches missed.">			if (res != null) {</span>
+<span class="nc" id="L782">				res.delete();</span>
 			}
-<span class="fc" id="L784">		}</span>
+<span class="nc" id="L784">		}</span>
 		
     	// Respond to the request for deleting a Group Configuration
         
-<span class="fc" id="L788">    	Response coapResponse = new Response(CoAP.ResponseCode.DELETED);</span>
+<span class="nc" id="L788">    	Response coapResponse = new Response(CoAP.ResponseCode.DELETED);</span>
 
-<span class="fc" id="L790">    	delete();</span>
-<span class="fc" id="L791">    	exchange.respond(coapResponse);</span>
+<span class="nc" id="L790">    	delete();</span>
+<span class="nc" id="L791">    	exchange.respond(coapResponse);</span>
     	
-<span class="fc" id="L793">    }</span>
+<span class="nc" id="L793">    }</span>
     
 	/**
      * Return the group configuration as a CBOR map
@@ -809,62 +809,62 @@ public class GroupOSCOREGroupConfigurationResource extends CoapResource {
      */
     public static CBORObject getDefaultValue(CBORObject paramAbbreviation) {
     	
-<span class="fc bfc" id="L812" title="All 2 branches covered.">    	if (paramAbbreviation.equals(GroupcommParameters.HKDF)) {</span>
-<span class="fc" id="L813">    		return CBORObject.FromObject(AlgorithmID.HMAC_SHA_256.AsCBOR().AsInt32()); // HMAC 256/256 for HKDF SHA-256</span>
+<span class="nc bnc" id="L812" title="All 2 branches missed.">    	if (paramAbbreviation.equals(GroupcommParameters.HKDF)) {</span>
+<span class="nc" id="L813">    		return CBORObject.FromObject(AlgorithmID.HMAC_SHA_256.AsCBOR().AsInt32()); // HMAC 256/256 for HKDF SHA-256</span>
     	}
-<span class="fc bfc" id="L815" title="All 2 branches covered.">    	if (paramAbbreviation.equals(GroupcommParameters.CRED_FMT)) {</span>
-<span class="fc" id="L816">    		return CBORObject.FromObject(Constants.COSE_HEADER_PARAM_KCCS); // CWT Claims Set (CCS)</span>
+<span class="nc bnc" id="L815" title="All 2 branches missed.">    	if (paramAbbreviation.equals(GroupcommParameters.CRED_FMT)) {</span>
+<span class="nc" id="L816">    		return CBORObject.FromObject(Constants.COSE_HEADER_PARAM_KCCS); // CWT Claims Set (CCS)</span>
     	}
-<span class="fc bfc" id="L818" title="All 2 branches covered.">    	if (paramAbbreviation.equals(GroupcommParameters.MAX_STALE_SETS)) {</span>
-<span class="fc" id="L819">    		return CBORObject.FromObject(3);</span>
+<span class="nc bnc" id="L818" title="All 2 branches missed.">    	if (paramAbbreviation.equals(GroupcommParameters.MAX_STALE_SETS)) {</span>
+<span class="nc" id="L819">    		return CBORObject.FromObject(3);</span>
     	}
-<span class="fc bfc" id="L821" title="All 2 branches covered.">    	if (paramAbbreviation.equals(GroupcommParameters.GROUP_MODE)) {</span>
-<span class="fc" id="L822">			return CBORObject.True;</span>
+<span class="nc bnc" id="L821" title="All 2 branches missed.">    	if (paramAbbreviation.equals(GroupcommParameters.GROUP_MODE)) {</span>
+<span class="nc" id="L822">			return CBORObject.True;</span>
     	}
-<span class="fc bfc" id="L824" title="All 2 branches covered.">    	if (paramAbbreviation.equals(GroupcommParameters.GP_ENC_ALG)) {</span>
-<span class="fc" id="L825">    		return CBORObject.FromObject(AlgorithmID.AES_CCM_16_64_128.AsCBOR().AsInt32()); // AES-CCM-16-64-128</span>
+<span class="nc bnc" id="L824" title="All 2 branches missed.">    	if (paramAbbreviation.equals(GroupcommParameters.GP_ENC_ALG)) {</span>
+<span class="nc" id="L825">    		return CBORObject.FromObject(AlgorithmID.AES_CCM_16_64_128.AsCBOR().AsInt32()); // AES-CCM-16-64-128</span>
     	}
-<span class="fc bfc" id="L827" title="All 2 branches covered.">    	if (paramAbbreviation.equals(GroupcommParameters.SIGN_ALG)) {</span>
-<span class="fc" id="L828">    		return CBORObject.FromObject(AlgorithmID.EDDSA.AsCBOR().AsInt32Value()); // EdDSA</span>
+<span class="nc bnc" id="L827" title="All 2 branches missed.">    	if (paramAbbreviation.equals(GroupcommParameters.SIGN_ALG)) {</span>
+<span class="nc" id="L828">    		return CBORObject.FromObject(AlgorithmID.EDDSA.AsCBOR().AsInt32Value()); // EdDSA</span>
     	}
-<span class="fc bfc" id="L830" title="All 2 branches covered.">    	if (paramAbbreviation.equals(GroupcommParameters.DET_REQ)) {</span>
-<span class="fc" id="L831">			return CBORObject.False;</span>
+<span class="nc bnc" id="L830" title="All 2 branches missed.">    	if (paramAbbreviation.equals(GroupcommParameters.DET_REQ)) {</span>
+<span class="nc" id="L831">			return CBORObject.False;</span>
     	}
-<span class="pc bpc" id="L833" title="1 of 2 branches missed.">    	if (paramAbbreviation.equals(GroupcommParameters.DET_HASH_ALG)) {</span>
+<span class="nc bnc" id="L833" title="All 2 branches missed.">    	if (paramAbbreviation.equals(GroupcommParameters.DET_HASH_ALG)) {</span>
 <span class="nc" id="L834">			return CBORObject.FromObject(-16); // SHA-256</span>
     	}
-<span class="fc bfc" id="L836" title="All 2 branches covered.">    	if (paramAbbreviation.equals(GroupcommParameters.PAIRWISE_MODE)) {</span>
-<span class="fc" id="L837">			return CBORObject.True;</span>
+<span class="nc bnc" id="L836" title="All 2 branches missed.">    	if (paramAbbreviation.equals(GroupcommParameters.PAIRWISE_MODE)) {</span>
+<span class="nc" id="L837">			return CBORObject.True;</span>
     	}
-<span class="fc bfc" id="L839" title="All 2 branches covered.">    	if (paramAbbreviation.equals(GroupcommParameters.ALG)) {</span>
-<span class="fc" id="L840">    		return CBORObject.FromObject(AlgorithmID.AES_CCM_16_64_128.AsCBOR().AsInt32Value()); // AES-CCM-16-64-128</span>
+<span class="nc bnc" id="L839" title="All 2 branches missed.">    	if (paramAbbreviation.equals(GroupcommParameters.ALG)) {</span>
+<span class="nc" id="L840">    		return CBORObject.FromObject(AlgorithmID.AES_CCM_16_64_128.AsCBOR().AsInt32Value()); // AES-CCM-16-64-128</span>
     	}
-<span class="fc bfc" id="L842" title="All 2 branches covered.">    	if (paramAbbreviation.equals(GroupcommParameters.ECDH_ALG)) {</span>
-<span class="fc" id="L843">			return CBORObject.FromObject(AlgorithmID.ECDH_SS_HKDF_256.AsCBOR().AsInt32Value()); // ECDH-SS + HKDF-256</span>
+<span class="nc bnc" id="L842" title="All 2 branches missed.">    	if (paramAbbreviation.equals(GroupcommParameters.ECDH_ALG)) {</span>
+<span class="nc" id="L843">			return CBORObject.FromObject(AlgorithmID.ECDH_SS_HKDF_256.AsCBOR().AsInt32Value()); // ECDH-SS + HKDF-256</span>
     	}
-<span class="fc bfc" id="L845" title="All 2 branches covered.">    	if (paramAbbreviation.equals(GroupcommParameters.ACTIVE)) {</span>
-<span class="fc" id="L846">    		return CBORObject.False;</span>
+<span class="nc bnc" id="L845" title="All 2 branches missed.">    	if (paramAbbreviation.equals(GroupcommParameters.ACTIVE)) {</span>
+<span class="nc" id="L846">    		return CBORObject.False;</span>
     	}
-<span class="fc bfc" id="L848" title="All 2 branches covered.">    	if (paramAbbreviation.equals(GroupcommParameters.GROUP_DESCRIPTION)) {</span>
-<span class="fc" id="L849">    		return CBORObject.Null;</span>
+<span class="nc bnc" id="L848" title="All 2 branches missed.">    	if (paramAbbreviation.equals(GroupcommParameters.GROUP_DESCRIPTION)) {</span>
+<span class="nc" id="L849">    		return CBORObject.Null;</span>
     	}
-<span class="fc bfc" id="L851" title="All 2 branches covered.">    	if (paramAbbreviation.equals(GroupcommParameters.GID_REUSE)) {</span>
-<span class="fc" id="L852">    		return CBORObject.False;</span>
+<span class="nc bnc" id="L851" title="All 2 branches missed.">    	if (paramAbbreviation.equals(GroupcommParameters.GID_REUSE)) {</span>
+<span class="nc" id="L852">    		return CBORObject.False;</span>
     	}
-<span class="fc bfc" id="L854" title="All 2 branches covered.">    	if (paramAbbreviation.equals(GroupcommParameters.APP_GROUPS)) {</span>
-<span class="fc" id="L855">    		return CBORObject.NewArray();</span>
+<span class="nc bnc" id="L854" title="All 2 branches missed.">    	if (paramAbbreviation.equals(GroupcommParameters.APP_GROUPS)) {</span>
+<span class="nc" id="L855">    		return CBORObject.NewArray();</span>
     	}
-<span class="fc bfc" id="L857" title="All 2 branches covered.">    	if (paramAbbreviation.equals(GroupcommParameters.GROUP_POLICIES)) {</span>
-<span class="fc" id="L858">			CBORObject ret = CBORObject.NewMap();</span>
-<span class="fc" id="L859">			ret.Add(GroupcommPolicies.KEY_CHECK_INTERVAL, 3600);</span>
-<span class="fc" id="L860">			ret.Add(GroupcommPolicies.EXP_DELTA, 0);</span>
-<span class="fc" id="L861">			return ret;</span>
+<span class="nc bnc" id="L857" title="All 2 branches missed.">    	if (paramAbbreviation.equals(GroupcommParameters.GROUP_POLICIES)) {</span>
+<span class="nc" id="L858">			CBORObject ret = CBORObject.NewMap();</span>
+<span class="nc" id="L859">			ret.Add(GroupcommPolicies.KEY_CHECK_INTERVAL, 3600);</span>
+<span class="nc" id="L860">			ret.Add(GroupcommPolicies.EXP_DELTA, 0);</span>
+<span class="nc" id="L861">			return ret;</span>
     	}
-<span class="pc bpc" id="L863" title="1 of 2 branches missed.">    	if (paramAbbreviation.equals(GroupcommParameters.EXP)) {</span>
-<span class="fc" id="L864">    		long currentUnixTime = System.currentTimeMillis() / 1000L;</span>
-<span class="fc" id="L865">    		long lifetime = 3600 * 24 * 365; // Set the lifetime of the group for 1 year from now</span>
-<span class="fc" id="L866">    		CBORObject ret = CBORObject.FromObject(currentUnixTime + lifetime); </span>
-<span class="fc" id="L867">    		return ret;</span>
+<span class="nc bnc" id="L863" title="All 2 branches missed.">    	if (paramAbbreviation.equals(GroupcommParameters.EXP)) {</span>
+<span class="nc" id="L864">    		long currentUnixTime = System.currentTimeMillis() / 1000L;</span>
+<span class="nc" id="L865">    		long lifetime = 3600 * 24 * 365; // Set the lifetime of the group for 1 year from now</span>
+<span class="nc" id="L866">    		CBORObject ret = CBORObject.FromObject(currentUnixTime + lifetime); </span>
+<span class="nc" id="L867">    		return ret;</span>
     	}
     	
 <span class="nc" id="L870">    	return null;</span>
@@ -878,15 +878,15 @@ public class GroupOSCOREGroupConfigurationResource extends CoapResource {
      * @return  the default value, or null in case of invalid parameter
      */
     public static CBORObject getDefaultValueSignParams(CBORObject signAlg) {
-<span class="fc" id="L881">    	CBORObject ret = null;</span>
-<span class="pc bpc" id="L882" title="1 of 2 branches missed.">    	if (signAlg.equals(CBORObject.FromObject(AlgorithmID.EDDSA.AsCBOR()))) {</span>
-<span class="fc" id="L883">    		ret = CBORObject.NewArray();</span>
-<span class="fc" id="L884">        	ret.Add(CBORObject.NewArray());</span>
-<span class="fc" id="L885">        	ret.Add(CBORObject.NewArray());</span>
-<span class="fc" id="L886">        	ret.get(0).Add(KeyKeys.KeyType_OKP);</span>
-<span class="fc" id="L887">        	ret.get(1).Add(KeyKeys.KeyType_OKP);</span>
-<span class="fc" id="L888">        	ret.get(1).Add(KeyKeys.OKP_Ed25519);</span>
-<span class="fc" id="L889">    		return ret;</span>
+<span class="nc" id="L881">    	CBORObject ret = null;</span>
+<span class="nc bnc" id="L882" title="All 2 branches missed.">    	if (signAlg.equals(CBORObject.FromObject(AlgorithmID.EDDSA.AsCBOR()))) {</span>
+<span class="nc" id="L883">    		ret = CBORObject.NewArray();</span>
+<span class="nc" id="L884">        	ret.Add(CBORObject.NewArray());</span>
+<span class="nc" id="L885">        	ret.Add(CBORObject.NewArray());</span>
+<span class="nc" id="L886">        	ret.get(0).Add(KeyKeys.KeyType_OKP);</span>
+<span class="nc" id="L887">        	ret.get(1).Add(KeyKeys.KeyType_OKP);</span>
+<span class="nc" id="L888">        	ret.get(1).Add(KeyKeys.OKP_Ed25519);</span>
+<span class="nc" id="L889">    		return ret;</span>
     	}
 <span class="nc bnc" id="L891" title="All 2 branches missed.">    	if (signAlg.equals(CBORObject.FromObject(AlgorithmID.ECDSA_256.AsCBOR()))) {</span>
 <span class="nc" id="L892">    		ret = CBORObject.NewArray();</span>
@@ -936,15 +936,15 @@ public class GroupOSCOREGroupConfigurationResource extends CoapResource {
      * @return  the default value, or null in case of invalid parameter
      */
     public static CBORObject getDefaultValueEcdhParams(CBORObject signAlg, boolean groupMode) {
-<span class="fc" id="L939">    	CBORObject ret = null;</span>
-<span class="pc bpc" id="L940" title="3 of 4 branches missed.">    	if (signAlg.equals(CBORObject.FromObject(AlgorithmID.EDDSA.AsCBOR())) || (groupMode == false)) {</span>
-<span class="fc" id="L941">    		ret = CBORObject.NewArray();</span>
-<span class="fc" id="L942">        	ret.Add(CBORObject.NewArray());</span>
-<span class="fc" id="L943">        	ret.Add(CBORObject.NewArray());</span>
-<span class="fc" id="L944">        	ret.get(0).Add(KeyKeys.KeyType_OKP);</span>
-<span class="fc" id="L945">        	ret.get(1).Add(KeyKeys.KeyType_OKP);</span>
-<span class="fc" id="L946">        	ret.get(1).Add(KeyKeys.OKP_X25519);</span>
-<span class="fc" id="L947">    		return ret;</span>
+<span class="nc" id="L939">    	CBORObject ret = null;</span>
+<span class="nc bnc" id="L940" title="All 4 branches missed.">    	if (signAlg.equals(CBORObject.FromObject(AlgorithmID.EDDSA.AsCBOR())) || (groupMode == false)) {</span>
+<span class="nc" id="L941">    		ret = CBORObject.NewArray();</span>
+<span class="nc" id="L942">        	ret.Add(CBORObject.NewArray());</span>
+<span class="nc" id="L943">        	ret.Add(CBORObject.NewArray());</span>
+<span class="nc" id="L944">        	ret.get(0).Add(KeyKeys.KeyType_OKP);</span>
+<span class="nc" id="L945">        	ret.get(1).Add(KeyKeys.KeyType_OKP);</span>
+<span class="nc" id="L946">        	ret.get(1).Add(KeyKeys.OKP_X25519);</span>
+<span class="nc" id="L947">    		return ret;</span>
     	}
 <span class="nc bnc" id="L949" title="All 2 branches missed.">    	if (signAlg.equals(CBORObject.FromObject(AlgorithmID.ECDSA_256.AsCBOR()))) {</span>
 <span class="nc" id="L950">    		ret = CBORObject.NewArray();</span>
@@ -993,109 +993,109 @@ public class GroupOSCOREGroupConfigurationResource extends CoapResource {
     static public CBORObject buildGroupConfiguration(final CBORObject requestCBOR, final CBORObject baseConfiguration) {
     	
     	CBORObject parameterName;
-<span class="fc" id="L996">		CBORObject parameterValue = null;</span>
-<span class="fc" id="L997">    	CBORObject newGroupConfiguration = CBORObject.NewMap();</span>
-<span class="fc" id="L998">    	CBORObject ret = CBORObject.NewArray();</span>
-<span class="fc" id="L999">    	int responseCode = -1;</span>
-<span class="fc" id="L1000">    	int contentFormat = -1;</span>
-<span class="fc" id="L1001">    	CBORObject responsePayload = null;</span>
-<span class="fc" id="L1002">    	String errorString = null;</span>
+<span class="nc" id="L996">		CBORObject parameterValue = null;</span>
+<span class="nc" id="L997">    	CBORObject newGroupConfiguration = CBORObject.NewMap();</span>
+<span class="nc" id="L998">    	CBORObject ret = CBORObject.NewArray();</span>
+<span class="nc" id="L999">    	int responseCode = -1;</span>
+<span class="nc" id="L1000">    	int contentFormat = -1;</span>
+<span class="nc" id="L1001">    	CBORObject responsePayload = null;</span>
+<span class="nc" id="L1002">    	String errorString = null;</span>
     	
-<span class="fc" id="L1004">    	List&lt;Integer&gt; parameterList = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L1004">    	List&lt;Integer&gt; parameterList = new ArrayList&lt;&gt;();</span>
     	
     	// Configuration parameters
-<span class="fc" id="L1007">    	parameterList.add(GroupcommParameters.HKDF.AsInt32());</span>
-<span class="fc" id="L1008">    	parameterList.add(GroupcommParameters.CRED_FMT.AsInt32());</span>
-<span class="fc" id="L1009">    	parameterList.add(GroupcommParameters.GROUP_MODE.AsInt32());</span>
-<span class="fc" id="L1010">    	parameterList.add(GroupcommParameters.GP_ENC_ALG.AsInt32());</span>
-<span class="fc" id="L1011">    	parameterList.add(GroupcommParameters.SIGN_ALG.AsInt32());</span>
-<span class="fc" id="L1012">    	parameterList.add(GroupcommParameters.SIGN_PARAMS.AsInt32());</span>
-<span class="fc" id="L1013">    	parameterList.add(GroupcommParameters.PAIRWISE_MODE.AsInt32());</span>
-<span class="fc" id="L1014">    	parameterList.add(GroupcommParameters.ALG.AsInt32());</span>
-<span class="fc" id="L1015">    	parameterList.add(GroupcommParameters.ECDH_ALG.AsInt32());</span>
-<span class="fc" id="L1016">    	parameterList.add(GroupcommParameters.ECDH_PARAMS.AsInt32());</span>
-<span class="fc" id="L1017">    	parameterList.add(GroupcommParameters.DET_REQ.AsInt32());</span>
-<span class="fc" id="L1018">    	parameterList.add(GroupcommParameters.DET_HASH_ALG.AsInt32());</span>
+<span class="nc" id="L1007">    	parameterList.add(GroupcommParameters.HKDF.AsInt32());</span>
+<span class="nc" id="L1008">    	parameterList.add(GroupcommParameters.CRED_FMT.AsInt32());</span>
+<span class="nc" id="L1009">    	parameterList.add(GroupcommParameters.GROUP_MODE.AsInt32());</span>
+<span class="nc" id="L1010">    	parameterList.add(GroupcommParameters.GP_ENC_ALG.AsInt32());</span>
+<span class="nc" id="L1011">    	parameterList.add(GroupcommParameters.SIGN_ALG.AsInt32());</span>
+<span class="nc" id="L1012">    	parameterList.add(GroupcommParameters.SIGN_PARAMS.AsInt32());</span>
+<span class="nc" id="L1013">    	parameterList.add(GroupcommParameters.PAIRWISE_MODE.AsInt32());</span>
+<span class="nc" id="L1014">    	parameterList.add(GroupcommParameters.ALG.AsInt32());</span>
+<span class="nc" id="L1015">    	parameterList.add(GroupcommParameters.ECDH_ALG.AsInt32());</span>
+<span class="nc" id="L1016">    	parameterList.add(GroupcommParameters.ECDH_PARAMS.AsInt32());</span>
+<span class="nc" id="L1017">    	parameterList.add(GroupcommParameters.DET_REQ.AsInt32());</span>
+<span class="nc" id="L1018">    	parameterList.add(GroupcommParameters.DET_HASH_ALG.AsInt32());</span>
     	
     	// Status parameters
-<span class="fc" id="L1021">    	parameterList.add(GroupcommParameters.RT.AsInt32());</span>
-<span class="fc" id="L1022">    	parameterList.add(GroupcommParameters.ACTIVE.AsInt32());</span>
-<span class="fc" id="L1023">    	parameterList.add(GroupcommParameters.GROUP_NAME.AsInt32());</span>
-<span class="fc" id="L1024">    	parameterList.add(GroupcommParameters.GROUP_DESCRIPTION.AsInt32());</span>
-<span class="fc" id="L1025">    	parameterList.add(GroupcommParameters.ACE_GROUPCOMM_PROFILE.AsInt32());</span>
-<span class="fc" id="L1026">    	parameterList.add(GroupcommParameters.MAX_STALE_SETS.AsInt32());</span>
-<span class="fc" id="L1027">    	parameterList.add(GroupcommParameters.EXP.AsInt32());</span>
-<span class="fc" id="L1028">    	parameterList.add(GroupcommParameters.GROUP_POLICIES.AsInt32());</span>
-<span class="fc" id="L1029">    	parameterList.add(GroupcommParameters.GID_REUSE.AsInt32());</span>
-<span class="fc" id="L1030">    	parameterList.add(GroupcommParameters.APP_GROUPS.AsInt32());</span>
-<span class="fc" id="L1031">    	parameterList.add(GroupcommParameters.JOINING_URI.AsInt32());</span>
-<span class="fc" id="L1032">    	parameterList.add(GroupcommParameters.AS_URI.AsInt32());</span>
+<span class="nc" id="L1021">    	parameterList.add(GroupcommParameters.RT.AsInt32());</span>
+<span class="nc" id="L1022">    	parameterList.add(GroupcommParameters.ACTIVE.AsInt32());</span>
+<span class="nc" id="L1023">    	parameterList.add(GroupcommParameters.GROUP_NAME.AsInt32());</span>
+<span class="nc" id="L1024">    	parameterList.add(GroupcommParameters.GROUP_DESCRIPTION.AsInt32());</span>
+<span class="nc" id="L1025">    	parameterList.add(GroupcommParameters.ACE_GROUPCOMM_PROFILE.AsInt32());</span>
+<span class="nc" id="L1026">    	parameterList.add(GroupcommParameters.MAX_STALE_SETS.AsInt32());</span>
+<span class="nc" id="L1027">    	parameterList.add(GroupcommParameters.EXP.AsInt32());</span>
+<span class="nc" id="L1028">    	parameterList.add(GroupcommParameters.GROUP_POLICIES.AsInt32());</span>
+<span class="nc" id="L1029">    	parameterList.add(GroupcommParameters.GID_REUSE.AsInt32());</span>
+<span class="nc" id="L1030">    	parameterList.add(GroupcommParameters.APP_GROUPS.AsInt32());</span>
+<span class="nc" id="L1031">    	parameterList.add(GroupcommParameters.JOINING_URI.AsInt32());</span>
+<span class="nc" id="L1032">    	parameterList.add(GroupcommParameters.AS_URI.AsInt32());</span>
 
-<span class="fc bfc" id="L1034" title="All 2 branches covered.">    	for (Integer i : parameterList) {</span>
-<span class="fc" id="L1035">    		parameterName = CBORObject.FromObject(i.intValue());</span>
+<span class="nc bnc" id="L1034" title="All 2 branches missed.">    	for (Integer i : parameterList) {</span>
+<span class="nc" id="L1035">    		parameterName = CBORObject.FromObject(i.intValue());</span>
     		
     		// Some parameters require additional, special handling
-<span class="fc" id="L1038">    		boolean omit = false;</span>
-<span class="fc" id="L1039">    		boolean postpone = false;</span>
-<span class="fc" id="L1040">    		CBORObject forcedValue = null;</span>
+<span class="nc" id="L1038">    		boolean omit = false;</span>
+<span class="nc" id="L1039">    		boolean postpone = false;</span>
+<span class="nc" id="L1040">    		CBORObject forcedValue = null;</span>
     		
-<span class="fc bfc" id="L1042" title="All 2 branches covered.">    		if (parameterName.equals(GroupcommParameters.GP_ENC_ALG) ||</span>
-<span class="fc bfc" id="L1043" title="All 2 branches covered.">    			parameterName.equals(GroupcommParameters.SIGN_ALG)   ||</span>
-<span class="fc bfc" id="L1044" title="All 2 branches covered.">    			parameterName.equals(GroupcommParameters.SIGN_PARAMS)) {</span>
-<span class="pc bpc" id="L1045" title="1 of 2 branches missed.">    			if (newGroupConfiguration.get(GroupcommParameters.GROUP_MODE).equals(CBORObject.False)) {</span>
+<span class="nc bnc" id="L1042" title="All 2 branches missed.">    		if (parameterName.equals(GroupcommParameters.GP_ENC_ALG) ||</span>
+<span class="nc bnc" id="L1043" title="All 2 branches missed.">    			parameterName.equals(GroupcommParameters.SIGN_ALG)   ||</span>
+<span class="nc bnc" id="L1044" title="All 2 branches missed.">    			parameterName.equals(GroupcommParameters.SIGN_PARAMS)) {</span>
+<span class="nc bnc" id="L1045" title="All 2 branches missed.">    			if (newGroupConfiguration.get(GroupcommParameters.GROUP_MODE).equals(CBORObject.False)) {</span>
 <span class="nc" id="L1046">    				forcedValue = CBORObject.Null;</span>
     			}
     		}
-<span class="fc bfc" id="L1049" title="All 2 branches covered.">    		else if (parameterName.equals(GroupcommParameters.ALG) ||</span>
-<span class="fc bfc" id="L1050" title="All 2 branches covered.">    				 parameterName.equals(GroupcommParameters.ECDH_ALG)   ||</span>
-<span class="fc bfc" id="L1051" title="All 2 branches covered.">    				 parameterName.equals(GroupcommParameters.ECDH_PARAMS)) {</span>
-<span class="pc bpc" id="L1052" title="1 of 2 branches missed.">        		if (newGroupConfiguration.get(GroupcommParameters.PAIRWISE_MODE).equals(CBORObject.False)) {</span>
+<span class="nc bnc" id="L1049" title="All 2 branches missed.">    		else if (parameterName.equals(GroupcommParameters.ALG) ||</span>
+<span class="nc bnc" id="L1050" title="All 2 branches missed.">    				 parameterName.equals(GroupcommParameters.ECDH_ALG)   ||</span>
+<span class="nc bnc" id="L1051" title="All 2 branches missed.">    				 parameterName.equals(GroupcommParameters.ECDH_PARAMS)) {</span>
+<span class="nc bnc" id="L1052" title="All 2 branches missed.">        		if (newGroupConfiguration.get(GroupcommParameters.PAIRWISE_MODE).equals(CBORObject.False)) {</span>
 <span class="nc" id="L1053">        			forcedValue = CBORObject.Null;</span>
         		}
         	}
-<span class="fc bfc" id="L1056" title="All 2 branches covered.">    		else if (parameterName.equals(GroupcommParameters.DET_REQ)) {</span>
-<span class="pc bpc" id="L1057" title="1 of 2 branches missed.">        		if (newGroupConfiguration.get(GroupcommParameters.GROUP_MODE).equals(CBORObject.False) ||</span>
-<span class="pc bpc" id="L1058" title="1 of 2 branches missed.">        			newGroupConfiguration.get(GroupcommParameters.PAIRWISE_MODE).equals(CBORObject.False)) {</span>
+<span class="nc bnc" id="L1056" title="All 2 branches missed.">    		else if (parameterName.equals(GroupcommParameters.DET_REQ)) {</span>
+<span class="nc bnc" id="L1057" title="All 2 branches missed.">        		if (newGroupConfiguration.get(GroupcommParameters.GROUP_MODE).equals(CBORObject.False) ||</span>
+<span class="nc bnc" id="L1058" title="All 2 branches missed.">        			newGroupConfiguration.get(GroupcommParameters.PAIRWISE_MODE).equals(CBORObject.False)) {</span>
 <span class="nc" id="L1059">        			omit = true;</span>
         		}
         	}
-<span class="fc bfc" id="L1062" title="All 2 branches covered.">    		else if (parameterName.equals(GroupcommParameters.DET_HASH_ALG)) {</span>
-<span class="pc bpc" id="L1063" title="1 of 2 branches missed.">        		if ((newGroupConfiguration.ContainsKey(GroupcommParameters.DET_REQ) == false) ||</span>
-<span class="pc bpc" id="L1064" title="1 of 2 branches missed.">        			(newGroupConfiguration.get(GroupcommParameters.DET_REQ).equals(CBORObject.False))) {</span>
-<span class="fc" id="L1065">        			omit = true;</span>
+<span class="nc bnc" id="L1062" title="All 2 branches missed.">    		else if (parameterName.equals(GroupcommParameters.DET_HASH_ALG)) {</span>
+<span class="nc bnc" id="L1063" title="All 2 branches missed.">        		if ((newGroupConfiguration.ContainsKey(GroupcommParameters.DET_REQ) == false) ||</span>
+<span class="nc bnc" id="L1064" title="All 2 branches missed.">        			(newGroupConfiguration.get(GroupcommParameters.DET_REQ).equals(CBORObject.False))) {</span>
+<span class="nc" id="L1065">        			omit = true;</span>
         		}
         	}
-<span class="fc bfc" id="L1068" title="All 2 branches covered.">    		else if (parameterName.equals(GroupcommParameters.RT)) {</span>
-<span class="fc" id="L1069">    			forcedValue = CBORObject.FromObject(&quot;core.osc.gconf&quot;);</span>
+<span class="nc bnc" id="L1068" title="All 2 branches missed.">    		else if (parameterName.equals(GroupcommParameters.RT)) {</span>
+<span class="nc" id="L1069">    			forcedValue = CBORObject.FromObject(&quot;core.osc.gconf&quot;);</span>
     		}
-<span class="fc bfc" id="L1071" title="All 2 branches covered.">    		else if (parameterName.equals(GroupcommParameters.GROUP_NAME)) {</span>
+<span class="nc bnc" id="L1071" title="All 2 branches missed.">    		else if (parameterName.equals(GroupcommParameters.GROUP_NAME)) {</span>
     			// The group name will be assigned later
-<span class="fc" id="L1073">    			postpone = true;</span>
+<span class="nc" id="L1073">    			postpone = true;</span>
     		}
-<span class="fc bfc" id="L1075" title="All 2 branches covered.">    		else if (parameterName.equals(GroupcommParameters.ACE_GROUPCOMM_PROFILE)) {</span>
-<span class="fc" id="L1076">    			forcedValue = CBORObject.FromObject(GroupcommParameters.COAP_GROUP_OSCORE_APP);</span>
+<span class="nc bnc" id="L1075" title="All 2 branches missed.">    		else if (parameterName.equals(GroupcommParameters.ACE_GROUPCOMM_PROFILE)) {</span>
+<span class="nc" id="L1076">    			forcedValue = CBORObject.FromObject(GroupcommParameters.COAP_GROUP_OSCORE_APP);</span>
     		}
-<span class="fc bfc" id="L1078" title="All 2 branches covered.">    		else if (parameterName.equals(GroupcommParameters.JOINING_URI)) {</span>
+<span class="nc bnc" id="L1078" title="All 2 branches missed.">    		else if (parameterName.equals(GroupcommParameters.JOINING_URI)) {</span>
     			// The URI of the group-membership resource will be assigned later
-<span class="fc" id="L1080">    			postpone = true;</span>
+<span class="nc" id="L1080">    			postpone = true;</span>
     		}
-<span class="fc bfc" id="L1082" title="All 2 branches covered.">    		else if (parameterName.equals(GroupcommParameters.AS_URI)) {</span>
+<span class="nc bnc" id="L1082" title="All 2 branches missed.">    		else if (parameterName.equals(GroupcommParameters.AS_URI)) {</span>
     			// The URI of the associated Authorization Server will be assigned later
     			
     			// (This Group Manager is not going to accept any Authorization Server
     			//  suggested by the Administrator, and always force its preferred one)
-<span class="fc" id="L1087">    			postpone = true;</span>
+<span class="nc" id="L1087">    			postpone = true;</span>
     		}
     		
-<span class="fc bfc" id="L1090" title="All 4 branches covered.">			if ((requestCBOR.ContainsKey(parameterName)) &amp;&amp; (postpone == false)) {</span>
+<span class="nc bnc" id="L1090" title="All 4 branches missed.">			if ((requestCBOR.ContainsKey(parameterName)) &amp;&amp; (postpone == false)) {</span>
 				// The Administrator has specified a value for this parameter,
 				// which also has to be included now in the group configuration
 				
-<span class="fc" id="L1094">				parameterValue = requestCBOR.get(parameterName);</span>
+<span class="nc" id="L1094">				parameterValue = requestCBOR.get(parameterName);</span>
 				
-<span class="pc bpc" id="L1096" title="3 of 4 branches missed.">				boolean inconsistentValue = ((forcedValue != null) &amp;&amp; (parameterValue.equals(forcedValue) == false));</span>
+<span class="nc bnc" id="L1096" title="All 4 branches missed.">				boolean inconsistentValue = ((forcedValue != null) &amp;&amp; (parameterValue.equals(forcedValue) == false));</span>
 				
-<span class="pc bpc" id="L1098" title="2 of 4 branches missed.">				if (omit || inconsistentValue) {</span>
+<span class="nc bnc" id="L1098" title="All 4 branches missed.">				if (omit || inconsistentValue) {</span>
 					// The Administrator has specified a parameter that was not supposed to be specified at all,
 					// or a parameter with a value different than the value that must be taken by such a parameter					
 <span class="nc" id="L1101">					errorString = new String(</span>
@@ -1114,9 +1114,9 @@ public class GroupOSCOREGroupConfigurationResource extends CoapResource {
 <span class="nc" id="L1114">					break;</span>
 				}
 
-<span class="fc" id="L1117">				boolean isMeaningful = GroupcommParameters.isAdminParameterValueMeaningful(parameterName, parameterValue);</span>
+<span class="nc" id="L1117">				boolean isMeaningful = GroupcommParameters.isAdminParameterValueMeaningful(parameterName, parameterValue);</span>
 				
-<span class="pc bpc" id="L1119" title="1 of 2 branches missed.">				if (isMeaningful == false) {</span>
+<span class="nc bnc" id="L1119" title="All 2 branches missed.">				if (isMeaningful == false) {</span>
 					// The value of the parameter is not valid
 <span class="nc" id="L1121">					errorString = new String(</span>
 							&quot;2 Invalid use of the parameter with abbreviation' &quot; + parameterName + &quot;'&quot;);
@@ -1126,51 +1126,51 @@ public class GroupOSCOREGroupConfigurationResource extends CoapResource {
 <span class="nc" id="L1126">					break;</span>
 				}
 				
-<span class="fc" id="L1129">			}</span>
+<span class="nc" id="L1129">			}</span>
 			else {
-<span class="fc bfc" id="L1131" title="All 4 branches covered.">				if (postpone || omit) {</span>
+<span class="nc bnc" id="L1131" title="All 4 branches missed.">				if (postpone || omit) {</span>
 					// This parameter does not have to be included
 					// now or at all in the group configuration
-<span class="fc" id="L1134">					continue;</span>
+<span class="nc" id="L1134">					continue;</span>
 				}
 				
 				// This parameter has to be included now in the group configuration
 				
-<span class="fc bfc" id="L1139" title="All 2 branches covered.">				if (forcedValue != null) {</span>
-<span class="fc" id="L1140">					parameterValue = forcedValue;</span>
+<span class="nc bnc" id="L1139" title="All 2 branches missed.">				if (forcedValue != null) {</span>
+<span class="nc" id="L1140">					parameterValue = forcedValue;</span>
 				}
 				else {
-<span class="fc" id="L1143">					boolean useDefaultValue = true;</span>
+<span class="nc" id="L1143">					boolean useDefaultValue = true;</span>
 
-<span class="fc bfc" id="L1145" title="All 2 branches covered.">					if (baseConfiguration != null) {</span>
+<span class="nc bnc" id="L1145" title="All 2 branches missed.">					if (baseConfiguration != null) {</span>
 						// This request was sent to overwrite the current group configuration
 						
 						// These parameters do not change in case of group configuration update.
 						// They must keep the same value that they have in the current group configuration.
-<span class="fc bfc" id="L1150" title="All 2 branches covered.">						if (parameterName.equals(GroupcommParameters.GROUP_MODE) ||</span>
-<span class="fc bfc" id="L1151" title="All 2 branches covered.">							parameterName.equals(GroupcommParameters.PAIRWISE_MODE) ||</span>
-<span class="fc bfc" id="L1152" title="All 2 branches covered.">							parameterName.equals(GroupcommParameters.GID_REUSE) ||</span>
-<span class="fc bfc" id="L1153" title="All 2 branches covered.">							parameterName.equals(GroupcommParameters.EXP)) {</span>
-<span class="fc" id="L1154">							parameterValue = baseConfiguration.get(parameterName);</span>
-<span class="fc" id="L1155">							useDefaultValue = false;</span>
+<span class="nc bnc" id="L1150" title="All 2 branches missed.">						if (parameterName.equals(GroupcommParameters.GROUP_MODE) ||</span>
+<span class="nc bnc" id="L1151" title="All 2 branches missed.">							parameterName.equals(GroupcommParameters.PAIRWISE_MODE) ||</span>
+<span class="nc bnc" id="L1152" title="All 2 branches missed.">							parameterName.equals(GroupcommParameters.GID_REUSE) ||</span>
+<span class="nc bnc" id="L1153" title="All 2 branches missed.">							parameterName.equals(GroupcommParameters.EXP)) {</span>
+<span class="nc" id="L1154">							parameterValue = baseConfiguration.get(parameterName);</span>
+<span class="nc" id="L1155">							useDefaultValue = false;</span>
 						}
 					}
 					
-<span class="fc bfc" id="L1159" title="All 2 branches covered.">					if (useDefaultValue == true) {</span>
+<span class="nc bnc" id="L1159" title="All 2 branches missed.">					if (useDefaultValue == true) {</span>
 						// Retrieve the default value for this parameter
-<span class="fc bfc" id="L1161" title="All 2 branches covered.">						if (parameterName.equals(GroupcommParameters.SIGN_PARAMS)) {</span>
-<span class="fc" id="L1162">							parameterValue = getDefaultValueSignParams(newGroupConfiguration.get(GroupcommParameters.SIGN_ALG));</span>
+<span class="nc bnc" id="L1161" title="All 2 branches missed.">						if (parameterName.equals(GroupcommParameters.SIGN_PARAMS)) {</span>
+<span class="nc" id="L1162">							parameterValue = getDefaultValueSignParams(newGroupConfiguration.get(GroupcommParameters.SIGN_ALG));</span>
 						}
-<span class="fc bfc" id="L1164" title="All 2 branches covered.">						else if (parameterName.equals(GroupcommParameters.ECDH_PARAMS)) {</span>
-<span class="pc bpc" id="L1165" title="1 of 2 branches missed.">							boolean groupMode = newGroupConfiguration.get(GroupcommParameters.GROUP_MODE).equals(CBORObject.True) ? true : false;</span>
-<span class="fc" id="L1166">							parameterValue = getDefaultValueEcdhParams(newGroupConfiguration.get(GroupcommParameters.SIGN_ALG), groupMode);</span>
-<span class="fc" id="L1167">						}</span>
+<span class="nc bnc" id="L1164" title="All 2 branches missed.">						else if (parameterName.equals(GroupcommParameters.ECDH_PARAMS)) {</span>
+<span class="nc bnc" id="L1165" title="All 2 branches missed.">							boolean groupMode = newGroupConfiguration.get(GroupcommParameters.GROUP_MODE).equals(CBORObject.True) ? true : false;</span>
+<span class="nc" id="L1166">							parameterValue = getDefaultValueEcdhParams(newGroupConfiguration.get(GroupcommParameters.SIGN_ALG), groupMode);</span>
+<span class="nc" id="L1167">						}</span>
 						else {
-<span class="fc" id="L1169">							parameterValue = getDefaultValue(parameterName);</span>
+<span class="nc" id="L1169">							parameterValue = getDefaultValue(parameterName);</span>
 						}
 					}
 					
-<span class="pc bpc" id="L1173" title="1 of 2 branches missed.">					if (parameterValue == null) {</span>
+<span class="nc bnc" id="L1173" title="All 2 branches missed.">					if (parameterValue == null) {</span>
 						// This should never happen
 <span class="nc" id="L1175">						errorString = new String(&quot;Error determining the default value for the parameter with abbreviation' &quot; + parameterName + &quot;'&quot;);</span>
 <span class="nc" id="L1176">						responseCode = CoAP.ResponseCode.INTERNAL_SERVER_ERROR.value;</span>
@@ -1182,28 +1182,28 @@ public class GroupOSCOREGroupConfigurationResource extends CoapResource {
 			}
 
 			// No error has occurred; include the parameter in the group configuration
-<span class="fc" id="L1185">			newGroupConfiguration.Add(parameterName, parameterValue);</span>
+<span class="nc" id="L1185">			newGroupConfiguration.Add(parameterName, parameterValue);</span>
 				
-<span class="fc" id="L1187">    	}</span>
+<span class="nc" id="L1187">    	}</span>
     	
     	// Failure
-<span class="pc bpc" id="L1190" title="1 of 2 branches missed.">    	if (responseCode != -1) {</span>
+<span class="nc bnc" id="L1190" title="All 2 branches missed.">    	if (responseCode != -1) {</span>
 <span class="nc" id="L1191">    		ret.Add(responseCode);</span>
 <span class="nc bnc" id="L1192" title="All 2 branches missed.">	    	ret.Add((contentFormat == -1) ? null : CBORObject.FromObject(contentFormat));</span>
 <span class="nc" id="L1193">			ret.Add(responsePayload);</span>
     	}
     	// Success
     	else {
-<span class="fc bfc" id="L1197" title="All 2 branches covered.">	    	responseCode = (baseConfiguration == null) ? CoAP.ResponseCode.CREATED.value : CoAP.ResponseCode.CHANGED.value;</span>
-<span class="fc" id="L1198">	    	contentFormat = Constants.APPLICATION_ACE_GROUPCOMM_CBOR;</span>
-<span class="fc" id="L1199">	    	responsePayload = CBORObject.NewMap();</span>
-<span class="fc" id="L1200">	    	ret.Add(responseCode);</span>
-<span class="fc" id="L1201">			ret.Add(contentFormat);</span>
-<span class="fc" id="L1202">			ret.Add(responsePayload);</span>
-<span class="fc" id="L1203">			ret.Add(newGroupConfiguration);</span>
+<span class="nc bnc" id="L1197" title="All 2 branches missed.">	    	responseCode = (baseConfiguration == null) ? CoAP.ResponseCode.CREATED.value : CoAP.ResponseCode.CHANGED.value;</span>
+<span class="nc" id="L1198">	    	contentFormat = Constants.APPLICATION_ACE_GROUPCOMM_CBOR;</span>
+<span class="nc" id="L1199">	    	responsePayload = CBORObject.NewMap();</span>
+<span class="nc" id="L1200">	    	ret.Add(responseCode);</span>
+<span class="nc" id="L1201">			ret.Add(contentFormat);</span>
+<span class="nc" id="L1202">			ret.Add(responsePayload);</span>
+<span class="nc" id="L1203">			ret.Add(newGroupConfiguration);</span>
     	}
     	
-<span class="fc" id="L1206">    	return ret;</span>
+<span class="nc" id="L1206">    	return ret;</span>
     	
     }
     

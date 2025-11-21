@@ -80,17 +80,17 @@ import se.sics.ace.rs.TokenRepository;
         }
     	*/
     	
-<span class="fc bfc" id="L83" title="All 4 branches covered.">    	if (length == 0 || length &lt;= ret.length)</span>
+<span class="pc bpc" id="L83" title="1 of 4 branches missed.">    	if (length == 0 || length &lt;= ret.length)</span>
 <span class="fc" id="L84">    		return ret;</span>
     	
-<span class="fc" id="L86">    	int paddingLength = length - ret.length;</span>
-<span class="fc" id="L87">    	byte[] retWithPadding = new byte[ret.length + paddingLength];</span>
+<span class="nc" id="L86">    	int paddingLength = length - ret.length;</span>
+<span class="nc" id="L87">    	byte[] retWithPadding = new byte[ret.length + paddingLength];</span>
     	
     	// Big-endian
-<span class="fc bfc" id="L90" title="All 2 branches covered.">    	for (int i = 0; i &lt; paddingLength; i++)</span>
-<span class="fc" id="L91">    		retWithPadding[i] = (byte) 0x00;</span>
-<span class="fc bfc" id="L92" title="All 2 branches covered.">    	for (int i = 0; i &lt; ret.length; i++)</span>
-<span class="fc" id="L93">    		retWithPadding[i + paddingLength] = ret[i];</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">    	for (int i = 0; i &lt; paddingLength; i++)</span>
+<span class="nc" id="L91">    		retWithPadding[i] = (byte) 0x00;</span>
+<span class="nc bnc" id="L92" title="All 2 branches missed.">    	for (int i = 0; i &lt; ret.length; i++)</span>
+<span class="nc" id="L93">    		retWithPadding[i + paddingLength] = ret[i];</span>
     	
     	// Little-endian
     	/*
@@ -100,7 +100,7 @@ import se.sics.ace.rs.TokenRepository;
     		retWithPadding[i + paddingLength] = (byte) 0x00;
     	*/
     	
-<span class="fc" id="L103">    	return retWithPadding;</span>
+<span class="nc" id="L103">    	return retWithPadding;</span>
     	
     }
 	
@@ -170,14 +170,14 @@ import se.sics.ace.rs.TokenRepository;
      */
     public static byte[] computeSignature(int signKeyCurve, PrivateKey privKey, byte[] dataToSign) {
 
-<span class="fc" id="L173">        Signature signCtx = null;</span>
-<span class="fc" id="L174">        byte[] signature = null;</span>
+<span class="nc" id="L173">        Signature signCtx = null;</span>
+<span class="nc" id="L174">        byte[] signature = null;</span>
 
         try {
-<span class="pc bpc" id="L177" title="1 of 2 branches missed.">     	   if (signKeyCurve == KeyKeys.EC2_P256.AsInt32())</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">     	   if (signKeyCurve == KeyKeys.EC2_P256.AsInt32())</span>
 <span class="nc" id="L178">     		  signCtx = Signature.getInstance(&quot;SHA256withECDSA&quot;);</span>
-<span class="pc bpc" id="L179" title="1 of 2 branches missed.">     	   else if (signKeyCurve == KeyKeys.OKP_Ed25519.AsInt32())</span>
-<span class="fc" id="L180">     		  signCtx = Signature.getInstance(&quot;NonewithEdDSA&quot;, &quot;EdDSA&quot;);</span>
+<span class="nc bnc" id="L179" title="All 2 branches missed.">     	   else if (signKeyCurve == KeyKeys.OKP_Ed25519.AsInt32())</span>
+<span class="nc" id="L180">     		  signCtx = Signature.getInstance(&quot;NonewithEdDSA&quot;, &quot;EdDSA&quot;);</span>
      	   else {
      		  // At the moment, only ECDSA (EC2_P256) and EDDSA (Ed25519) are supported
 <span class="nc" id="L183">     		  System.err.println(&quot;Unsupported signature algorithm&quot;);</span>
@@ -192,11 +192,11 @@ import se.sics.ace.rs.TokenRepository;
 <span class="nc" id="L192">        catch (NoSuchProviderException e) {</span>
 <span class="nc" id="L193">            System.err.println(&quot;Unsopported security provider for signature computing: &quot; + e.getMessage());</span>
 <span class="nc" id="L194">            return null;</span>
-<span class="fc" id="L195">        }</span>
+<span class="nc" id="L195">        }</span>
         
         try {
-<span class="pc bpc" id="L198" title="1 of 2 branches missed.">            if (signCtx != null)</span>
-<span class="fc" id="L199">            	signCtx.initSign(privKey);</span>
+<span class="nc bnc" id="L198" title="All 2 branches missed.">            if (signCtx != null)</span>
+<span class="nc" id="L199">            	signCtx.initSign(privKey);</span>
             else {
 <span class="nc" id="L201">                System.err.println(&quot;Signature algorithm has not been initialized&quot;);</span>
 <span class="nc" id="L202">                return null;</span>
@@ -205,19 +205,19 @@ import se.sics.ace.rs.TokenRepository;
 <span class="nc" id="L205">        catch (InvalidKeyException e) {</span>
 <span class="nc" id="L206">            System.err.println(&quot;Invalid key excpetion - Invalid private key: &quot; + e.getMessage());</span>
 <span class="nc" id="L207">            return null;</span>
-<span class="fc" id="L208">        }</span>
+<span class="nc" id="L208">        }</span>
         
         try {
-<span class="pc bpc" id="L211" title="1 of 2 branches missed.">        	if (signCtx != null) {</span>
-<span class="fc" id="L212">        		signCtx.update(dataToSign);</span>
-<span class="fc" id="L213">        		signature = signCtx.sign();</span>
+<span class="nc bnc" id="L211" title="All 2 branches missed.">        	if (signCtx != null) {</span>
+<span class="nc" id="L212">        		signCtx.update(dataToSign);</span>
+<span class="nc" id="L213">        		signature = signCtx.sign();</span>
         	}
 <span class="nc" id="L215">        } catch (SignatureException e) {</span>
 <span class="nc" id="L216">            System.err.println(&quot;Failed signature computation: &quot; + e.getMessage());</span>
 <span class="nc" id="L217">            return null;</span>
-<span class="fc" id="L218">        }</span>
+<span class="nc" id="L218">        }</span>
         
-<span class="fc" id="L220">        return signature;</span>
+<span class="nc" id="L220">        return signature;</span>
         
     }
     
@@ -232,14 +232,14 @@ import se.sics.ace.rs.TokenRepository;
      */
     public static boolean verifySignature(int signKeyCurve, PublicKey pubKey, byte[] signedData, byte[] expectedSignature) {
 
-<span class="fc" id="L235">        Signature signature = null;</span>
-<span class="fc" id="L236">        boolean success = false;</span>
+<span class="nc" id="L235">        Signature signature = null;</span>
+<span class="nc" id="L236">        boolean success = false;</span>
         
         try {
-<span class="pc bpc" id="L239" title="1 of 2 branches missed.">           if (signKeyCurve == KeyKeys.EC2_P256.AsInt32())</span>
+<span class="nc bnc" id="L239" title="All 2 branches missed.">           if (signKeyCurve == KeyKeys.EC2_P256.AsInt32())</span>
 <span class="nc" id="L240">        	   signature = Signature.getInstance(&quot;SHA256withECDSA&quot;);</span>
-<span class="pc bpc" id="L241" title="1 of 2 branches missed.">           else if (signKeyCurve == KeyKeys.OKP_Ed25519.AsInt32())</span>
-<span class="fc" id="L242">        	   signature = Signature.getInstance(&quot;NonewithEdDSA&quot;, &quot;EdDSA&quot;);</span>
+<span class="nc bnc" id="L241" title="All 2 branches missed.">           else if (signKeyCurve == KeyKeys.OKP_Ed25519.AsInt32())</span>
+<span class="nc" id="L242">        	   signature = Signature.getInstance(&quot;NonewithEdDSA&quot;, &quot;EdDSA&quot;);</span>
            else {
 <span class="nc" id="L244">              System.err.println(&quot;Unsupported signature algorithm&quot;);</span>
 <span class="nc" id="L245">              return false;</span>
@@ -253,11 +253,11 @@ import se.sics.ace.rs.TokenRepository;
 <span class="nc" id="L253">         catch (NoSuchProviderException e) {</span>
 <span class="nc" id="L254">             System.err.println(&quot;Unsopported security provider for signature computing: &quot; + e.getMessage());</span>
 <span class="nc" id="L255">             return false;</span>
-<span class="fc" id="L256">         }</span>
+<span class="nc" id="L256">         }</span>
          
          try {
-<span class="pc bpc" id="L259" title="1 of 2 branches missed.">             if (signature != null)</span>
-<span class="fc" id="L260">            	 signature.initVerify(pubKey);</span>
+<span class="nc bnc" id="L259" title="All 2 branches missed.">             if (signature != null)</span>
+<span class="nc" id="L260">            	 signature.initVerify(pubKey);</span>
              else {
 <span class="nc" id="L262">                 System.err.println(&quot;Signature algorithm has not been initialized&quot;);</span>
 <span class="nc" id="L263">                 return false;</span>
@@ -266,17 +266,17 @@ import se.sics.ace.rs.TokenRepository;
 <span class="nc" id="L266">         catch (InvalidKeyException e) {</span>
 <span class="nc" id="L267">             System.err.println(&quot;Invalid key excpetion - Invalid public key: &quot; + e.getMessage());</span>
 <span class="nc" id="L268">             return false;</span>
-<span class="fc" id="L269">         }</span>
+<span class="nc" id="L269">         }</span>
          
          try {
-<span class="fc" id="L272">        	 signature.update(signedData);</span>
-<span class="fc" id="L273">             success = signature.verify(expectedSignature);</span>
+<span class="nc" id="L272">        	 signature.update(signedData);</span>
+<span class="nc" id="L273">             success = signature.verify(expectedSignature);</span>
 <span class="nc" id="L274">         } catch (SignatureException e) {</span>
 <span class="nc" id="L275">             System.err.println(&quot;Error during signature verification: &quot; + e.getMessage());</span>
 <span class="nc" id="L276">             return false;</span>
-<span class="fc" id="L277">         }</span>
+<span class="nc" id="L277">         }</span>
          
-<span class="fc" id="L279">         return success;</span>
+<span class="nc" id="L279">         return success;</span>
 
     }
     
@@ -291,19 +291,19 @@ import se.sics.ace.rs.TokenRepository;
      */
     public static CBORObject retrieveCurve(final CBORObject parameters) {
     	
-<span class="fc" id="L294">    	CBORObject curve = null;</span>
+<span class="nc" id="L294">    	CBORObject curve = null;</span>
     	
-<span class="fc" id="L296">    	CBORObject keyType = parameters.get(0).get(0);</span>
+<span class="nc" id="L296">    	CBORObject keyType = parameters.get(0).get(0);</span>
     	
-<span class="pc bpc" id="L298" title="1 of 2 branches missed.">    	if (keyType == null) {</span>
+<span class="nc bnc" id="L298" title="All 2 branches missed.">    	if (keyType == null) {</span>
 <span class="nc" id="L299">    		return null;</span>
     	}
-<span class="pc bpc" id="L301" title="1 of 2 branches missed.">		if (keyType.equals(org.eclipse.californium.cose.KeyKeys.KeyType_OKP)</span>
+<span class="nc bnc" id="L301" title="All 2 branches missed.">		if (keyType.equals(org.eclipse.californium.cose.KeyKeys.KeyType_OKP)</span>
 <span class="nc bnc" id="L302" title="All 2 branches missed.">				|| keyType.equals(org.eclipse.californium.cose.KeyKeys.KeyType_EC2)) {</span>
-<span class="fc" id="L303">    		curve = parameters.get(1).get(1);</span>
+<span class="nc" id="L303">    		curve = parameters.get(1).get(1);</span>
     	}
     	
-<span class="fc" id="L306">    	return curve;</span>
+<span class="nc" id="L306">    	return curve;</span>
     	
     }
     
@@ -326,27 +326,27 @@ import se.sics.ace.rs.TokenRepository;
     							     	   final boolean useGroupMode,
     								       final CBORObject parameters) {
     	
-<span class="fc" id="L329">    	OneKey gmKeyPair = null;</span>
+<span class="nc" id="L329">    	OneKey gmKeyPair = null;</span>
     	
     	// Serialization of the COSE Key including both private and public part
-<span class="fc" id="L332">    	byte[] gmKeyPairBytes = null;</span>
+<span class="nc" id="L332">    	byte[] gmKeyPairBytes = null;</span>
     	
-<span class="fc" id="L334">    	CBORObject curve = retrieveCurve(parameters);</span>
+<span class="nc" id="L334">    	CBORObject curve = retrieveCurve(parameters);</span>
     	
-<span class="pc bpc" id="L336" title="1 of 2 branches missed.">    	if (curve == null) {</span>
+<span class="nc bnc" id="L336" title="All 2 branches missed.">    	if (curve == null) {</span>
     		// This should never happen
 <span class="nc" id="L338">    		return null;</span>
     	}
 
-<span class="pc bpc" id="L341" title="1 of 2 branches missed.">    	if (useGroupMode) {</span>
+<span class="nc bnc" id="L341" title="All 2 branches missed.">    	if (useGroupMode) {</span>
     		// This group uses the group mode, thus the authentication credential
     		// of the Group Manager has to be specific for signing operations
-<span class="pc bpc" id="L344" title="1 of 2 branches missed.">			if (curve.AsInt32() == org.eclipse.californium.cose.KeyKeys.EC2_P256.AsInt32()) {</span>
+<span class="nc bnc" id="L344" title="All 2 branches missed.">			if (curve.AsInt32() == org.eclipse.californium.cose.KeyKeys.EC2_P256.AsInt32()) {</span>
 <span class="nc" id="L345">				gmKeyPairBytes = Utils.hexToBytes(gmSigningKeyPairs.get(org.eclipse.californium.cose.KeyKeys.EC2_P256));</span>
     		}
-<span class="pc bpc" id="L347" title="1 of 2 branches missed.">			if (curve.AsInt32() == org.eclipse.californium.cose.KeyKeys.OKP_Ed25519.AsInt32()) {</span>
-<span class="fc" id="L348">				gmKeyPairBytes = Utils</span>
-<span class="fc" id="L349">						.hexToBytes(gmSigningKeyPairs.get(org.eclipse.californium.cose.KeyKeys.OKP_Ed25519));</span>
+<span class="nc bnc" id="L347" title="All 2 branches missed.">			if (curve.AsInt32() == org.eclipse.californium.cose.KeyKeys.OKP_Ed25519.AsInt32()) {</span>
+<span class="nc" id="L348">				gmKeyPairBytes = Utils</span>
+<span class="nc" id="L349">						.hexToBytes(gmSigningKeyPairs.get(org.eclipse.californium.cose.KeyKeys.OKP_Ed25519));</span>
     		}
     	}
     	else {
@@ -363,13 +363,13 @@ import se.sics.ace.rs.TokenRepository;
     	}
     	    	
     	try {
-<span class="fc" id="L366">			gmKeyPair = new OneKey(CBORObject.DecodeFromBytes(gmKeyPairBytes));</span>
+<span class="nc" id="L366">			gmKeyPair = new OneKey(CBORObject.DecodeFromBytes(gmKeyPairBytes));</span>
 <span class="nc" id="L367">		} catch (CoseException e) {</span>
 <span class="nc" id="L368">			e.printStackTrace();</span>
 <span class="nc" id="L369">    		return null;</span>
-<span class="fc" id="L370">		}</span>
+<span class="nc" id="L370">		}</span>
     	
-<span class="fc" id="L372">    	return gmKeyPair;</span>
+<span class="nc" id="L372">    	return gmKeyPair;</span>
     	
     }
     
@@ -400,20 +400,20 @@ import se.sics.ace.rs.TokenRepository;
     								        final boolean useGroupMode,
     								        final CBORObject parameters) {
     	
-<span class="fc" id="L403">    	byte[] gmAuthCred = null;</span>
+<span class="nc" id="L403">    	byte[] gmAuthCred = null;</span>
     	
-<span class="fc" id="L405">    	CBORObject curve = retrieveCurve(parameters);</span>
+<span class="nc" id="L405">    	CBORObject curve = retrieveCurve(parameters);</span>
     	
-<span class="pc bpc" id="L407" title="1 of 2 branches missed.">    	if (curve == null) {</span>
+<span class="nc bnc" id="L407" title="All 2 branches missed.">    	if (curve == null) {</span>
     		// This should never happen
 <span class="nc" id="L409">    		return null;</span>
     	}
     	
     	// Build the authentication credential according to the format used in the group
-<span class="pc bpc" id="L413" title="3 of 4 branches missed.">    	switch (credFmt) {</span>
+<span class="nc bnc" id="L413" title="All 4 branches missed.">    	switch (credFmt) {</span>
 	        case Constants.COSE_HEADER_PARAM_KCCS:
 	            // A CCS including the public key
-<span class="pc bpc" id="L416" title="1 of 2 branches missed.">			if (curve.AsInt32() == org.eclipse.californium.cose.KeyKeys.EC2_P256.AsInt32()) {</span>
+<span class="nc bnc" id="L416" title="All 2 branches missed.">			if (curve.AsInt32() == org.eclipse.californium.cose.KeyKeys.EC2_P256.AsInt32()) {</span>
 <span class="nc bnc" id="L417" title="All 2 branches missed.">	        		if (useGroupMode) {</span>
 <span class="nc" id="L418">					gmAuthCred = Utils.hexToBytes(gmSigningPublicAuthCred.get(Constants.COSE_HEADER_PARAM_KCCS)</span>
 <span class="nc" id="L419">							.get(org.eclipse.californium.cose.KeyKeys.EC2_P256));</span>
@@ -424,12 +424,12 @@ import se.sics.ace.rs.TokenRepository;
 <span class="nc" id="L424">							.get(org.eclipse.californium.cose.KeyKeys.EC2_P256));</span>
 	        		}		
 	        	}
-<span class="pc bpc" id="L427" title="1 of 2 branches missed.">			if (curve.AsInt32() == org.eclipse.californium.cose.KeyKeys.OKP_Ed25519.AsInt32()) {</span>
-<span class="fc" id="L428">				gmAuthCred = Utils.hexToBytes(gmSigningPublicAuthCred.get(Constants.COSE_HEADER_PARAM_KCCS)</span>
-<span class="fc" id="L429">						.get(org.eclipse.californium.cose.KeyKeys.OKP_Ed25519));</span>
+<span class="nc bnc" id="L427" title="All 2 branches missed.">			if (curve.AsInt32() == org.eclipse.californium.cose.KeyKeys.OKP_Ed25519.AsInt32()) {</span>
+<span class="nc" id="L428">				gmAuthCred = Utils.hexToBytes(gmSigningPublicAuthCred.get(Constants.COSE_HEADER_PARAM_KCCS)</span>
+<span class="nc" id="L429">						.get(org.eclipse.californium.cose.KeyKeys.OKP_Ed25519));</span>
 	        		// gmAuthCred = Utils.hexToBytes(&quot;A2026008A101A4010103272006215820C6EC665E817BD064340E7C24BB93A11E8EC0735CE48790F9C458F7FA340B8CA3&quot;);
 	        	}
-<span class="pc bpc" id="L432" title="1 of 2 branches missed.">			if (curve.AsInt32() == org.eclipse.californium.cose.KeyKeys.OKP_X25519.AsInt32()) {</span>
+<span class="nc bnc" id="L432" title="All 2 branches missed.">			if (curve.AsInt32() == org.eclipse.californium.cose.KeyKeys.OKP_X25519.AsInt32()) {</span>
 <span class="nc" id="L433">				gmAuthCred = Utils.hexToBytes(gmKeyAgreementPublicAuthCred.get(Constants.COSE_HEADER_PARAM_KCCS)</span>
 <span class="nc" id="L434">						.get(org.eclipse.californium.cose.KeyKeys.OKP_X25519));</span>
 	        	}
@@ -446,7 +446,7 @@ import se.sics.ace.rs.TokenRepository;
 	            break;
     	}
     	
-<span class="fc" id="L449">    	return gmAuthCred;</span>
+<span class="nc" id="L449">    	return gmAuthCred;</span>
     	
     }
     
@@ -553,68 +553,68 @@ import se.sics.ace.rs.TokenRepository;
      */
     public static int[] getGroupOSCORERolesFromToken(String subject, String groupName) {
 
-<span class="fc" id="L556">    	Set&lt;Integer&gt; roleSets = new HashSet&lt;Integer&gt;();</span>
+<span class="nc" id="L556">    	Set&lt;Integer&gt; roleSets = new HashSet&lt;Integer&gt;();</span>
     	
-<span class="fc" id="L558">    	String kid = TokenRepository.getInstance().getKid(subject);</span>
-<span class="fc" id="L559">    	Set&lt;String&gt; ctis = TokenRepository.getInstance().getCtis(kid);</span>
+<span class="nc" id="L558">    	String kid = TokenRepository.getInstance().getKid(subject);</span>
+<span class="nc" id="L559">    	Set&lt;String&gt; ctis = TokenRepository.getInstance().getCtis(kid);</span>
     	
     	// This should never happen at this point, since a valid Access Token
     	// has just made this request pass through 
-<span class="pc bpc" id="L563" title="1 of 2 branches missed.">    	if (ctis == null)</span>
+<span class="nc bnc" id="L563" title="All 2 branches missed.">    	if (ctis == null)</span>
 <span class="nc" id="L564">    		return null;</span>
     	
-<span class="fc bfc" id="L566" title="All 2 branches covered.">    	for (String cti : ctis) { // All tokens linked to that pop key</span>
+<span class="nc bnc" id="L566" title="All 2 branches missed.">    	for (String cti : ctis) { // All tokens linked to that pop key</span>
     		
 	        // Check if we have the claims for that cti
     		
 	        // Get the claims
-<span class="fc" id="L571">            Map&lt;Short, CBORObject&gt; claims = TokenRepository.getInstance().getClaims(cti);</span>
-<span class="pc bpc" id="L572" title="2 of 4 branches missed.">            if (claims == null || claims.isEmpty()) {</span>
+<span class="nc" id="L571">            Map&lt;Short, CBORObject&gt; claims = TokenRepository.getInstance().getClaims(cti);</span>
+<span class="nc bnc" id="L572" title="All 4 branches missed.">            if (claims == null || claims.isEmpty()) {</span>
                 // No claims found
         		// Move to the next Access Token for this 'kid'
 <span class="nc" id="L575">                continue;</span>
             }
             
 	        //Check the scope
-<span class="fc" id="L579">            CBORObject scope = claims.get(Constants.SCOPE);</span>
+<span class="nc" id="L579">            CBORObject scope = claims.get(Constants.SCOPE);</span>
             
         	// This should never happen, since a valid Access Token
             // has just reached a handler at the Group Manager
-<span class="pc bpc" id="L583" title="1 of 2 branches missed.">            if (scope == null) {</span>
+<span class="nc bnc" id="L583" title="All 2 branches missed.">            if (scope == null) {</span>
         		// Move to the next Access Token for this 'kid'
 <span class="nc" id="L585">            	continue;</span>
             }
             
-<span class="pc bpc" id="L588" title="1 of 2 branches missed.">            if (!scope.getType().equals(CBORType.ByteString)) {</span>
+<span class="nc bnc" id="L588" title="All 2 branches missed.">            if (!scope.getType().equals(CBORType.ByteString)) {</span>
         		// Move to the next Access Token for this 'kid'
 <span class="nc" id="L590">            	continue;</span>
             }
             
-<span class="fc" id="L593">            byte[] rawScope = scope.GetByteString();</span>
-<span class="fc" id="L594">        	CBORObject cborScope = CBORObject.DecodeFromBytes(rawScope);</span>
+<span class="nc" id="L593">            byte[] rawScope = scope.GetByteString();</span>
+<span class="nc" id="L594">        	CBORObject cborScope = CBORObject.DecodeFromBytes(rawScope);</span>
         	
-<span class="pc bpc" id="L596" title="1 of 2 branches missed.">        	if (!cborScope.getType().equals(CBORType.Array)) {</span>
+<span class="nc bnc" id="L596" title="All 2 branches missed.">        	if (!cborScope.getType().equals(CBORType.Array)) {</span>
         		// Move to the next Access Token for this 'kid'
 <span class="nc" id="L598">                continue;</span>
             }
 
-<span class="fc bfc" id="L601" title="All 2 branches covered.">        	for (int entryIndex = 0; entryIndex &lt; cborScope.size(); entryIndex++) {</span>
+<span class="nc bnc" id="L601" title="All 2 branches missed.">        	for (int entryIndex = 0; entryIndex &lt; cborScope.size(); entryIndex++) {</span>
             	
-<span class="fc" id="L603">        		CBORObject scopeEntry = cborScope.get(entryIndex);</span>
+<span class="nc" id="L603">        		CBORObject scopeEntry = cborScope.get(entryIndex);</span>
         		
-<span class="pc bpc" id="L605" title="2 of 4 branches missed.">        		if (!scopeEntry.getType().equals(CBORType.Array) || scopeEntry.size() != 2) {</span>
+<span class="nc bnc" id="L605" title="All 4 branches missed.">        		if (!scopeEntry.getType().equals(CBORType.Array) || scopeEntry.size() != 2) {</span>
         			// Move to the next Access Token for this 'kid'
 <span class="nc" id="L607">                    break;</span>
                 }
 	        	
 	        	// Retrieve the group name of the OSCORE group
 	        	String scopeStr;
-<span class="fc" id="L612">	      	  	CBORObject scopeElement = scopeEntry.get(0);</span>
-<span class="pc bpc" id="L613" title="1 of 2 branches missed.">	      	  	if (scopeElement.getType().equals(CBORType.TextString)) {</span>
-<span class="fc" id="L614">	      	  		scopeStr = scopeElement.AsString();</span>
-<span class="fc bfc" id="L615" title="All 2 branches covered.">	      	  		if (!scopeStr.equals(groupName)) {</span>
+<span class="nc" id="L612">	      	  	CBORObject scopeElement = scopeEntry.get(0);</span>
+<span class="nc bnc" id="L613" title="All 2 branches missed.">	      	  	if (scopeElement.getType().equals(CBORType.TextString)) {</span>
+<span class="nc" id="L614">	      	  		scopeStr = scopeElement.AsString();</span>
+<span class="nc bnc" id="L615" title="All 2 branches missed.">	      	  		if (!scopeStr.equals(groupName)) {</span>
 	      	  		    // Move to the next scope entry
-<span class="fc" id="L617">	      	  			continue;</span>
+<span class="nc" id="L617">	      	  			continue;</span>
 	      	  		}
 	      	  	}
 	      	  	else {
@@ -623,43 +623,43 @@ import se.sics.ace.rs.TokenRepository;
 	      	  	}
 	      	  	
 	      	  	// Retrieve the role or list of roles
-<span class="fc" id="L626">	      	  	scopeElement = scopeEntry.get(1);</span>
+<span class="nc" id="L626">	      	  	scopeElement = scopeEntry.get(1);</span>
 	      	  	
-<span class="pc bpc" id="L628" title="1 of 2 branches missed.">	        	if (!scopeElement.getType().equals(CBORType.Integer)) {</span>
+<span class="nc bnc" id="L628" title="All 2 branches missed.">	        	if (!scopeElement.getType().equals(CBORType.Integer)) {</span>
       	  		    // Move to the next scope entry
 <span class="nc" id="L630">      	  			continue;</span>
 	        	}
 	        	
-<span class="fc" id="L633">        		int roleSetToken = scopeElement.AsInt32();</span>
+<span class="nc" id="L633">        		int roleSetToken = scopeElement.AsInt32();</span>
         		
         		// According to the AIF-OSCORE-GROUPCOMM data model, a valid combination 
         		// of roles has to be a positive integer of even value (i.e., with last bit 0)
-<span class="pc bpc" id="L637" title="1 of 4 branches missed.">        		if (roleSetToken &lt;= 0 || (roleSetToken % 2 == 1)) {</span>
+<span class="nc bnc" id="L637" title="All 4 branches missed.">        		if (roleSetToken &lt;= 0 || (roleSetToken % 2 == 1)) {</span>
       	  		    // Move to the next scope entry
-<span class="fc" id="L639">      	  			continue;</span>
+<span class="nc" id="L639">      	  			continue;</span>
         		}
 
-<span class="fc" id="L642">        		roleSets.add(roleSetToken);</span>
+<span class="nc" id="L642">        		roleSets.add(roleSetToken);</span>
         			        	
         	}
         	
-<span class="fc" id="L646">    	}</span>
+<span class="nc" id="L646">    	}</span>
     	    	
     	// No Access Token allows this node to have any role
     	// with respect to the specified group
-<span class="pc bpc" id="L650" title="1 of 2 branches missed.">    	if (roleSets.size() == 0) {</span>
+<span class="nc bnc" id="L650" title="All 2 branches missed.">    	if (roleSets.size() == 0) {</span>
 <span class="nc" id="L651">    		return null;</span>
     	}
     	else {
-<span class="fc" id="L654">    		int[] ret = new int[roleSets.size()];</span>
+<span class="nc" id="L654">    		int[] ret = new int[roleSets.size()];</span>
     		
-<span class="fc" id="L656">    		int index = 0;</span>
-<span class="fc bfc" id="L657" title="All 2 branches covered.">    		for (Integer i : roleSets) {</span>
-<span class="fc" id="L658">    			ret[index] = i.intValue();</span>
-<span class="fc" id="L659">    			index++;</span>
-<span class="fc" id="L660">    		}</span>
+<span class="nc" id="L656">    		int index = 0;</span>
+<span class="nc bnc" id="L657" title="All 2 branches missed.">    		for (Integer i : roleSets) {</span>
+<span class="nc" id="L658">    			ret[index] = i.intValue();</span>
+<span class="nc" id="L659">    			index++;</span>
+<span class="nc" id="L660">    		}</span>
     		
-<span class="fc" id="L662">    		return ret;</span>
+<span class="nc" id="L662">    		return ret;</span>
     	}
     	
     }
@@ -716,15 +716,15 @@ import se.sics.ace.rs.TokenRepository;
      */
     public static boolean checkGroupOSCOREAdminPermission (int permissionSet, short permission) throws AceException {
    	 
-<span class="pc bpc" id="L719" title="2 of 4 branches missed.">   	 if ((permissionSet &lt; 1) || ((permissionSet % 2) == 0)) {</span>
+<span class="nc bnc" id="L719" title="All 4 branches missed.">   	 if ((permissionSet &lt; 1) || ((permissionSet % 2) == 0)) {</span>
 <span class="nc" id="L720">   		 throw new AceException(&quot;Invalid set of Group OSCORE admin permissions&quot;);</span>
    	 }
    	 
-<span class="pc bpc" id="L723" title="1 of 2 branches missed.">   	 if (permission &lt; 0) {</span>
+<span class="nc bnc" id="L723" title="All 2 branches missed.">   	 if (permission &lt; 0) {</span>
 <span class="nc" id="L724">   		 throw new AceException(&quot;Invalid identifier of Group OSCORE admin permission&quot;);</span>
    	 }
    	 
-<span class="pc bpc" id="L727" title="1 of 2 branches missed.">   	 return ((permissionSet &amp; (1 &lt;&lt; permission)) != 0);</span>
+<span class="nc bnc" id="L727" title="All 2 branches missed.">   	 return ((permissionSet &amp; (1 &lt;&lt; permission)) != 0);</span>
    	 
     }
     
@@ -772,88 +772,88 @@ import se.sics.ace.rs.TokenRepository;
      */
     public static CBORObject[] getGroupOSCOREAdminPermissionsFromToken(String subject, String groupName) {
 
-<span class="fc" id="L775">    	List&lt;CBORObject&gt; scopeEntries = new ArrayList&lt;CBORObject&gt;();</span>
+<span class="nc" id="L775">    	List&lt;CBORObject&gt; scopeEntries = new ArrayList&lt;CBORObject&gt;();</span>
     	
-<span class="fc" id="L777">    	String kid = TokenRepository.getInstance().getKid(subject);</span>
-<span class="fc" id="L778">    	Set&lt;String&gt; ctis = TokenRepository.getInstance().getCtis(kid);</span>
+<span class="nc" id="L777">    	String kid = TokenRepository.getInstance().getKid(subject);</span>
+<span class="nc" id="L778">    	Set&lt;String&gt; ctis = TokenRepository.getInstance().getCtis(kid);</span>
     	
     	// This should never happen at this point, since a valid Access Token
     	// has just made this request pass through 
-<span class="pc bpc" id="L782" title="1 of 2 branches missed.">    	if (ctis == null)</span>
+<span class="nc bnc" id="L782" title="All 2 branches missed.">    	if (ctis == null)</span>
 <span class="nc" id="L783">    		return null;</span>
     	
-<span class="fc bfc" id="L785" title="All 2 branches covered.">    	for (String cti : ctis) { // All tokens linked to that pop key</span>
+<span class="nc bnc" id="L785" title="All 2 branches missed.">    	for (String cti : ctis) { // All tokens linked to that pop key</span>
     		
 	        // Check if we have the claims for that cti
     		
 	        // Get the claims
-<span class="fc" id="L790">            Map&lt;Short, CBORObject&gt; claims = TokenRepository.getInstance().getClaims(cti);</span>
-<span class="pc bpc" id="L791" title="2 of 4 branches missed.">            if (claims == null || claims.isEmpty()) {</span>
+<span class="nc" id="L790">            Map&lt;Short, CBORObject&gt; claims = TokenRepository.getInstance().getClaims(cti);</span>
+<span class="nc bnc" id="L791" title="All 4 branches missed.">            if (claims == null || claims.isEmpty()) {</span>
                 // No claims found
         		// Move to the next Access Token for this 'kid'
 <span class="nc" id="L794">                continue;</span>
             }
             
 	        //Check the scope
-<span class="fc" id="L798">            CBORObject scope = claims.get(Constants.SCOPE);</span>
+<span class="nc" id="L798">            CBORObject scope = claims.get(Constants.SCOPE);</span>
             
         	// This should never happen, since a valid Access Token
             // has just reached a handler at the Group Manager
-<span class="pc bpc" id="L802" title="1 of 2 branches missed.">            if (scope == null) {</span>
+<span class="nc bnc" id="L802" title="All 2 branches missed.">            if (scope == null) {</span>
         		// Move to the next Access Token for this 'kid'
 <span class="nc" id="L804">            	continue;</span>
             }
             
-<span class="pc bpc" id="L807" title="1 of 2 branches missed.">            if (!scope.getType().equals(CBORType.ByteString)) {</span>
+<span class="nc bnc" id="L807" title="All 2 branches missed.">            if (!scope.getType().equals(CBORType.ByteString)) {</span>
         		// Move to the next Access Token for this 'kid'
 <span class="nc" id="L809">            	continue;</span>
             }
             
-<span class="fc" id="L812">            byte[] rawScope = scope.GetByteString();</span>
-<span class="fc" id="L813">        	CBORObject cborScope = CBORObject.DecodeFromBytes(rawScope);</span>
+<span class="nc" id="L812">            byte[] rawScope = scope.GetByteString();</span>
+<span class="nc" id="L813">        	CBORObject cborScope = CBORObject.DecodeFromBytes(rawScope);</span>
         	
-<span class="pc bpc" id="L815" title="1 of 2 branches missed.">        	if (!cborScope.getType().equals(CBORType.Array)) {</span>
+<span class="nc bnc" id="L815" title="All 2 branches missed.">        	if (!cborScope.getType().equals(CBORType.Array)) {</span>
         		// Move to the next Access Token for this 'kid'
 <span class="nc" id="L817">                continue;</span>
             }
         	
-<span class="fc bfc" id="L820" title="All 2 branches covered.">        	for (int entryIndex = 0; entryIndex &lt; cborScope.size(); entryIndex++) {</span>
+<span class="nc bnc" id="L820" title="All 2 branches missed.">        	for (int entryIndex = 0; entryIndex &lt; cborScope.size(); entryIndex++) {</span>
             	
-<span class="fc" id="L822">        		CBORObject scopeEntry = cborScope.get(entryIndex);</span>
+<span class="nc" id="L822">        		CBORObject scopeEntry = cborScope.get(entryIndex);</span>
         		
-<span class="pc bpc" id="L824" title="2 of 4 branches missed.">        		if (!scopeEntry.getType().equals(CBORType.Array) || scopeEntry.size() != 2) {</span>
+<span class="nc bnc" id="L824" title="All 4 branches missed.">        		if (!scopeEntry.getType().equals(CBORType.Array) || scopeEntry.size() != 2) {</span>
         			// Move to the next Access Token for this 'kid'
 <span class="nc" id="L826">                    break;</span>
                 }
         		
 	      	  	// Retrieve the role or list of admin permissions
-<span class="fc" id="L830">        		CBORObject scopeElement = scopeEntry.get(1);</span>
+<span class="nc" id="L830">        		CBORObject scopeElement = scopeEntry.get(1);</span>
 	      	  	
-<span class="pc bpc" id="L832" title="1 of 2 branches missed.">	        	if (!scopeElement.getType().equals(CBORType.Integer)) {</span>
+<span class="nc bnc" id="L832" title="All 2 branches missed.">	        	if (!scopeElement.getType().equals(CBORType.Integer)) {</span>
       	  		    // Move to the next scope entry
 <span class="nc" id="L834">      	  			continue;</span>
 	        	}
 	        	
-<span class="fc" id="L837">        		int permissionSetToken = scopeElement.AsInt32();</span>
+<span class="nc" id="L837">        		int permissionSetToken = scopeElement.AsInt32();</span>
         		
         		// According to the AIF-OSCORE-GROUPCOMM data model, a valid combination 
         		// of admin permissions has to be a positive integer of odd value (i.e., with last bit 1)
-<span class="pc bpc" id="L841" title="1 of 4 branches missed.">        		if (permissionSetToken &lt;= 0 || (permissionSetToken % 2 == 0)) {</span>
+<span class="nc bnc" id="L841" title="All 4 branches missed.">        		if (permissionSetToken &lt;= 0 || (permissionSetToken % 2 == 0)) {</span>
       	  		    // Move to the next scope entry
-<span class="fc" id="L843">      	  			continue;</span>
+<span class="nc" id="L843">      	  			continue;</span>
         		}
         		
-<span class="fc bfc" id="L846" title="All 2 branches covered.">	      	  	if (groupName == null) {</span>
+<span class="nc bnc" id="L846" title="All 2 branches missed.">	      	  	if (groupName == null) {</span>
 	      	  		// Include this scope entry in the results to return, and move to the next one
-<span class="fc" id="L848">	      	  		scopeEntries.add(scopeEntry);</span>
-<span class="fc" id="L849">	      	  		continue;</span>
+<span class="nc" id="L848">	      	  		scopeEntries.add(scopeEntry);</span>
+<span class="nc" id="L849">	      	  		continue;</span>
 	      	  	}
 
 	        	// Check if the group name of the OSCORE group matches with the group name pattern
-<span class="fc" id="L853">	      	  	scopeElement = scopeEntry.get(0);</span>
-<span class="fc bfc" id="L854" title="All 2 branches covered.">	      	    if (matchingGroupOscoreName(groupName, scopeElement)) {</span>
+<span class="nc" id="L853">	      	  	scopeElement = scopeEntry.get(0);</span>
+<span class="nc bnc" id="L854" title="All 2 branches missed.">	      	    if (matchingGroupOscoreName(groupName, scopeElement)) {</span>
 	      	    	// There is a match; include this scope entry in the results to return
-<span class="fc" id="L856">	      	    	scopeEntries.add(scopeEntry);</span>
+<span class="nc" id="L856">	      	    	scopeEntries.add(scopeEntry);</span>
 	      	    }
 	      	    else {
 	      	    	// Move to the next scope entry
@@ -862,26 +862,26 @@ import se.sics.ace.rs.TokenRepository;
         			        	
         	}
         	
-<span class="fc" id="L865">    	}</span>
+<span class="nc" id="L865">    	}</span>
     	    	
     	// No Access Token allows this node to have any admin permission,
     	// altogether or with respect to the specified group
-<span class="fc" id="L869">    	int size = scopeEntries.size();</span>
-<span class="pc bpc" id="L870" title="1 of 2 branches missed.">    	if (size == 0) {</span>
+<span class="nc" id="L869">    	int size = scopeEntries.size();</span>
+<span class="nc bnc" id="L870" title="All 2 branches missed.">    	if (size == 0) {</span>
 <span class="nc" id="L871">    		return null;</span>
     	}
     	else {
-<span class="fc" id="L874">    		CBORObject[] ret = new CBORObject[size];</span>
+<span class="nc" id="L874">    		CBORObject[] ret = new CBORObject[size];</span>
     		
-<span class="fc" id="L876">    		int index = 0;</span>
-<span class="fc bfc" id="L877" title="All 2 branches covered.">    		for (CBORObject entry : scopeEntries) {</span>
+<span class="nc" id="L876">    		int index = 0;</span>
+<span class="nc bnc" id="L877" title="All 2 branches missed.">    		for (CBORObject entry : scopeEntries) {</span>
         		// Hard copy
-<span class="fc" id="L879">    			byte[] binaryElem = entry.EncodeToBytes();</span>
-<span class="fc" id="L880">    			ret[index] = CBORObject.DecodeFromBytes(binaryElem);</span>
-<span class="fc" id="L881">    			index++;</span>
-<span class="fc" id="L882">    		}</span>
+<span class="nc" id="L879">    			byte[] binaryElem = entry.EncodeToBytes();</span>
+<span class="nc" id="L880">    			ret[index] = CBORObject.DecodeFromBytes(binaryElem);</span>
+<span class="nc" id="L881">    			index++;</span>
+<span class="nc" id="L882">    		}</span>
     		
-<span class="fc" id="L884">    		return ret;</span>
+<span class="nc" id="L884">    		return ret;</span>
     	}
     	
     }
@@ -897,14 +897,14 @@ import se.sics.ace.rs.TokenRepository;
      */
     public static boolean matchingGroupOscoreName(final String groupName, final CBORObject groupNamePattern) {
     	
-<span class="pc bpc" id="L900" title="1 of 2 branches missed.">  	  	if (groupNamePattern.equals(CBORObject.True)) {</span>
+<span class="nc bnc" id="L900" title="All 2 branches missed.">  	  	if (groupNamePattern.equals(CBORObject.True)) {</span>
 	  		// The group name pattern is the wildcard
 <span class="nc" id="L902">  	  		return true;</span>
   	  	}
   	  		
-<span class="pc bpc" id="L905" title="1 of 2 branches missed.">  	  	if (groupNamePattern.getType().equals(CBORType.TextString)) {</span>
-<span class="fc" id="L906">  	  		String groupNamePatternString = groupNamePattern.AsString();</span>
-<span class="pc bpc" id="L907" title="1 of 2 branches missed.">  	  		if (groupNamePattern.HasTag(21065)) {</span>
+<span class="nc bnc" id="L905" title="All 2 branches missed.">  	  	if (groupNamePattern.getType().equals(CBORType.TextString)) {</span>
+<span class="nc" id="L906">  	  		String groupNamePatternString = groupNamePattern.AsString();</span>
+<span class="nc bnc" id="L907" title="All 2 branches missed.">  	  		if (groupNamePattern.HasTag(21065)) {</span>
   	  			// The group name pattern is an I-Regexp regular expression
   	  			
 <span class="nc" id="L910">  	  			Pattern pat = Pattern.compile(groupNamePatternString);</span>
@@ -914,14 +914,14 @@ import se.sics.ace.rs.TokenRepository;
 <span class="nc" id="L914">      	  		    return false;</span>
   	  			}
 <span class="nc" id="L916">  	  		}</span>
-<span class="fc bfc" id="L917" title="All 2 branches covered.">  	  		else if (!groupNamePatternString.equals(groupName)) {</span>
+<span class="nc bnc" id="L917" title="All 2 branches missed.">  	  		else if (!groupNamePatternString.equals(groupName)) {</span>
   	  			// The group name pattern is an exact group name,
   	  			// which does not match with the target group name
-<span class="fc" id="L920">  	  		    return false;</span>
+<span class="nc" id="L920">  	  		    return false;</span>
   	  		}
   	  		
   	  		// The target group name has matched with the group name pattern
-<span class="fc" id="L924">  	  		return true;</span>
+<span class="nc" id="L924">  	  		return true;</span>
   	  	}
 
 <span class="nc" id="L927">  	  	return false;</span>
@@ -995,26 +995,26 @@ import se.sics.ace.rs.TokenRepository;
      */
 	public static OneKey ccsToOneKey(CBORObject ccs) {
 		
-<span class="pc bpc" id="L998" title="1 of 2 branches missed.">		if (ccs == null)</span>
+<span class="nc bnc" id="L998" title="All 2 branches missed.">		if (ccs == null)</span>
 <span class="nc" id="L999">			return null;</span>
 		
-<span class="pc bpc" id="L1001" title="1 of 2 branches missed.">		if (ccs.getType() != CBORType.Map)</span>
+<span class="nc bnc" id="L1001" title="All 2 branches missed.">		if (ccs.getType() != CBORType.Map)</span>
 <span class="nc" id="L1002">		    return null;</span>
 		
-<span class="pc bpc" id="L1004" title="2 of 4 branches missed.">		if (!ccs.ContainsKey(Constants.CNF) || !ccs.get(Constants.CNF).ContainsKey(Constants.COSE_KEY))</span>
+<span class="nc bnc" id="L1004" title="All 4 branches missed.">		if (!ccs.ContainsKey(Constants.CNF) || !ccs.get(Constants.CNF).ContainsKey(Constants.COSE_KEY))</span>
 <span class="nc" id="L1005">			return null;</span>
 		
-<span class="fc" id="L1007">		CBORObject pubKeyCBOR = ccs.get(Constants.CNF).get(Constants.COSE_KEY);</span>
+<span class="nc" id="L1007">		CBORObject pubKeyCBOR = ccs.get(Constants.CNF).get(Constants.COSE_KEY);</span>
 		
-<span class="fc" id="L1009">		OneKey pubKey = null;</span>
+<span class="nc" id="L1009">		OneKey pubKey = null;</span>
 		try {
-<span class="fc" id="L1011">			pubKey = new OneKey(pubKeyCBOR);</span>
+<span class="nc" id="L1011">			pubKey = new OneKey(pubKeyCBOR);</span>
 <span class="nc" id="L1012">		} catch (CoseException e) {</span>
 <span class="nc" id="L1013">			System.err.println(&quot;Error when building a OneKey from a CCS: &quot; + e.getMessage());</span>
 <span class="nc" id="L1014">			return null;</span>
-<span class="fc" id="L1015">		}</span>
+<span class="nc" id="L1015">		}</span>
 		
-<span class="fc" id="L1017">        return pubKey;</span>
+<span class="nc" id="L1017">        return pubKey;</span>
 		
 	}
 	
@@ -1118,26 +1118,26 @@ import se.sics.ace.rs.TokenRepository;
     
     public static void prettyPrintCborMap(final CBORObject obj) {
 
-<span class="pc bpc" id="L1121" title="1 of 2 branches missed.">    	if (obj.getType() != CBORType.Map) {</span>
+<span class="nc bnc" id="L1121" title="All 2 branches missed.">    	if (obj.getType() != CBORType.Map) {</span>
 <span class="nc" id="L1122">    		System.err.println(&quot;Trying to print a CBOR map, while it is not&quot;);</span>
 <span class="nc" id="L1123">    		return;</span>
     	}
     	
-<span class="fc" id="L1126">    	int counter = 0;</span>
-<span class="fc" id="L1127">    	System.out.println(&quot;{&quot;);</span>
-<span class="fc bfc" id="L1128" title="All 2 branches covered.">    	for (CBORObject elemKey : obj.getKeys()) {</span>
-<span class="fc" id="L1129">    		System.out.print(&quot;  &quot; + elemKey + &quot;: &quot; + obj.get(elemKey));</span>
-<span class="fc" id="L1130">    		counter++;</span>
-<span class="fc bfc" id="L1131" title="All 2 branches covered.">    		if (counter != obj.size()) {</span>
-<span class="fc" id="L1132">    			System.out.println(&quot;,&quot;);</span>
+<span class="nc" id="L1126">    	int counter = 0;</span>
+<span class="nc" id="L1127">    	System.out.println(&quot;{&quot;);</span>
+<span class="nc bnc" id="L1128" title="All 2 branches missed.">    	for (CBORObject elemKey : obj.getKeys()) {</span>
+<span class="nc" id="L1129">    		System.out.print(&quot;  &quot; + elemKey + &quot;: &quot; + obj.get(elemKey));</span>
+<span class="nc" id="L1130">    		counter++;</span>
+<span class="nc bnc" id="L1131" title="All 2 branches missed.">    		if (counter != obj.size()) {</span>
+<span class="nc" id="L1132">    			System.out.println(&quot;,&quot;);</span>
     		}
     		else {
-<span class="fc" id="L1135">    			System.out.println(&quot;&quot;);</span>
+<span class="nc" id="L1135">    			System.out.println(&quot;&quot;);</span>
     		}
-<span class="fc" id="L1137">    	}</span>
-<span class="fc" id="L1138">    	System.out.println(&quot;}\n&quot;);</span>
+<span class="nc" id="L1137">    	}</span>
+<span class="nc" id="L1138">    	System.out.println(&quot;}\n&quot;);</span>
     	
-<span class="fc" id="L1140">    }</span>
+<span class="nc" id="L1140">    }</span>
     
     public static void printResponsePayloadCBOR(Response res) throws Exception {
 <span class="nc bnc" id="L1143" title="All 2 branches missed.">        if (res != null) {</span>

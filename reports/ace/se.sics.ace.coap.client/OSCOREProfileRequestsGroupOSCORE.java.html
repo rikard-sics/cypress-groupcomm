@@ -143,91 +143,91 @@ import se.sics.ace.coap.rs.oscoreProfile.OscoreSecurityContext;
     public static Response postToken(String rsAddr, Response asResp, boolean askForSignInfo, boolean askForEcdhInfo,
     		                         OSCoreCtxDB db, List&lt;Set&lt;Integer&gt;&gt; usedRecipientIds) 
             throws AceException, OSException {
-<span class="pc bpc" id="L146" title="1 of 2 branches missed.">        if (asResp == null) {</span>
+<span class="nc bnc" id="L146" title="All 2 branches missed.">        if (asResp == null) {</span>
 <span class="nc" id="L147">            throw new AceException(&quot;asResp cannot be null when POSTing to authz-info&quot;);</span>
         }
         
         CBORObject asPayload;
         
         try {
-<span class="fc" id="L153">            asPayload = CBORObject.DecodeFromBytes(asResp.getPayload());</span>
+<span class="nc" id="L153">            asPayload = CBORObject.DecodeFromBytes(asResp.getPayload());</span>
 <span class="nc" id="L154">        } catch (CBORException e) {</span>
 <span class="nc" id="L155">            throw new AceException(&quot;Error parsing CBOR payload: &quot;+ e.getMessage());</span>
-<span class="fc" id="L156">        }</span>
+<span class="nc" id="L156">        }</span>
                
-<span class="pc bpc" id="L158" title="1 of 2 branches missed.">        if (!asPayload.getType().equals(CBORType.Map)) {</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">        if (!asPayload.getType().equals(CBORType.Map)) {</span>
 <span class="nc" id="L159">            throw new AceException(&quot;AS response was not a CBOR map&quot;);</span>
         }
         
-<span class="fc" id="L162">        CBORObject token = asPayload.get(</span>
-<span class="fc" id="L163">                CBORObject.FromObject(Constants.ACCESS_TOKEN));</span>
-<span class="pc bpc" id="L164" title="1 of 2 branches missed.">        if (token == null) {</span>
+<span class="nc" id="L162">        CBORObject token = asPayload.get(</span>
+<span class="nc" id="L163">                CBORObject.FromObject(Constants.ACCESS_TOKEN));</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">        if (token == null) {</span>
 <span class="nc" id="L165">            throw new AceException(&quot;AS response did not contain a token&quot;);</span>
         }
-<span class="pc bpc" id="L167" title="1 of 2 branches missed.">        if (token.getType() != CBORType.ByteString) {</span>
+<span class="nc bnc" id="L167" title="All 2 branches missed.">        if (token.getType() != CBORType.ByteString) {</span>
 <span class="nc" id="L168">            throw new AceException(&quot;The token must be a CBOR byte string&quot;);</span>
         }
         
-<span class="fc" id="L171">        CBORObject cnf = asPayload.get(</span>
-<span class="fc" id="L172">                CBORObject.FromObject(Constants.CNF));</span>
-<span class="pc bpc" id="L173" title="1 of 2 branches missed.">        if (cnf == null) {</span>
+<span class="nc" id="L171">        CBORObject cnf = asPayload.get(</span>
+<span class="nc" id="L172">                CBORObject.FromObject(Constants.CNF));</span>
+<span class="nc bnc" id="L173" title="All 2 branches missed.">        if (cnf == null) {</span>
 <span class="nc" id="L174">            throw new AceException(&quot;AS response did not contain a cnf&quot;);</span>
         }
       
-<span class="pc bpc" id="L177" title="2 of 4 branches missed.">        if (!cnf.ContainsKey(Constants.OSCORE_Input_Material) || cnf.ContainsKey(Constants.COSE_KID_CBOR)) {</span>
+<span class="nc bnc" id="L177" title="All 4 branches missed.">        if (!cnf.ContainsKey(Constants.OSCORE_Input_Material) || cnf.ContainsKey(Constants.COSE_KID_CBOR)) {</span>
 <span class="nc" id="L178">        	throw new AceException(&quot;Invalid format of cnf&quot;);</span>
         }
         
-<span class="fc" id="L181">        CBORObject payload = CBORObject.NewMap();</span>
-<span class="fc" id="L182">        payload.Add(Constants.ACCESS_TOKEN, token);</span>
+<span class="nc" id="L181">        CBORObject payload = CBORObject.NewMap();</span>
+<span class="nc" id="L182">        payload.Add(Constants.ACCESS_TOKEN, token);</span>
         
-<span class="pc bpc" id="L184" title="1 of 2 branches missed.">        if (askForSignInfo)</span>
-<span class="fc" id="L185">        	payload.Add(Constants.SIGN_INFO, CBORObject.Null);</span>
+<span class="nc bnc" id="L184" title="All 2 branches missed.">        if (askForSignInfo)</span>
+<span class="nc" id="L185">        	payload.Add(Constants.SIGN_INFO, CBORObject.Null);</span>
         
-<span class="pc bpc" id="L187" title="1 of 2 branches missed.">        if (askForEcdhInfo)</span>
-<span class="fc" id="L188">        	payload.Add(Constants.ECDH_INFO, CBORObject.Null);</span>
+<span class="nc bnc" id="L187" title="All 2 branches missed.">        if (askForEcdhInfo)</span>
+<span class="nc" id="L188">        	payload.Add(Constants.ECDH_INFO, CBORObject.Null);</span>
         
-<span class="fc" id="L190">        byte[] n1 = new byte[8];</span>
-<span class="fc" id="L191">        new SecureRandom().nextBytes(n1);</span>
-<span class="fc" id="L192">        payload.Add(Constants.NONCE1, n1);</span>
+<span class="nc" id="L190">        byte[] n1 = new byte[8];</span>
+<span class="nc" id="L191">        new SecureRandom().nextBytes(n1);</span>
+<span class="nc" id="L192">        payload.Add(Constants.NONCE1, n1);</span>
         
-<span class="fc" id="L194">        byte[] recipientId = null;</span>
-<span class="fc" id="L195">		byte[] contextId = new byte[0];</span>
-<span class="fc" id="L196">        int recipientIdAsInt = -1;        </span>
-<span class="fc" id="L197">        boolean found = false;</span>
+<span class="nc" id="L194">        byte[] recipientId = null;</span>
+<span class="nc" id="L195">		byte[] contextId = new byte[0];</span>
+<span class="nc" id="L196">        int recipientIdAsInt = -1;        </span>
+<span class="nc" id="L197">        boolean found = false;</span>
         
         // Determine an available Recipient ID to offer to the Resource Server as ID1
-<span class="fc" id="L200">        synchronized(usedRecipientIds) {</span>
-<span class="fc" id="L201">        	synchronized(db) {</span>
+<span class="nc" id="L200">        synchronized(usedRecipientIds) {</span>
+<span class="nc" id="L201">        	synchronized(db) {</span>
         	
 	        	int maxIdValue;
 
-<span class="pc bpc" id="L205" title="1 of 2 branches missed.">    			if (cnf.get(Constants.OSCORE_Input_Material).ContainsKey(Constants.OS_CONTEXTID)) {</span>
+<span class="nc bnc" id="L205" title="All 2 branches missed.">    			if (cnf.get(Constants.OSCORE_Input_Material).ContainsKey(Constants.OS_CONTEXTID)) {</span>
 <span class="nc" id="L206">    				contextId = cnf.get(Constants.OSCORE_Input_Material).get(Constants.OS_CONTEXTID).GetByteString();</span>
     			}
 	        	
 		        // Start with 1 byte as size of Recipient ID; try with up to 4 bytes in size        
-<span class="pc bpc" id="L210" title="1 of 2 branches missed.">		        for (int idSize = 1; idSize &lt;= 4; idSize++) {</span>
+<span class="nc bnc" id="L210" title="All 2 branches missed.">		        for (int idSize = 1; idSize &lt;= 4; idSize++) {</span>
 		        	
-<span class="pc bpc" id="L212" title="1 of 2 branches missed.">		        	if (idSize == 4)</span>
+<span class="nc bnc" id="L212" title="All 2 branches missed.">		        	if (idSize == 4)</span>
 <span class="nc" id="L213">		        		maxIdValue = (1 &lt;&lt; 31) - 1;</span>
 		        	else
-<span class="fc" id="L215">		        		maxIdValue = (1 &lt;&lt; (idSize * 8)) - 1;</span>
+<span class="nc" id="L215">		        		maxIdValue = (1 &lt;&lt; (idSize * 8)) - 1;</span>
 		        	
-<span class="pc bpc" id="L217" title="1 of 2 branches missed.">			        for (int j = 0; j &lt;= maxIdValue; j++) {</span>
+<span class="nc bnc" id="L217" title="All 2 branches missed.">			        for (int j = 0; j &lt;= maxIdValue; j++) {</span>
 			        	
-<span class="fc" id="L219">	        			recipientId = Util.intToBytes(j, idSize);</span>
+<span class="nc" id="L219">	        			recipientId = Util.intToBytes(j, idSize);</span>
 	        			
 	        			// This Recipient ID is marked as not available to use
-<span class="fc bfc" id="L222" title="All 2 branches covered.">	        			if (usedRecipientIds.get(idSize - 1).contains(j))</span>
-<span class="fc" id="L223">	        				continue;</span>
+<span class="nc bnc" id="L222" title="All 2 branches missed.">	        			if (usedRecipientIds.get(idSize - 1).contains(j))</span>
+<span class="nc" id="L223">	        				continue;</span>
 	        			
 	        			try {
 				        	// This Recipient ID seems to be available to use 
-<span class="pc bpc" id="L227" title="1 of 2 branches missed.">			        		if (!usedRecipientIds.get(idSize - 1).contains(j)) {</span>
+<span class="nc bnc" id="L227" title="All 2 branches missed.">			        		if (!usedRecipientIds.get(idSize - 1).contains(j)) {</span>
 			        			
 			        			// Double check in the database of OSCORE Security Contexts
-<span class="pc bpc" id="L230" title="1 of 2 branches missed.">			        			if (db.getContext(recipientId, contextId) != null) {</span>
+<span class="nc bnc" id="L230" title="All 2 branches missed.">			        			if (db.getContext(recipientId, contextId) != null) {</span>
 			        				
 			        				// A Security Context with this Recipient ID exists and was not tracked!
 			        				// Update the local list of used Recipient IDs, then move on to the next candidate
@@ -238,10 +238,10 @@ import se.sics.ace.coap.rs.oscoreProfile.OscoreSecurityContext;
 			        			else {
 			        				
 			        				// This Recipient ID is actually available at the moment. Add it to the local list
-<span class="fc" id="L241">			        				usedRecipientIds.get(idSize - 1).add(j);</span>
-<span class="fc" id="L242">			        				recipientIdAsInt = j;</span>
-<span class="fc" id="L243">			        				found = true;</span>
-<span class="fc" id="L244">			        				break;</span>
+<span class="nc" id="L241">			        				usedRecipientIds.get(idSize - 1).add(j);</span>
+<span class="nc" id="L242">			        				recipientIdAsInt = j;</span>
+<span class="nc" id="L243">			        				found = true;</span>
+<span class="nc" id="L244">			        				break;</span>
 			        			}
 			        			
 			        		}
@@ -255,108 +255,108 @@ import se.sics.ace.coap.rs.oscoreProfile.OscoreSecurityContext;
 		        			
 			        }
 			        
-<span class="pc bpc" id="L258" title="1 of 2 branches missed.">			        if (found)</span>
-<span class="fc" id="L259">			        	break;</span>
+<span class="nc bnc" id="L258" title="All 2 branches missed.">			        if (found)</span>
+<span class="nc" id="L259">			        	break;</span>
 			        	
 		        }
-<span class="fc" id="L262">        	}</span>
-<span class="fc" id="L263">        }</span>
+<span class="nc" id="L262">        	}</span>
+<span class="nc" id="L263">        }</span>
 
-<span class="pc bpc" id="L265" title="1 of 2 branches missed.">        if (!found) {</span>
+<span class="nc bnc" id="L265" title="All 2 branches missed.">        if (!found) {</span>
 <span class="nc" id="L266">            throw new AceException(&quot;No Recipient ID available to use&quot;);</span>
         }
-<span class="fc" id="L268">        payload.Add(Constants.ACE_CLIENT_RECIPIENTID, recipientId);</span>
+<span class="nc" id="L268">        payload.Add(Constants.ACE_CLIENT_RECIPIENTID, recipientId);</span>
         
         
         
-<span class="fc" id="L272">        Response resp = null;</span>
-<span class="fc" id="L273">        CoapClient client = new CoapClient(rsAddr);</span>
+<span class="nc" id="L272">        Response resp = null;</span>
+<span class="nc" id="L273">        CoapClient client = new CoapClient(rsAddr);</span>
                 
         try {
-<span class="fc" id="L276">            LOGGER.finest(&quot;Sending request payload: &quot; + payload);</span>
-<span class="fc" id="L277">            resp = client.post(</span>
-<span class="fc" id="L278">                    payload.EncodeToBytes(), </span>
-<span class="fc" id="L279">                    Constants.APPLICATION_ACE_CBOR).advanced();</span>
+<span class="nc" id="L276">            LOGGER.finest(&quot;Sending request payload: &quot; + payload);</span>
+<span class="nc" id="L277">            resp = client.post(</span>
+<span class="nc" id="L278">                    payload.EncodeToBytes(), </span>
+<span class="nc" id="L279">                    Constants.APPLICATION_ACE_CBOR).advanced();</span>
 <span class="nc" id="L280">        } catch (ConnectorException | IOException ex) {</span>
 <span class="nc bnc" id="L281" title="All 2 branches missed.">        	if (recipientIdAsInt != -1) {</span>
 <span class="nc" id="L282">        		usedRecipientIds.get(recipientId.length - 1).remove(recipientIdAsInt);</span>
         	}
 <span class="nc" id="L284">            LOGGER.severe(&quot;Connector error: &quot; + ex.getMessage());</span>
 <span class="nc" id="L285">            throw new AceException(ex.getMessage());</span>
-<span class="fc" id="L286">        }</span>
+<span class="nc" id="L286">        }</span>
 
-<span class="pc bpc" id="L288" title="1 of 2 branches missed.">        if (resp == null) {</span>
+<span class="nc bnc" id="L288" title="All 2 branches missed.">        if (resp == null) {</span>
 <span class="nc" id="L289">            throw new AceException(&quot;RS did not respond&quot;);</span>
         }
         CBORObject rsPayload;
         try {
-<span class="fc" id="L293">            rsPayload = CBORObject.DecodeFromBytes(resp.getPayload());</span>
+<span class="nc" id="L293">            rsPayload = CBORObject.DecodeFromBytes(resp.getPayload());</span>
 <span class="nc" id="L294">        } catch (CBORException e) {</span>
 <span class="nc" id="L295">            throw new AceException(&quot;Error parsing CBOR payload: &quot; </span>
 <span class="nc" id="L296">                    + e.getMessage());</span>
-<span class="fc" id="L297">        }</span>
+<span class="nc" id="L297">        }</span>
         
-<span class="pc bpc" id="L299" title="1 of 2 branches missed.">        if (!rsPayload.getType().equals(CBORType.Map)) {</span>
+<span class="nc bnc" id="L299" title="All 2 branches missed.">        if (!rsPayload.getType().equals(CBORType.Map)) {</span>
 <span class="nc" id="L300">            throw new AceException(&quot;RS didn't respond with a CBOR map&quot;);</span>
         }
         
-<span class="pc bpc" id="L303" title="1 of 2 branches missed.">        if (askForSignInfo) {</span>
+<span class="nc bnc" id="L303" title="All 2 branches missed.">        if (askForSignInfo) {</span>
         	
-<span class="pc bpc" id="L305" title="1 of 2 branches missed.">        	if (rsPayload.ContainsKey(CBORObject.FromObject(Constants.SIGN_INFO)) &amp;&amp;</span>
-<span class="pc bpc" id="L306" title="1 of 2 branches missed.">        		rsPayload.get(CBORObject.FromObject(Constants.SIGN_INFO)).getType() != CBORType.Array) {</span>
+<span class="nc bnc" id="L305" title="All 2 branches missed.">        	if (rsPayload.ContainsKey(CBORObject.FromObject(Constants.SIGN_INFO)) &amp;&amp;</span>
+<span class="nc bnc" id="L306" title="All 2 branches missed.">        		rsPayload.get(CBORObject.FromObject(Constants.SIGN_INFO)).getType() != CBORType.Array) {</span>
 <span class="nc" id="L307">        			usedRecipientIds.get(recipientId.length - 1).remove(recipientIdAsInt);</span>
 <span class="nc" id="L308">                	throw new AceException(&quot;Malformed sign_info in the RS response&quot;);</span>
         	}
 
         }
         
-<span class="pc bpc" id="L313" title="1 of 2 branches missed.">        if (askForEcdhInfo) {</span>
+<span class="nc bnc" id="L313" title="All 2 branches missed.">        if (askForEcdhInfo) {</span>
         	
-<span class="pc bpc" id="L315" title="1 of 2 branches missed.">        	if (rsPayload.ContainsKey(CBORObject.FromObject(Constants.ECDH_INFO)) &amp;&amp;</span>
-<span class="pc bpc" id="L316" title="1 of 2 branches missed.">        		rsPayload.get(CBORObject.FromObject(Constants.ECDH_INFO)).getType() != CBORType.Array) {</span>
+<span class="nc bnc" id="L315" title="All 2 branches missed.">        	if (rsPayload.ContainsKey(CBORObject.FromObject(Constants.ECDH_INFO)) &amp;&amp;</span>
+<span class="nc bnc" id="L316" title="All 2 branches missed.">        		rsPayload.get(CBORObject.FromObject(Constants.ECDH_INFO)).getType() != CBORType.Array) {</span>
 <span class="nc" id="L317">        			usedRecipientIds.get(recipientId.length - 1).remove(recipientIdAsInt);</span>
 <span class="nc" id="L318">                	throw new AceException(&quot;Malformed ecdh_info in the RS response&quot;);</span>
         	}
 
         }
         
-<span class="fc" id="L323">        CBORObject n2C = rsPayload.get(</span>
-<span class="fc" id="L324">                CBORObject.FromObject(Constants.NONCE2));</span>
-<span class="pc bpc" id="L325" title="2 of 4 branches missed.">        if (n2C == null || !n2C.getType().equals(CBORType.ByteString)) {</span>
+<span class="nc" id="L323">        CBORObject n2C = rsPayload.get(</span>
+<span class="nc" id="L324">                CBORObject.FromObject(Constants.NONCE2));</span>
+<span class="nc bnc" id="L325" title="All 4 branches missed.">        if (n2C == null || !n2C.getType().equals(CBORType.ByteString)) {</span>
 <span class="nc" id="L326">            throw new AceException(&quot;Missing or malformed 'nonce2' in RS response&quot;);</span>
         }
                 
-<span class="fc" id="L329">        byte[] n2 = n2C.GetByteString();</span>
+<span class="nc" id="L329">        byte[] n2 = n2C.GetByteString();</span>
         
-<span class="fc" id="L331">        CBORObject senderIdCBOR = rsPayload.get(</span>
-<span class="fc" id="L332">                CBORObject.FromObject(Constants.ACE_SERVER_RECIPIENTID));</span>
-<span class="pc bpc" id="L333" title="2 of 4 branches missed.">        if (senderIdCBOR == null || !senderIdCBOR.getType().equals(CBORType.ByteString)) {</span>
+<span class="nc" id="L331">        CBORObject senderIdCBOR = rsPayload.get(</span>
+<span class="nc" id="L332">                CBORObject.FromObject(Constants.ACE_SERVER_RECIPIENTID));</span>
+<span class="nc bnc" id="L333" title="All 4 branches missed.">        if (senderIdCBOR == null || !senderIdCBOR.getType().equals(CBORType.ByteString)) {</span>
 <span class="nc" id="L334">            throw new AceException(&quot;Missing or malformed 'id2' in RS response&quot;);</span>
         }
         
-<span class="fc" id="L337">        byte[] senderId = senderIdCBOR.GetByteString();</span>
+<span class="nc" id="L337">        byte[] senderId = senderIdCBOR.GetByteString();</span>
         
 		// The Recipient ID must be different than what offered by the Resource Server in the 'id2' parameter
-<span class="pc bpc" id="L340" title="1 of 2 branches missed.">		if(Arrays.equals(senderId, recipientId)) {</span>
+<span class="nc bnc" id="L340" title="All 2 branches missed.">		if(Arrays.equals(senderId, recipientId)) {</span>
 <span class="nc" id="L341">            throw new AceException(&quot;The Resource Server returned the ID offered by the Client&quot;);</span>
 		}
         
-<span class="fc" id="L344">    	cnf.get(Constants.OSCORE_Input_Material).Add(Constants.OS_CLIENTID, CBORObject.FromObject(senderId));</span>
-<span class="fc" id="L345">    	cnf.get(Constants.OSCORE_Input_Material).Add(Constants.OS_SERVERID, CBORObject.FromObject(recipientId));</span>
+<span class="nc" id="L344">    	cnf.get(Constants.OSCORE_Input_Material).Add(Constants.OS_CLIENTID, CBORObject.FromObject(senderId));</span>
+<span class="nc" id="L345">    	cnf.get(Constants.OSCORE_Input_Material).Add(Constants.OS_SERVERID, CBORObject.FromObject(recipientId));</span>
         
-<span class="fc" id="L347">        OscoreSecurityContext osc = new OscoreSecurityContext(cnf);</span>
+<span class="nc" id="L347">        OscoreSecurityContext osc = new OscoreSecurityContext(cnf);</span>
         
-<span class="fc" id="L349">        OSCoreCtx ctx = osc.getContext(true, n1, n2);</span>
+<span class="nc" id="L349">        OSCoreCtx ctx = osc.getContext(true, n1, n2);</span>
         
-<span class="fc" id="L351">        synchronized(db) {</span>
+<span class="nc" id="L351">        synchronized(db) {</span>
         	
-<span class="fc" id="L353">        	boolean install = true;</span>
+<span class="nc" id="L353">        	boolean install = true;</span>
         	
 			try {
         			
 				// Double check in the database that the OSCORE Security Context
 				// with the selected Recipient ID is actually still not present
-<span class="pc bpc" id="L359" title="1 of 2 branches missed.">    			if (db.getContext(recipientId, contextId) != null) {</span>
+<span class="nc bnc" id="L359" title="All 2 branches missed.">    			if (db.getContext(recipientId, contextId) != null) {</span>
     				// A Security Context with this Recipient ID exists!
 <span class="nc" id="L361">    				install = false;</span>
     			}        			
@@ -364,16 +364,16 @@ import se.sics.ace.coap.rs.oscoreProfile.OscoreSecurityContext;
 <span class="nc" id="L364">    		catch(CoapOSException e) {</span>
 				// Multiple Security Contexts with this Recipient ID exist!
 <span class="nc" id="L366">				install = false;</span>
-<span class="fc" id="L367">    		}</span>
+<span class="nc" id="L367">    		}</span>
         	
-<span class="pc bpc" id="L369" title="1 of 2 branches missed.">			if (install)</span>
-<span class="fc" id="L370">				db.addContext(rsAddr, ctx);</span>
+<span class="nc bnc" id="L369" title="All 2 branches missed.">			if (install)</span>
+<span class="nc" id="L370">				db.addContext(rsAddr, ctx);</span>
 			else
 <span class="nc" id="L372">				throw new AceException(&quot;An OSCORE Security Context with the same Recipient ID&quot;</span>
 						               + &quot; has been installed while running the OSCORE profile&quot;);
-<span class="fc" id="L374">        }</span>
+<span class="nc" id="L374">        }</span>
         
-<span class="fc" id="L376">        return resp;</span>
+<span class="nc" id="L376">        return resp;</span>
         
     }
     
@@ -396,95 +396,95 @@ import se.sics.ace.coap.rs.oscoreProfile.OscoreSecurityContext;
      */
     public static CoapResponse postTokenUpdate(String rsAddr, Response asResp, boolean askForSignInfo,
     										   boolean askForEcdhInfo, OSCoreCtxDB db) throws AceException, OSException {
-<span class="pc bpc" id="L399" title="1 of 2 branches missed.">        if (asResp == null) {</span>
+<span class="nc bnc" id="L399" title="All 2 branches missed.">        if (asResp == null) {</span>
 <span class="nc" id="L400">            throw new AceException(&quot;asResp cannot be null when POSTing to authz-info&quot;);</span>
         }
         
         CBORObject asPayload;
         
         try {
-<span class="fc" id="L406">            asPayload = CBORObject.DecodeFromBytes(asResp.getPayload());</span>
+<span class="nc" id="L406">            asPayload = CBORObject.DecodeFromBytes(asResp.getPayload());</span>
 <span class="nc" id="L407">        } catch (CBORException e) {</span>
 <span class="nc" id="L408">            throw new AceException(&quot;Error parsing CBOR payload: &quot; + e.getMessage());</span>
-<span class="fc" id="L409">        }</span>
+<span class="nc" id="L409">        }</span>
                
-<span class="pc bpc" id="L411" title="1 of 2 branches missed.">        if (!asPayload.getType().equals(CBORType.Map)) {</span>
+<span class="nc bnc" id="L411" title="All 2 branches missed.">        if (!asPayload.getType().equals(CBORType.Map)) {</span>
 <span class="nc" id="L412">            throw new AceException(&quot;AS response was not a CBOR map&quot;);</span>
         }
         
-<span class="fc" id="L415">        CBORObject token = asPayload.get(CBORObject.FromObject(Constants.ACCESS_TOKEN));</span>
-<span class="pc bpc" id="L416" title="1 of 2 branches missed.">        if (token == null) {</span>
+<span class="nc" id="L415">        CBORObject token = asPayload.get(CBORObject.FromObject(Constants.ACCESS_TOKEN));</span>
+<span class="nc bnc" id="L416" title="All 2 branches missed.">        if (token == null) {</span>
 <span class="nc" id="L417">            throw new AceException(&quot;AS response did not contain a token&quot;);</span>
         }
-<span class="pc bpc" id="L419" title="1 of 2 branches missed.">        if (token.getType() != CBORType.ByteString) {</span>
+<span class="nc bnc" id="L419" title="All 2 branches missed.">        if (token.getType() != CBORType.ByteString) {</span>
 <span class="nc" id="L420">            throw new AceException(&quot;The token must be a CBOR byte string&quot;);</span>
         }
         
-<span class="pc bpc" id="L423" title="1 of 2 branches missed.">        if (asPayload.ContainsKey(Constants.CNF)) {</span>
+<span class="nc bnc" id="L423" title="All 2 branches missed.">        if (asPayload.ContainsKey(Constants.CNF)) {</span>
 <span class="nc" id="L424">            throw new AceException(&quot;AS response must not contain a cnf&quot;);</span>
         }
         
-<span class="fc" id="L427">        CBORObject payload = CBORObject.NewMap();</span>
-<span class="fc" id="L428">        payload.Add(Constants.ACCESS_TOKEN, token);</span>
+<span class="nc" id="L427">        CBORObject payload = CBORObject.NewMap();</span>
+<span class="nc" id="L428">        payload.Add(Constants.ACCESS_TOKEN, token);</span>
         
-<span class="pc bpc" id="L430" title="1 of 2 branches missed.">        if (askForSignInfo)</span>
-<span class="fc" id="L431">        	payload.Add(Constants.SIGN_INFO, CBORObject.Null);</span>
+<span class="nc bnc" id="L430" title="All 2 branches missed.">        if (askForSignInfo)</span>
+<span class="nc" id="L431">        	payload.Add(Constants.SIGN_INFO, CBORObject.Null);</span>
         
-<span class="pc bpc" id="L433" title="1 of 2 branches missed.">        if (askForEcdhInfo)</span>
-<span class="fc" id="L434">        	payload.Add(Constants.ECDH_INFO, CBORObject.Null);</span>
+<span class="nc bnc" id="L433" title="All 2 branches missed.">        if (askForEcdhInfo)</span>
+<span class="nc" id="L434">        	payload.Add(Constants.ECDH_INFO, CBORObject.Null);</span>
         
-<span class="fc" id="L436">    	CoapResponse resp = null;</span>
+<span class="nc" id="L436">    	CoapResponse resp = null;</span>
 
     	// The Token has to be posted through an OSCORE-protected request
-<span class="fc" id="L439">        LOGGER.finest(&quot;Sending request payload: &quot; + payload);</span>
-<span class="fc" id="L440">        CoapClient client = OSCOREProfileRequests.getClient(new InetSocketAddress(</span>
+<span class="nc" id="L439">        LOGGER.finest(&quot;Sending request payload: &quot; + payload);</span>
+<span class="nc" id="L440">        CoapClient client = OSCOREProfileRequests.getClient(new InetSocketAddress(</span>
         		rsAddr, CoAP.DEFAULT_COAP_PORT), db);
     	
-<span class="fc" id="L443">        Request req = new Request(CoAP.Code.POST);</span>
-<span class="fc" id="L444">        req.getOptions().setContentFormat(Constants.APPLICATION_ACE_CBOR);</span>
-<span class="fc" id="L445">        req.getOptions().setOscore(new byte[0]);</span>
-<span class="fc" id="L446">        req.setPayload(payload.EncodeToBytes());</span>
+<span class="nc" id="L443">        Request req = new Request(CoAP.Code.POST);</span>
+<span class="nc" id="L444">        req.getOptions().setContentFormat(Constants.APPLICATION_ACE_CBOR);</span>
+<span class="nc" id="L445">        req.getOptions().setOscore(new byte[0]);</span>
+<span class="nc" id="L446">        req.setPayload(payload.EncodeToBytes());</span>
         try {
-<span class="fc" id="L448">        	resp = client.advanced(req);</span>
+<span class="nc" id="L448">        	resp = client.advanced(req);</span>
 <span class="nc" id="L449">		} catch (ConnectorException | IOException ex) {</span>
 <span class="nc" id="L450">            LOGGER.severe(&quot;Connector error: &quot; + ex.getMessage());</span>
 <span class="nc" id="L451">            throw new AceException(ex.getMessage());</span>
-<span class="fc" id="L452">		}</span>
+<span class="nc" id="L452">		}</span>
         
-<span class="pc bpc" id="L454" title="1 of 2 branches missed.">        if (resp == null) {</span>
+<span class="nc bnc" id="L454" title="All 2 branches missed.">        if (resp == null) {</span>
 <span class="nc" id="L455">            throw new AceException(&quot;RS did not respond&quot;);</span>
         }
         
         CBORObject rsPayload;
         try {
-<span class="fc" id="L460">            rsPayload = CBORObject.DecodeFromBytes(resp.getPayload());</span>
+<span class="nc" id="L460">            rsPayload = CBORObject.DecodeFromBytes(resp.getPayload());</span>
 <span class="nc" id="L461">        } catch (CBORException e) {</span>
 <span class="nc" id="L462">            throw new AceException(&quot;Error parsing CBOR payload: &quot; + e.getMessage());</span>
-<span class="fc" id="L463">        }</span>
+<span class="nc" id="L463">        }</span>
         
-<span class="pc bpc" id="L465" title="1 of 2 branches missed.">        if (!rsPayload.getType().equals(CBORType.Map)) {</span>
+<span class="nc bnc" id="L465" title="All 2 branches missed.">        if (!rsPayload.getType().equals(CBORType.Map)) {</span>
 <span class="nc" id="L466">            throw new AceException(&quot;RS didn't respond with a CBOR map&quot;);</span>
         }
         
-<span class="pc bpc" id="L469" title="1 of 2 branches missed.">        if (askForSignInfo) {</span>
+<span class="nc bnc" id="L469" title="All 2 branches missed.">        if (askForSignInfo) {</span>
         	        	
-<span class="pc bpc" id="L471" title="1 of 2 branches missed.">        	if (rsPayload.ContainsKey(CBORObject.FromObject(Constants.SIGN_INFO)) &amp;&amp;</span>
-<span class="pc bpc" id="L472" title="1 of 2 branches missed.">        		rsPayload.get(CBORObject.FromObject(Constants.SIGN_INFO)).getType() != CBORType.Array) {</span>
+<span class="nc bnc" id="L471" title="All 2 branches missed.">        	if (rsPayload.ContainsKey(CBORObject.FromObject(Constants.SIGN_INFO)) &amp;&amp;</span>
+<span class="nc bnc" id="L472" title="All 2 branches missed.">        		rsPayload.get(CBORObject.FromObject(Constants.SIGN_INFO)).getType() != CBORType.Array) {</span>
 <span class="nc" id="L473">                	throw new AceException(&quot;Malformed sign_info in the RS response&quot;);</span>
         	}
 
         }
         
-<span class="pc bpc" id="L478" title="1 of 2 branches missed.">        if (askForEcdhInfo) {</span>
+<span class="nc bnc" id="L478" title="All 2 branches missed.">        if (askForEcdhInfo) {</span>
         	
-<span class="pc bpc" id="L480" title="1 of 2 branches missed.">        	if (rsPayload.ContainsKey(CBORObject.FromObject(Constants.ECDH_INFO)) &amp;&amp;</span>
-<span class="pc bpc" id="L481" title="1 of 2 branches missed.">        		rsPayload.get(CBORObject.FromObject(Constants.ECDH_INFO)).getType() != CBORType.Array) {</span>
+<span class="nc bnc" id="L480" title="All 2 branches missed.">        	if (rsPayload.ContainsKey(CBORObject.FromObject(Constants.ECDH_INFO)) &amp;&amp;</span>
+<span class="nc bnc" id="L481" title="All 2 branches missed.">        		rsPayload.get(CBORObject.FromObject(Constants.ECDH_INFO)).getType() != CBORType.Array) {</span>
 <span class="nc" id="L482">                	throw new AceException(&quot;Malformed ecdh_info in the RS response&quot;);</span>
         	}
 
         }
         
-<span class="fc" id="L487">        return resp;</span>
+<span class="nc" id="L487">        return resp;</span>
         
     }
     
