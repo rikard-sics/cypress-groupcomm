@@ -482,7 +482,7 @@ public class GroupCtx {
 <span class="fc" id="L482">		info.Add(CBORObject.FromObject(&quot;Key&quot;));</span>
 <span class="fc" id="L483">		info.Add(this.aeadAlg.getKeySize() / 8);</span>
 
-<span class="fc" id="L485">		System.out.println(&quot;derivePairwiseSenderKey&quot;);</span>
+<span class="fc" id="L485">		System.out.println(&quot;derivePairwiseSenderKey for Recipient ID: &quot; + StringUtil.byteArray2Hex(recipientId));</span>
 <span class="fc" id="L486">		System.out.println(&quot;sharedSecret: &quot; + StringUtil.byteArray2HexString(sharedSecret));</span>
 <span class="fc" id="L487">		System.out.println(&quot;keysConcatenated: &quot; + StringUtil.byteArray2HexString(sharedSecret));</span>
 <span class="fc" id="L488">		System.out.println(&quot;ikmSender: &quot; + StringUtil.byteArray2HexString(sharedSecret));</span>
@@ -542,7 +542,7 @@ public class GroupCtx {
 <span class="nc" id="L542">			System.err.println(&quot;Error: Unknown countersignature!&quot;);</span>
 		}
 
-<span class="fc" id="L545">		System.out.println(&quot;derivePairwiseRecipientKey&quot;);</span>
+<span class="fc" id="L545">		System.out.println(&quot;derivePairwiseRecipientKey for Recipient ID: &quot; + StringUtil.byteArray2Hex(recipientId));</span>
 <span class="fc" id="L546">		System.out.println(&quot;sharedSecret: &quot; + StringUtil.byteArray2HexString(sharedSecret));</span>
 <span class="fc" id="L547">		System.out.println(&quot;keysConcatenated: &quot; + StringUtil.byteArray2HexString(sharedSecret));</span>
 <span class="fc" id="L548">		System.out.println(&quot;ikmRecipient: &quot; + StringUtil.byteArray2HexString(sharedSecret));</span>

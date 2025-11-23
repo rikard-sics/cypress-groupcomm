@@ -5,7 +5,7 @@ Cf-OSCORE,org.eclipse.californium.oscore.group,SharedSecretCalculation,2638,589,
 Cf-OSCORE,org.eclipse.californium.oscore.group,GroupSenderCtx,191,194,10,9,38,46,17,17,11,13
 Cf-OSCORE,org.eclipse.californium.oscore.group,GroupCtx.CRED_FORMAT,0,56,0,0,0,5,0,2,0,2
 Cf-OSCORE,org.eclipse.californium.oscore.group,GroupDynamicContextDerivation,7,94,1,5,3,21,2,4,1,2
-Cf-OSCORE,org.eclipse.californium.oscore.group,GroupCtx,175,887,22,49,36,192,25,42,5,23
+Cf-OSCORE,org.eclipse.californium.oscore.group,GroupCtx,175,903,22,49,36,192,25,42,5,23
 Cf-OSCORE,org.eclipse.californium.oscore.group,GroupRecipientCtx,101,157,9,6,19,41,11,16,5,14
 Cf-OSCORE,org.eclipse.californium.oscore.group,MultiKey,181,77,22,4,39,21,15,6,3,5
 Cf-OSCORE,org.eclipse.californium.oscore.group,OptionEncoder,3,60,0,4,1,14,1,7,1,5
