@@ -24,7 +24,7 @@ Cf-OSCORE,org.eclipse.californium.cose,Attribute,121,128,17,15,26,30,25,13,11,10
 Cf-OSCORE,org.eclipse.californium.cose,EncryptMessage,372,0,46,0,77,0,33,0,10,0
 Cf-OSCORE,org.eclipse.californium.cose,Recipient,1745,0,195,0,322,0,130,0,21,0
 Cf-OSCORE,org.eclipse.californium.cose,CoseException,4,5,0,0,2,2,1,1,1,1
-Cf-OSCORE,org.eclipse.californium.cose,OneKey,828,829,136,64,178,196,106,29,10,18
+Cf-OSCORE,org.eclipse.californium.cose,OneKey,826,831,135,65,178,196,105,30,10,18
 Cf-OSCORE,org.eclipse.californium.cose,SignCommon,85,254,7,23,20,80,10,15,3,4
 Cf-OSCORE,org.eclipse.californium.cose,MessageTag,27,89,4,0,3,11,3,2,1,2
 Cf-OSCORE,org.eclipse.californium.cose,Encrypt0Message,143,28,20,0,30,11,12,4,2,4
