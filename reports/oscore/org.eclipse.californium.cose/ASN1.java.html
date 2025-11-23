@@ -358,8 +358,8 @@ import java.util.Arrays;
     private static byte[] UnsignedInteger(byte[] i) throws CoseException {
 <span class="fc" id="L359">        int pad = 0, offset = 0;</span>
 
-<span class="pc bpc" id="L361" title="2 of 4 branches missed.">        while (offset &lt; i.length &amp;&amp; i[offset] == 0) {</span>
-<span class="nc" id="L362">            offset++;</span>
+<span class="pc bpc" id="L361" title="1 of 4 branches missed.">        while (offset &lt; i.length &amp;&amp; i[offset] == 0) {</span>
+<span class="fc" id="L362">            offset++;</span>
         }
 
 <span class="pc bpc" id="L365" title="1 of 2 branches missed.">        if (offset == i.length) {</span>
