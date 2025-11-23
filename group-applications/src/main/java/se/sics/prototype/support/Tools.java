@@ -34,6 +34,7 @@ package se.sics.prototype.support;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.URI;
+import java.util.Arrays;
 
 import org.eclipse.californium.core.CoapClient;
 import org.eclipse.californium.cose.AlgorithmID;
@@ -155,7 +156,7 @@ public class Tools {
 	 * 
 	 * @return a Group OSCORE context generated from the Join response
 	 */
-	public static GroupCtx generateGroupOSCOREContext(CBORObject joinResponse, MultiKey clientKey) {
+	public static GroupCtx generateGroupOSCOREContext(CBORObject joinResponse, MultiKey clientKey, String groupName) {
 
 		int replayWindow = 32;
 		byte[] gmPubKey = joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED)).GetByteString();
@@ -208,7 +209,18 @@ public class Tools {
 		}
 
 		GroupCtx commonCtx = new GroupCtx(ms, salt, alg, kdf, idContext, algCountersign, algGroupEnc, algKeyAgreement, gmPubKey);
-		commonCtx.setUsePairwiseMode(pairwiseMode);
+
+		if (groupName.equals(KeyStorage.newGroupName1)) {
+			commonCtx.setPairwiseModeResponses(false);
+			commonCtx.setUsePairwiseMode(false);
+		} else {
+			commonCtx.setPairwiseModeResponses(true);
+			commonCtx.setUsePairwiseMode(true);
+		}
+		
+		// String groupName =
+		// keyMap.get(GroupOSCOREInputMaterialObjectParameters.)
+		// commonCtx.set
 
 		try {
 			System.out.println("Adding Sender CTX for: " + Utils.toHexString(sid) + " "

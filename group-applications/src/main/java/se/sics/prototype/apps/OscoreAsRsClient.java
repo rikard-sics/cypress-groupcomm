@@ -733,7 +733,7 @@ public class OscoreAsRsClient {
 		}
 
 		MultiKey clientKey = new MultiKey(authCred, cKeyPair.get(KeyKeys.OKP_D).GetByteString());
-		GroupCtx groupOscoreCtx = Tools.generateGroupOSCOREContext(joinResponse, clientKey);
+		GroupCtx groupOscoreCtx = Tools.generateGroupOSCOREContext(joinResponse, clientKey, groupName);
 
 		// Possibly continue with extra steps after joining (for client2 in the
 		// CYPRESS demo)

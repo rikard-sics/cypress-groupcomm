@@ -482,7 +482,7 @@ public class GroupCtx {
 		info.Add(CBORObject.FromObject("Key"));
 		info.Add(this.aeadAlg.getKeySize() / 8);
 
-		System.out.println("derivePairwiseSenderKey");
+		System.out.println("derivePairwiseSenderKey for Recipient ID: " + StringUtil.byteArray2Hex(recipientId));
 		System.out.println("sharedSecret: " + StringUtil.byteArray2HexString(sharedSecret));
 		System.out.println("keysConcatenated: " + StringUtil.byteArray2HexString(sharedSecret));
 		System.out.println("ikmSender: " + StringUtil.byteArray2HexString(sharedSecret));
@@ -542,7 +542,7 @@ public class GroupCtx {
 			System.err.println("Error: Unknown countersignature!");
 		}
 
-		System.out.println("derivePairwiseRecipientKey");
+		System.out.println("derivePairwiseRecipientKey for Recipient ID: " + StringUtil.byteArray2Hex(recipientId));
 		System.out.println("sharedSecret: " + StringUtil.byteArray2HexString(sharedSecret));
 		System.out.println("keysConcatenated: " + StringUtil.byteArray2HexString(sharedSecret));
 		System.out.println("ikmRecipient: " + StringUtil.byteArray2HexString(sharedSecret));

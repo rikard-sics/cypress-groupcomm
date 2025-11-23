@@ -699,7 +699,7 @@ public class Adversary {
 		MultiKey clientKey = new MultiKey(authCred, cKeyPair.get(KeyKeys.OKP_D).GetByteString());
 		GroupCtx groupOscoreCtx = null;
 		if (joinResponse.get(CBORObject.FromObject(GroupcommParameters.KDC_CRED)) != null) {
-			groupOscoreCtx = Tools.generateGroupOSCOREContext(joinResponse, clientKey);
+			groupOscoreCtx = Tools.generateGroupOSCOREContext(joinResponse, clientKey, "");
 		}
 		return groupOscoreCtx;
 	}
