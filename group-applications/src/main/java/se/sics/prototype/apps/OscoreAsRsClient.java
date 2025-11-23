@@ -152,6 +152,7 @@ public class OscoreAsRsClient {
 
 		System.out.println("Starting OscoreAsRsClient:");
 		System.out.println("Group peer that joins a group and then acts as OSCORE Server or Client");
+		System.out.println("Running version: " + "1.0.9");
 
 		// install needed cryptography providers
 		try {

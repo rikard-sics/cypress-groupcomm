@@ -248,7 +248,7 @@ public class GroupOscoreClient {
 				client.setURI(requestURI);
 			} else {
 				multicastRequest.getOptions().setOscore(OptionEncoder.set(true, unicastURI, targetRid));
-				client.setURI(unicastURI);
+				client.setURI("coap://192.168.0.44:4683/toggle");
 			}
 		}
 
