@@ -421,7 +421,8 @@ public class OscoreAdminClient {
 		Util.prettyPrintCborMap(responsePayloadCbor);
 		Assert.assertEquals(3, responsePayloadCbor.size());
 
-		String createdGroupName = responsePayloadCbor.get(GroupcommParameters.GROUP_NAME).AsString();
+		// String createdGroupName =
+		// responsePayloadCbor.get(GroupcommParameters.GROUP_NAME).AsString();
 
 		System.out.println();
 
