@@ -214,7 +214,20 @@ public class GroupOscoreClient {
 		byte[] targetRid = null;
 		String unicastURI = "";
 
-		// payload = "p AA coap://192.168.0.66:4683/toggle on";
+		// Shorthand form
+		if (payload.startsWith("pairwise ")) {
+			String[] parts = payload.split("\\s+", 3);
+
+			if (parts.length >= 2) {
+				String hexByte = parts[1];
+
+				String rest = (parts.length == 3) ? parts[2].trim() : "";
+
+				payload = "p " + hexByte + " coap://224.0.1.192:4683/toggle " + rest;
+			}
+		}
+
+		// payload = "p 01 coap://224.0.1.192:4683/toggle on";
 		if (payload.startsWith("p ")) {
 			pairwise = true;
 
