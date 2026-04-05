@@ -137,6 +137,9 @@ public class OscoreAsRsClient {
 	private static int signKeyCurve;
 	private static int ecdhKeyCurve;
 
+	// Enable/disable pausing during execution (for demo)
+	static boolean pause = true;
+
 	static {
 		CoapConfig.register();
 	}
@@ -152,7 +155,6 @@ public class OscoreAsRsClient {
 
 		System.out.println("Starting OscoreAsRsClient:");
 		System.out.println("Group peer that joins a group and then acts as OSCORE Server or Client");
-		System.out.println("Running version: " + "1.0.9");
 
 		// install needed cryptography providers
 		try {
@@ -179,6 +181,9 @@ public class OscoreAsRsClient {
 				i++;
 			} else if (args[i].toLowerCase().endsWith("-delay")) {
 				delay = Integer.parseInt(args[i + 1]);
+				i++;
+			} else if (args[i].toLowerCase().endsWith("-pause")) {
+				pause = Boolean.parseBoolean(args[i + 1]);
 				i++;
 			} else if (args[i].toLowerCase().endsWith("-help")) {
 				printHelp();
@@ -1069,6 +1074,10 @@ public class OscoreAsRsClient {
 	 */
 	static void printPause(String memberName, String message) {
 
+		if (pause == false) {
+			return;
+		}
+
 		// Only print for client2
 		if (!memberName.toLowerCase().equals("client2")) {
 			return;
@@ -1138,6 +1147,9 @@ public class OscoreAsRsClient {
 
 		System.out.print("-delay");
 		System.out.println("\t Delay in seconds before starting");
+
+		System.out.print("-pause");
+		System.out.println("\t Enable pausing during execution (for demo) [Default: true]");
 
 		System.out.print("-help");
 		System.out.println("\t Print help");

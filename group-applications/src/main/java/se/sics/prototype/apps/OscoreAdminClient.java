@@ -119,6 +119,9 @@ public class OscoreAdminClient {
 		CoapConfig.register();
 	}
 
+	// Enable/disable pausing during execution (for demo)
+	static boolean pause = true;
+
 	/**
 	 * Main method for Token request followed by Group joining
 	 * 
@@ -156,6 +159,9 @@ public class OscoreAdminClient {
 				i++;
 			} else if (args[i].toLowerCase().endsWith("-delay")) {
 				delay = Integer.parseInt(args[i + 1]);
+				i++;
+			} else if (args[i].toLowerCase().endsWith("-pause")) {
+				pause = Boolean.parseBoolean(args[i + 1]);
 				i++;
 			} else if (args[i].toLowerCase().endsWith("-help")) {
 				printHelp();
@@ -568,6 +574,10 @@ public class OscoreAdminClient {
 	 */
 	static void printPause(String memberName, String message) {
 
+		if (pause == false) {
+			return;
+		}
+
 		// Only print for admin1
 		if (!memberName.toLowerCase().equals("admin1")) {
 			return;
@@ -626,6 +636,9 @@ public class OscoreAdminClient {
 
 		System.out.print("-delay");
 		System.out.println("\t Delay in seconds before starting");
+
+		System.out.print("-pause");
+		System.out.println("\t Enable pausing during execution (for demo) [Default: true]");
 
 		System.out.print("-help");
 		System.out.println("\t Print help");

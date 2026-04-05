@@ -95,10 +95,6 @@ https://www.andreafortuna.org/2016/06/08/java-tips-how-to-fix-the-invalidkeyexce
 - build-edhoc-apps.sh
     - Builds standalone Jar files for the EDHOC Applications
 
-- build-for-docker.sh
-    - Prepares Docker Dockerfiles and Contexts for the Group & EDHOC Applications
-    - If the flag --build-images is specified, it also builds the Docker images
-
 - code-coverage.sh
     - Relocate Jacoco code coverage reports for deployment to gh-pages
 
@@ -114,7 +110,6 @@ https://www.andreafortuna.org/2016/06/08/java-tips-how-to-fix-the-invalidkeyexce
     - OscoreRsServer: Group Manager (ACE Resource Server)
     - OscoreAsRsClient: Group OSCORE Server/Client which will join the group(s)
     - OscoreAdminClient: Administrator Client which will create and configure group(s)
-    - Adversary: Adversary for testing attacks against the group(s)
     
       **See separate README under *group-applications/* for more detailed information**
 
