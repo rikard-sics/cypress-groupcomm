@@ -98,10 +98,6 @@ public class KeyStorage {
 				new byte[] { (byte) 0x0c, (byte) 0x37, (byte) 0xa6, (byte) 0xe3, (byte) 0x9b, (byte) 0xc2, (byte) 0xee,
 						(byte) 0xc7, (byte) 0xd0, (byte) 0x3e, (byte) 0x9a, (byte) 0x7f, (byte) 0xa2, (byte) 0x28,
 						(byte) 0xe8, (byte) 0x81 });
-		memberAsKeys.put("Adversary",
-				new byte[] { (byte) 0x79, (byte) 0x5f, (byte) 0x96, (byte) 0x36, (byte) 0xb2, (byte) 0xc0, (byte) 0x47,
-						(byte) 0x10, (byte) 0x88, (byte) 0x09, (byte) 0x58, (byte) 0x76, (byte) 0x95, (byte) 0xc0,
-						(byte) 0x0c, (byte) 0x74 });
 		memberAsKeys.put("admin1",
 				new byte[] { (byte) 0xf6, (byte) 0x2e, (byte) 0xf1, (byte) 0xa5, (byte) 0x89, (byte) 0xe8, (byte) 0xd4,
 						(byte) 0x52, (byte) 0x37, (byte) 0xf0, (byte) 0xe9, (byte) 0x8c, (byte) 0xb4, (byte) 0x58,
@@ -123,7 +119,6 @@ public class KeyStorage {
 		aceSenderIds.put("Server4", new byte[] { (byte) 0xA8 });
 		aceSenderIds.put("Server5", new byte[] { (byte) 0xA9 });
 		aceSenderIds.put("Server6", new byte[] { (byte) 0xAA });
-		aceSenderIds.put("Adversary", new byte[] { (byte) 0x99 });
 		aceSenderIds.put("admin1", new byte[] { (byte) 0x11 });
 	}
 
@@ -151,8 +146,6 @@ public class KeyStorage {
 		memberCcs.put("Server6", StringUtil.hex2ByteArray(
 				"A202675365727665723608A101A401010327200621582003409CBD38DC73250E79B9F627739ECD78CC89651E89929983FAF8BFC94FDCA2"));
 
-		memberCcs.put("Adversary", StringUtil.hex2ByteArray(
-				"A2026941647665727361727908A101A40101032720062158208ED61CBEAD281DD16FD086280B207AD3FB706DF23E37BC43A00DF13047E4CDC4"));
 		memberCcs.put("admin1", StringUtil.hex2ByteArray(
 				"A2026941647665727361727908A101A40101032720062158208ED61CBEAD281DD16FD086280B207AD3FB706DF23E37BC43A00DF13047E4CDC4"));
 
@@ -181,9 +174,5 @@ public class KeyStorage {
 				StringUtil.hex2ByteArray("B414D24D3D45D0AFA4172EE66CEC88685AFEB4FF011A9C04C0AB4CEC763616E9"));
 		memberPrivateKeys.put("Server6",
 				StringUtil.hex2ByteArray("F444DF1A8899E2C3733F391823A492B4607489820D0304530D15A2BB6B746D9A"));
-
-		memberPrivateKeys.put("Adversary",
-				StringUtil.hex2ByteArray("A90B7D8A9E6D32DDFC794494D446F0E56505094203209BEF64A6800CF35F3988"));
 	}
-
 }

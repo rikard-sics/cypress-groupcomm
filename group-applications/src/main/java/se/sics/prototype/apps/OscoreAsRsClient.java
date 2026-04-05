@@ -81,6 +81,8 @@ import se.sics.ace.coap.client.OSCOREProfileRequestsGroupOSCORE;
 import se.sics.ace.oscore.GroupOSCOREInputMaterialObjectParameters;
 import se.sics.prototype.groupapps.GroupOscoreClient;
 import se.sics.prototype.groupapps.GroupOscoreServer;
+import se.sics.prototype.groupapps.YggioGroupOscoreClient;
+import se.sics.prototype.groupapps.YggioGroupOscoreServer;
 import se.sics.prototype.support.KeyStorage;
 import se.sics.prototype.support.Tools;
 
@@ -140,6 +142,9 @@ public class OscoreAsRsClient {
 	// Enable/disable pausing during execution (for demo)
 	static boolean pause = true;
 
+	// Use the apps for deployment on Yggio staging server
+	static boolean yggio = false;
+
 	static {
 		CoapConfig.register();
 	}
@@ -184,6 +189,9 @@ public class OscoreAsRsClient {
 				i++;
 			} else if (args[i].toLowerCase().endsWith("-pause")) {
 				pause = Boolean.parseBoolean(args[i + 1]);
+				i++;
+			} else if (args[i].toLowerCase().endsWith("-yggio")) {
+				yggio = Boolean.parseBoolean(args[i + 1]);
 				i++;
 			} else if (args[i].toLowerCase().endsWith("-help")) {
 				printHelp();
@@ -303,9 +311,17 @@ public class OscoreAsRsClient {
 		// derived context
 		try {
 			if (memberName.equals("Client1") || memberName.equals("Client2")) {
-				GroupOscoreClient.start(derivedCtx, multicastIP, memberName);
+				if (yggio == false) {
+					GroupOscoreClient.start(derivedCtx, multicastIP, memberName);
+				} else {
+					YggioGroupOscoreClient.start(derivedCtx, multicastIP, memberName);
+				}
 			} else {
-				GroupOscoreServer.start(derivedCtx, multicastIP);
+				if (yggio == false) {
+					GroupOscoreServer.start(derivedCtx, multicastIP);
+				} else {
+					YggioGroupOscoreServer.start(derivedCtx, multicastIP, memberName);
+				}
 			}
 		} catch (Exception e) {
 			System.err.print("Starting Group OSCORE applications: ");
@@ -1150,6 +1166,9 @@ public class OscoreAsRsClient {
 
 		System.out.print("-pause");
 		System.out.println("\t Enable pausing during execution (for demo) [Default: true]");
+
+		System.out.print("-yggio");
+		System.out.println("\t Launch apps for deployment on Yggio staging server [Default: false]");
 
 		System.out.print("-help");
 		System.out.println("\t Print help");
