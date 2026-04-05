@@ -198,11 +198,11 @@ public class YggioGroupOscoreClient {
 		System.out.println("");
 		System.out.println("Ready to send requests to the OSCORE group.");
 
-		// Continously send requests every minute
+		// Continously send requests every 2 minutes
 		while (true) {
-			Thread.sleep(60 * 1000);
-			ArrayList<CoapResponse> responses = sendRequest();
+			Thread.sleep(2 * 60 * 1000);
 
+			ArrayList<CoapResponse> responses = sendRequest();
 			// Handle responses (publish to Yggio using MQTT)
 			for (int i = 0; i < responses.size(); i++) {
 
@@ -227,6 +227,7 @@ public class YggioGroupOscoreClient {
 				String mqttTopic = "yggio/generic/v2/rise-dev-" + serverName + "/unique/topic/100";
 
 				// Actually publish it
+				Thread.sleep(100);
 				if (!mqttClient.isConnected()) {
 					System.err.println(
 							"[MQTT] Publish FAILED (not connected) -> server=" + serverName + " topic=" + mqttTopic);
