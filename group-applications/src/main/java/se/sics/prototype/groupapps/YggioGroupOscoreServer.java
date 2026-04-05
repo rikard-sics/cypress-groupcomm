@@ -25,7 +25,7 @@ import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-
+import java.util.Random;
 import org.eclipse.californium.core.CoapResource;
 import org.eclipse.californium.core.CoapServer;
 import org.eclipse.californium.core.Utils;
@@ -106,7 +106,9 @@ public class YggioGroupOscoreServer {
 
 	private final static String uriLocal = "coap://localhost";
 
-	static int replayWindow = 32;
+	private static int replayWindow = 32;
+
+	private static Random rand;
 
 	/**
 	 * Initialize and start Group OSCORE server.
@@ -120,6 +122,8 @@ public class YggioGroupOscoreServer {
 	public static void start(GroupCtx derivedCtx, InetAddress multicastIP, String serverName) throws Exception {
 		// Install cryptographic providers
 		InstallCryptoProviders.installProvider();
+
+		rand = new Random();
 
 		// If OSCORE is being used set the context information
 		GroupCtx ctx = null;
@@ -233,6 +237,14 @@ public class YggioGroupOscoreServer {
 				System.out.println("Sending to: " + r.getDestinationContext().getPeerAddress());
 				System.out.println("Sending from: " + exchange.advanced().getEndpoint().getAddress());
 				System.out.println(Utils.prettyPrint(r));
+
+				int leisureTime = rand.nextInt(75);
+				try {
+					Thread.sleep(leisureTime);
+				} catch (InterruptedException e) {
+					System.err.println("Failed to sleep for leisure time");
+					e.printStackTrace();
+				}
 
 				exchange.respond(r);
 			}
