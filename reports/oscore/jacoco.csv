@@ -30,7 +30,7 @@ Cf-OSCORE,org.eclipse.californium.cose,MessageTag,27,89,4,0,3,11,3,2,1,2
 Cf-OSCORE,org.eclipse.californium.cose,Encrypt0Message,143,28,20,0,30,11,12,4,2,4
 Cf-OSCORE,org.eclipse.californium.cose,MacCommon,373,0,32,0,85,0,24,0,6,0
 Cf-OSCORE,org.eclipse.californium.cose,CounterSign,79,0,4,0,26,0,11,0,9,0
-Cf-OSCORE,org.eclipse.californium.cose,ASN1,288,997,51,49,29,136,43,23,1,15
+Cf-OSCORE,org.eclipse.californium.cose,ASN1,286,999,50,50,28,137,42,24,1,15
 Cf-OSCORE,org.eclipse.californium.cose,MACMessage,394,0,50,0,82,0,34,0,9,0
 Cf-OSCORE,org.eclipse.californium.cose,CounterSign1,37,34,4,2,13,10,7,3,4,3
 Cf-OSCORE,org.eclipse.californium.cose,KeyKeys,0,324,0,0,0,31,0,3,0,3
