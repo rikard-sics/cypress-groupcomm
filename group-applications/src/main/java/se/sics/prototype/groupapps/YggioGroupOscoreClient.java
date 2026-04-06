@@ -27,6 +27,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Locale;
+import java.util.concurrent.TimeUnit;
+
 import org.eclipse.californium.core.CoapClient;
 import org.eclipse.californium.core.CoapHandler;
 import org.eclipse.californium.core.CoapResponse;
@@ -49,6 +52,8 @@ import org.eclipse.paho.mqttv5.client.MqttConnectionOptions;
 import org.eclipse.paho.mqttv5.common.MqttException;
 import org.eclipse.paho.mqttv5.common.MqttMessage;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 /**
  * Group OSCORE client application. Publishes responses from the servers to
@@ -210,35 +215,61 @@ public class YggioGroupOscoreClient {
 				if (theResponse == null) {
 					continue;
 				}
-				String payload = theResponse.getResponseText();
-				if (payload == null || payload.isEmpty()) {
+				String resPayload = theResponse.getResponseText();
+				if (resPayload == null || resPayload.isEmpty()) {
 					continue;
 				}
 
-				// Extract server name, publish using MQTT to Yggio staging
-				String serverName = extractJsonString(payload, "serverName");
-				if (serverName == null) {
-					System.out.println("Could not find serverName in payload: " + payload);
+				// Parse JSON and extract server name
+				JsonObject json;
+				try {
+					json = JsonParser.parseString(resPayload).getAsJsonObject();
+				} catch (Exception e) {
+					System.out.println("Invalid JSON payload: " + resPayload);
 					continue;
 				}
-				serverName = serverName.toLowerCase();
+				if (!json.has("serverName") || json.get("serverName").isJsonNull()) {
+					System.out.println("Could not find serverName in payload: " + resPayload);
+					continue;
+				}
+				String serverName;
+				try {
+					serverName = json.get("serverName").getAsString().toLowerCase(Locale.ROOT);
+				} catch (Exception e) {
+					System.out.println("Invalid serverName in payload: " + resPayload);
+					continue;
+				}
+
+				// Add RTT to JSON
+				Long rttNanos = theResponse.advanced().getApplicationRttNanos();
+
+				if (rttNanos != null) {
+					json.addProperty("responseRttMs", TimeUnit.NANOSECONDS.toMillis(rttNanos));
+					json.addProperty("responseRttNanos", rttNanos);
+				}
+
+				// Add CoAP payload size (bytes) to JSON
+				int payloadSizeBytes = resPayload.getBytes(StandardCharsets.UTF_8).length;
+				json.addProperty("responsePayloadSize", payloadSizeBytes);
 
 				// Use topic based on the server name
 				String mqttTopic = "yggio/generic/v2/rise-dev-" + serverName + "/unique/topic/100";
 
-				// Actually publish it
+				String mqttPayload = json.toString();
+
+				// Actually publish it to Yggio staging
 				Thread.sleep(100);
 				if (!mqttClient.isConnected()) {
 					System.err.println(
 							"[MQTT] Publish FAILED (not connected) -> server=" + serverName + " topic=" + mqttTopic);
 				} else {
 					try {
-						MqttMessage msg = new MqttMessage(payload.getBytes(StandardCharsets.UTF_8));
+						MqttMessage msg = new MqttMessage(mqttPayload.getBytes(StandardCharsets.UTF_8));
 						msg.setQos(0);
 						mqttClient.publish(mqttTopic, msg);
 
 						System.out.println("[MQTT] Published for -> server=" + serverName + " topic=" + mqttTopic
-								+ " payload=" + payload);
+								+ " payload=" + mqttPayload);
 					} catch (MqttException e) {
 						System.err.println("[MQTT] Publish FAILED for -> server=" + serverName + " topic=" + mqttTopic);
 						e.printStackTrace();
@@ -345,29 +376,6 @@ public class YggioGroupOscoreClient {
 		public void onError() {
 			System.err.println("error");
 		}
-	}
-
-	/**
-	 * Extract a JSON string from JSON data
-	 * 
-	 * @param json the JSON data
-	 * @param key the key for the string
-	 * @return the extracted string
-	 */
-	private static String extractJsonString(String json, String key) {
-		String search = "\"" + key + "\":\"";
-		int start = json.indexOf(search);
-		if (start < 0) {
-			return null;
-		}
-
-		start += search.length();
-		int end = json.indexOf("\"", start);
-		if (end < 0) {
-			return null;
-		}
-
-		return json.substring(start, end);
 	}
 
 	/**

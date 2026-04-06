@@ -50,6 +50,8 @@ import org.eclipse.californium.oscore.Utility;
 import org.eclipse.californium.oscore.group.GroupCtx;
 import org.eclipse.californium.oscore.group.MultiKey;
 
+import com.google.gson.JsonObject;
+
 import se.sics.prototype.support.KeyStorage;
 
 /**
@@ -221,10 +223,12 @@ public class YggioGroupOscoreServer {
 				double offset = Math.abs(serverName.hashCode() % 200) / 10.0;
 				double temperatureC = simulateTemperatureCelsius(offset);
 
-				String json = "{" + "\"count\":" + count + "," + "\"serverName\":\"" + serverName + "\","
-						+ "\"temperature\":" + temperatureC + "}";
+				JsonObject json = new JsonObject();
+				json.addProperty("msgCount", count);
+				json.addProperty("serverName", serverName);
+				json.addProperty("temperature", temperatureC);
 
-				r.setPayload(json);
+				r.setPayload(json.toString());
 				r.getOptions().setContentFormat(MediaTypeRegistry.APPLICATION_JSON);
 
 				if (isConfirmable) {
