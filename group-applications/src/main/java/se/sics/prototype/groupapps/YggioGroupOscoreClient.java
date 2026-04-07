@@ -95,7 +95,7 @@ public class YggioGroupOscoreClient {
 	/**
 	 * Time to wait for replies to the multicast request
 	 */
-	private static final int HANDLER_TIMEOUT = 2000;
+	private static final int HANDLER_TIMEOUT = 8000;
 
 	/**
 	 * Whether to use OSCORE or not.
@@ -270,7 +270,8 @@ public class YggioGroupOscoreClient {
 				String mqttPayload = json.toString();
 
 				// Actually publish it to Yggio staging
-				Thread.sleep(100);
+				Thread.sleep(200);
+				System.out.println("Attempting to publish response info for: " + serverName);
 				if (!mqttClient.isConnected()) {
 					System.err.println(
 							"[MQTT] Publish FAILED (not connected) -> server=" + serverName + " topic=" + mqttTopic);
@@ -326,13 +327,6 @@ public class YggioGroupOscoreClient {
 		client.advanced(handler, multicastRequest);
 		while (handler.waitOn(HANDLER_TIMEOUT)) {
 			// Wait for responses
-		}
-
-		try {
-			Thread.sleep(1000);
-		} catch (InterruptedException e) {
-			System.err.println("Error: Failed to sleep after sending request");
-			e.printStackTrace();
 		}
 
 		return handler.getResponses();
