@@ -172,6 +172,7 @@ public class OscoreAsRsClient {
 		// Set member name, AS and GM to use from command line arguments
 		String memberName = "Client1";
 		String networkInterface = null;
+		String ipAddress = null;
 		int delay = 0;
 		for (int i = 0; i < args.length; i++) {
 			if (args[i].equals("-name")) {
@@ -196,6 +197,9 @@ public class OscoreAsRsClient {
 				i++;
 			} else if (args[i].toLowerCase().endsWith("-interface")) {
 				networkInterface = args[i + 1];
+				i++;
+			} else if (args[i].toLowerCase().endsWith("-ip")) {
+				ipAddress = args[i + 1];
 				i++;
 			} else if (args[i].toLowerCase().endsWith("-help")) {
 				printHelp();
@@ -319,7 +323,7 @@ public class OscoreAsRsClient {
 				if (yggio == false) {
 					GroupOscoreClient.start(derivedCtx, multicastIP, memberName);
 				} else {
-					YggioGroupOscoreClient.start(derivedCtx, multicastIP, memberName);
+					YggioGroupOscoreClient.start(derivedCtx, multicastIP, memberName, ipAddress);
 				}
 			} else {
 				if (yggio == false) {
@@ -1178,6 +1182,9 @@ public class OscoreAsRsClient {
 		System.out.print("-interface");
 		System.out.println(
 				"\t Name of the network interface to use for multicast listening [Default: Pick automatically]");
+
+		System.out.print("-ip");
+		System.out.println("\t IP address to bind to for multicast sending [Default: Pick automatically]");
 
 		System.out.print("-help");
 		System.out.println("\t Print help");

@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.Inet6Address;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -146,10 +147,12 @@ public class YggioGroupOscoreClient {
 	 * @param derivedCtx the Group OSCORE context
 	 * @param multicastIP multicast IP to send to
 	 * @param setClientName name of this client (Client1 / Client2)
+	 * @param ipAddress the IP to bind to when sending
 	 * 
 	 * @throws Exception on failure
 	 */
-	public static void start(GroupCtx derivedCtx, InetAddress multicastIP, String setClientName) throws Exception {
+	public static void start(GroupCtx derivedCtx, InetAddress multicastIP, String setClientName, String ipAddress)
+			throws Exception {
 
 		// Create and connect MQTT client
 		MqttClient mqttClient = createAndConnectClient(setClientName);
@@ -181,7 +184,15 @@ public class YggioGroupOscoreClient {
 
 		Configuration config = Configuration.createWithFile(CONFIG_FILE, CONFIG_HEADER, DEFAULTS);
 
-		CoapEndpoint endpoint = new CoapEndpoint.Builder().setConfiguration(config).build();
+		CoapEndpoint endpoint = null;
+		if (ipAddress == null) {
+			endpoint = new CoapEndpoint.Builder().setConfiguration(config).build();
+		} else {
+			InetAddress localAddress = InetAddress.getByName(ipAddress);
+			endpoint = new CoapEndpoint.Builder().setInetSocketAddress(new InetSocketAddress(localAddress, 0))
+					.setConfiguration(config).build();
+		}
+
 		client = new CoapClient();
 
 		client.setEndpoint(endpoint);
@@ -193,6 +204,7 @@ public class YggioGroupOscoreClient {
 		System.out.println("Uses OSCORE: " + useOSCORE);
 		System.out.println("Request destination: " + requestURI);
 		System.out.println("Request destination port: " + destinationPort);
+		System.out.println("Outgoing IP: " + endpoint.getAddress().getHostString());
 		System.out.println("Outgoing port: " + endpoint.getAddress().getPort());
 		System.out.println("=");
 
