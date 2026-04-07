@@ -424,21 +424,6 @@ public class OscoreAsServer {
 		peerIdentitiesToNames.put(peerIdentity, "Server6");
 		myIdentities.put("Server6", myIdentity);
 
-		myKey = CBORObject.NewMap();
-		myKey.Add(KeyKeys.KeyType.AsCBOR(), KeyKeys.KeyType_Octet);
-		myKey.Add(KeyKeys.Octet_K.AsCBOR(), CBORObject.FromObject(KeyStorage.memberAsKeys.get("Adversary")));
-		myPsk = new OneKey(myKey);
-
-		profiles.clear();
-		profiles.add("coap_oscore");
-		keyTypes.clear();
-		keyTypes.add("PSK");
-		db.addClient("Adversary", profiles, null, null, keyTypes, myPsk, null);
-		peerIdentity = buildOscoreIdentity(KeyStorage.aceSenderIds.get("Adversary"), idContext);
-		peerNamesToIdentities.put("Adversary", peerIdentity);
-		peerIdentitiesToNames.put(peerIdentity, "Adversary");
-		myIdentities.put("Adversary", myIdentity);
-
 		// Add an further client "admin1" as an Administrator of OSCORE groups
 		myKey = CBORObject.NewMap();
 		myKey.Add(KeyKeys.KeyType.AsCBOR(), KeyKeys.KeyType_Octet);
@@ -537,7 +522,6 @@ public class OscoreAsServer {
 		pdp.addTokenAccess("Server4");
 		pdp.addTokenAccess("Server5");
 		pdp.addTokenAccess("Server6");
-		pdp.addTokenAccess("Adversary");
 
 		// Add also client "admin1" as an Administrator of OSCORE groups.
 		pdp.addTokenAccess("admin1");
@@ -594,9 +578,6 @@ public class OscoreAsServer {
 		pdp.addAccess("Server6", "rs2", GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":"
 				+ groupName2.length() + ":" + groupName2 + "_requester_monitor_responder");
 
-		pdp.addAccess("Adversary", "rs2", GroupcommParameters.GROUP_OSCORE_AS_SCOPE_LITERAL_PREFIX + ":"
-				+ groupName2.length() + ":" + groupName2 + "_requester");
-
 		// Admin
 
 		// Specify admin permissions for client "admin1" as an Administrator of
@@ -613,13 +594,6 @@ public class OscoreAsServer {
 
 		as = new OscoreAS(asName, db, pdp, time, asymmKey, "token", "introspect", port, null, false, (short) 1, true,
 				peerNamesToIdentities, peerIdentitiesToNames, myIdentities);
-
-		AlgorithmID alg = AlgorithmID.AES_CCM_16_64_128;
-		AlgorithmID kdf = AlgorithmID.HKDF_HMAC_SHA_256;
-		OSCoreCtx ctx = new OSCoreCtx(KeyStorage.memberAsKeys.get("Adversary"), true, alg,
-				KeyStorage.aceSenderIds.get("AS"), new byte[] { (byte) 0xFF, (byte) 0xFF }, kdf, 32, null, idContext,
-				4096);
-		OscoreCtxDbSingleton.getInstance().addContext(ctx);
 
 		as.start();
 		System.out.println("OSCORE ACE AS Server started on port: " + port);
