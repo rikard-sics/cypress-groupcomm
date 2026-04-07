@@ -393,7 +393,7 @@ public class YggioGroupOscoreClient {
 
 		MqttConnectionOptions options = new MqttConnectionOptions();
 		options.setUserName("cypress-rise-basic");
-		String password = readPassword("pw.txt");
+		String password = readPassword("mqttpw.txt");
 		options.setPassword(password.getBytes(StandardCharsets.UTF_8));
 
 		options.setAutomaticReconnect(true); // auto reconnect
