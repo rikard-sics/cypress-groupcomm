@@ -26,6 +26,7 @@ import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Enumeration;
 import java.util.Random;
 import org.eclipse.californium.core.CoapResource;
 import org.eclipse.californium.core.CoapServer;
@@ -302,7 +303,19 @@ public class YggioGroupOscoreServer {
 		UdpMulticastConnector.Builder builder = new UdpMulticastConnector.Builder();
 
 		if (!ipv4 && NetworkInterfacesUtil.isAnyIpv6()) {
-			Inet6Address ipv6 = NetworkInterfacesUtil.getMulticastInterfaceIpv6();
+			Inet6Address ipv6 = null;
+			Enumeration<InetAddress> addresses = networkInterface.getInetAddresses();
+			while (addresses.hasMoreElements()) {
+				InetAddress addr = addresses.nextElement();
+				if (addr instanceof Inet6Address && !addr.isLoopbackAddress()) {
+					ipv6 = (Inet6Address) addr;
+					break;
+				}
+			}
+			if (ipv6 == null) {
+				throw new RuntimeException("No IPv6 address found for interface " + networkInterface.getName());
+			}
+
 			System.out.println("Multicast: IPv6 Network Address: " + StringUtil.toString(ipv6));
 			UDPConnector udpConnector = new UDPConnector(new InetSocketAddress(ipv6, unicastPort), config);
 			udpConnector.setReuseAddress(true);
@@ -326,7 +339,19 @@ public class YggioGroupOscoreServer {
 		}
 
 		if (ipv4 && NetworkInterfacesUtil.isAnyIpv4()) {
-			Inet4Address ipv4 = NetworkInterfacesUtil.getMulticastInterfaceIpv4();
+			Inet4Address ipv4 = null;
+			Enumeration<InetAddress> addresses = networkInterface.getInetAddresses();
+			while (addresses.hasMoreElements()) {
+				InetAddress addr = addresses.nextElement();
+				if (addr instanceof Inet4Address && !addr.isLoopbackAddress()) {
+					ipv4 = (Inet4Address) addr;
+					break;
+				}
+			}
+			if (ipv4 == null) {
+				throw new RuntimeException("No IPv4 address found for interface " + networkInterface.getName());
+			}
+
 			System.out.println("Multicast: IPv4 Network Address: " + StringUtil.toString(ipv4));
 			UDPConnector udpConnector = new UDPConnector(new InetSocketAddress(ipv4, unicastPort), config);
 			udpConnector.setReuseAddress(true);
