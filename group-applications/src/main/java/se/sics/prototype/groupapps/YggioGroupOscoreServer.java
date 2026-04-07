@@ -224,14 +224,7 @@ public class YggioGroupOscoreServer {
 
 				// Prepare response including server ID, msg count and
 				// temperature
-				double offset = Math.abs(serverName.hashCode() % 200) / 10.0;
-				double temperatureC = simulateTemperatureCelsius(offset);
-				if (serverName.equalsIgnoreCase("Server2")) {
-					temperatureC -= 10.3;
-				}
-				if (serverName.equalsIgnoreCase("Server3")) {
-					temperatureC -= 5.6;
-				}
+				double temperatureC = simulateTemperatureCelsius(serverName);
 
 				JsonObject json = new JsonObject();
 				json.addProperty("msgCount", count);
@@ -423,33 +416,50 @@ public class YggioGroupOscoreServer {
 		}
 	}
 
-	private static double simulateTemperatureCelsius(double offset) {
+	private static double simulateTemperatureCelsius(String serverName) {
 		LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
-		return simulateTemperatureCelsius(now, offset);
+		return simulateTemperatureCelsius(now, serverName);
 	}
 
 	/**
 	 * Simulate a temperature
 	 * 
 	 * @param now current time
-	 * @param offset an offset for the temp
+	 * @param serverName the name of the server (e.g. Server1)
 	 * @return the current simulated temp
 	 */
-	private static double simulateTemperatureCelsius(LocalDateTime now, double offset) {
-		double hourOfDay = now.getHour() + now.getMinute() / 60.0 + now.getSecond() / 3600.0;
+	private static double simulateTemperatureCelsius(LocalDateTime now, String serverName) {
+	
+	    double offset = Math.abs(serverName.hashCode() % 200) / 10.0;
+	
+	    double hourOfDay = now.getHour() + now.getMinute() / 60.0 + now.getSecond() / 3600.0;
+	
+	    double dayPosition = (now.getDayOfWeek().getValue() - 1) + hourOfDay / 24.0;
+	
+	    double baseTempC = 20.0;
+	
+	    double dailyVariationC = 3.5 * Math.sin(2.0 * Math.PI * (hourOfDay - 9.0 + offset) / 24.0);
+	
+	    double weeklyVariationC = 1.5 * Math.sin(2.0 * Math.PI * (dayPosition + offset) / 7.0);
+	
+	    double serverBiasC = offset * 0.5;
+	
+	    double temperatureC = baseTempC + dailyVariationC + weeklyVariationC + serverBiasC;
+	
+	    if (serverName.equalsIgnoreCase("Server2")) {
+	        temperatureC -= 10.3;
+	    }
+	    if (serverName.equalsIgnoreCase("Server3")) {
+	        temperatureC -= 5.6;
+	    }
 
-		double dayPosition = (now.getDayOfWeek().getValue() - 1) + hourOfDay / 24.0;
-
-		double baseTempC = 20.0;
-
-		double dailyVariationC = 3.5 * Math.sin(2.0 * Math.PI * (hourOfDay - 9.0 + offset) / 24.0);
-
-		double weeklyVariationC = 1.5 * Math.sin(2.0 * Math.PI * (dayPosition + offset) / 7.0);
-
-		double serverBiasC = offset * 0.5;
-
-		double temperatureC = baseTempC + dailyVariationC + weeklyVariationC + serverBiasC;
-
-		return Math.round(temperatureC * 10.0) / 10.0;
+		// Apply caps with randomness
+	    if (temperatureC < 17.0) {
+	        temperatureC = 17.0 + Math.random() * 0.3;
+	    } else if (temperatureC >= 35.0) {
+	        temperatureC = 35.0 - Math.random() * 0.3;
+	    }
+	
+	    return Math.round(temperatureC * 10.0) / 10.0;
 	}
 }
