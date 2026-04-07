@@ -226,6 +226,12 @@ public class YggioGroupOscoreServer {
 				// temperature
 				double offset = Math.abs(serverName.hashCode() % 200) / 10.0;
 				double temperatureC = simulateTemperatureCelsius(offset);
+				if (serverName.equalsIgnoreCase("Server2")) {
+					temperatureC -= 10;
+				}
+				if (serverName.equalsIgnoreCase("Server3")) {
+					temperatureC -= 5;
+				}
 
 				JsonObject json = new JsonObject();
 				json.addProperty("msgCount", count);
