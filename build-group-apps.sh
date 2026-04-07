@@ -5,7 +5,6 @@
 # OscoreRsServer: Group Manager
 # OscoreAsRsClient: Group OSCORE Server/Client which will join the group(s)
 # OscoreAdminClient: Administrator Client which will create and configure group(s)
-# Adversary: Adversary for testing attacks against the group(s)
 
 # Fail script with error if any command fails
 set -e
@@ -114,8 +113,6 @@ mvn clean package -Dfully.qualified.main.class="se.sics.prototype.apps.OscoreAsR
 mv target/OscoreAsRsClient.jar .
 mvn clean package -Dfully.qualified.main.class="se.sics.prototype.apps.OscoreAdminClient" -DjarName="OscoreAdminClient"
 mv target/OscoreAdminClient.jar .
-mvn clean package -Dfully.qualified.main.class="se.sics.prototype.apps.Adversary" -DjarName="Adversary"
-mv target/Adversary.jar .
 
 # Run Group Apps JUnit tests
 # https://stackoverflow.com/questions/65092032/maven-build-failed-but-exit-code-is-still-0
