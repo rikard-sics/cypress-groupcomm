@@ -23,6 +23,7 @@ import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Random;
@@ -118,10 +119,12 @@ public class YggioGroupOscoreServer {
 	 * @param derivedCtx the Group OSCORE context
 	 * @param multicastIP multicast IP to send to
 	 * @param serverName the name of this server (e.g. Server1)
+	 * @param networkInterface the network interface for multicast listening
 	 * 
 	 * @throws Exception on failure
 	 */
-	public static void start(GroupCtx derivedCtx, InetAddress multicastIP, String serverName) throws Exception {
+	public static void start(GroupCtx derivedCtx, InetAddress multicastIP, String serverName, String networkInterface)
+			throws Exception {
 		// Install cryptographic providers
 		InstallCryptoProviders.installProvider();
 
@@ -150,7 +153,7 @@ public class YggioGroupOscoreServer {
 
 		Configuration config = Configuration.getStandard();
 		CoapServer server = new CoapServer(config);
-		createEndpoints(server, respondPort, listenPort, config, multicastIP);
+		createEndpoints(server, respondPort, listenPort, config, multicastIP, networkInterface);
 		Endpoint serverEndpoint = server.getEndpoint(listenPort);
 
 		server.add(new TemperatureResource(serverName));
@@ -268,16 +271,28 @@ public class YggioGroupOscoreServer {
 	 * @param unicastPort
 	 * @param multicastPort
 	 * @param config
+	 * @param usedInterface
 	 */
 	private static void createEndpoints(CoapServer server, int unicastPort, int multicastPort, Configuration config,
-			InetAddress multicastIP) {
+			InetAddress multicastIP, String usedInterface) {
 		// UDPConnector udpConnector = new UDPConnector(new
 		// InetSocketAddress(unicastPort));
 		// udpConnector.setReuseAddress(true);
 		// CoapEndpoint coapEndpoint = new
 		// CoapEndpoint.Builder().setConfiguration(config).setConnector(udpConnector).build();
 
-		NetworkInterface networkInterface = NetworkInterfacesUtil.getMulticastInterface();
+		NetworkInterface networkInterface = null;
+		if (usedInterface == null) {
+			networkInterface = NetworkInterfacesUtil.getMulticastInterface();
+		} else {
+			try {
+				networkInterface = NetworkInterface.getByName(usedInterface);
+			} catch (SocketException e) {
+				System.err.println("Failed to find network interface with name " + usedInterface);
+				e.printStackTrace();
+			}
+		}
+
 		if (networkInterface == null) {
 			System.out.println("No multicast network-interface found!");
 			throw new Error("No multicast network-interface found!");

@@ -171,6 +171,7 @@ public class OscoreAsRsClient {
 
 		// Set member name, AS and GM to use from command line arguments
 		String memberName = "Client1";
+		String networkInterface = null;
 		int delay = 0;
 		for (int i = 0; i < args.length; i++) {
 			if (args[i].equals("-name")) {
@@ -192,6 +193,9 @@ public class OscoreAsRsClient {
 				i++;
 			} else if (args[i].toLowerCase().endsWith("-yggio")) {
 				yggio = Boolean.parseBoolean(args[i + 1]);
+				i++;
+			} else if (args[i].toLowerCase().endsWith("-interface")) {
+				networkInterface = args[i + 1];
 				i++;
 			} else if (args[i].toLowerCase().endsWith("-help")) {
 				printHelp();
@@ -260,6 +264,7 @@ public class OscoreAsRsClient {
 		System.out.println("\tGM: " + GM_HOST + ":" + GM_PORT);
 		System.out.println("\tMember name: " + memberName);
 		System.out.println("\tGroup: " + group);
+		System.out.println("\tNetwork interface: " + networkInterface);
 		System.out.println("\tKey to AS: " + StringUtil.byteArray2Hex(keyToAS));
 
 		printPause(memberName, "Will now request Token from AS");
@@ -320,7 +325,7 @@ public class OscoreAsRsClient {
 				if (yggio == false) {
 					GroupOscoreServer.start(derivedCtx, multicastIP);
 				} else {
-					YggioGroupOscoreServer.start(derivedCtx, multicastIP, memberName);
+					YggioGroupOscoreServer.start(derivedCtx, multicastIP, memberName, networkInterface);
 				}
 			}
 		} catch (Exception e) {
@@ -1169,6 +1174,10 @@ public class OscoreAsRsClient {
 
 		System.out.print("-yggio");
 		System.out.println("\t Launch apps for deployment on Yggio staging server [Default: false]");
+
+		System.out.print("-interface");
+		System.out.println(
+				"\t Name of the network interface to use for multicast listening [Default: Pick automatically]");
 
 		System.out.print("-help");
 		System.out.println("\t Print help");
