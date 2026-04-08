@@ -1008,7 +1008,7 @@ public class OscoreAsRsClient {
 		printResponseFromRS(r2.advanced());
 		CBORObject respCbor = CBORObject.DecodeFromBytes((r2.advanced().getPayload()));
 		System.out.println("Keying material version number: " + respCbor.AsInt32());
-		
+
 		// === GET to /ace-group/GROUPNAME/creds
 
 		printPause(memberName, "Will send request to GM at /ace-group/GROUPNAME/creds.");

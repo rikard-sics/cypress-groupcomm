@@ -245,8 +245,7 @@ public class OscoreAdminClient {
 		// Post Token to GM and perform Group joining
 		boolean adminSuccess = false;
 		try {
-			adminSuccess = testAdminRequestToGM(memberName, GM_HOST, GM_PORT, db, cKeyPair,
-					responseFromAS, memberCcs);
+			adminSuccess = testAdminRequestToGM(memberName, GM_HOST, GM_PORT, db, cKeyPair, responseFromAS, memberCcs);
 		} catch (Exception e1) {
 			System.err.println("Failed Token post and Joining");
 			e1.printStackTrace();
@@ -344,9 +343,8 @@ public class OscoreAdminClient {
 	 * Post to the GM from the admin to create two groups.
 	 * 
 	 */
-	public static boolean testAdminRequestToGM(String memberName, String rsAddr,
-			int portNumberRSnosec, OSCoreCtxDB ctxDB, OneKey cKeyPair, Response responseFromAS, byte[] clientCcsBytes)
-			throws Exception {
+	public static boolean testAdminRequestToGM(String memberName, String rsAddr, int portNumberRSnosec,
+			OSCoreCtxDB ctxDB, OneKey cKeyPair, Response responseFromAS, byte[] clientCcsBytes) throws Exception {
 
 		// Upload token
 
@@ -356,8 +354,8 @@ public class OscoreAdminClient {
 		printResponseFromRS(rsRes);
 
 		// Check that the OSCORE context has been created:
-		Assert.assertNotNull(ctxDB.getContext(
-				"coap://" + rsAddr + ":" + portNumberRSnosec + "/" + groupCollectionResourcePath));
+		Assert.assertNotNull(
+				ctxDB.getContext("coap://" + rsAddr + ":" + portNumberRSnosec + "/" + groupCollectionResourcePath));
 
 		// === Retrieve list of existing groups
 
@@ -515,10 +513,8 @@ public class OscoreAdminClient {
 		System.out.println();
 		printPause(memberName, "Will now request the group configuration of group g1");
 
-		c = OSCOREProfileRequests.getClient(new InetSocketAddress(
-				"coap://" + rsAddr + ":" + portNumberRSnosec + "/" + groupCollectionResourcePath + "/"
-						+ KeyStorage.newGroupName1,
-				GM_PORT), ctxDB);
+		c = OSCOREProfileRequests.getClient(new InetSocketAddress("coap://" + rsAddr + ":" + portNumberRSnosec + "/"
+				+ groupCollectionResourcePath + "/" + KeyStorage.newGroupName1, GM_PORT), ctxDB);
 
 		adminReq = new Request(CoAP.Code.GET);
 		adminReq.getOptions().setOscore(new byte[0]);

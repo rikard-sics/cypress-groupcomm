@@ -217,7 +217,6 @@ public class YggioGroupOscoreClient {
 
 		// Continously send requests every 2 minutes
 		while (true) {
-			Thread.sleep(2 * 60 * 1000);
 
 			ArrayList<CoapResponse> responses = sendRequest();
 			// Handle responses (publish to Yggio using MQTT)
@@ -289,6 +288,9 @@ public class YggioGroupOscoreClient {
 					}
 				}
 			}
+
+			// Sleep 2 minutes before sending next request
+			Thread.sleep(2 * 60 * 1000);
 		}
 
 	}

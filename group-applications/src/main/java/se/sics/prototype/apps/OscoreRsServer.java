@@ -503,7 +503,6 @@ public class OscoreRsServer {
 		new File(testpath + "tokens.json").delete();
 	}
 
-
 	private static void setGroupManagerKeyPairs() {
 
 		gmSigningPublicAuthCred.put(Constants.COSE_HEADER_PARAM_KCCS, new HashMap<CBORObject, String>());

@@ -99,7 +99,6 @@ public class OscoreAsServer {
 
 	static int port = CoAP.DEFAULT_COAP_PORT - 100;
 
-
 	/**
 	 * An OSCORE AS.
 	 * 

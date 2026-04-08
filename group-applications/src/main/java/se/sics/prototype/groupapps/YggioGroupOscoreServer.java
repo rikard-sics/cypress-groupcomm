@@ -225,11 +225,13 @@ public class YggioGroupOscoreServer {
 				// Prepare response including server ID, msg count and
 				// temperature
 				double temperatureC = simulateTemperatureCelsius(serverName);
+				int co2 = simulateCO2ppm(serverName);
 
 				JsonObject json = new JsonObject();
 				json.addProperty("msgCount", count);
 				json.addProperty("serverName", serverName);
 				json.addProperty("temperature", temperatureC);
+				json.addProperty("co2", co2);
 
 				r.setPayload(json.toString());
 				r.getOptions().setContentFormat(MediaTypeRegistry.APPLICATION_JSON);
@@ -429,40 +431,112 @@ public class YggioGroupOscoreServer {
 	 * @return the current simulated temp
 	 */
 	private static double simulateTemperatureCelsius(LocalDateTime now, String serverName) {
-	
-	    double offset = Math.abs(serverName.hashCode() % 200) / 10.0;
-	
-	    double hourOfDay = now.getHour() + now.getMinute() / 60.0 + now.getSecond() / 3600.0;
-	
-	    double dayPosition = (now.getDayOfWeek().getValue() - 1) + hourOfDay / 24.0;
-	
-	    double baseTempC = 20.0;
-	
-	    double dailyVariationC = 3.5 * Math.sin(2.0 * Math.PI * (hourOfDay - 9.0 + offset) / 24.0);
-	
-	    double weeklyVariationC = 1.5 * Math.sin(2.0 * Math.PI * (dayPosition + offset) / 7.0);
-	
-	    double serverBiasC = offset * 0.5;
-	
-	    double temperatureC = baseTempC + dailyVariationC + weeklyVariationC + serverBiasC;
+
+		double offset = Math.abs(serverName.hashCode() % 200) / 10.0;
+
+		double hourOfDay = now.getHour() + now.getMinute() / 60.0 + now.getSecond() / 3600.0;
+
+		double dayPosition = (now.getDayOfWeek().getValue() - 1) + hourOfDay / 24.0;
+
+		double baseTempC = 20.0;
+
+		double dailyVariationC = 3.5 * Math.sin(2.0 * Math.PI * (hourOfDay - 9.0 + offset) / 24.0);
+
+		double weeklyVariationC = 1.5 * Math.sin(2.0 * Math.PI * (dayPosition + offset) / 7.0);
+
+		double serverBiasC = offset * 0.5;
+
+		double temperatureC = baseTempC + dailyVariationC + weeklyVariationC + serverBiasC;
 
 		if (serverName.equalsIgnoreCase("Server1")) {
 			temperatureC -= 1.4;
 		}
-	    if (serverName.equalsIgnoreCase("Server2")) {
+		if (serverName.equalsIgnoreCase("Server2")) {
 			temperatureC -= 8.3;
-	    }
-	    if (serverName.equalsIgnoreCase("Server3")) {
-	        temperatureC -= 5.6;
-	    }
+		}
+		if (serverName.equalsIgnoreCase("Server3")) {
+			temperatureC -= 5.6;
+		}
 
 		// Apply caps with randomness
-	    if (temperatureC < 17.0) {
-	        temperatureC = 17.0 + Math.random() * 0.3;
-	    } else if (temperatureC >= 35.0) {
-	        temperatureC = 35.0 - Math.random() * 0.3;
-	    }
-	
-	    return Math.round(temperatureC * 10.0) / 10.0;
+		if (temperatureC < 17.0) {
+			temperatureC = 17.0 + Math.random() * 0.3;
+		} else if (temperatureC >= 35.0) {
+			temperatureC = 35.0 - Math.random() * 0.3;
+		}
+
+		return Math.round(temperatureC * 10.0) / 10.0;
+	}
+
+	/**
+	 * Simulate CO2 level (ppm) in a meeting room
+	 *
+	 * @param roomName the name of the room (e.g. Room1)
+	 * @return simulated CO2 in ppm
+	 */
+	private static int simulateCO2ppm(String roomName) {
+
+		LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
+
+		// Deterministic offset per room
+		double offset = Math.abs(roomName.hashCode() % 300) / 10.0;
+
+		int hour = now.getHour();
+		int day = now.getDayOfWeek().getValue();
+
+		boolean isWeekday = day >= 1 && day <= 5;
+		boolean isOfficeHours = hour >= 8 && hour <= 17;
+
+		// Create deterministic seed that changes every minute
+		long seed = now.getYear() * 100000000L + now.getDayOfYear() * 10000L + now.getHour() * 100L + now.getMinute()
+				+ roomName.hashCode();
+
+		Random rand = new Random(seed);
+
+		// Occupancy probability based on time
+		double occupancyProbability;
+		if (isWeekday && isOfficeHours) {
+			occupancyProbability = 0.6;
+		} else if (isWeekday) {
+			occupancyProbability = 0.2;
+		} else {
+			occupancyProbability = 0.1;
+		}
+
+		boolean occupied = rand.nextDouble() < occupancyProbability;
+
+		// Base CO2 level (fresh air)
+		double baseCO2 = 420.0;
+		double co2;
+
+		if (occupied) {
+			// Simulate number of people
+			int people = 1 + rand.nextInt(10);
+
+			// CO2 contribution per person
+			double contribution = people * (60 + rand.nextDouble() * 60);
+
+			// Smooth daily variation
+			double hourOfDay = hour + now.getMinute() / 60.0;
+			double variation = 100 * Math.sin(2 * Math.PI * (hourOfDay + offset) / 24.0);
+
+			co2 = baseCO2 + contribution + variation;
+		} else {
+			// Empty room drifting near baseline
+			double decay = 50 * Math.sin(2 * Math.PI * (hour + offset) / 24.0);
+			co2 = baseCO2 + decay;
+		}
+
+		// Room-specific bias
+		co2 += offset * 2.0;
+
+		// Clamp to realistic range
+		if (co2 < 400) {
+			co2 = 400 + rand.nextDouble() * 20;
+		} else if (co2 > 2000) {
+			co2 = 2000 - rand.nextDouble() * 50;
+		}
+
+		return (int) Math.round(co2);
 	}
 }
