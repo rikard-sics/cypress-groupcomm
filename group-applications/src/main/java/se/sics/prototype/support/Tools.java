@@ -32,9 +32,10 @@
 package se.sics.prototype.support;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.Socket;
 import java.net.URI;
-import java.util.Arrays;
+import java.util.Properties;
 
 import org.eclipse.californium.core.CoapClient;
 import org.eclipse.californium.cose.AlgorithmID;
@@ -451,6 +452,44 @@ public class Tools {
 		}
 		System.out.println("MySQL database is available.");
 		return true;
+	}
+
+	/**
+	 * Print application version. Loaded from file VERSION into application
+	 * property.
+	 */
+	public static void printVersion() {
+		Properties props = new Properties();
+
+		String className = "Unknown";
+
+		// Figure out who called this method
+		StackTraceElement[] stack = Thread.currentThread().getStackTrace();
+		if (stack.length > 2) {
+			className = stack[2].getClassName();
+		}
+
+		// Optional: only keep simple name (no package)
+		int lastDot = className.lastIndexOf('.');
+		if (lastDot != -1) {
+			className = className.substring(lastDot + 1);
+		}
+
+		try (InputStream in = Thread.currentThread().getContextClassLoader()
+				.getResourceAsStream("app-version.properties")) {
+
+			String version = "SNAPSHOT";
+
+			if (in != null) {
+				props.load(in);
+				version = props.getProperty("version", "SNAPSHOT");
+			}
+
+			System.out.println(className + " Version: " + version);
+
+		} catch (IOException e) {
+			System.out.println(className + " Version: SNAPSHOT");
+		}
 	}
 
 }

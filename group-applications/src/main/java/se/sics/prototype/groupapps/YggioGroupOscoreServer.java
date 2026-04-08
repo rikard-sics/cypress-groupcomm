@@ -445,9 +445,12 @@ public class YggioGroupOscoreServer {
 	    double serverBiasC = offset * 0.5;
 	
 	    double temperatureC = baseTempC + dailyVariationC + weeklyVariationC + serverBiasC;
-	
+
+		if (serverName.equalsIgnoreCase("Server1")) {
+			temperatureC -= 1.4;
+		}
 	    if (serverName.equalsIgnoreCase("Server2")) {
-	        temperatureC -= 10.3;
+			temperatureC -= 8.3;
 	    }
 	    if (serverName.equalsIgnoreCase("Server3")) {
 	        temperatureC -= 5.6;

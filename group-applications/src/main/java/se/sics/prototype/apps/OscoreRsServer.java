@@ -80,6 +80,7 @@ import se.sics.ace.oscore.rs.oscoreGroupManager.GroupOSCORESubResourcePolicies;
 import se.sics.ace.oscore.rs.oscoreGroupManager.GroupOSCORESubResourceStaleSids;
 import se.sics.ace.oscore.rs.oscoreGroupManager.GroupOSCORESubResourceVerifData;
 import se.sics.ace.rs.AsRequestCreationHints;
+import se.sics.prototype.support.Tools;
 
 /**
  * A RS for testing the OSCORE profile of ACE (RFC 9203)
@@ -245,6 +246,8 @@ public class OscoreRsServer {
 	 * @throws Exception
 	 */
 	public static void main(String[] args) throws Exception {
+
+		Tools.printVersion();
 
 		System.out.println("Starting Resource Server (Group Manager): OscoreRsServer...");
 

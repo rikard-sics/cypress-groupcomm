@@ -9,6 +9,10 @@
 # Fail script with error if any command fails
 set -e
 
+# Set properties files with current version
+VERSION=$(cat VERSION)
+echo "version=$VERSION" > group-applications/src/main/resources/app-version.properties
+
 # Build Californium (if needed)
 FILE1=californium-extended/cf-oscore/target/cf-oscore-4.0.0-SNAPSHOT.jar
 FILE2=californium-extended/californium-core/target/californium-core-4.0.0-SNAPSHOT.jar

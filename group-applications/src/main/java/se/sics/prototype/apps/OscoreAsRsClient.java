@@ -158,6 +158,8 @@ public class OscoreAsRsClient {
 	 */
 	public static void main(String[] args) throws URISyntaxException {
 
+		Tools.printVersion();
+
 		System.out.println("Starting OscoreAsRsClient:");
 		System.out.println("Group peer that joins a group and then acts as OSCORE Server or Client");
 

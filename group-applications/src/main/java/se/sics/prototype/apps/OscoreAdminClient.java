@@ -131,6 +131,8 @@ public class OscoreAdminClient {
 	 */
 	public static void main(String[] args) throws URISyntaxException {
 
+		Tools.printVersion();
+
 		System.out.println("Starting OscoreAdminClient:");
 		System.out.println("Group admin that configures group(s) at a GM");
 
