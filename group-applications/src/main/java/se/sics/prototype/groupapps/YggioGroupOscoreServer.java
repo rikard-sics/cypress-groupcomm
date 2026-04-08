@@ -530,6 +530,14 @@ public class YggioGroupOscoreServer {
 		// Room-specific bias
 		co2 += offset * 2.0;
 
+		if (roomName.equalsIgnoreCase("Server1")) {
+			co2 += 7;
+		} else if (roomName.equalsIgnoreCase("Server2")) {
+			co2 -= 13;
+		} else if (roomName.equalsIgnoreCase("Server3")) {
+			co2 += 17;
+		}
+
 		// Clamp to realistic range
 		if (co2 < 400) {
 			co2 = 400 + rand.nextDouble() * 20;
