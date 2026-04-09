@@ -222,17 +222,27 @@ public class YggioGroupOscoreServer {
 			if (isConfirmable || replyToNonConfirmable) {
 				Response r = Response.createResponse(exchange.advanced().getRequest(), ResponseCode.CONTENT);
 
-				// Prepare response including server ID, msg count and
-				// temperature
-				double temperatureC = simulateTemperatureCelsius(serverName);
-				int co2 = simulateCO2ppm(serverName);
+				// Prepare response including server ID, msg count,
+				// temperature, air pressure and humidity
 
 				JsonObject json = new JsonObject();
 				json.addProperty("msgCount", count);
 				json.addProperty("serverName", serverName);
-				json.addProperty("temperature", temperatureC);
-				json.addProperty("co2", co2);
 
+				if (serverName.equals("Server1") || 
+    				    serverName.equals("Server2") || 
+ 				    serverName.equals("Server3")) {
+						double temperatureC = simulateTemperatureCelsius(serverName);
+						int co2 = simulateCO2ppm(serverName);
+ 					        json.addProperty("temperature", temperatureC);
+						json.addProperty("co2", co2);
+				} else {
+						double humidity = simulateHumidity(serverName);
+						double airPressure = simulatePressure(serverName);
+ 					       json.addProperty("humidity", humidity);
+						json.addProperty("pressure", airPressure);
+				}
+				
 				r.setPayload(json.toString());
 				r.getOptions().setContentFormat(MediaTypeRegistry.APPLICATION_JSON);
 
@@ -547,4 +557,96 @@ public class YggioGroupOscoreServer {
 
 		return (int) Math.round(co2);
 	}
+
+/**
+ * Simulate relative humidity (%) in a room
+ *
+ * @param roomName the name of the room (e.g. Room1)
+ * @return simulated humidity in %
+ */
+private static double simulateHumidity(String roomName) {
+
+    LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
+
+    double offset = Math.abs(roomName.hashCode() % 200) / 10.0;
+
+    int hour = now.getHour();
+
+    // Base indoor humidity
+    double baseHumidity = 40.0;
+
+    // Daily variation (higher at night)
+    double hourOfDay = hour + now.getMinute() / 60.0;
+    double variation = 10 * Math.sin(2 * Math.PI * (hourOfDay + offset) / 24.0);
+
+    // Random fluctuation
+    double noise = rand.nextDouble() * 4 - 2; // +-2%
+
+    double humidity = baseHumidity + variation + noise + offset * 0.3;
+
+    // Room-specific tweaks
+    if (roomName.equalsIgnoreCase("Server4")) {
+        humidity -= 4;
+    } else if (roomName.equalsIgnoreCase("Server5")) {
+        humidity -= 2;
+    } else if (roomName.equalsIgnoreCase("Server6")) {
+        humidity += 3;
+    }
+
+    // Clamp
+    if (humidity < 20) {
+        humidity = 20 + rand.nextDouble() * 5;
+    } else if (humidity > 70) {
+        humidity = 70 - rand.nextDouble() * 5;
+    }
+
+    return Math.round(humidity * 10.0) / 10.0;
+}
+
+/**
+ * Simulate air pressure (hPa)
+ *
+ * @param roomName the name of the room (e.g. Room1)
+ * @return simulated air pressure in hPa
+ */
+private static double simulatePressure(String roomName) {
+
+    LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
+
+    double offset = Math.abs(roomName.hashCode() % 100) / 10.0;
+
+    int hour = now.getHour();
+
+    // Base sea-level pressure
+    double basePressure = 1013.25;
+
+    // Slow variation (weather-like)
+    double hourOfDay = hour + now.getMinute() / 60.0;
+    double variation = 8 * Math.sin(2 * Math.PI * (hourOfDay + offset) / 48.0);
+
+    // Small noise
+    double noise = rand.nextDouble() * 1.5 - 0.75;
+
+    double pressure = basePressure + variation + noise + offset * 0.2;
+
+    // Room-specific quirks
+    if (roomName.equalsIgnoreCase("Server4")) {
+        pressure += 0.3;
+    } else if (roomName.equalsIgnoreCase("Server5")) {
+        pressure -= 0.5;
+    } else if (roomName.equalsIgnoreCase("Server6")) {
+        pressure += 0.8;
+    }
+
+    // Clamp
+    if (pressure < 980) {
+        pressure = 980 + rand.nextDouble() * 5;
+    } else if (pressure > 1040) {
+        pressure = 1040 - rand.nextDouble() * 5;
+    }
+
+    return Math.round(pressure * 10.0) / 10.0;
+}
+
+	
 }
