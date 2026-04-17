@@ -6,13 +6,13 @@
 
 Joint codebase for CYPRESS including ACE, EDHOC, OSCORE, Group OSCORE, and Group Joining (plus associated things).
 
-### Building and importing
+### Building and importing in Eclipse
 
 1. Run the `config.sh` script
 
-1.5. Set the correct maven profile as described below.
+2. Start Eclipse
 
-2. Start Eclipse, then import the following projects:
+3. Import the following projects:
   
     - californium-extended
     - ace
@@ -25,6 +25,8 @@ Joint codebase for CYPRESS including ACE, EDHOC, OSCORE, Group OSCORE, and Group
     - cf-oscore
     - element-connector
     - scandium
+
+*To add dependencies to the build path: Right click project->Properties->Java Build Path->Add...*
 
 4. To "group-applications" add the following folders to the build path:
     - ace
@@ -39,9 +41,7 @@ Joint codebase for CYPRESS including ACE, EDHOC, OSCORE, Group OSCORE, and Group
     - cf-oscore
     - element-connector
 
-To add dependencies:
-
-*Right click project->Properties->Java Build Path->Add...*
+7. Set the correct Maven profile as described in the next section
 
 ### Select Maven profile
 
