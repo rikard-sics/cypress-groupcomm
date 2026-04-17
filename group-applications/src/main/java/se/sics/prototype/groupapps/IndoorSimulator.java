@@ -6,49 +6,47 @@ public class IndoorSimulator {
 
     private static final ZoneId ZONE = ZoneId.of("Europe/Stockholm");
 
-    // ---------- Public API ----------
-
     public static double simulateTemperatureCelsius(LocalDateTime time, String roomName) {
-        RoomProfile p = RoomProfile.of(roomName);
-        Weather w = weatherAt(time);
+    RoomProfile p = RoomProfile.of(roomName);
+    Weather w = weatherAt(time);
 
-        double hour = fractionalHour(time);
-        double occ = occupancyLevel(time, p);
+    double hour = fractionalHour(time);
+    double occ = occupancyLevel(time, p);
 
-        // Indoor setpoint changes slightly by room and season.
-        // Heating keeps winter indoor temp fairly stable; summer drifts a bit warmer.
-        double seasonalSetpoint =
-                21.2
-                + 0.6 * summerFactor(time)
-                - 0.2 * winterFactor(time)
-                + p.tempBias;
+    // Slightly cooler winter baseline, warmer summer baseline
+    double seasonalSetpoint =
+            21.0
+            + 1.1 * summerFactor(time)
+            - 0.6 * winterFactor(time)
+            + p.tempBias;
 
-        // Solar/daylight effect: warmest in afternoon, stronger in summer.
-        double daylightGain =
-                p.solarGain * daylightFactor(time) * (0.6 + 0.8 * summerFactor(time));
+    // Stronger summer/daylight heating for non-air-conditioned indoor spaces
+    double daylightGain =
+            1.35 * p.solarGain * daylightFactor(time) * (0.7 + 1.2 * summerFactor(time));
 
-        // Occupancy/equipment load.
-        double internalGain =
-                occ * p.occupancyHeatGain
-                + officeHoursShape(hour) * p.equipmentGain;
+    // Occupancy and equipment add heat during active hours
+    double internalGain =
+            occ * p.occupancyHeatGain
+            + officeHoursShape(hour) * p.equipmentGain;
 
-        // Outdoor coupling: still indoor, so heavily damped.
-        double outdoorInfluence = p.outdoorTempCoupling * (w.outdoorTempC - 8.0);
+    // Slightly stronger coupling to outdoor weather
+    double outdoorInfluence =
+            (p.outdoorTempCoupling * 1.35) * (w.outdoorTempC - 7.0);
 
-        // Smooth room-specific micro variation
-        double micro =
-                0.35 * smoothNoise(roomName + ":temp:6h", epochHours(time) / 6.0) +
-                0.20 * smoothNoise(roomName + ":temp:1h", epochHours(time));
+    // Small continuous room-specific variation
+    double micro =
+            0.35 * smoothNoise(roomName + ":temp:6h", epochHours(time) / 6.0) +
+            0.20 * smoothNoise(roomName + ":temp:1h", epochHours(time));
 
-        double temp =
-                seasonalSetpoint
-                + daylightGain
-                + internalGain
-                + outdoorInfluence
-                + micro;
+    double temp =
+            seasonalSetpoint
+            + daylightGain
+            + internalGain
+            + outdoorInfluence
+            + micro;
 
-        return round1(softClamp(temp, 17.0, 28.0));
-    }
+    return round1(softClamp(temp, 17.0, 29.2));
+}
 
     public static int simulateCO2ppm(LocalDateTime time, String roomName) {
         RoomProfile p = RoomProfile.of(roomName);
@@ -378,7 +376,7 @@ public class IndoorSimulator {
                     lerp(-0.6, 0.6, c),
                     lerp(-25.0, 25.0, d),
 
-                    lerp(0.05, 0.18, normalizedHash(roomName + ":tempCoupling")),
+                    lerp(0.08, 0.24, normalizedHash(roomName + ":tempCoupling")),
                     lerp(0.08, 0.22, normalizedHash(roomName + ":rhCoupling")),
                     lerp(0.45, 0.90, normalizedHash(roomName + ":vent")),
                     lerp(0.35, 0.85, normalizedHash(roomName + ":weekdayOcc")),
