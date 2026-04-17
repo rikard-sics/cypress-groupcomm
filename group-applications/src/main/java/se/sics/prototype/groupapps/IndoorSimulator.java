@@ -1,7 +1,6 @@
 package se.sics.prototype.groupapps;
 
 import java.time.*;
-import java.time.temporal.ChronoUnit;
 
 public class IndoorSimulator {
 
@@ -393,7 +392,17 @@ public class IndoorSimulator {
         }
     }
 
-    private record Weather(double outdoorTempC, double outdoorHumidityPct, double pressureHpa) {}
+    private static final class Weather {
+    final double outdoorTempC;
+    final double outdoorHumidityPct;
+    final double pressureHpa;
+
+    Weather(double outdoorTempC, double outdoorHumidityPct, double pressureHpa) {
+        this.outdoorTempC = outdoorTempC;
+        this.outdoorHumidityPct = outdoorHumidityPct;
+        this.pressureHpa = pressureHpa;
+    }
+}
 
     // ---------- Math helpers ----------
 
