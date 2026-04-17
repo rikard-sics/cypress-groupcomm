@@ -545,14 +545,14 @@ public class OneKey {
     static private byte[] ArrayFromBigNum(BigInteger n, int curveSize) {
 <span class="fc" id="L546">        byte[] rgb = new byte[(curveSize+7)/8];</span>
 <span class="fc" id="L547">        byte[] rgb2 = n.toByteArray();</span>
-<span class="fc bfc" id="L548" title="All 2 branches covered.">        if (rgb.length == rgb2.length) return rgb2;</span>
-<span class="pc bpc" id="L549" title="1 of 2 branches missed.">        if (rgb2.length &gt; rgb.length) {</span>
-<span class="fc" id="L550">            System.arraycopy(rgb2, rgb2.length-rgb.length, rgb, 0, rgb.length);</span>
+<span class="pc bpc" id="L548" title="1 of 2 branches missed.">        if (rgb.length == rgb2.length) return rgb2;</span>
+<span class="nc bnc" id="L549" title="All 2 branches missed.">        if (rgb2.length &gt; rgb.length) {</span>
+<span class="nc" id="L550">            System.arraycopy(rgb2, rgb2.length-rgb.length, rgb, 0, rgb.length);</span>
         }
         else {
 <span class="nc" id="L553">            System.arraycopy(rgb2, 0, rgb, rgb.length-rgb2.length, rgb2.length);</span>
         }
-<span class="fc" id="L555">        return rgb;</span>
+<span class="nc" id="L555">        return rgb;</span>
     }
     
     static private OneKey generateECDSAKey(String curveName, CBORObject curve) throws CoseException { 
