@@ -1,3 +1,5 @@
+package se.sics.prototype.groupapps;
+
 import java.time.*;
 import java.time.temporal.ChronoUnit;
 
