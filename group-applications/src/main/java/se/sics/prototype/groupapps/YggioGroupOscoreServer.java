@@ -55,6 +55,7 @@ import org.eclipse.californium.oscore.group.MultiKey;
 import com.google.gson.JsonObject;
 
 import se.sics.prototype.support.KeyStorage;
+import se.sics.prototype.support.IndoorSimulator;
 
 /**
  * Group OSCORE server application.
