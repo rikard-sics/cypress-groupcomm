@@ -12,6 +12,7 @@ public class IndoorSimulator {
 
     double hour = fractionalHour(time);
     double occ = occupancyLevel(time, p);
+    double solarHourShift = lerp(-1.5, 1.5, normalizedHash(roomName + ":solarHourShift"));
 
     // Slightly cooler winter baseline, warmer summer baseline
     double seasonalSetpoint =
@@ -22,7 +23,7 @@ public class IndoorSimulator {
 
     // Stronger summer/daylight heating for non-air-conditioned indoor spaces
     double daylightGain =
-            1.35 * p.solarGain * daylightFactor(time) * (0.7 + 1.2 * summerFactor(time));
+        1.35 * p.solarGain * daylightFactor(time, solarHourShift) * (0.7 + 1.2 * summerFactor(time));
 
     // Occupancy and equipment add heat during active hours
     double internalGain =
@@ -35,8 +36,9 @@ public class IndoorSimulator {
 
     // Small continuous room-specific variation
     double micro =
-            0.35 * smoothNoise(roomName + ":temp:6h", epochHours(time) / 6.0) +
-            0.20 * smoothNoise(roomName + ":temp:1h", epochHours(time));
+        0.55 * smoothNoise(roomName + ":temp:6h", epochHours(time) / 6.0) +
+        0.30 * smoothNoise(roomName + ":temp:1h", epochHours(time)) +
+        0.20 * smoothNoise(roomName + ":temp:3d", epochDays(time) / 3.0);
 
     double temp =
             seasonalSetpoint
@@ -257,6 +259,17 @@ public class IndoorSimulator {
         return 1.0 - summerFactor(time);
     }
 
+    private static double daylightFactor(LocalDateTime time, double hourShift) {
+        double h = fractionalHour(time) + hourShift;
+
+        // Smooth daytime proxy, later peak in afternoon.
+        double rise = logistic((h - 7.5) * 1.1);
+        double fall = 1.0 - logistic((h - 18.0) * 1.1);
+
+        // Summer has much more daylight influence than winter in Stockholm.
+        return clamp01(rise * fall) * (0.35 + 0.95 * summerFactor(time));
+    }
+    
     private static double daylightFactor(LocalDateTime time) {
         double h = fractionalHour(time);
 
@@ -309,6 +322,19 @@ public class IndoorSimulator {
         return 2.0 * u - 1.0;
     }
 
+    private static int roomIndex(String roomName) {
+        String digits = roomName.replaceAll("\\D+", "");
+        if (digits.isEmpty()) {
+            return Math.abs(roomName.hashCode());
+        }
+        return Integer.parseInt(digits);
+    }
+
+    private static int roomType(String roomName) {
+        int idx = roomIndex(roomName);
+        return (idx - 1) % 3;
+    }
+    
     // ---------- Profiles ----------
 
     private static final class RoomProfile {
@@ -362,30 +388,67 @@ public class IndoorSimulator {
             this.meetingBurstiness = meetingBurstiness;
         }
 
-        static RoomProfile of(String roomName) {
-            // deterministic per-room coefficients
+       static RoomProfile of(String roomName) {
             double a = normalizedHash(roomName + ":a");
             double b = normalizedHash(roomName + ":b");
             double c = normalizedHash(roomName + ":c");
             double d = normalizedHash(roomName + ":d");
-
+        
+            double tempBias = lerp(-1.2, 1.2, a);
+            double humidityBias = lerp(-3.0, 3.0, b);
+            double pressureBias = lerp(-0.6, 0.6, c);
+            double co2Bias = lerp(-25.0, 25.0, d);
+        
+            double outdoorTempCoupling = lerp(0.06, 0.28, normalizedHash(roomName + ":tempCoupling"));
+            double outdoorHumidityCoupling = lerp(0.08, 0.22, normalizedHash(roomName + ":rhCoupling"));
+            double ventilationQuality = lerp(0.45, 0.90, normalizedHash(roomName + ":vent"));
+            double baseWeekdayOccupancy = lerp(0.20, 0.95, normalizedHash(roomName + ":weekdayOcc"));
+            double meetingActivity = lerp(0.15, 1.00, normalizedHash(roomName + ":meeting"));
+            double capacityFactor = lerp(0.10, 1.20, normalizedHash(roomName + ":capacity"));
+            double solarGain = lerp(0.05, 1.25, normalizedHash(roomName + ":solar"));
+            double equipmentGain = lerp(0.05, 0.90, normalizedHash(roomName + ":equip"));
+            double occupancyHeatGain = lerp(0.15, 1.25, normalizedHash(roomName + ":occHeat"));
+            double meetingBurstiness = lerp(0.05, 1.00, normalizedHash(roomName + ":burst"));
+        
+            int type = roomType(roomName);
+        
+            if (type == 0) {
+                // Sunny / warmer room
+                tempBias += 0.6;
+                solarGain *= 1.35;
+                outdoorTempCoupling *= 1.15;
+                equipmentGain *= 1.05;
+            } else if (type == 1) {
+                // Interior / stable room
+                tempBias -= 0.3;
+                solarGain *= 0.55;
+                outdoorTempCoupling *= 0.80;
+                ventilationQuality *= 1.05;
+            } else {
+                // Busy meeting-heavy room
+                meetingActivity *= 1.35;
+                capacityFactor *= 1.25;
+                occupancyHeatGain *= 1.25;
+                ventilationQuality *= 0.90;
+                co2Bias += 80.0;
+            }
+        
             return new RoomProfile(
                     roomName,
-                    lerp(-0.8, 0.8, a),
-                    lerp(-3.0, 3.0, b),
-                    lerp(-0.6, 0.6, c),
-                    lerp(-25.0, 25.0, d),
-
-                    lerp(0.08, 0.24, normalizedHash(roomName + ":tempCoupling")),
-                    lerp(0.08, 0.22, normalizedHash(roomName + ":rhCoupling")),
-                    lerp(0.45, 0.90, normalizedHash(roomName + ":vent")),
-                    lerp(0.35, 0.85, normalizedHash(roomName + ":weekdayOcc")),
-                    lerp(0.30, 0.95, normalizedHash(roomName + ":meeting")),
-                    lerp(0.20, 1.00, normalizedHash(roomName + ":capacity")),
-                    lerp(0.10, 0.90, normalizedHash(roomName + ":solar")),
-                    lerp(0.05, 0.60, normalizedHash(roomName + ":equip")),
-                    lerp(0.20, 1.00, normalizedHash(roomName + ":occHeat")),
-                    lerp(0.10, 0.80, normalizedHash(roomName + ":burst"))
+                    tempBias,
+                    humidityBias,
+                    pressureBias,
+                    co2Bias,
+                    outdoorTempCoupling,
+                    outdoorHumidityCoupling,
+                    ventilationQuality,
+                    baseWeekdayOccupancy,
+                    meetingActivity,
+                    capacityFactor,
+                    solarGain,
+                    equipmentGain,
+                    occupancyHeatGain,
+                    meetingBurstiness
             );
         }
     }
