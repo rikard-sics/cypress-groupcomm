@@ -24,7 +24,7 @@ Cf-OSCORE,org.eclipse.californium.cose,Attribute,121,128,17,15,26,30,25,13,11,10
 Cf-OSCORE,org.eclipse.californium.cose,EncryptMessage,372,0,46,0,77,0,33,0,10,0
 Cf-OSCORE,org.eclipse.californium.cose,Recipient,1745,0,195,0,322,0,130,0,21,0
 Cf-OSCORE,org.eclipse.californium.cose,CoseException,4,5,0,0,2,2,1,1,1,1
-Cf-OSCORE,org.eclipse.californium.cose,OneKey,826,831,135,65,178,196,105,30,10,18
+Cf-OSCORE,org.eclipse.californium.cose,OneKey,845,812,137,63,181,193,106,29,10,18
 Cf-OSCORE,org.eclipse.californium.cose,SignCommon,85,254,7,23,20,80,10,15,3,4
 Cf-OSCORE,org.eclipse.californium.cose,MessageTag,27,89,4,0,3,11,3,2,1,2
 Cf-OSCORE,org.eclipse.californium.cose,Encrypt0Message,143,28,20,0,30,11,12,4,2,4
@@ -39,11 +39,11 @@ Cf-OSCORE,org.eclipse.californium.oscore,Utility,359,0,12,0,110,0,13,0,7,0
 Cf-OSCORE,org.eclipse.californium.oscore,RequestDecryptor,42,162,2,12,12,42,3,7,1,2
 Cf-OSCORE,org.eclipse.californium.oscore,ObjectSecurityContextLayer.1.new Runnable() {...},0,24,0,0,0,4,0,2,0,2
 Cf-OSCORE,org.eclipse.californium.oscore,HashMapCtxDB,170,356,20,40,41,96,16,31,1,16
-Cf-OSCORE,org.eclipse.californium.oscore,ContextRederivation,96,495,19,33,40,142,18,25,1,12
 Cf-OSCORE,org.eclipse.californium.oscore,InstallCryptoProviders,68,0,0,0,18,0,6,0,6,0
 Cf-OSCORE,org.eclipse.californium.oscore,ObjectSecurityLayer,111,538,34,66,34,134,34,35,2,17
-Cf-OSCORE,org.eclipse.californium.oscore,OSCoreEndpointContextInfo.OSCoreEndpointContextOperator,0,11,0,0,0,4,0,2,0,2
+Cf-OSCORE,org.eclipse.californium.oscore,ContextRederivation,96,495,19,33,40,142,18,25,1,12
 Cf-OSCORE,org.eclipse.californium.oscore,ObjectSecurityContextLayer.new MessageObserverAdapter() {...},39,37,2,2,15,7,8,2,6,2
+Cf-OSCORE,org.eclipse.californium.oscore,OSCoreEndpointContextInfo.OSCoreEndpointContextOperator,0,11,0,0,0,4,0,2,0,2
 Cf-OSCORE,org.eclipse.californium.oscore,ObjectSecurityContextLayer.new Runnable() {...},0,20,0,0,0,3,0,2,0,2
 Cf-OSCORE,org.eclipse.californium.oscore,ContextRederivation.PHASE,0,94,0,0,0,2,0,1,0,1
 Cf-OSCORE,org.eclipse.californium.oscore,OSException,0,4,0,0,0,2,0,1,0,1

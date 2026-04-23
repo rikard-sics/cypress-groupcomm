@@ -4,8 +4,8 @@ Cf-EDHOC,org.eclipse.californium.edhoc,SideProcessor,1117,435,225,50,269,111,147
 Cf-EDHOC,org.eclipse.californium.edhoc,EdhocStack,0,67,0,0,0,5,0,1,0,1
 Cf-EDHOC,org.eclipse.californium.edhoc,EdhocCoapStackFactory,17,54,2,4,2,16,2,5,0,4
 Cf-EDHOC,org.eclipse.californium.edhoc,EdhocEndpointInfo,0,114,0,0,0,37,0,17,0,17
-Cf-EDHOC,org.eclipse.californium.edhoc,MessageProcessor,3613,4578,616,560,804,1301,498,135,3,41
 Cf-EDHOC,org.eclipse.californium.edhoc,AppProfile,0,35,0,0,0,11,0,5,0,5
+Cf-EDHOC,org.eclipse.californium.edhoc,MessageProcessor,3613,4578,616,560,804,1301,498,135,3,41
 Cf-EDHOC,org.eclipse.californium.edhoc,EdhocSession,191,775,53,47,43,247,50,76,6,69
 Cf-EDHOC,org.eclipse.californium.edhoc,Constants,3,146,0,0,1,11,1,1,1,1
 Cf-EDHOC,org.eclipse.californium.edhoc,ClientEdhocExecutor,778,483,109,35,211,132,76,4,4,4
