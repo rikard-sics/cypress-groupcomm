@@ -1,6 +1,7 @@
 package se.sics.prototype.support;
 
 import java.time.*;
+import java.util.*;
 
 public class IndoorSimulator {
 
@@ -190,39 +191,121 @@ public class IndoorSimulator {
 
     // ---------- Occupancy ----------
 
+    private static final Set<MonthDay> SWEDEN_FIXED_HOLIDAYS =
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+                    MonthDay.of(1, 1),
+                    MonthDay.of(1, 6),
+                    MonthDay.of(5, 1),
+                    MonthDay.of(6, 6),
+                    MonthDay.of(12, 25),
+                    MonthDay.of(12, 26)
+            )));
+    
+    private static final Set<MonthDay> SWEDEN_SEMI_HOLIDAYS =
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+                    MonthDay.of(12, 24),
+                    MonthDay.of(12, 31)
+            )));
+    
+    private static boolean isSwedishHoliday(LocalDate date) {
+        if (SWEDEN_FIXED_HOLIDAYS.contains(MonthDay.from(date))) {
+            return true;
+        }
+    
+        LocalDate easter = easterSunday(date.getYear());
+    
+        return date.equals(easter.minusDays(2))
+                || date.equals(easter.plusDays(1))
+                || date.equals(easter.plusDays(39))
+                || date.equals(easter.plusDays(49));
+    }
+    
+    private static boolean isSwedishSemiHoliday(LocalDate date) {
+        if (SWEDEN_SEMI_HOLIDAYS.contains(MonthDay.from(date))) {
+            return true;
+        }
+    
+        return isMidsummerEve(date);
+    }
+    
+    private static boolean isMidsummerEve(LocalDate date) {
+        return date.getMonth() == Month.JUNE
+                && date.getDayOfWeek() == DayOfWeek.FRIDAY
+                && date.getDayOfMonth() >= 19
+                && date.getDayOfMonth() <= 25;
+    }
+    
+    private static LocalDate easterSunday(int year) {
+        int a = year % 19;
+        int b = year / 100;
+        int c = year % 100;
+        int d = b / 4;
+        int e = b % 4;
+        int f = (b + 8) / 25;
+        int g = (b - f + 1) / 3;
+        int h = (19 * a + b - d - g + 15) % 30;
+        int i = c / 4;
+        int k = c % 4;
+        int l = (32 + 2 * e + 2 * i - h - k) % 7;
+        int m = (a + 11 * h + 22 * l) / 451;
+    
+        int month = (h + l - 7 * m + 114) / 31;
+        int day = ((h + l - 7 * m + 114) % 31) + 1;
+    
+        return LocalDate.of(year, month, day);
+    }
+    
     private static double occupancyLevel(LocalDateTime time, RoomProfile p) {
         DayOfWeek d = time.getDayOfWeek();
         double hour = fractionalHour(time);
-
+    
         boolean weekday = d.getValue() >= 1 && d.getValue() <= 5;
-
+    
+        LocalDate date = time.toLocalDate();
+        boolean holiday = isSwedishHoliday(date);
+        boolean semiHoliday = isSwedishSemiHoliday(date);
+    
         // Base schedule:
-        // weekdays active, weekends mostly unused.
+        // weekdays active, weekends & holidays mostly unused.
         double base;
-        if (!weekday) {
-            base = 0.03 + 0.06 * positive(
-                    smoothNoise(p.name + ":weekendUse:2h", epochHours(time) / 2.0));
+        if (!weekday || holiday || semiHoliday) {
+            double lowUse;
+            double variability;
+    
+            if (holiday) {
+                lowUse = 0.01;
+                variability = 0.02;
+            } else if (semiHoliday) {
+                lowUse = 0.015;
+                variability = 0.03;
+            } else {
+                lowUse = 0.03;
+                variability = 0.06;
+            }
+    
+            base = lowUse + variability * positive(
+                    smoothNoise(p.name + ":holidayWeekendUse:2h", epochHours(time) / 2.0));
         } else {
             // Smooth office-day shape: rise in morning, dip at lunch, fall after 17-18.
             double morningRamp = logistic((hour - 8.0) * 1.6);
             double eveningDrop = 1.0 - logistic((hour - 17.5) * 1.5);
             double lunchDip = 0.22 * gaussian(hour, 12.2, 1.0);
-
+    
             base = p.baseWeekdayOccupancy * morningRamp * eveningDrop * (1.0 - lunchDip);
-
+    
             // Reduced use Friday afternoon
             if (d == DayOfWeek.FRIDAY) {
                 base *= 1.0 - 0.18 * logistic((hour - 14.0) * 1.1);
             }
-
+    
             // Add meeting pulses: room-specific and smooth
             double pulses =
                     0.18 * positive(smoothNoise(p.name + ":pulse:90m", epochMinutes(time) / 90.0))
                     + 0.10 * positive(smoothNoise(p.name + ":pulse:30m", epochMinutes(time) / 30.0));
-
+    
             base += pulses * p.meetingActivity;
         }
-
+    
         return clamp01(base);
     }
 
